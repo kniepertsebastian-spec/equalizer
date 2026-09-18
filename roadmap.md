@@ -293,8 +293,8 @@ Ziel: Vor UI-Feinarbeit beweisen, was auf realen Geräten funktioniert.
 - [x] Einfachen `Equalizer` an eine kontrollierte Test-Audio-Session binden. (Verifiziert auf Google Pixel 10/Android 16 über den Session-Attach-Spike-Button, PR #2; Session-ID 665, kein Crash, sauberes Attach/Release.)
 - [x] Bänder, Frequenzen und Gain-Grenzen auslesen und protokollieren. (5 Bänder, Gain-Bereich −15.0…15.0 dB, Zentren 60/230/910/3600/14000 Hz mit vollen Frequenzbereichen – protokolliert in `docs/TEST_MATRIX.md`.)
 - [x] `DynamicsProcessing` erkennen und Input-Gain, EQ, MBC sowie Limiter einzeln testen. (Alle vier Stufen isoliert getestet, alle **OK** auf Pixel 10 – Details in `docs/TEST_MATRIX.md`.)
-- [ ] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen Testplayer validieren.
-- [ ] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren; nicht als Garantie verwenden.
+- [x] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen Testplayer validieren. (Validiert auf Pixel 10/Android 16, PR #4: selbst gesendete Broadcasts kommen beim eigenen Empfänger nicht an, reproduziert auch mit 3s aktivem Warten. Negatives, aber sauber dokumentiertes Ergebnis – Details/Implikation für M2 in `docs/FEASIBILITY.md`.)
+- [x] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren; nicht als Garantie verwenden. (Validiert auf Pixel 10/Android 16: `Equalizer`-Konstruktion auf Session `0` schlägt sauber fehl, kein Crash, Effekt nie aktiviert. Kein unterstütztes Feature, wie vorgesehen – Details in `docs/TEST_MATRIX.md`.)
 - [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät beginnen. (Physisches Gerät vorhanden – Google Pixel 10/Android 16, s. `docs/TEST_MATRIX.md`; Emulator-Eintrag steht noch aus.)
 - [x] Ergebnisse in `docs/FEASIBILITY.md` festhalten.
 
@@ -650,4 +650,36 @@ Pixel 10 und meldet die Ergebnisse zurück. Danach sind alle code-basierten
 M0-Punkte aus §16 abgeschlossen; es bleibt nur noch der Emulator-Eintrag in
 der Geräte-Matrix offen (in dieser Sandbox nicht möglich), womit M0 dann im
 Wesentlichen abgeschlossen wäre und M1 (Projektfundament) beginnen könnte.
+
+### Session 4 (18. September 2026)
+
+Nutzer hat beide neuen Buttons getestet. Session-0-Experiment: sauberes
+`[FAIL]` ohne Crash, wie erwartet. Control-Intent-Test: „No broadcasts
+received back." Erste Vermutung (zu kurzes 300-ms-Zeitfenster) durch
+aktives Warten (3 s) korrigiert und erneut getestet – **gleiches Ergebnis**.
+Damit ist ein Timing-Problem ausgeschlossen; die beiden Broadcast-Actions
+sind laut AOSP-Quellcode keine `protected broadcasts`, Ursache bleibt ohne
+`adb logcat`-Zugriff nicht abschließend klärbar (evtl. Pixel-spezifische
+Einschränkung außerhalb des öffentlichen AOSP). Als valides, dokumentiertes
+Spike-Ergebnis gewertet (kein offener Bug) – entsprechende M0-Checkboxen
+abgehakt.
+
+**Damit sind alle code-basierten M0-Punkte aus §16 erledigt.** Offen bleibt
+nur der Emulator-Eintrag in der Geräte-Matrix (kein Android-SDK-Zugriff in
+dieser Sandbox).
+
+**Ehrlicher Hinweis zu M0s Abnahmekriterien (§10):** Zwei der vier
+Abnahmekriterien sind noch **nicht** erfüllt:
+- „App kann auf dem Testgerät eine bekannte Session hörbar und reversibel
+  verändern" – die Spikes haben bewusst nie einen Effekt tatsächlich
+  aktiviert/verändert (nur Read-back), um nichts Unbeabsichtigtes hörbar zu
+  verändern. Eine echte hörbare Gain-Änderung wurde noch nicht getestet.
+- „Eine Entscheidung für MVP-Backend und Fallbacks ist schriftlich
+  dokumentiert" – noch nicht als eigenständige Entscheidung in
+  `docs/DECISIONS.md` festgehalten.
+
+M0 ist damit **funktional weitgehend, aber nicht vollständig** abgeschlossen.
+Nächste Wahl: (a) diese zwei Lücken noch schließen, oder (b) mit M1
+(Projektfundament: Hilt, Navigation, Room, DataStore, CI-Ausbau) beginnen
+und die Lücken später nachziehen.
 

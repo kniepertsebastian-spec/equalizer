@@ -50,11 +50,19 @@ erwartetes Fehlschlagen ohne Crash – bestätigt Roadmap §2's Einschätzung,
 dass Session-`0`-Zugriff geräteabhängig ist und hier nicht funktioniert.
 Kein unterstütztes Feature, wie vorgesehen.
 
-**Control-Intent-Test (erster Versuch, 300-ms-Delay):** „No broadcasts
-received back." – Timing-Problem vermutet (im AOSP-Quellcode verifiziert:
-die Actions sind **keine** protected broadcasts), behoben durch aktives
-Warten statt festem Delay (`testControlIntents()`, 3-s-Timeout statt
-300-ms-Delay). **Ergebnis des zweiten Versuchs steht noch aus.**
+**Control-Intent-Test:** „No broadcasts received back." – reproduziert in
+zwei Durchläufen: erst mit festem 300-ms-Delay (Commit `ca03124`), dann
+erneut mit aktivem Warten bis zu 3 s über einen `Channel`
+(`testControlIntents()`, Commit `066ac6f`). Kein Unterschied – Timing-Problem
+damit ausgeschlossen. Die beiden Actions sind laut AOSP-Quellcode
+(`frameworks/base/core/res/AndroidManifest.xml`) keine `protected broadcasts`;
+Registrierung/Versand folgen dem für API 33+ korrekten Muster
+(`RECEIVER_NOT_EXPORTED`). Eine Pixel-spezifische, nicht öffentlich
+einsehbare Zusatzsperre ist plausibel, aber ohne `adb logcat` am Gerät nicht
+weiter eingrenzbar. **Fazit:** Der klassische Open/Close-Broadcast-Mechanismus
+funktioniert auf diesem Gerät für selbst gesendete Broadcasts nicht
+zuverlässig – dokumentiertes, valides Spike-Ergebnis (kein Blocker, siehe
+`docs/FEASIBILITY.md`).
 
 ## Automatisiert (CI, kein physisches Gerät)
 

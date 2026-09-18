@@ -111,24 +111,36 @@ Pixel 10.
   – erwartetes, sauberes Fehlschlagen ohne Crash. Bestätigt genau das, was
   Roadmap §2 vorhersagt ("Manche Geräte ... unterstützen globale ... Sessions
   ... nicht"). Kein Bugfix nötig, das ist das korrekte Verhalten des Codes.
-- Control-Intent-Test: „No broadcasts received back." – die selbst gesendeten
-  Broadcasts kamen beim eigenen Receiver nicht innerhalb von 300 ms an.
-  **Geprüft:** Die beiden Actions stehen entgegen einer ersten (falschen)
-  Vermutung **nicht** auf AOSPs `protected-broadcast`-Liste (direkt im
-  AOSP-Quellcode von `frameworks/base/core/res/AndroidManifest.xml`
-  verifiziert – keine Übereinstimmung für
-  `AUDIO_EFFECT_CONTROL_SESSION`). Wahrscheinlichste Ursache: zu kurzes,
-  festes Zeitfenster statt aktivem Warten. `testControlIntents()` wartet
-  jetzt aktiv (Channel + `withTimeoutOrNull`, 3 s) auf beide Events statt
-  eines festen 300-ms-Delays. Noch unverifiziert, ob das die Ursache war
-  oder ob hier ein echtes
-  Plattform-Verhalten (z. B. verzögerte Broadcast-Zustellung auf Android 16)
-  vorliegt – nächster Testlauf zeigt es.
+- Control-Intent-Test: „No broadcasts received back." – **auch nach dem
+  Fix** (aktives Warten bis zu 3 s statt festem 300-ms-Delay, zweiter
+  Testlauf) weiterhin kein einziger Broadcast beim eigenen Empfänger
+  angekommen. Damit ist ein reines Timing-Problem ausgeschlossen.
+  **Untersucht und ausgeschlossen:** Die beiden Actions stehen **nicht**
+  auf AOSPs `protected-broadcast`-Liste (direkt im AOSP-Quellcode von
+  `frameworks/base/core/res/AndroidManifest.xml` verifiziert – keine
+  Übereinstimmung für `AUDIO_EFFECT_CONTROL_SESSION`); Registrierung/Senden
+  folgt dem dokumentierten, für API 33+ korrekten Muster
+  (`RECEIVER_NOT_EXPORTED`, Broadcast ohne explizites Package). Da AOSP nur
+  die öffentlich einsehbare Basis ist, kann eine gerätespezifische
+  Einschränkung (z. B. eine zusätzliche `protected-broadcast`-Deklaration in
+  Googles proprietärer Pixel-Firmware, die nicht im öffentlichen AOSP-Mirror
+  steht) nicht ausgeschlossen werden – das ließe sich nur mit `adb logcat`
+  am angeschlossenen Gerät weiter eingrenzen, was in dieser Sandbox nicht
+  möglich ist.
+  **Schlussfolgerung für die Roadmap:** Der historische Open/Close-
+  Broadcast-Mechanismus, mit dem sich Dritt-Player traditionell bei
+  EQ-Apps anmelden, funktioniert – zumindest für selbst gesendete
+  Broadcasts auf diesem Pixel 10/Android 16 – nicht zuverlässig. Für M2
+  bedeutet das: **nicht** ungeprüft auf dieses Mechanismus als
+  Session-Erkennungsweg setzen; roadmap-konform (§2, §13) ohnehin nur als
+  „Best Effort", nie als Garantie behandeln. Dieser Punkt ist damit
+  **validiert** (negatives, aber sauber dokumentiertes Ergebnis) – nicht
+  „kaputt", sondern eine echte Erkenntnis aus dem Spike.
 
 ## Noch offene M0-Checklistenpunkte (erfordern echtes Gerät/Emulator)
 
-- [ ] Open/Close-AudioEffect-Control-Intents: erneutes Testergebnis nach der
-      Zeitfenster-Korrektur abwarten und protokollieren.
+- [x] Open/Close-AudioEffect-Control-Intents: validiert (negatives
+      Ergebnis, siehe oben und `docs/TEST_MATRIX.md`).
 - [x] Session-`0`-Experiment: Ergebnis liegt vor (`[FAIL]`, sauber ohne
       Crash) – siehe oben und `docs/TEST_MATRIX.md`.
 - [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät
