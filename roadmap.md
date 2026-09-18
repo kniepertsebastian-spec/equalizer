@@ -570,3 +570,27 @@ Danach stoppen, Ergebnisse zusammenfassen und erst nach Review mit dem Session-A
 
 Stand der Roadmap: 18. September 2026.
 
+## 19. Session-Log
+
+### Session 1 (18. September 2026)
+
+Bearbeitet: ausschließlich die in §16 "Erste konkrete Aufgaben" aufgeführten
+acht Punkte (Projekt-Setup, Compose-Startansicht, `AudioEffectRepository`,
+Debug-Ansicht, Mapping-Unit-Test, CI-Grundworkflow, `docs/FEASIBILITY.md`).
+
+Details, offene Punkte und Testanleitung: siehe `docs/FEASIBILITY.md`,
+`docs/DEPENDENCIES.md`, `docs/DECISIONS.md`, `docs/TEST_MATRIX.md`.
+
+Die M0-Checkboxen oben in §10 wurden **bewusst nicht abgehakt**: Diese
+Sandbox-Umgebung kann `dl.google.com` nicht erreichen und daher weder ein
+Android-SDK laden noch `./gradlew assembleDebug`/`testDebugUnitTest` lokal
+ausführen. Die Implementierung ist vorbereitet, aber erst nach einem grünen
+CI-Lauf (`.github/workflows/ci.yml`) auf dem gepushten Branch als verifiziert
+zu betrachten.
+
+**Nächste konkrete Aufgabe:** CI-Lauf des gepushten Branches prüfen, Ergebnis
+in `docs/TEST_MATRIX.md` nachtragen, betroffene M0-Checkboxen dann abhaken.
+Danach – wie in §16 angewiesen – erst nach Review mit dem
+Session-Attach-Spike (Equalizer an echte Test-Session binden, Bänder/Grenzen
+auslesen, `DynamicsProcessing`-Teilkomponenten testen) fortfahren.
+
