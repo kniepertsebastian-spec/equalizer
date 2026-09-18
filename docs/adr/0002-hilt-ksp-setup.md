@@ -13,6 +13,7 @@ Der in ADR 0001 skizzierte Workaround wurde umgesetzt:
 |---|---|---|
 | Kotlin (`kotlin-android` + `kotlin.plugin.compose`) | `2.3.20` | Neueste Kotlin-Version, die KSP `2.3.12` laut dessen eigener Build-Konfiguration unterstützt. Downgrade von zuvor `2.4.20`. |
 | `android.builtInKotlin` | `false` (in `gradle.properties`) | KSP unterstützt AGP 9s eingebautes Kotlin noch nicht. |
+| `android.newDsl` | `false` (in `gradle.properties`) | **Zweiter, separater Schalter** – `builtInKotlin=false` allein reicht nicht: AGP 9s "new DSL" ist per Default aktiv und lässt `org.jetbrains.kotlin.android` unabhängig davon mit `ClassCastException` fehlschlagen. Erst durch einen echten CI-Fehlschlag entdeckt (siehe „Korrektur" unten), nicht vorab in der Recherche gefunden. |
 | KSP (`com.google.devtools.ksp`) | `2.3.12` | Aktuellste KSP-Version zum Zeitpunkt der Recherche. |
 | Hilt (`com.google.dagger.hilt.android`, `hilt-android`, `hilt-android-compiler`) | `2.59.2` | Erste Hilt-Version, deren Gradle-Plugin AGP 9 unterstützt. |
 | `androidx.hilt:hilt-navigation-compose` | `1.4.0` | Für `hiltViewModel()` in Compose Navigation. |
@@ -45,6 +46,23 @@ siehe ADR 0001). Nur die reine Gradle-Abhängigkeitsverdrahtung für diese
 drei folgt ggf. als separater, kleiner Schritt, sobald dieser
 Hilt/KSP-Umbau in CI bestätigt grün ist – nicht im selben Commit, um die
 Fehlersuche bei einem CI-Rotlauf nicht zu verkomplizieren.
+
+## Korrektur nach erstem CI-Lauf
+
+Der erste Versuch (nur `android.builtInKotlin=false`) schlug fehl:
+
+```
+The 'org.jetbrains.kotlin.android' plugin is not compatible with AGP's 9.0
+new DSL (`android.newDsl=true` is enabled by default).
+Solution: Set `android.builtInKotlin=true` ... or set `android.newDsl=false`
+in `gradle.properties` to temporarily bypass this issue.
+```
+
+Behoben durch zusätzliches Setzen von `android.newDsl=false`. Das war in
+keiner der vorherigen Recherche-Quellen für ADR 0001 explizit genannt –
+zwei unabhängige, separat abschaltbare AGP-9-Verhaltensänderungen
+(built-in Kotlin, new DSL) kollidieren beide mit `kotlin-android`, nicht
+nur eine.
 
 ## Wichtiger Hinweis
 
