@@ -81,3 +81,23 @@ nur der Build- und Unit-Test-Pfad abgedeckt, keine Laufzeit-Verifikation von
 1. Sobald ein Emulator- oder Geräte-Zugriff verfügbar ist: Session-Attach-Spike
    (offene M0-Punkte aus `docs/FEASIBILITY.md`) auf mindestens einem Emulator
    plus einem physischen Gerät durchführen und hier protokollieren.
+
+## M1 – Hilt/KSP-Build repariert (19. September 2026)
+
+PR #5 wurde gemergt, obwohl der letzte PR-Lauf
+[35400854917](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35400854917)
+auf `fe0db2d` scheiterte: Java-Ziel 17 / Kotlin-Ziel 21.
+PR #6 setzt das Kotlin-Ziel explizit auf 17 (ADR 0002).
+
+| Prüfung | Nachweis |
+|---|---|
+| Debug-Build mit Hilt/KSP | Erfolgreich, Commit `007f53f`, [CI-Lauf 35404523035](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35404523035) |
+| `testDebugUnitTest` | Erfolgreich im selben Lauf; bestehende Mapper-, Testton- und ViewModel-Tests |
+| Debug-APK | Artefakt `app-debug-apk` im selben Lauf erfolgreich hochgeladen |
+| Lokaler Windows-Build | Nicht ausführbar: kein Java auf PATH, JAVA_HOME nicht gesetzt; Wrapper bricht vor Gradle ab |
+| `git diff --check` | Erfolgreich |
+| Lint / Formatierung / detekt | Noch nicht in CI eingerichtet; offen in M1 |
+| Neues Gerät / Emulator / Hörtest | Nicht durchgeführt; bisherige Pixel-Ergebnisse gelten nur für den damaligen M0-Stand |
+
+Nächster automatisierter Schritt: Android Lint in CI aufnehmen. Die offenen
+M0-Geräte- und Bypass-Prüfungen werden durch diesen Build-Fix nicht ersetzt.

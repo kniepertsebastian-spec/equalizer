@@ -311,7 +311,8 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 
 - [x] Paketnamen und Arbeitstitel zentral konfigurierbar machen. (`gradle.properties`: `hardbasseq.applicationId`/`hardbasseq.namespace`, referenziert aus `app/build.gradle.kts`; Anzeigename bleibt in `strings.xml`.)
 - [ ] Compose Design System, Navigation und Theme erstellen. (Navigation erledigt – `AppNavHost` mit `home`-Route; Theme existierte bereits seit M0; ein ausgebautes Design System mit Typografie-/Spacing-Tokens fehlt noch.)
-- [ ] Hilt, Coroutines, DataStore, Room und Serialization einrichten. (Hilt + Coroutines jetzt eingerichtet und verwendet – Kotlin dafür gezielt auf 2.3.20 zurückgestuft, `android.builtInKotlin=false`, `kotlin-android` wieder angewendet, siehe `docs/adr/0002-hilt-ksp-setup.md`. DataStore/Room/Serialization weiterhin zurückgestellt auf M4, siehe ADR 0001. Checkbox bleibt offen, bis CI dieses Durchlaufs grün bestätigt ist.)
+- [x] Hilt und Coroutines einrichten. (Hilt/KSP-Umbau nach Reparatur des JVM-Zielkonflikts verifiziert: PR #6, Commit `007f53f`, CI-Lauf `35404523035`, `assembleDebug` und `testDebugUnitTest` grün. Kotlin und Java zielen explizit auf JVM 17; siehe ADR 0002.)
+- [ ] DataStore, Room und Serialization einrichten. (Rest der bisherigen kombinierten Checkbox; weiterhin gemäß ADR 0001/0002 zurückgestellt, produktive Persistenz in M4.)
 - [ ] CI mit `assembleDebug`, Unit Tests, Android Lint, Formatierung und detekt einrichten. (`assembleDebug`/Unit-Tests bestehen seit M0; Android Lint, ktlint/Spotless und detekt bewusst zurückgestellt – Detekt mit Kotlin-2.4-Unterstützung ist nur als Alpha verfügbar, siehe ADR 0001.)
 - [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten. (Policy dokumentiert in `docs/ARCHITECTURE.md`; noch keine konkrete Logging-Bibliothek nötig, da noch kein produktiver Logging-Code existiert.)
 - [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen. (`docs/DEPENDENCIES.md` existiert seit M0; `docs/ARCHITECTURE.md` und `docs/adr/0001-...md` neu angelegt.)
@@ -319,8 +320,8 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 
 Abnahmekriterien:
 
-- Frischer Checkout baut mit einem dokumentierten Befehl. (Unverändert seit M0: `./gradlew assembleDebug`; Verifikation dieses Durchlaufs steht noch aus, siehe CI-Status.)
-- CI ist grün. (Ausstehend für diesen Durchlauf.)
+- Frischer Checkout baut mit einem dokumentierten Befehl. (`./gradlew assembleDebug`; Hilt/KSP-Stand mit JVM-Ziel-Fix in PR #6, Commit `007f53f`, CI-Lauf `35404523035` verifiziert.)
+- CI ist grün. (Build und Unit-Tests für `007f53f` erfolgreich; Lint, Formatierung und detekt bleiben als M1-Ausbau offen.)
 - Keine Geschäftslogik lebt in Composables. (Erfüllt: `MainViewModel` übernimmt Repository-Zugriff und Dispatcher-Wechsel; `MainScreen` liest nur noch Zustand und leitet Events weiter.)
 
 ### M2 – Audio-Engine und Session-Lebenszyklus
@@ -568,7 +569,7 @@ Danach stoppen, Ergebnisse zusammenfassen und erst nach Review mit dem Session-A
 - Android Audio Routing: https://developer.android.com/reference/android/media/AudioManager
 - Android Media3: https://developer.android.com/media/media3
 
-Stand der Roadmap: 18. September 2026.
+Stand der Roadmap: 19. September 2026.
 
 ## 19. Session-Log
 
@@ -747,3 +748,28 @@ prüfen, bei Rot Root Cause diagnostizieren statt zu raten (wie beim
 AGP-9-Vorfall). Bei Grün: M1-Checkbox für Hilt/Coroutines endgültig
 abhaken.
 
+
+### Session 7 (19. September 2026)
+
+Wiederaufnahme an der offenen Aufgabe aus Session 6: CI des Hilt/KSP-Umbaus
+prüfen. PR #5 war bereits gemergt, aber sein letzter Lauf `35400854917`
+war **rot**. Der zusätzliche DSL-Schalter hatte nur den ersten Fehler
+beseitigt; danach scheiterte `compileDebugKotlin` an Java-Ziel 17 und
+Kotlin-Ziel 21.
+
+Behoben in PR #6, Commit `007f53f`: explizites
+`kotlin.compilerOptions.jvmTarget = JvmTarget.JVM_17`, passend zu Java.
+JDK 21 für Gradle und alle Dependency-Versionen bleiben unverändert.
+
+**Verifiziert:** [CI-Lauf 35404523035](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35404523035)
+ist grün: Debug-APK gebaut, Unit-Tests erfolgreich, APK-Artefakt hochgeladen.
+Der lokale Windows-Wrapper konnte mangels Java/JAVA_HOME nicht starten;
+keine neue Geräte- oder Hörprüfung durchgeführt. Dokumentation und ADR 0002
+aktualisiert. Die bisherige kombinierte Hilt/Coroutines/DataStore/Room/
+Serialization-Checkbox wurde geteilt, damit nur der verifizierte Teil
+abgehakt wird.
+
+**Nächste konkrete Aufgabe:** M1 mit Android Lint in CI fortsetzen, dann
+Formatierung/detekt nach Kompatibilitätsprüfung ergänzen. Design-System,
+Persistenz-Wiring und Capability-Fakes sind weiterhin offen. M0-Restpunkte
+(Emulator, hörbare Änderung/Bypass, Backend-Entscheidung) bleiben bestehen.
