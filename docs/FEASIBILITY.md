@@ -67,13 +67,17 @@ als Experiment, Geräte-Matrix mit Emulator. Diese drei bleiben als
 eigenständiger, klar abgegrenzter nächster Schritt offen, um diesen
 Durchlauf nicht zu überladen.
 
-**Wichtig:** Dieser Code wurde in der Sandbox nur gegen den echten Android-
-SDK-Compiler (`compileSdk 37`) über CI kompiliert, aber **nicht auf einem
-Gerät ausgeführt** – ich habe keinen Emulator-/Gerätezugriff. Verifikation
-erfolgt, indem der Nutzer den Button „Show session-attach spike (M0)" auf
-seinem Pixel 10 antippt und das Ergebnis (Session-ID, Bänderliste,
-DynamicsProcessing-Stufen OK/FAIL) zurückmeldet. Erst danach werden die
-entsprechenden M0-Checkboxen in `roadmap.md` abgehakt.
+**Update: Auf echtem Gerät verifiziert.** Der Nutzer hat den Button „Show
+session-attach spike (M0)" auf seinem Google Pixel 10 (Android 16) getestet:
+Equalizer-Attach erfolgreich (5 Bänder, Gain-Bereich −15…15 dB), alle vier
+DynamicsProcessing-Stufen (Input-Gain, Pre-EQ, MBC, Limiter) isoliert
+getestet und **alle OK**, kein Crash. Details in `docs/TEST_MATRIX.md`. Die
+entsprechenden M0-Checkboxen in `roadmap.md` sind jetzt abgehakt.
+
+Zwischenzeitlich war die CI fünf Commits lang komplett rot, weil ein
+`secrets`-Verweis in einer `if:`-Bedingung die ganze Workflow-Datei ungültig
+gemacht hat (0 Jobs, sofort rot, keine Logs) – behoben in Commit `8bf1a99`,
+Details in `docs/DRIVE_UPLOAD.md`.
 
 ## Noch offene M0-Checklistenpunkte (erfordern echtes Gerät/Emulator)
 

@@ -9,12 +9,44 @@ Punkt 10 und §10 M0-Abnahmekriterium "Geräte-Matrix").
 |---|---|---|---|
 | Google Pixel 10 | Android 16 | 18. September 2026 | ✅ App startet, Debug-Effektliste (`AudioEffect.queryEffects()`) funktioniert. **Bestätigt vorhanden:** `EqualizerBundle` (NXP, `0bed4300-ddd6-11db-8f34-0002a5d5c51b`), `DynamicsProcessing` (AOSP, `7261676f-6d75-7369-6364-28e2fd3ac39e`), `Dynamic Bass Boost` (NXP, `0634f220-ddd4-11db-a0fc-0002a5d5c51b`), `Loudness Enhancer` (AOSP, `fe3199be-aed0-413f-87bb-11260eb63cf1`) sowie Virtualizer, Visualizer, Noise Suppression, Acoustic Echo Canceler, Haptic Generator, Decibel Spatializer Library (Google Pixel), Multichannel Downmix, diverse Reverb-Effekte. Damit hat dieses Gerät die beiden für den EQ zentralen Effekte (`Equalizer`, `DynamicsProcessing`) – gute Voraussetzung für den Session-Attach-Spike. Die vier o. g. UUIDs stimmen exakt mit den in `AudioCapabilitiesMapperTest` verwendeten Konstanten überein – zusätzliche Bestätigung, dass diese Werte korrekt sind. |
 
+## Session-Attach-Spike (Google Pixel 10, Android 16, 18. September 2026)
+
+Getestet über den Button „Show session-attach spike (M0)" (PR #2, Commit `8bf1a99`).
+Eigener Testton in selbst erzeugter Audio-Session (ID `665`), kein Zugriff auf
+fremde Sessions oder Session `0`.
+
+**Equalizer** – Attach/Read-back/Release erfolgreich, kein Crash:
+
+| Band | Zentrum | Frequenzbereich |
+|---|---|---|
+| 0 | 60 Hz | 30–120 Hz |
+| 1 | 230 Hz | 120–460 Hz |
+| 2 | 910 Hz | 460–1800 Hz |
+| 3 | 3600 Hz | 1800–7000 Hz |
+| 4 | 14000 Hz | 7000–20000 Hz |
+
+Gain-Bereich: −15.0…15.0 dB. 5 Bänder gesamt.
+
+**DynamicsProcessing-Stufen** – alle vier isoliert getestet, alle **OK**:
+
+| Stufe | Ergebnis | Detail |
+|---|---|---|
+| INPUT_GAIN | ✅ OK | `inputGain readback=0.0 dB` |
+| PRE_EQ | ✅ OK | `preEq bandCount=1` |
+| MBC | ✅ OK | `mbc bandCount=1` |
+| LIMITER | ✅ OK | `limiter enabled=true` |
+
+Fazit: Pixel 10/Android 16 unterstützt sowohl `Equalizer` als auch alle vier
+getesteten `DynamicsProcessing`-Stufen vollständig. Sehr gute Voraussetzung
+für M2/M3. Noch offen: Open/Close-Control-Intents, Session-`0`-Experiment,
+Emulator-Eintrag (siehe `docs/FEASIBILITY.md`).
+
 ## Automatisiert (CI, kein physisches Gerät)
 
 | Prüfung | Status |
 |---|---|
-| `./gradlew assembleDebug` | ✅ Grün, PR #1, Commit `4e61b82` (Lauf https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35390078428). Erster Versuch auf Commit `eafc8a0` schlug fehl (AGP-9-Kotlin-Plugin-Konflikt, siehe `docs/DEPENDENCIES.md`). |
-| `./gradlew testDebugUnitTest` (u.a. `AudioCapabilitiesMapperTest`) | ✅ Grün, gleicher CI-Lauf wie oben. |
+| `./gradlew assembleDebug` | ✅ Grün, PR #2, Commit `8bf1a99` (Lauf https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35394937425). Zwischenzeitlich war der Workflow ab Commit `c181a9c` fünf Commits lang komplett ungültig (`secrets` in `if:`-Bedingung, siehe `docs/DRIVE_UPLOAD.md`) – 0 Jobs, sofort rot, ohne dass eine Benachrichtigung ankam. |
+| `./gradlew testDebugUnitTest` (u.a. `AudioCapabilitiesMapperTest`, `SineWaveGeneratorTest`) | ✅ Grün, gleicher CI-Lauf wie oben. |
 
 CI läuft auf `ubuntu-latest` (GitHub-Actions-Standard-Runner mit vorinstalliertem
 Android-SDK), nicht auf einem echten oder emulierten Android-Gerät. Damit ist
