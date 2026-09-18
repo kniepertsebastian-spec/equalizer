@@ -38,8 +38,23 @@ Gain-Bereich: −15.0…15.0 dB. 5 Bänder gesamt.
 
 Fazit: Pixel 10/Android 16 unterstützt sowohl `Equalizer` als auch alle vier
 getesteten `DynamicsProcessing`-Stufen vollständig. Sehr gute Voraussetzung
-für M2/M3. Noch offen: Open/Close-Control-Intents, Session-`0`-Experiment,
-Emulator-Eintrag (siehe `docs/FEASIBILITY.md`).
+für M2/M3.
+
+## Control-Intents und Session-0-Experiment (Google Pixel 10, Android 16, 18. September 2026)
+
+Getestet über PR #4, Commit `ca03124`.
+
+**Session-0-Experiment:** `[FAIL] Cannot initialize effect engine for type: …`
+(vollständige Fehlermeldung vom Nutzer noch nachzutragen). Sauberes,
+erwartetes Fehlschlagen ohne Crash – bestätigt Roadmap §2's Einschätzung,
+dass Session-`0`-Zugriff geräteabhängig ist und hier nicht funktioniert.
+Kein unterstütztes Feature, wie vorgesehen.
+
+**Control-Intent-Test (erster Versuch, 300-ms-Delay):** „No broadcasts
+received back." – Timing-Problem vermutet (im AOSP-Quellcode verifiziert:
+die Actions sind **keine** protected broadcasts), behoben durch aktives
+Warten statt festem Delay (`testControlIntents()`, 3-s-Timeout statt
+300-ms-Delay). **Ergebnis des zweiten Versuchs steht noch aus.**
 
 ## Automatisiert (CI, kein physisches Gerät)
 

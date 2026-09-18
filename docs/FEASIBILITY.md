@@ -105,12 +105,32 @@ Wie beim Session-Attach-Spike zuvor: nur über CI kompiliert, **nicht auf
 einem Gerät ausgeführt** – Verifikation folgt über den Nutzer auf dem
 Pixel 10.
 
+**Erster Testlauf auf dem Pixel 10:**
+
+- Session-0-Experiment: `[FAIL] Cannot initialize effect engine for type: …`
+  – erwartetes, sauberes Fehlschlagen ohne Crash. Bestätigt genau das, was
+  Roadmap §2 vorhersagt ("Manche Geräte ... unterstützen globale ... Sessions
+  ... nicht"). Kein Bugfix nötig, das ist das korrekte Verhalten des Codes.
+- Control-Intent-Test: „No broadcasts received back." – die selbst gesendeten
+  Broadcasts kamen beim eigenen Receiver nicht innerhalb von 300 ms an.
+  **Geprüft:** Die beiden Actions stehen entgegen einer ersten (falschen)
+  Vermutung **nicht** auf AOSPs `protected-broadcast`-Liste (direkt im
+  AOSP-Quellcode von `frameworks/base/core/res/AndroidManifest.xml`
+  verifiziert – keine Übereinstimmung für
+  `AUDIO_EFFECT_CONTROL_SESSION`). Wahrscheinlichste Ursache: zu kurzes,
+  festes Zeitfenster statt aktivem Warten. `testControlIntents()` wartet
+  jetzt aktiv (Channel + `withTimeoutOrNull`, 3 s) auf beide Events statt
+  eines festen 300-ms-Delays. Noch unverifiziert, ob das die Ursache war
+  oder ob hier ein echtes
+  Plattform-Verhalten (z. B. verzögerte Broadcast-Zustellung auf Android 16)
+  vorliegt – nächster Testlauf zeigt es.
+
 ## Noch offene M0-Checklistenpunkte (erfordern echtes Gerät/Emulator)
 
-- [ ] Open/Close-AudioEffect-Control-Intents: Ergebnis vom Nutzer auf
-      echtem Gerät abwarten und protokollieren.
-- [ ] Session-`0`-Experiment: Ergebnis vom Nutzer auf echtem Gerät abwarten
-      und protokollieren.
+- [ ] Open/Close-AudioEffect-Control-Intents: erneutes Testergebnis nach der
+      Zeitfenster-Korrektur abwarten und protokollieren.
+- [x] Session-`0`-Experiment: Ergebnis liegt vor (`[FAIL]`, sauber ohne
+      Crash) – siehe oben und `docs/TEST_MATRIX.md`.
 - [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät
       beginnen (physisches Gerät vorhanden, Emulator weiterhin offen –
       diese Sandbox hat keinen Android-SDK-Zugriff, siehe oben).
