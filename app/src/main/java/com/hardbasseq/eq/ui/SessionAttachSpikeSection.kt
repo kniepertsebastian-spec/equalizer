@@ -20,8 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
+import com.hardbasseq.eq.audio.spike.ControlIntentTestResult
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeResult
+import com.hardbasseq.eq.audio.spike.SessionZeroProbeResult
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 /**
@@ -73,6 +76,98 @@ fun SessionAttachSpikeSection(controller: SessionAttachSpikeController) {
         }
 
         result?.let { SpikeResultView(it) }
+
+        Spacer(modifier = Modifier.height(24.dp))
+        ControlIntentTestSection(controller, scope)
+
+        Spacer(modifier = Modifier.height(24.dp))
+        SessionZeroExperimentSection(controller, scope)
+    }
+}
+
+@Composable
+private fun ControlIntentTestSection(
+    controller: SessionAttachSpikeController,
+    scope: CoroutineScope,
+) {
+    var isBusy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<ControlIntentTestResult?>(null) }
+
+    Column {
+        Text("Control-session intents (M0)", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "Sends our own OPEN/CLOSE AudioEffect control-session broadcasts and checks " +
+                "whether our own receiver round-trips them correctly. Only validates our own " +
+                "receiver plumbing, not whether any real player app sends these on its own.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            enabled = !isBusy,
+            onClick = {
+                isBusy = true
+                scope.launch {
+                    result = controller.testControlIntents()
+                    isBusy = false
+                }
+            },
+        ) {
+            Text(if (isBusy) "Running…" else "Send test open/close broadcasts")
+        }
+        result?.let { r ->
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Session ID used: ${r.audioSessionId}", style = MaterialTheme.typography.bodySmall)
+            if (r.receivedEvents.isEmpty()) {
+                Text("No broadcasts received back.", style = MaterialTheme.typography.bodySmall)
+            } else {
+                r.receivedEvents.forEach { event ->
+                    Text(
+                        "Received: ${event.action} session=${event.audioSessionId} pkg=${event.packageName}",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SessionZeroExperimentSection(
+    controller: SessionAttachSpikeController,
+    scope: CoroutineScope,
+) {
+    var isBusy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<SessionZeroProbeResult?>(null) }
+
+    Column {
+        Text("Session 0 experiment (M0, informational only)", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "Roadmap §2: session 0 (global mix) insert effects are officially deprecated. This " +
+                "only checks whether an Equalizer can be *constructed* on session 0 - it is never " +
+                "enabled, so this cannot audibly change any playback. A success here is not a " +
+                "supported feature.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            enabled = !isBusy,
+            onClick = {
+                isBusy = true
+                scope.launch {
+                    result = controller.probeSessionZero()
+                    isBusy = false
+                }
+            },
+        ) {
+            Text(if (isBusy) "Running…" else "Probe session 0 (read-only)")
+        }
+        result?.let { r ->
+            Spacer(modifier = Modifier.height(8.dp))
+            val mark = if (r.attachSucceeded) "OK" else "FAIL"
+            Text("[$mark] ${r.detail}", style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

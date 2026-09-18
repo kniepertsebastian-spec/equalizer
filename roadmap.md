@@ -623,3 +623,31 @@ session-attach spike (M0)" auf dem Pixel 10 und meldet das Ergebnis
 Screenshot) zurück. Danach: entsprechende M0-Checkboxen abhaken und mit
 Control-Intents/Session-`0`-Experiment fortfahren.
 
+### Session 3 (18. September 2026)
+
+Nutzer hat den Session-Attach-Spike auf dem Pixel 10 getestet: voller
+Erfolg, 5 Equalizer-Bänder mit vollen Frequenz-/Gain-Daten, alle vier
+DynamicsProcessing-Stufen OK (siehe `docs/TEST_MATRIX.md`). Entsprechende
+M0-Checkboxen oben abgehakt.
+
+PR #2 wurde vom Nutzer gemerged. Ein kleiner Nachzügler-Commit (Testergebnisse
+in `docs/TEST_MATRIX.md`) verpasste den Merge knapp und wurde in PR #3
+nachgereicht und ebenfalls gemergt.
+
+Danach umgesetzt: die letzten zwei code-basierten M0-Spike-Punkte.
+`ControlSessionIntentSpike` registriert einen Receiver für
+`AudioEffect.ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`, sendet die
+Broadcasts testweise selbst und prüft den Round-Trip (validiert nur die
+eigene Empfänger-Logik, nicht das Verhalten echter Drittanbieter-Player).
+`SessionZeroExperiment` prüft rein informativ und read-only, ob sich ein
+`Equalizer` auf Session `0` konstruieren lässt – wird nie aktiviert, kann
+also nie hörbar eingreifen; ein Erfolg ist ausdrücklich keine unterstützte
+Funktion (§2). Details in `docs/FEASIBILITY.md`.
+
+**Nächste konkrete Aufgabe:** Nutzer testet die beiden neuen Buttons
+(„Send test open/close broadcasts", „Probe session 0 (read-only)") auf dem
+Pixel 10 und meldet die Ergebnisse zurück. Danach sind alle code-basierten
+M0-Punkte aus §16 abgeschlossen; es bleibt nur noch der Emulator-Eintrag in
+der Geräte-Matrix offen (in dieser Sandbox nicht möglich), womit M0 dann im
+Wesentlichen abgeschlossen wäre und M1 (Projektfundament) beginnen könnte.
+

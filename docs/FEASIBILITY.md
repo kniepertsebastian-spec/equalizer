@@ -79,20 +79,41 @@ Zwischenzeitlich war die CI fünf Commits lang komplett rot, weil ein
 gemacht hat (0 Jobs, sofort rot, keine Logs) – behoben in Commit `8bf1a99`,
 Details in `docs/DRIVE_UPLOAD.md`.
 
+## Control-Intents und Session-0-Experiment (dritter Durchlauf)
+
+Ergänzt in `app/src/main/java/com/hardbasseq/eq/audio/spike/`:
+
+- `ControlSessionIntentSpike`: registriert einen `BroadcastReceiver` für
+  `AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION` und
+  `ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION`, sendet dieselben Broadcasts
+  testweise selbst (wie ein kooperativer Player es täte) und prüft, ob sie
+  korrekt zurückkommen (Session-ID, Package-Name als Extras). Das validiert
+  **nur unsere eigene Empfänger-Logik** – nicht, ob ein echter Drittanbieter-
+  Player diese Broadcasts von sich aus sendet. Empfang von echten fremden
+  Broadcasts bräuchte `RECEIVER_EXPORTED` und eine eigene Sicherheitsprüfung
+  – bewusst nicht Teil dieses Spikes.
+- `SessionZeroExperiment`: rein informativer, read-only Test, ob sich ein
+  `Equalizer` überhaupt auf Session `0` (globaler Mix) konstruieren lässt.
+  Der Effekt wird **nie aktiviert** – nur angehängt und sofort wieder
+  freigegeben –, kann also niemals hörbar in die Wiedergabe eingreifen. Ein
+  Erfolg hier ist ausdrücklich **keine unterstützte Funktion** (Roadmap §2).
+- UI: zwei neue Unterabschnitte unter „Show session-attach spike (M0)":
+  „Control-session intents (M0)" und „Session 0 experiment (M0,
+  informational only)".
+
+Wie beim Session-Attach-Spike zuvor: nur über CI kompiliert, **nicht auf
+einem Gerät ausgeführt** – Verifikation folgt über den Nutzer auf dem
+Pixel 10.
+
 ## Noch offene M0-Checklistenpunkte (erfordern echtes Gerät/Emulator)
 
-Diese Punkte aus `roadmap.md` §10 (M0) sind laut §16 ausdrücklich **nicht**
-Teil dieses ersten Durchlaufs und folgen erst nach Review:
-
-- [ ] Einfachen `Equalizer` an eine kontrollierte Test-Audio-Session binden.
-- [ ] Bänder, Frequenzen und Gain-Grenzen auslesen und protokollieren.
-- [ ] `DynamicsProcessing` erkennen und Input-Gain, EQ, MBC sowie Limiter
-      einzeln testen.
-- [ ] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen
-      Testplayer validieren.
-- [ ] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren.
+- [ ] Open/Close-AudioEffect-Control-Intents: Ergebnis vom Nutzer auf
+      echtem Gerät abwarten und protokollieren.
+- [ ] Session-`0`-Experiment: Ergebnis vom Nutzer auf echtem Gerät abwarten
+      und protokollieren.
 - [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät
-      beginnen (siehe `docs/TEST_MATRIX.md`).
+      beginnen (physisches Gerät vorhanden, Emulator weiterhin offen –
+      diese Sandbox hat keinen Android-SDK-Zugriff, siehe oben).
 
 ## Wie man diesen Stand testet
 
