@@ -38,8 +38,8 @@ Punkt 10).
 
 ## Nächste konkrete Aufgabe
 
-Nach bestätigtem Hilt/KSP-Build M1 mit Android Lint in CI fortsetzen;
-Formatierung und detekt anschließend mit geprüften, kompatiblen Versionen
+Android Lint für Debug und Release ist in PR #7 erfolgreich eingerichtet;
+als Nächstes Formatierung und detekt mit geprüften, kompatiblen Versionen
 ergänzen. Design-System-Tokens und Capability-Fakes bleiben ebenfalls offen.
 
 Die M0-Restpunkte (Emulator, hörbare reversible Änderung/Bypass und
