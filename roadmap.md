@@ -290,9 +290,9 @@ Ziel: Vor UI-Feinarbeit beweisen, was auf realen Geräten funktioniert.
 - [x] Leeres Kotlin-/Compose-Projekt erstellen und reproduzierbaren Gradle-Build herstellen. (Verifiziert per CI: `./gradlew assembleDebug` grün, s. PR #1 / `docs/TEST_MATRIX.md`.)
 - [x] `minSdk 28` setzen; aktuelle stabile `compileSdk`/`targetSdk` verwenden. (`app/build.gradle.kts`: `minSdk 28`, `compileSdk 37`, `targetSdk 36`; Begründung in `docs/DEPENDENCIES.md`.)
 - [x] Verfügbare Effekte über `AudioEffect.queryEffects()` erfassen. (`AudioEffectRepository`/`AndroidAudioEffectRepository`; unit-getestet in CI **und** auf echtem Gerät bestätigt – Google Pixel 10/Android 16 meldet u. a. `EqualizerBundle` und `DynamicsProcessing`, s. `docs/TEST_MATRIX.md`.)
-- [ ] Einfachen `Equalizer` an eine kontrollierte Test-Audio-Session binden.
-- [ ] Bänder, Frequenzen und Gain-Grenzen auslesen und protokollieren.
-- [ ] `DynamicsProcessing` erkennen und Input-Gain, EQ, MBC sowie Limiter einzeln testen.
+- [x] Einfachen `Equalizer` an eine kontrollierte Test-Audio-Session binden. (Verifiziert auf Google Pixel 10/Android 16 über den Session-Attach-Spike-Button, PR #2; Session-ID 665, kein Crash, sauberes Attach/Release.)
+- [x] Bänder, Frequenzen und Gain-Grenzen auslesen und protokollieren. (5 Bänder, Gain-Bereich −15.0…15.0 dB, Zentren 60/230/910/3600/14000 Hz mit vollen Frequenzbereichen – protokolliert in `docs/TEST_MATRIX.md`.)
+- [x] `DynamicsProcessing` erkennen und Input-Gain, EQ, MBC sowie Limiter einzeln testen. (Alle vier Stufen isoliert getestet, alle **OK** auf Pixel 10 – Details in `docs/TEST_MATRIX.md`.)
 - [ ] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen Testplayer validieren.
 - [ ] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren; nicht als Garantie verwenden.
 - [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät beginnen. (Physisches Gerät vorhanden – Google Pixel 10/Android 16, s. `docs/TEST_MATRIX.md`; Emulator-Eintrag steht noch aus.)
