@@ -9,12 +9,12 @@ ersten Projekt-Setup (M0, Aufgabe 1 "Android-Projekt initialisieren").
 |---|---|---|
 | Android Gradle Plugin (AGP) | 9.4.0 | Aktuellste stabile Release-Notes-Seite (September 2026): https://developer.android.com/build/releases/agp-9-4-0-release-notes |
 | Gradle | 9.7.1 | Aktuellste stabile Gradle-Version (19. August 2026), kompatibel zu AGP 9.x (AGP 9.0 verlangt laut Android-Doku mindestens Gradle 9.1). |
-| Kotlin | 2.4.20 | Aktuellste stabile JetBrains-Ankündigung (September 2026): https://blog.jetbrains.com/kotlin/2026/09/kotlin-2-4-20-released/ |
+| Kotlin | 2.3.20 | Für Hilt/KSP in M1 festgelegt; ersetzt die ursprüngliche M0-Version 2.4.20. Siehe ADR 0002. |
 | Jetpack Compose BOM | 2026.08.00 | Aktuellste stabile BOM-Version, Compose 1.12 Kernmodule: https://android-developers.googleblog.com/2026/08/jetpack-compose-august-2026-release.html |
 | `compileSdk` | 37 (Android 17) | Android 17 ist seit Juni 2026 stabil verfügbar; `compileSdk` darf auf der neuesten stabilen Plattform stehen. |
 | `targetSdk` | 36 (Android 16) | Play-Store-Pflichtwert bis 31. August 2027 (danach 37); konservativ auf der aktuell verlangten Stufe gehalten. |
 | `minSdk` | 28 | Durch Roadmap §3 fest vorgegeben (`DynamicsProcessing` ab API 28 verfügbar). |
-| JVM-Zielversion | 17 | Von AGP 9.x/Kotlin 2.4 empfohlene Baseline; Build-JDK ist 21 (Temurin, siehe CI). |
+| JVM-Zielversion | 17 | Java `compileOptions` und Kotlin `compilerOptions.jvmTarget` explizit auf 17; Build-JDK ist separat 21 (Temurin, siehe CI). |
 
 ## Wichtiger Hinweis zur Verifikation
 
@@ -53,6 +53,18 @@ in `docs/adr/0001-defer-ksp-based-tooling.md` und
 `2.59.2`, `androidx.hilt:hilt-navigation-compose` `1.4.0`.
 
 ## Lokaler Build (sobald ein Android SDK verfügbar ist)
+
+**Korrektur nach PR #5 (19. September 2026):** Mit deaktiviertem
+built-in Kotlin wurde das Kotlin-JVM-Ziel nicht mehr aus den Java-Optionen
+übernommen. CI-Lauf `35400854917` scheiterte an Java 17 / Kotlin 21.
+`app/build.gradle.kts` setzt deshalb `kotlin.compilerOptions.jvmTarget`
+explizit auf `JvmTarget.JVM_17`, gemäß der
+[Kotlin-Compiler-Dokumentation](https://kotlinlang.org/docs/gradle-compiler-options.html#migrate-away-from-android-kotlinoptions).
+Die JVM-Zielprüfung bleibt aktiv; Build-JDK und Abhängigkeiten werden nicht geändert.
+
+In der Windows-Arbeitsumgebung dieser Session ist kein Java auf dem PATH
+und `JAVA_HOME` nicht gesetzt. Der lokale Wrapper-Aufruf endet daher vor
+der Gradle-Ausführung. Build-/Testnachweise stehen in `docs/TEST_MATRIX.md`.
 
 ```bash
 ./gradlew assembleDebug

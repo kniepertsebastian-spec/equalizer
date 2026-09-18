@@ -66,6 +66,26 @@ nur eine.
 
 ## Wichtiger Hinweis
 
+### Korrektur nach zweitem CI-Lauf (19. September 2026)
+
+Auch Commit `fe0db2d` war noch rot: [CI-Lauf 35400854917](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35400854917)
+erreichte KSP, scheiterte anschließend jedoch in `compileDebugKotlin`:
+
+```text
+Inconsistent JVM-target compatibility detected for tasks
+'compileDebugJavaWithJavac' (17) and 'compileDebugKotlin' (21).
+```
+
+Bei der Rückkehr zum separaten Kotlin-Android-Plugin fehlte die explizite
+Kotlin-Zielkonfiguration. `kotlin.compilerOptions.jvmTarget` wird nun auf
+`JvmTarget.JVM_17` gesetzt, passend zu Java `sourceCompatibility` und
+`targetCompatibility`. Das JDK für Gradle bleibt 21. Die Zielprüfung wird
+nicht unterdrückt. Diese Konfiguration gilt für alle Kotlin-Kompilationen
+im App-Modul, einschließlich Unit-Tests.
+
+Quelle: [Kotlin compilerOptions für Android](https://kotlinlang.org/docs/gradle-compiler-options.html#migrate-away-from-android-kotlinoptions).
+Aktueller Validierungsstand: `docs/TEST_MATRIX.md`.
+
 Dieses ADR beschreibt die Umsetzung; ob sie tatsächlich fehlerfrei baut,
 bestätigt erst der CI-Lauf (diese Sandbox hat keinen Android-SDK-Zugriff
 für eine lokale Verifikation). Ergebnis wird in `docs/TEST_MATRIX.md`

@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -34,6 +36,14 @@ android {
 
     buildFeatures {
         compose = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        // With built-in Kotlin disabled, match Java's target explicitly.
+        // The JDK running Gradle (21 in CI) is not the bytecode target.
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
