@@ -101,3 +101,25 @@ PR #6 setzt das Kotlin-Ziel explizit auf 17 (ADR 0002).
 
 Nächster automatisierter Schritt: Android Lint in CI aufnehmen. Die offenen
 M0-Geräte- und Bypass-Prüfungen werden durch diesen Build-Fix nicht ersetzt.
+
+## M1 – Android Lint in CI (19. September 2026)
+
+PR #7, Commit `97a887d`,
+[CI-Lauf 35405675078](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35405675078):
+
+| Prüfung | Ergebnis |
+|---|---|
+| `assembleDebug` | Erfolgreich |
+| `testDebugUnitTest` | Erfolgreich |
+| `lintDebug` | 0 Fehler, 16 Warnungen |
+| `lintRelease` | 0 Fehler, 16 Warnungen |
+| Lint-Berichte | Artefakt `android-lint-reports` erfolgreich hochgeladen und geprüft |
+| Debug-APK / Testberichte | Erfolgreich hochgeladen |
+| Lokale statische Prüfung | `git diff --check` erfolgreich |
+| Handy / Emulator | Nicht ausgeführt; reine CI-Erweiterung |
+
+Die 16 Warnungen pro Variante bestehen aus 13 Dependency-Update-Hinweisen,
+einem Target-SDK-Hinweis sowie `ObsoleteSdkInt` und `MonochromeLauncherIcon`
+für das Launcher-Icon. Keine Baseline oder Suppression hinzugefügt.
+Die Warnungen werden als Folgearbeiten geführt, nicht als behoben ausgegeben.
+Anleitung und verbleibende Aufgaben: `docs/QUALITY.md`.
