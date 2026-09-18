@@ -40,8 +40,40 @@ erste Versuch schlug fehl, weil AGP 9.0+ Kotlin fest eingebaut mitbringt und
 das zusätzlich angewendete `org.jetbrains.kotlin.android`-Plugin den Build
 fatal abbrach; behoben durch Entfernen dieses Plugins (Details in
 `docs/DEPENDENCIES.md`). Damit sind Build und Unit-Tests aus §16 verifiziert.
-Die Laufzeitverifikation auf einem echten Gerät (Session-Attach-Spike) steht
-weiterhin aus.
+PR #1 wurde gemerged.
+
+## Session-Attach-Spike (zweiter Durchlauf)
+
+Umgesetzt in `app/src/main/java/com/hardbasseq/eq/audio/spike/`:
+
+- `SineWaveGenerator` (rein, unit-getestet): erzeugt einen leisen Sinuston als PCM16.
+- `TestTonePlayer`: spielt den Ton über einen eigenen `AudioTrack` (eigene,
+  selbst erzeugte `audioSessionId` – **keine** fremde Session, kein Session `0`).
+- `EqualizerSpike`: hängt einen `Equalizer` an diese Session, liest
+  Bandanzahl, Zentrumsfrequenzen, Frequenzbereiche und Gain-Grenzen aus und
+  gibt den Effekt sofort wieder frei.
+- `DynamicsProcessingSpike`: testet Input-Gain, Pre-EQ, MBC und Limiter
+  jeweils einzeln isoliert (eigene `DynamicsProcessing.Config` pro Stufe,
+  alle anderen Stufen deaktiviert), fängt jede Exception pro Stufe ab statt
+  abzustürzen und protokolliert Erfolg/Fehlschlag samt Detailtext.
+- `SessionAttachSpikeController`: serialisiert Start/Stop/Probe über einen
+  `Mutex` (Roadmap §7 Threading-Regeln), gibt Effekte immer in `finally` frei.
+- UI: neuer Button „Show session-attach spike (M0)" auf dem Startbildschirm
+  zeigt Session-ID, Equalizer-Bänder und DynamicsProcessing-Stufenergebnisse an.
+
+**Noch nicht abgedeckt (bewusst verschoben, siehe unten):** Open/Close-
+AudioEffect-Control-Intents mit einem Testplayer, Verhalten bei Session `0`
+als Experiment, Geräte-Matrix mit Emulator. Diese drei bleiben als
+eigenständiger, klar abgegrenzter nächster Schritt offen, um diesen
+Durchlauf nicht zu überladen.
+
+**Wichtig:** Dieser Code wurde in der Sandbox nur gegen den echten Android-
+SDK-Compiler (`compileSdk 37`) über CI kompiliert, aber **nicht auf einem
+Gerät ausgeführt** – ich habe keinen Emulator-/Gerätezugriff. Verifikation
+erfolgt, indem der Nutzer den Button „Show session-attach spike (M0)" auf
+seinem Pixel 10 antippt und das Ergebnis (Session-ID, Bänderliste,
+DynamicsProcessing-Stufen OK/FAIL) zurückmeldet. Erst danach werden die
+entsprechenden M0-Checkboxen in `roadmap.md` abgehakt.
 
 ## Noch offene M0-Checklistenpunkte (erfordern echtes Gerät/Emulator)
 

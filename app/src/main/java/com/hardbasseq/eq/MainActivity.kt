@@ -8,6 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.hardbasseq.eq.audio.AndroidAudioEffectRepository
+import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.ui.MainScreen
 import com.hardbasseq.eq.ui.theme.HardBassEqTheme
 
@@ -18,7 +19,8 @@ class MainActivity : ComponentActivity() {
             HardBassEqTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val repository = remember { AndroidAudioEffectRepository() }
-                    MainScreen(repository = repository)
+                    val spikeController = remember { SessionAttachSpikeController(applicationContext) }
+                    MainScreen(repository = repository, spikeController = spikeController)
                 }
             }
         }

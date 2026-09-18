@@ -6,4 +6,11 @@
     <string name="hide_debug_effects">Hide debug view</string>
     <string name="debug_effects_title">Available audio effects</string>
     <string name="debug_effects_empty">No effect descriptors found.</string>
+    <string name="show_spike_section">Show session-attach spike (M0)</string>
+    <string name="hide_spike_section">Hide session-attach spike</string>
+    <string name="spike_title">Session-attach spike (M0)</string>
+    <string name="spike_description">Plays a quiet test tone in its own audio session, attaches Equalizer/DynamicsProcessing to it, and reads back the real band/gain capabilities this device reports.</string>
+    <string name="spike_start">Start test tone + probe effects</string>
+    <string name="spike_running">Running…</string>
+    <string name="spike_stop">Stop</string>
 </resources>

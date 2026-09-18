@@ -597,3 +597,29 @@ Test-Audio-Session binden, Bänder/Frequenzen/Gain-Grenzen auslesen,
 `0` experimentell dokumentieren). Dafür wird ein Emulator oder ein
 physisches Testgerät benötigt, das in dieser Sandbox nicht verfügbar ist.
 
+### Session 2 (18. September 2026)
+
+PR #1 wurde vom Nutzer gemerged (= Review erfolgt). Zusätzlich: Nutzer hat
+die App manuell auf einem **Google Pixel 10 (Android 16)** installiert und
+getestet; Debug-Effektliste bestätigt `EqualizerBundle` und
+`DynamicsProcessing` als vorhanden (Details in `docs/TEST_MATRIX.md`).
+Außerdem wurde ein optionaler CI-Schritt ergänzt, der die Debug-APK bei
+jedem grünen Build in einen freigegebenen Google-Drive-Ordner hochlädt
+(`docs/DRIVE_UPLOAD.md`, benötigt einmaliges Setup durch den Nutzer).
+
+Begonnen: Session-Attach-Spike. Neuer eigener Testton-Player
+(`TestTonePlayer`) mit eigener, selbst erzeugter Audio-Session (kein Zugriff
+auf fremde Sessions oder Session `0`); `EqualizerSpike` liest Bandanzahl,
+Frequenzen und Gain-Grenzen eines echten `Equalizer` auf dieser Session aus;
+`DynamicsProcessingSpike` testet Input-Gain, Pre-EQ, MBC und Limiter isoliert
+voneinander. Neue UI-Sektion „Show session-attach spike (M0)". Details,
+inklusive dem, was in diesem Durchlauf bewusst noch nicht angegangen wurde
+(Control-Intents, Session-`0`-Experiment, Emulator), in
+`docs/FEASIBILITY.md`.
+
+**Nächste konkrete Aufgabe:** Nutzer testet den neuen Button „Show
+session-attach spike (M0)" auf dem Pixel 10 und meldet das Ergebnis
+(Session-ID, Bänderliste, DynamicsProcessing-Stufen OK/FAIL, ggf.
+Screenshot) zurück. Danach: entsprechende M0-Checkboxen abhaken und mit
+Control-Intents/Session-`0`-Experiment fortfahren.
+
