@@ -1,6 +1,6 @@
 # M0 – Machbarkeits-Spike
 
-Status: **in Arbeit**. Dieser erste Arbeitsdurchlauf deckt ausschließlich die
+Status: **in Arbeit, CI grün.** Dieser erste Arbeitsdurchlauf deckt ausschließlich die
 in `roadmap.md` §16 ("Erste konkrete Aufgaben") aufgeführten Punkte ab. Der
 eigentliche Session-Attach-Spike (Anhängen von `Equalizer` an eine echte
 Audio-Session, Auslesen von Bändern/Grenzen, Test von
@@ -35,9 +35,13 @@ Android-SDK-Setup noch ein lokaler `./gradlew assembleDebug`-Lauf in dieser
 Session möglich. Die Build- und Testverifikation muss über die GitHub-Actions-CI
 erfolgen, sobald der Branch gepusht bzw. eine PR erstellt ist.
 
-**Nächster Schritt nach dieser Session:** CI-Lauf auf dem gepushten Branch
-prüfen und Ergebnis hier ergänzen, bevor mit dem Session-Attach-Spike
-begonnen wird.
+**Update:** Der CI-Lauf ist grün (siehe `docs/TEST_MATRIX.md` und PR #1). Der
+erste Versuch schlug fehl, weil AGP 9.0+ Kotlin fest eingebaut mitbringt und
+das zusätzlich angewendete `org.jetbrains.kotlin.android`-Plugin den Build
+fatal abbrach; behoben durch Entfernen dieses Plugins (Details in
+`docs/DEPENDENCIES.md`). Damit sind Build und Unit-Tests aus §16 verifiziert.
+Die Laufzeitverifikation auf einem echten Gerät (Session-Attach-Spike) steht
+weiterhin aus.
 
 ## Noch offene M0-Checklistenpunkte (erfordern echtes Gerät/Emulator)
 

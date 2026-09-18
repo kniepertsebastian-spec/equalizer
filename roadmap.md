@@ -287,16 +287,16 @@ Importregeln:
 
 Ziel: Vor UI-Feinarbeit beweisen, was auf realen Geräten funktioniert.
 
-- [ ] Leeres Kotlin-/Compose-Projekt erstellen und reproduzierbaren Gradle-Build herstellen.
-- [ ] `minSdk 28` setzen; aktuelle stabile `compileSdk`/`targetSdk` verwenden.
-- [ ] Verfügbare Effekte über `AudioEffect.queryEffects()` erfassen.
+- [x] Leeres Kotlin-/Compose-Projekt erstellen und reproduzierbaren Gradle-Build herstellen. (Verifiziert per CI: `./gradlew assembleDebug` grün, s. PR #1 / `docs/TEST_MATRIX.md`.)
+- [x] `minSdk 28` setzen; aktuelle stabile `compileSdk`/`targetSdk` verwenden. (`app/build.gradle.kts`: `minSdk 28`, `compileSdk 37`, `targetSdk 36`; Begründung in `docs/DEPENDENCIES.md`.)
+- [x] Verfügbare Effekte über `AudioEffect.queryEffects()` erfassen. (`AudioEffectRepository`/`AndroidAudioEffectRepository`, kompiliert und unit-getestet in CI; echte Geräteabfrage noch nicht auf physischem Gerät verifiziert.)
 - [ ] Einfachen `Equalizer` an eine kontrollierte Test-Audio-Session binden.
 - [ ] Bänder, Frequenzen und Gain-Grenzen auslesen und protokollieren.
 - [ ] `DynamicsProcessing` erkennen und Input-Gain, EQ, MBC sowie Limiter einzeln testen.
 - [ ] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen Testplayer validieren.
 - [ ] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren; nicht als Garantie verwenden.
 - [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät beginnen.
-- [ ] Ergebnisse in `docs/FEASIBILITY.md` festhalten.
+- [x] Ergebnisse in `docs/FEASIBILITY.md` festhalten.
 
 Abnahmekriterien:
 
@@ -581,16 +581,19 @@ Debug-Ansicht, Mapping-Unit-Test, CI-Grundworkflow, `docs/FEASIBILITY.md`).
 Details, offene Punkte und Testanleitung: siehe `docs/FEASIBILITY.md`,
 `docs/DEPENDENCIES.md`, `docs/DECISIONS.md`, `docs/TEST_MATRIX.md`.
 
-Die M0-Checkboxen oben in §10 wurden **bewusst nicht abgehakt**: Diese
-Sandbox-Umgebung kann `dl.google.com` nicht erreichen und daher weder ein
-Android-SDK laden noch `./gradlew assembleDebug`/`testDebugUnitTest` lokal
-ausführen. Die Implementierung ist vorbereitet, aber erst nach einem grünen
-CI-Lauf (`.github/workflows/ci.yml`) auf dem gepushten Branch als verifiziert
-zu betrachten.
+Erster CI-Lauf (Commit `eafc8a0`) schlug fehl: AGP 9.0+ bringt Kotlin fest
+eingebaut mit, das zusätzlich angewendete `org.jetbrains.kotlin.android`-Plugin
+brach den Build fatal ab. Behoben in Commit `4e61b82` (Plugin entfernt,
+`kotlinOptions`-Block entfernt, siehe `docs/DEPENDENCIES.md`). Zweiter
+CI-Lauf auf `4e61b82` war **grün** (`assembleDebug` + `testDebugUnitTest`,
+PR #1: https://github.com/kniepertsebastian-spec/equalizer/pull/1). Die
+entsprechenden M0-Checkboxen oben in §10 sind jetzt abgehakt; Details in
+`docs/TEST_MATRIX.md`.
 
-**Nächste konkrete Aufgabe:** CI-Lauf des gepushten Branches prüfen, Ergebnis
-in `docs/TEST_MATRIX.md` nachtragen, betroffene M0-Checkboxen dann abhaken.
-Danach – wie in §16 angewiesen – erst nach Review mit dem
-Session-Attach-Spike (Equalizer an echte Test-Session binden, Bänder/Grenzen
-auslesen, `DynamicsProcessing`-Teilkomponenten testen) fortfahren.
+**Nächste konkrete Aufgabe:** Wie in §16 angewiesen, jetzt erst nach Review
+mit dem Session-Attach-Spike fortfahren (`Equalizer` an eine echte
+Test-Audio-Session binden, Bänder/Frequenzen/Gain-Grenzen auslesen,
+`DynamicsProcessing`-Teilkomponenten einzeln testen, Verhalten bei Session
+`0` experimentell dokumentieren). Dafür wird ein Emulator oder ein
+physisches Testgerät benötigt, das in dieser Sandbox nicht verfügbar ist.
 

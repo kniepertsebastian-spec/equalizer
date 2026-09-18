@@ -13,12 +13,16 @@ Punkt 10 und §10 M0-Abnahmekriterium "Geräte-Matrix").
 
 | Prüfung | Status |
 |---|---|
-| `./gradlew assembleDebug` | Ausstehend – erster CI-Lauf nach Push noch nicht bestätigt. |
-| `./gradlew testDebugUnitTest` (u.a. `AudioCapabilitiesMapperTest`) | Ausstehend – erster CI-Lauf nach Push noch nicht bestätigt. |
+| `./gradlew assembleDebug` | ✅ Grün, PR #1, Commit `4e61b82` (Lauf https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35390078428). Erster Versuch auf Commit `eafc8a0` schlug fehl (AGP-9-Kotlin-Plugin-Konflikt, siehe `docs/DEPENDENCIES.md`). |
+| `./gradlew testDebugUnitTest` (u.a. `AudioCapabilitiesMapperTest`) | ✅ Grün, gleicher CI-Lauf wie oben. |
+
+CI läuft auf `ubuntu-latest` (GitHub-Actions-Standard-Runner mit vorinstalliertem
+Android-SDK), nicht auf einem echten oder emulierten Android-Gerät. Damit ist
+nur der Build- und Unit-Test-Pfad abgedeckt, keine Laufzeit-Verifikation von
+`AudioEffect`-Verhalten auf einem Gerät.
 
 ## Nächste Schritte
 
-1. CI-Ergebnis des ersten Pushes in dieser Tabelle nachtragen.
-2. Sobald ein Emulator- oder Geräte-Zugriff verfügbar ist: Session-Attach-Spike
+1. Sobald ein Emulator- oder Geräte-Zugriff verfügbar ist: Session-Attach-Spike
    (offene M0-Punkte aus `docs/FEASIBILITY.md`) auf mindestens einem Emulator
    plus einem physischen Gerät durchführen und hier protokollieren.
