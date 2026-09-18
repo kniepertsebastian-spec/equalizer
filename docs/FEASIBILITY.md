@@ -79,20 +79,73 @@ Zwischenzeitlich war die CI fünf Commits lang komplett rot, weil ein
 gemacht hat (0 Jobs, sofort rot, keine Logs) – behoben in Commit `8bf1a99`,
 Details in `docs/DRIVE_UPLOAD.md`.
 
+## Control-Intents und Session-0-Experiment (dritter Durchlauf)
+
+Ergänzt in `app/src/main/java/com/hardbasseq/eq/audio/spike/`:
+
+- `ControlSessionIntentSpike`: registriert einen `BroadcastReceiver` für
+  `AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION` und
+  `ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION`, sendet dieselben Broadcasts
+  testweise selbst (wie ein kooperativer Player es täte) und prüft, ob sie
+  korrekt zurückkommen (Session-ID, Package-Name als Extras). Das validiert
+  **nur unsere eigene Empfänger-Logik** – nicht, ob ein echter Drittanbieter-
+  Player diese Broadcasts von sich aus sendet. Empfang von echten fremden
+  Broadcasts bräuchte `RECEIVER_EXPORTED` und eine eigene Sicherheitsprüfung
+  – bewusst nicht Teil dieses Spikes.
+- `SessionZeroExperiment`: rein informativer, read-only Test, ob sich ein
+  `Equalizer` überhaupt auf Session `0` (globaler Mix) konstruieren lässt.
+  Der Effekt wird **nie aktiviert** – nur angehängt und sofort wieder
+  freigegeben –, kann also niemals hörbar in die Wiedergabe eingreifen. Ein
+  Erfolg hier ist ausdrücklich **keine unterstützte Funktion** (Roadmap §2).
+- UI: zwei neue Unterabschnitte unter „Show session-attach spike (M0)":
+  „Control-session intents (M0)" und „Session 0 experiment (M0,
+  informational only)".
+
+Wie beim Session-Attach-Spike zuvor: nur über CI kompiliert, **nicht auf
+einem Gerät ausgeführt** – Verifikation folgt über den Nutzer auf dem
+Pixel 10.
+
+**Erster Testlauf auf dem Pixel 10:**
+
+- Session-0-Experiment: `[FAIL] Cannot initialize effect engine for type: …`
+  – erwartetes, sauberes Fehlschlagen ohne Crash. Bestätigt genau das, was
+  Roadmap §2 vorhersagt ("Manche Geräte ... unterstützen globale ... Sessions
+  ... nicht"). Kein Bugfix nötig, das ist das korrekte Verhalten des Codes.
+- Control-Intent-Test: „No broadcasts received back." – **auch nach dem
+  Fix** (aktives Warten bis zu 3 s statt festem 300-ms-Delay, zweiter
+  Testlauf) weiterhin kein einziger Broadcast beim eigenen Empfänger
+  angekommen. Damit ist ein reines Timing-Problem ausgeschlossen.
+  **Untersucht und ausgeschlossen:** Die beiden Actions stehen **nicht**
+  auf AOSPs `protected-broadcast`-Liste (direkt im AOSP-Quellcode von
+  `frameworks/base/core/res/AndroidManifest.xml` verifiziert – keine
+  Übereinstimmung für `AUDIO_EFFECT_CONTROL_SESSION`); Registrierung/Senden
+  folgt dem dokumentierten, für API 33+ korrekten Muster
+  (`RECEIVER_NOT_EXPORTED`, Broadcast ohne explizites Package). Da AOSP nur
+  die öffentlich einsehbare Basis ist, kann eine gerätespezifische
+  Einschränkung (z. B. eine zusätzliche `protected-broadcast`-Deklaration in
+  Googles proprietärer Pixel-Firmware, die nicht im öffentlichen AOSP-Mirror
+  steht) nicht ausgeschlossen werden – das ließe sich nur mit `adb logcat`
+  am angeschlossenen Gerät weiter eingrenzen, was in dieser Sandbox nicht
+  möglich ist.
+  **Schlussfolgerung für die Roadmap:** Der historische Open/Close-
+  Broadcast-Mechanismus, mit dem sich Dritt-Player traditionell bei
+  EQ-Apps anmelden, funktioniert – zumindest für selbst gesendete
+  Broadcasts auf diesem Pixel 10/Android 16 – nicht zuverlässig. Für M2
+  bedeutet das: **nicht** ungeprüft auf dieses Mechanismus als
+  Session-Erkennungsweg setzen; roadmap-konform (§2, §13) ohnehin nur als
+  „Best Effort", nie als Garantie behandeln. Dieser Punkt ist damit
+  **validiert** (negatives, aber sauber dokumentiertes Ergebnis) – nicht
+  „kaputt", sondern eine echte Erkenntnis aus dem Spike.
+
 ## Noch offene M0-Checklistenpunkte (erfordern echtes Gerät/Emulator)
 
-Diese Punkte aus `roadmap.md` §10 (M0) sind laut §16 ausdrücklich **nicht**
-Teil dieses ersten Durchlaufs und folgen erst nach Review:
-
-- [ ] Einfachen `Equalizer` an eine kontrollierte Test-Audio-Session binden.
-- [ ] Bänder, Frequenzen und Gain-Grenzen auslesen und protokollieren.
-- [ ] `DynamicsProcessing` erkennen und Input-Gain, EQ, MBC sowie Limiter
-      einzeln testen.
-- [ ] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen
-      Testplayer validieren.
-- [ ] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren.
+- [x] Open/Close-AudioEffect-Control-Intents: validiert (negatives
+      Ergebnis, siehe oben und `docs/TEST_MATRIX.md`).
+- [x] Session-`0`-Experiment: Ergebnis liegt vor (`[FAIL]`, sauber ohne
+      Crash) – siehe oben und `docs/TEST_MATRIX.md`.
 - [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät
-      beginnen (siehe `docs/TEST_MATRIX.md`).
+      beginnen (physisches Gerät vorhanden, Emulator weiterhin offen –
+      diese Sandbox hat keinen Android-SDK-Zugriff, siehe oben).
 
 ## Wie man diesen Stand testet
 

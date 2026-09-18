@@ -293,8 +293,8 @@ Ziel: Vor UI-Feinarbeit beweisen, was auf realen Geräten funktioniert.
 - [x] Einfachen `Equalizer` an eine kontrollierte Test-Audio-Session binden. (Verifiziert auf Google Pixel 10/Android 16 über den Session-Attach-Spike-Button, PR #2; Session-ID 665, kein Crash, sauberes Attach/Release.)
 - [x] Bänder, Frequenzen und Gain-Grenzen auslesen und protokollieren. (5 Bänder, Gain-Bereich −15.0…15.0 dB, Zentren 60/230/910/3600/14000 Hz mit vollen Frequenzbereichen – protokolliert in `docs/TEST_MATRIX.md`.)
 - [x] `DynamicsProcessing` erkennen und Input-Gain, EQ, MBC sowie Limiter einzeln testen. (Alle vier Stufen isoliert getestet, alle **OK** auf Pixel 10 – Details in `docs/TEST_MATRIX.md`.)
-- [ ] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen Testplayer validieren.
-- [ ] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren; nicht als Garantie verwenden.
+- [x] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen Testplayer validieren. (Validiert auf Pixel 10/Android 16, PR #4: selbst gesendete Broadcasts kommen beim eigenen Empfänger nicht an, reproduziert auch mit 3s aktivem Warten. Negatives, aber sauber dokumentiertes Ergebnis – Details/Implikation für M2 in `docs/FEASIBILITY.md`.)
+- [x] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren; nicht als Garantie verwenden. (Validiert auf Pixel 10/Android 16: `Equalizer`-Konstruktion auf Session `0` schlägt sauber fehl, kein Crash, Effekt nie aktiviert. Kein unterstütztes Feature, wie vorgesehen – Details in `docs/TEST_MATRIX.md`.)
 - [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät beginnen. (Physisches Gerät vorhanden – Google Pixel 10/Android 16, s. `docs/TEST_MATRIX.md`; Emulator-Eintrag steht noch aus.)
 - [x] Ergebnisse in `docs/FEASIBILITY.md` festhalten.
 
@@ -309,19 +309,19 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 
 ### M1 – Projektfundament
 
-- [ ] Paketnamen und Arbeitstitel zentral konfigurierbar machen.
-- [ ] Compose Design System, Navigation und Theme erstellen.
-- [ ] Hilt, Coroutines, DataStore, Room und Serialization einrichten.
-- [ ] CI mit `assembleDebug`, Unit Tests, Android Lint, Formatierung und detekt einrichten.
-- [ ] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten.
-- [ ] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen.
-- [ ] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen.
+- [x] Paketnamen und Arbeitstitel zentral konfigurierbar machen. (`gradle.properties`: `hardbasseq.applicationId`/`hardbasseq.namespace`, referenziert aus `app/build.gradle.kts`; Anzeigename bleibt in `strings.xml`.)
+- [ ] Compose Design System, Navigation und Theme erstellen. (Navigation erledigt – `AppNavHost` mit `home`-Route; Theme existierte bereits seit M0; ein ausgebautes Design System mit Typografie-/Spacing-Tokens fehlt noch.)
+- [ ] Hilt, Coroutines, DataStore, Room und Serialization einrichten. (Bewusst zurückgestellt – KSP ist derzeit nicht mit AGP 9s eingebautem Kotlin kompatibel und hinkt zudem der Kotlin-Version hinterher; siehe `docs/adr/0001-defer-ksp-based-tooling.md`. Coroutines werden bereits produktiv genutzt.)
+- [ ] CI mit `assembleDebug`, Unit Tests, Android Lint, Formatierung und detekt einrichten. (`assembleDebug`/Unit-Tests bestehen seit M0; Android Lint, ktlint/Spotless und detekt bewusst zurückgestellt – Detekt mit Kotlin-2.4-Unterstützung ist nur als Alpha verfügbar, siehe ADR 0001.)
+- [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten. (Policy dokumentiert in `docs/ARCHITECTURE.md`; noch keine konkrete Logging-Bibliothek nötig, da noch kein produktiver Logging-Code existiert.)
+- [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen. (`docs/DEPENDENCIES.md` existiert seit M0; `docs/ARCHITECTURE.md` und `docs/adr/0001-...md` neu angelegt.)
+- [ ] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen. (Noch nicht umgesetzt – sinnvoller, sobald M2/M3 echte, capability-abhängige UI haben, die es zu simulieren lohnt.)
 
 Abnahmekriterien:
 
-- Frischer Checkout baut mit einem dokumentierten Befehl.
-- CI ist grün.
-- Keine Geschäftslogik lebt in Composables.
+- Frischer Checkout baut mit einem dokumentierten Befehl. (Unverändert seit M0: `./gradlew assembleDebug`; Verifikation dieses Durchlaufs steht noch aus, siehe CI-Status.)
+- CI ist grün. (Ausstehend für diesen Durchlauf.)
+- Keine Geschäftslogik lebt in Composables. (Erfüllt: `MainViewModel` übernimmt Repository-Zugriff und Dispatcher-Wechsel; `MainScreen` liest nur noch Zustand und leitet Events weiter.)
 
 ### M2 – Audio-Engine und Session-Lebenszyklus
 
@@ -622,4 +622,101 @@ session-attach spike (M0)" auf dem Pixel 10 und meldet das Ergebnis
 (Session-ID, Bänderliste, DynamicsProcessing-Stufen OK/FAIL, ggf.
 Screenshot) zurück. Danach: entsprechende M0-Checkboxen abhaken und mit
 Control-Intents/Session-`0`-Experiment fortfahren.
+
+### Session 3 (18. September 2026)
+
+Nutzer hat den Session-Attach-Spike auf dem Pixel 10 getestet: voller
+Erfolg, 5 Equalizer-Bänder mit vollen Frequenz-/Gain-Daten, alle vier
+DynamicsProcessing-Stufen OK (siehe `docs/TEST_MATRIX.md`). Entsprechende
+M0-Checkboxen oben abgehakt.
+
+PR #2 wurde vom Nutzer gemerged. Ein kleiner Nachzügler-Commit (Testergebnisse
+in `docs/TEST_MATRIX.md`) verpasste den Merge knapp und wurde in PR #3
+nachgereicht und ebenfalls gemergt.
+
+Danach umgesetzt: die letzten zwei code-basierten M0-Spike-Punkte.
+`ControlSessionIntentSpike` registriert einen Receiver für
+`AudioEffect.ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`, sendet die
+Broadcasts testweise selbst und prüft den Round-Trip (validiert nur die
+eigene Empfänger-Logik, nicht das Verhalten echter Drittanbieter-Player).
+`SessionZeroExperiment` prüft rein informativ und read-only, ob sich ein
+`Equalizer` auf Session `0` konstruieren lässt – wird nie aktiviert, kann
+also nie hörbar eingreifen; ein Erfolg ist ausdrücklich keine unterstützte
+Funktion (§2). Details in `docs/FEASIBILITY.md`.
+
+**Nächste konkrete Aufgabe:** Nutzer testet die beiden neuen Buttons
+(„Send test open/close broadcasts", „Probe session 0 (read-only)") auf dem
+Pixel 10 und meldet die Ergebnisse zurück. Danach sind alle code-basierten
+M0-Punkte aus §16 abgeschlossen; es bleibt nur noch der Emulator-Eintrag in
+der Geräte-Matrix offen (in dieser Sandbox nicht möglich), womit M0 dann im
+Wesentlichen abgeschlossen wäre und M1 (Projektfundament) beginnen könnte.
+
+### Session 4 (18. September 2026)
+
+Nutzer hat beide neuen Buttons getestet. Session-0-Experiment: sauberes
+`[FAIL]` ohne Crash, wie erwartet. Control-Intent-Test: „No broadcasts
+received back." Erste Vermutung (zu kurzes 300-ms-Zeitfenster) durch
+aktives Warten (3 s) korrigiert und erneut getestet – **gleiches Ergebnis**.
+Damit ist ein Timing-Problem ausgeschlossen; die beiden Broadcast-Actions
+sind laut AOSP-Quellcode keine `protected broadcasts`, Ursache bleibt ohne
+`adb logcat`-Zugriff nicht abschließend klärbar (evtl. Pixel-spezifische
+Einschränkung außerhalb des öffentlichen AOSP). Als valides, dokumentiertes
+Spike-Ergebnis gewertet (kein offener Bug) – entsprechende M0-Checkboxen
+abgehakt.
+
+**Damit sind alle code-basierten M0-Punkte aus §16 erledigt.** Offen bleibt
+nur der Emulator-Eintrag in der Geräte-Matrix (kein Android-SDK-Zugriff in
+dieser Sandbox).
+
+**Ehrlicher Hinweis zu M0s Abnahmekriterien (§10):** Zwei der vier
+Abnahmekriterien sind noch **nicht** erfüllt:
+- „App kann auf dem Testgerät eine bekannte Session hörbar und reversibel
+  verändern" – die Spikes haben bewusst nie einen Effekt tatsächlich
+  aktiviert/verändert (nur Read-back), um nichts Unbeabsichtigtes hörbar zu
+  verändern. Eine echte hörbare Gain-Änderung wurde noch nicht getestet.
+- „Eine Entscheidung für MVP-Backend und Fallbacks ist schriftlich
+  dokumentiert" – noch nicht als eigenständige Entscheidung in
+  `docs/DECISIONS.md` festgehalten.
+
+M0 ist damit **funktional weitgehend, aber nicht vollständig** abgeschlossen.
+Nächste Wahl: (a) diese zwei Lücken noch schließen, oder (b) mit M1
+(Projektfundament: Hilt, Navigation, Room, DataStore, CI-Ausbau) beginnen
+und die Lücken später nachziehen.
+
+### Session 5 (18. September 2026)
+
+Nutzer entscheidet: weiter mit M1. Vor der Umsetzung von Hilt/Room
+recherchiert und festgestellt: **KSP ist aktuell nicht mit AGP 9s
+eingebautem Kotlin kompatibel** (verifiziert über KSPs eigene
+Build-Konfiguration im offiziellen Repo) und liegt zudem eine Kotlin-Version
+hinter dem Projekt zurück (KSP zielt auf Kotlin 2.3.20, Projekt nutzt
+2.4.20). Zusätzlich ist Detekt mit Kotlin-2.4-Unterstützung nur als Alpha
+verfügbar. Um nicht denselben Fehler wie beim AGP-9-Kotlin-Vorfall zu
+wiederholen (mehrere ungeprüfte Versionskonflikte gleichzeitig einführen),
+M1 bewusst gesplittet:
+
+**Umgesetzt (risikoarmer Teil):**
+- Paketname/Arbeitstitel zentral in `gradle.properties`.
+- `MainViewModel` (+ `MainViewModelFactory`) übernimmt die
+  Repository-Logik aus `MainScreen` – behebt die M1-Abnahmekriterium-Lücke
+  "Keine Geschäftslogik lebt in Composables", ganz ohne Hilt.
+- `AppNavHost` mit Compose Navigation (`home`-Route als Grundgerüst für
+  spätere Feature-Routen).
+- `docs/ARCHITECTURE.md` neu angelegt; `docs/adr/0001-defer-ksp-based-tooling.md`
+  dokumentiert die Versionskonflikte und den geplanten Workaround
+  (`android.builtInKotlin=false` + `kotlin-android` wieder anwenden +
+  Kotlin auf 2.3.20 zurückstufen), **wenn** dieser Schritt später kommt.
+- Log-/Fehlerstrategie als Policy in `docs/ARCHITECTURE.md` dokumentiert.
+- Neuer Unit-Test `MainViewModelTest` (Fake-Repository, testet
+  Toggle-Logik inkl. Dispatcher-Injektion für Determinismus).
+
+**Bewusst zurückgestellt:** Hilt/Room/DataStore-Nutzung/Serialization
+(KSP-Konflikt), Android Lint/ktlint/detekt (Detekt-Alpha-Problem),
+Debug-Menü für Capability-Fakes (aktuell wenig Nutzen ohne echte
+capability-abhängige UI). Details und Begründung in ADR 0001.
+
+**Nächste konkrete Aufgabe:** CI-Ergebnis dieses Durchlaufs abwarten. Bei
+grün: M1-Checkboxen oben endgültig bestätigen. Der Hilt/Room/KSP-Schritt
+und die Detekt-Einrichtung folgen als eigene, isoliert getestete
+Folge-Schritte, sobald gewünscht.
 

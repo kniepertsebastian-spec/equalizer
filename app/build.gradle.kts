@@ -4,15 +4,16 @@ plugins {
 }
 
 android {
-    namespace = "com.hardbasseq.eq"
+    // Roadmap M1: single source of truth is gradle.properties, not this file.
+    namespace = providers.gradleProperty("hardbasseq.namespace").get()
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "com.hardbasseq.eq"
+        applicationId = providers.gradleProperty("hardbasseq.applicationId").get()
         minSdk = 28
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0-m0"
+        versionName = "0.2.0-m1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -36,6 +37,9 @@ android {
 dependencies {
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.navigation.compose)
     implementation(libs.activity.compose)
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
@@ -44,6 +48,7 @@ dependencies {
     implementation(libs.compose.material3)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

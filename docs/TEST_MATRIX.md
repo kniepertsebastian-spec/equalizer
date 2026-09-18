@@ -38,8 +38,31 @@ Gain-Bereich: −15.0…15.0 dB. 5 Bänder gesamt.
 
 Fazit: Pixel 10/Android 16 unterstützt sowohl `Equalizer` als auch alle vier
 getesteten `DynamicsProcessing`-Stufen vollständig. Sehr gute Voraussetzung
-für M2/M3. Noch offen: Open/Close-Control-Intents, Session-`0`-Experiment,
-Emulator-Eintrag (siehe `docs/FEASIBILITY.md`).
+für M2/M3.
+
+## Control-Intents und Session-0-Experiment (Google Pixel 10, Android 16, 18. September 2026)
+
+Getestet über PR #4, Commit `ca03124`.
+
+**Session-0-Experiment:** `[FAIL] Cannot initialize effect engine for type: …`
+(vollständige Fehlermeldung vom Nutzer noch nachzutragen). Sauberes,
+erwartetes Fehlschlagen ohne Crash – bestätigt Roadmap §2's Einschätzung,
+dass Session-`0`-Zugriff geräteabhängig ist und hier nicht funktioniert.
+Kein unterstütztes Feature, wie vorgesehen.
+
+**Control-Intent-Test:** „No broadcasts received back." – reproduziert in
+zwei Durchläufen: erst mit festem 300-ms-Delay (Commit `ca03124`), dann
+erneut mit aktivem Warten bis zu 3 s über einen `Channel`
+(`testControlIntents()`, Commit `066ac6f`). Kein Unterschied – Timing-Problem
+damit ausgeschlossen. Die beiden Actions sind laut AOSP-Quellcode
+(`frameworks/base/core/res/AndroidManifest.xml`) keine `protected broadcasts`;
+Registrierung/Versand folgen dem für API 33+ korrekten Muster
+(`RECEIVER_NOT_EXPORTED`). Eine Pixel-spezifische, nicht öffentlich
+einsehbare Zusatzsperre ist plausibel, aber ohne `adb logcat` am Gerät nicht
+weiter eingrenzbar. **Fazit:** Der klassische Open/Close-Broadcast-Mechanismus
+funktioniert auf diesem Gerät für selbst gesendete Broadcasts nicht
+zuverlässig – dokumentiertes, valides Spike-Ergebnis (kein Blocker, siehe
+`docs/FEASIBILITY.md`).
 
 ## Automatisiert (CI, kein physisches Gerät)
 
