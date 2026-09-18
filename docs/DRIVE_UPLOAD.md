@@ -57,8 +57,19 @@ Danach die heruntergeladene JSON-Datei lokal löschen bzw. sicher aufbewahren.
 
 Sobald das Secret gesetzt ist, läuft der Upload automatisch bei jedem
 `push`/`pull_request`-Build mit (Schritt „Upload debug APK to Google Drive"
-in `.github/workflows/ci.yml`). Ohne gesetztes Secret wird der Schritt
-übersprungen, der Rest der CI bleibt unberührt grün.
+in `.github/workflows/ci.yml`). Der Workflow-Schritt selbst läuft immer;
+`scripts/upload_apk_to_drive.sh` prüft **innerhalb des Skripts**, ob
+`GDRIVE_SA_KEY_JSON` gesetzt ist, und beendet sich sonst sofort mit Erfolg
+(`exit 0`) – ohne gesetztes Secret bleibt der Rest der CI also grün.
+
+**Wichtig (Lessons Learned):** Der ursprüngliche erste Versuch hat die
+Bedingung stattdessen über `if: ${{ secrets.GDRIVE_SA_KEY != '' }}` auf
+Schritt-Ebene geprüft. Das ist **ungültig** – der `secrets`-Kontext steht in
+`if:`-Bedingungen nicht zur Verfügung, GitHub Actions lehnt die komplette
+Workflow-Datei dann mit einem Parse-Fehler ab (0 Jobs, sofortiger roter
+Status, kein Log). Das hat fünf Commits lang die komplette CI lahmgelegt,
+bevor es aufgefallen ist. Deshalb: Secret-Prüfungen immer im Skript/`run:`-Body
+machen, nie in `if:`.
 
 Technischer Hintergrund: Der Workflow-Schritt ruft
 `scripts/upload_apk_to_drive.sh` auf, das sich per JWT-Bearer-Flow

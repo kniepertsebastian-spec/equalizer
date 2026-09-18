@@ -13,7 +13,11 @@
 #   DRIVE_DESCRIPTION   - optional description text set on the Drive file
 set -euo pipefail
 
-: "${GDRIVE_SA_KEY_JSON:?missing}"
+if [ -z "${GDRIVE_SA_KEY_JSON:-}" ]; then
+  echo "GDRIVE_SA_KEY_JSON not set, skipping Google Drive upload (see docs/DRIVE_UPLOAD.md)."
+  exit 0
+fi
+
 : "${GDRIVE_FOLDER_ID:?missing}"
 : "${APK_PATH:?missing}"
 : "${DRIVE_FILE_NAME:?missing}"
