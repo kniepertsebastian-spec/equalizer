@@ -26,18 +26,21 @@ import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
+import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * First-start screen for M0: app name, an (as yet unevaluated) compatibility
- * status placeholder, and a toggle into the debug view that lists the raw
- * effect descriptors returned by [AudioEffectRepository]. Real compatibility
- * evaluation and session attachment land in M2.
+ * status placeholder, a toggle into the debug view that lists the raw
+ * effect descriptors returned by [AudioEffectRepository], and a toggle into
+ * the session-attach spike (roadmap §16). Real compatibility evaluation and
+ * the production EQ engine land in M2/M3.
  */
 @Composable
-fun MainScreen(repository: AudioEffectRepository) {
+fun MainScreen(repository: AudioEffectRepository, spikeController: SessionAttachSpikeController) {
     var showDebugEffects by remember { mutableStateOf(false) }
+    var showSpikeSection by remember { mutableStateOf(false) }
     var descriptors by remember { mutableStateOf<List<AudioEffectDescriptor>>(emptyList()) }
 
     LaunchedEffect(showDebugEffects) {
@@ -78,6 +81,19 @@ fun MainScreen(repository: AudioEffectRepository) {
                         }
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            Button(onClick = { showSpikeSection = !showSpikeSection }) {
+                Text(
+                    stringResource(
+                        if (showSpikeSection) R.string.hide_spike_section else R.string.show_spike_section,
+                    ),
+                )
+            }
+            if (showSpikeSection) {
+                Spacer(modifier = Modifier.height(16.dp))
+                SessionAttachSpikeSection(controller = spikeController)
             }
         }
     }

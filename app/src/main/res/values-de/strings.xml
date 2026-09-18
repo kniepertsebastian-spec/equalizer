@@ -6,4 +6,11 @@
     <string name="hide_debug_effects">Debug-Ansicht ausblenden</string>
     <string name="debug_effects_title">Verfügbare Audioeffekte</string>
     <string name="debug_effects_empty">Keine Effekt-Deskriptoren gefunden.</string>
+    <string name="show_spike_section">Session-Attach-Spike anzeigen (M0)</string>
+    <string name="hide_spike_section">Session-Attach-Spike ausblenden</string>
+    <string name="spike_title">Session-Attach-Spike (M0)</string>
+    <string name="spike_description">Spielt einen leisen Testton in einer eigenen Audio-Session ab, hängt Equalizer/DynamicsProcessing daran und liest die echten Band-/Gain-Fähigkeiten dieses Geräts aus.</string>
+    <string name="spike_start">Testton starten + Effekte prüfen</string>
+    <string name="spike_running">Läuft…</string>
+    <string name="spike_stop">Stoppen</string>
 </resources>
