@@ -309,19 +309,19 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 
 ### M1 – Projektfundament
 
-- [ ] Paketnamen und Arbeitstitel zentral konfigurierbar machen.
-- [ ] Compose Design System, Navigation und Theme erstellen.
-- [ ] Hilt, Coroutines, DataStore, Room und Serialization einrichten.
-- [ ] CI mit `assembleDebug`, Unit Tests, Android Lint, Formatierung und detekt einrichten.
-- [ ] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten.
-- [ ] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen.
-- [ ] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen.
+- [x] Paketnamen und Arbeitstitel zentral konfigurierbar machen. (`gradle.properties`: `hardbasseq.applicationId`/`hardbasseq.namespace`, referenziert aus `app/build.gradle.kts`; Anzeigename bleibt in `strings.xml`.)
+- [ ] Compose Design System, Navigation und Theme erstellen. (Navigation erledigt – `AppNavHost` mit `home`-Route; Theme existierte bereits seit M0; ein ausgebautes Design System mit Typografie-/Spacing-Tokens fehlt noch.)
+- [ ] Hilt, Coroutines, DataStore, Room und Serialization einrichten. (Bewusst zurückgestellt – KSP ist derzeit nicht mit AGP 9s eingebautem Kotlin kompatibel und hinkt zudem der Kotlin-Version hinterher; siehe `docs/adr/0001-defer-ksp-based-tooling.md`. Coroutines werden bereits produktiv genutzt.)
+- [ ] CI mit `assembleDebug`, Unit Tests, Android Lint, Formatierung und detekt einrichten. (`assembleDebug`/Unit-Tests bestehen seit M0; Android Lint, ktlint/Spotless und detekt bewusst zurückgestellt – Detekt mit Kotlin-2.4-Unterstützung ist nur als Alpha verfügbar, siehe ADR 0001.)
+- [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten. (Policy dokumentiert in `docs/ARCHITECTURE.md`; noch keine konkrete Logging-Bibliothek nötig, da noch kein produktiver Logging-Code existiert.)
+- [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen. (`docs/DEPENDENCIES.md` existiert seit M0; `docs/ARCHITECTURE.md` und `docs/adr/0001-...md` neu angelegt.)
+- [ ] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen. (Noch nicht umgesetzt – sinnvoller, sobald M2/M3 echte, capability-abhängige UI haben, die es zu simulieren lohnt.)
 
 Abnahmekriterien:
 
-- Frischer Checkout baut mit einem dokumentierten Befehl.
-- CI ist grün.
-- Keine Geschäftslogik lebt in Composables.
+- Frischer Checkout baut mit einem dokumentierten Befehl. (Unverändert seit M0: `./gradlew assembleDebug`; Verifikation dieses Durchlaufs steht noch aus, siehe CI-Status.)
+- CI ist grün. (Ausstehend für diesen Durchlauf.)
+- Keine Geschäftslogik lebt in Composables. (Erfüllt: `MainViewModel` übernimmt Repository-Zugriff und Dispatcher-Wechsel; `MainScreen` liest nur noch Zustand und leitet Events weiter.)
 
 ### M2 – Audio-Engine und Session-Lebenszyklus
 
@@ -682,4 +682,41 @@ M0 ist damit **funktional weitgehend, aber nicht vollständig** abgeschlossen.
 Nächste Wahl: (a) diese zwei Lücken noch schließen, oder (b) mit M1
 (Projektfundament: Hilt, Navigation, Room, DataStore, CI-Ausbau) beginnen
 und die Lücken später nachziehen.
+
+### Session 5 (18. September 2026)
+
+Nutzer entscheidet: weiter mit M1. Vor der Umsetzung von Hilt/Room
+recherchiert und festgestellt: **KSP ist aktuell nicht mit AGP 9s
+eingebautem Kotlin kompatibel** (verifiziert über KSPs eigene
+Build-Konfiguration im offiziellen Repo) und liegt zudem eine Kotlin-Version
+hinter dem Projekt zurück (KSP zielt auf Kotlin 2.3.20, Projekt nutzt
+2.4.20). Zusätzlich ist Detekt mit Kotlin-2.4-Unterstützung nur als Alpha
+verfügbar. Um nicht denselben Fehler wie beim AGP-9-Kotlin-Vorfall zu
+wiederholen (mehrere ungeprüfte Versionskonflikte gleichzeitig einführen),
+M1 bewusst gesplittet:
+
+**Umgesetzt (risikoarmer Teil):**
+- Paketname/Arbeitstitel zentral in `gradle.properties`.
+- `MainViewModel` (+ `MainViewModelFactory`) übernimmt die
+  Repository-Logik aus `MainScreen` – behebt die M1-Abnahmekriterium-Lücke
+  "Keine Geschäftslogik lebt in Composables", ganz ohne Hilt.
+- `AppNavHost` mit Compose Navigation (`home`-Route als Grundgerüst für
+  spätere Feature-Routen).
+- `docs/ARCHITECTURE.md` neu angelegt; `docs/adr/0001-defer-ksp-based-tooling.md`
+  dokumentiert die Versionskonflikte und den geplanten Workaround
+  (`android.builtInKotlin=false` + `kotlin-android` wieder anwenden +
+  Kotlin auf 2.3.20 zurückstufen), **wenn** dieser Schritt später kommt.
+- Log-/Fehlerstrategie als Policy in `docs/ARCHITECTURE.md` dokumentiert.
+- Neuer Unit-Test `MainViewModelTest` (Fake-Repository, testet
+  Toggle-Logik inkl. Dispatcher-Injektion für Determinismus).
+
+**Bewusst zurückgestellt:** Hilt/Room/DataStore-Nutzung/Serialization
+(KSP-Konflikt), Android Lint/ktlint/detekt (Detekt-Alpha-Problem),
+Debug-Menü für Capability-Fakes (aktuell wenig Nutzen ohne echte
+capability-abhängige UI). Details und Begründung in ADR 0001.
+
+**Nächste konkrete Aufgabe:** CI-Ergebnis dieses Durchlaufs abwarten. Bei
+grün: M1-Checkboxen oben endgültig bestätigen. Der Hilt/Room/KSP-Schritt
+und die Detekt-Einrichtung folgen als eigene, isoliert getestete
+Folge-Schritte, sobald gewünscht.
 

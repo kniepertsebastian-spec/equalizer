@@ -13,7 +13,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,33 +22,28 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.hardbasseq.eq.ui.main.MainViewModel
 
 /**
- * First-start screen for M0: app name, an (as yet unevaluated) compatibility
+ * First-start screen for M0/M1: app name, an (as yet unevaluated) compatibility
  * status placeholder, a toggle into the debug view that lists the raw
  * effect descriptors returned by [AudioEffectRepository], and a toggle into
  * the session-attach spike (roadmap §16). Real compatibility evaluation and
  * the production EQ engine land in M2/M3.
+ *
+ * All business logic (querying effects, dispatcher switching) lives in
+ * [MainViewModel]; this composable only reads state and forwards events.
  */
 @Composable
-fun MainScreen(repository: AudioEffectRepository, spikeController: SessionAttachSpikeController) {
-    var showDebugEffects by remember { mutableStateOf(false) }
+fun MainScreen(viewModel: MainViewModel, spikeController: SessionAttachSpikeController) {
+    val showDebugEffects by viewModel.showDebugEffects.collectAsStateWithLifecycle()
+    val descriptors by viewModel.effectDescriptors.collectAsStateWithLifecycle()
     var showSpikeSection by remember { mutableStateOf(false) }
-    var descriptors by remember { mutableStateOf<List<AudioEffectDescriptor>>(emptyList()) }
-
-    LaunchedEffect(showDebugEffects) {
-        if (showDebugEffects) {
-            descriptors = withContext(Dispatchers.Default) {
-                repository.queryAvailableEffects()
-            }
-        }
-    }
 
     Scaffold { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
@@ -60,7 +54,7 @@ fun MainScreen(repository: AudioEffectRepository, spikeController: SessionAttach
                 label = { Text(stringResource(R.string.compat_status_unknown)) },
             )
             Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = { showDebugEffects = !showDebugEffects }) {
+            Button(onClick = { viewModel.toggleDebugEffects() }) {
                 Text(
                     stringResource(
                         if (showDebugEffects) R.string.hide_debug_effects else R.string.show_debug_effects,
