@@ -32,6 +32,17 @@ uneingeschränkten Internetzugang haben. Solange CI nicht grün bestätigt wurde
 gilt Aufgabe 2 aus Roadmap §16 ("reproduzierbaren Debug-Build herstellen") als
 technisch vorbereitet, aber noch nicht verifiziert.
 
+**Korrektur nach erstem CI-Lauf:** AGP 9.0+ bringt Kotlin-Unterstützung fest
+eingebaut mit ("built-in Kotlin"); das separate Plugin
+`org.jetbrains.kotlin.android` darf danach nicht mehr angewendet werden und
+lässt den Build fehlschlagen
+(https://developer.android.com/build/migrate-to-built-in-kotlin). Entfernt aus
+`build.gradle.kts` (root + `app/`) und aus `gradle/libs.versions.toml`. Das
+Compose-Compiler-Plugin `org.jetbrains.kotlin.plugin.compose` bleibt
+weiterhin nötig und angewendet. `kotlinOptions { jvmTarget = "17" }` wurde
+ebenfalls entfernt, da der JVM-Target-Wert laut Migrationsleitfaden automatisch
+von `android.compileOptions.targetCompatibility` übernommen wird.
+
 ## Lokaler Build (sobald ein Android SDK verfügbar ist)
 
 ```bash
