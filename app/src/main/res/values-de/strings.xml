@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">HardBass EQ</string>
+    <string name="compat_status_unknown">Kompatibilität noch nicht geprüft</string>
+    <string name="show_debug_effects">Audioeffekte anzeigen (Debug)</string>
+    <string name="hide_debug_effects">Debug-Ansicht ausblenden</string>
+    <string name="debug_effects_title">Verfügbare Audioeffekte</string>
+    <string name="debug_effects_empty">Keine Effekt-Deskriptoren gefunden.</string>
+</resources>
