@@ -1,12 +1,13 @@
 package com.hardbasseq.eq.ui.main
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
+import com.hardbasseq.eq.di.DefaultDispatcher
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,9 +25,10 @@ import kotlinx.coroutines.withContext
  * already a plain, testable class driven by simple UI event handlers - that
  * is not the kind of embedded business logic this criterion targets.
  */
-class MainViewModel(
+@HiltViewModel
+class MainViewModel @Inject constructor(
     private val repository: AudioEffectRepository,
-    private val backgroundDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val _showDebugEffects = MutableStateFlow(false)
@@ -45,12 +47,5 @@ class MainViewModel(
                 }
             }
         }
-    }
-}
-
-class MainViewModelFactory(private val repository: AudioEffectRepository) : ViewModelProvider.Factory {
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        @Suppress("UNCHECKED_CAST")
-        return MainViewModel(repository) as T
     }
 }

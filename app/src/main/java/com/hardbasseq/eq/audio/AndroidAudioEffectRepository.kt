@@ -1,6 +1,7 @@
 package com.hardbasseq.eq.audio
 
 import android.media.audiofx.AudioEffect
+import javax.inject.Inject
 
 /**
  * Android-backed [AudioEffectRepository]. Wraps the static,
@@ -8,7 +9,7 @@ import android.media.audiofx.AudioEffect
  * *which* effect engines exist on this device/OS build – it says nothing
  * about band counts or gain ranges, and it does not attach to any session.
  */
-class AndroidAudioEffectRepository : AudioEffectRepository {
+class AndroidAudioEffectRepository @Inject constructor() : AudioEffectRepository {
 
     override val knownEffectTypeIds: KnownEffectTypeIds = KnownEffectTypeIds(
         equalizer = AudioEffect.EFFECT_TYPE_EQUALIZER,

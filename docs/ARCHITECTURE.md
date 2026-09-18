@@ -43,11 +43,16 @@ integriert: Er ist explizit als M0-Wegwerf-Diagnosecode markiert (siehe
 
 ## Dependency Injection
 
-Aktuell manuelle Konstruktion über eine `ViewModelProvider.Factory`
-(`MainViewModelFactory`), keine DI-Bibliothek. Hilt ist für M1 vorgesehen,
-aber bewusst noch nicht eingerichtet – siehe
-`docs/adr/0001-defer-ksp-based-tooling.md` für die Begründung
-(Versionskonflikt zwischen KSP und AGP 9s eingebautem Kotlin).
+Hilt (`@HiltAndroidApp` auf `HardBassEqApplication`, `@AndroidEntryPoint`
+auf `MainActivity`, `@HiltViewModel` auf `MainViewModel`, injiziert über
+`hiltViewModel()` in `AppNavHost`). `AudioModule` bindet
+`AudioEffectRepository` auf `AndroidAudioEffectRepository`;
+`DispatcherModule` stellt einen qualifizierten `@DefaultDispatcher`
+bereit. Das dafür nötige KSP-Tooling kollidiert mit AGP 9s eingebautem
+Kotlin – siehe `docs/adr/0001-defer-ksp-based-tooling.md` (Problem) und
+`docs/adr/0002-hilt-ksp-setup.md` (umgesetzter Workaround: Kotlin auf
+2.3.20, `android.builtInKotlin=false`, `org.jetbrains.kotlin.android`
+wieder angewendet).
 
 ## Navigation
 

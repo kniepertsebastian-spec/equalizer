@@ -2,6 +2,9 @@ package com.hardbasseq.eq.audio.spike
 
 import android.content.Context
 import android.media.AudioManager
+import dagger.hilt.android.qualifiers.ApplicationContext
+import javax.inject.Inject
+import javax.inject.Singleton
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -27,7 +30,8 @@ data class ControlIntentTestResult(
  * "Erstellen, Anwenden und Freigeben seriell über einen Mutex ... Bei
  * Session-Wechsel alte Effekte immer in finally freigeben").
  */
-class SessionAttachSpikeController(context: Context) {
+@Singleton
+class SessionAttachSpikeController @Inject constructor(@ApplicationContext context: Context) {
 
     private val appContext = context.applicationContext
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
