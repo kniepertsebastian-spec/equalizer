@@ -37,6 +37,23 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      # Optional: pushes the debug APK to a shared Google Drive folder so it
+      # can be installed on a phone without downloading it from GitHub. Only
+      # runs once the GDRIVE_SA_KEY secret is configured (see
+      # docs/DRIVE_UPLOAD.md); skipped silently until then, so CI stays green
+      # either way.
+      - name: Upload debug APK to Google Drive
+        if: ${{ success() && secrets.GDRIVE_SA_KEY != '' }}
+        env:
+          GDRIVE_SA_KEY_JSON: ${{ secrets.GDRIVE_SA_KEY }}
+          GDRIVE_FOLDER_ID: "1xtR1iAIItwWrOco71gJG46bzRMHFnuhh"
+          DRIVE_FILE_NAME: "HardBassEQ-debug-latest.apk"
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' | head -n1)
+          export APK_PATH
+          export DRIVE_DESCRIPTION="Branch ${{ github.ref_name }} · Commit ${{ github.sha }} · Run ${{ github.run_id }} · $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          ./scripts/upload_apk_to_drive.sh
+
       - name: Upload unit test results
         if: always()
         uses: actions/upload-artifact@v4
