@@ -311,7 +311,7 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 
 - [x] Paketnamen und Arbeitstitel zentral konfigurierbar machen. (`gradle.properties`: `hardbasseq.applicationId`/`hardbasseq.namespace`, referenziert aus `app/build.gradle.kts`; Anzeigename bleibt in `strings.xml`.)
 - [ ] Compose Design System, Navigation und Theme erstellen. (Navigation erledigt – `AppNavHost` mit `home`-Route; Theme existierte bereits seit M0; ein ausgebautes Design System mit Typografie-/Spacing-Tokens fehlt noch.)
-- [ ] Hilt, Coroutines, DataStore, Room und Serialization einrichten. (Bewusst zurückgestellt – KSP ist derzeit nicht mit AGP 9s eingebautem Kotlin kompatibel und hinkt zudem der Kotlin-Version hinterher; siehe `docs/adr/0001-defer-ksp-based-tooling.md`. Coroutines werden bereits produktiv genutzt.)
+- [ ] Hilt, Coroutines, DataStore, Room und Serialization einrichten. (Hilt + Coroutines jetzt eingerichtet und verwendet – Kotlin dafür gezielt auf 2.3.20 zurückgestuft, `android.builtInKotlin=false`, `kotlin-android` wieder angewendet, siehe `docs/adr/0002-hilt-ksp-setup.md`. DataStore/Room/Serialization weiterhin zurückgestellt auf M4, siehe ADR 0001. Checkbox bleibt offen, bis CI dieses Durchlaufs grün bestätigt ist.)
 - [ ] CI mit `assembleDebug`, Unit Tests, Android Lint, Formatierung und detekt einrichten. (`assembleDebug`/Unit-Tests bestehen seit M0; Android Lint, ktlint/Spotless und detekt bewusst zurückgestellt – Detekt mit Kotlin-2.4-Unterstützung ist nur als Alpha verfügbar, siehe ADR 0001.)
 - [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten. (Policy dokumentiert in `docs/ARCHITECTURE.md`; noch keine konkrete Logging-Bibliothek nötig, da noch kein produktiver Logging-Code existiert.)
 - [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen. (`docs/DEPENDENCIES.md` existiert seit M0; `docs/ARCHITECTURE.md` und `docs/adr/0001-...md` neu angelegt.)
@@ -719,4 +719,31 @@ capability-abhängige UI). Details und Begründung in ADR 0001.
 grün: M1-Checkboxen oben endgültig bestätigen. Der Hilt/Room/KSP-Schritt
 und die Detekt-Einrichtung folgen als eigene, isoliert getestete
 Folge-Schritte, sobald gewünscht.
+
+### Session 6 (18. September 2026)
+
+Nutzer hat pauschale Merge-Freigabe erteilt (außer bei Punkten, die
+explizit am Handy getestet werden müssen) – PR #4 direkt gemerged.
+Anschließend eigenständig entschieden, mit dem in ADR 0001 skizzierten
+Hilt/KSP-Workaround weiterzumachen, da er gut recherchiert und isoliert
+umsetzbar war.
+
+Umgesetzt: Kotlin auf `2.3.20` zurückgestuft (KSP-kompatibel),
+`android.builtInKotlin=false`, `org.jetbrains.kotlin.android`
+wiederangewendet, KSP `2.3.12`, Hilt `2.59.2` eingerichtet. `MainViewModel`
+ist jetzt `@HiltViewModel`, `SessionAttachSpikeController` und
+`AndroidAudioEffectRepository` sind `@Inject`-konstruierbar,
+`MainViewModelFactory` entfernt. Neues ADR 0002 dokumentiert die konkret
+verwendeten Versionen. Details in `docs/adr/0002-hilt-ksp-setup.md`,
+`docs/DEPENDENCIES.md`, `docs/ARCHITECTURE.md`.
+
+Bewusst weiterhin zurückgestellt: Room/DataStore-Nutzung/Serialization
+(Gradle-Wiring als möglicher kleiner Folge-Schritt, sobald dieser Umbau
+grün ist), Android Lint/ktlint/detekt.
+
+**Nächste konkrete Aufgabe:** CI-Ergebnis dieses (risikoreicheren, weil
+Kotlin-Versions-Downgrade + neue Plugins gleichzeitig) Durchlaufs sorgfältig
+prüfen, bei Rot Root Cause diagnostizieren statt zu raten (wie beim
+AGP-9-Vorfall). Bei Grün: M1-Checkbox für Hilt/Coroutines endgültig
+abhaken.
 

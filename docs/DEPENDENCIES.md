@@ -43,6 +43,15 @@ weiterhin nötig und angewendet. `kotlinOptions { jvmTarget = "17" }` wurde
 ebenfalls entfernt, da der JVM-Target-Wert laut Migrationsleitfaden automatisch
 von `android.compileOptions.targetCompatibility` übernommen wird.
 
+**Korrektur für M1 (Hilt/KSP):** KSP (für Hilt/Room benötigt) unterstützt
+AGP 9s eingebautes Kotlin noch nicht und hinkt zudem der Kotlin-Version
+hinterher (zielt auf `2.3.20`, nicht `2.4.20`). Kotlin daher auf `2.3.20`
+zurückgestuft, `android.builtInKotlin=false` gesetzt und
+`org.jetbrains.kotlin.android` wieder angewendet – Details und Begründung
+in `docs/adr/0001-defer-ksp-based-tooling.md` und
+`docs/adr/0002-hilt-ksp-setup.md`. Neu dazugekommen: KSP `2.3.12`, Hilt
+`2.59.2`, `androidx.hilt:hilt-navigation-compose` `1.4.0`.
+
 ## Lokaler Build (sobald ein Android SDK verfügbar ist)
 
 ```bash
