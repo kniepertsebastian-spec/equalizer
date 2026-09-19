@@ -1,6 +1,5 @@
 package com.hardbasseq.eq.audio
 
-import android.media.audiofx.AudioEffect
 import android.media.audiofx.DynamicsProcessing
 import android.media.audiofx.Equalizer
 import android.os.Build

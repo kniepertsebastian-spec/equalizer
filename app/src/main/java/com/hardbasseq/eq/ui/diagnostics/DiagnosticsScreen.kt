@@ -23,7 +23,6 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.audio.AudioCapabilities
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
