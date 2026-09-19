@@ -172,7 +172,8 @@ class MainViewModel
         private fun automaticInputGainDb(bandGainsDb: Map<Int, Float>): Float {
             val peakBoostDb = bandGainsDb.values.maxOrNull()?.coerceAtLeast(0f) ?: 0f
             val presetHeadroomDb = _activePreset.value.requestedHeadroomDb.coerceAtLeast(0f)
-            return -maxOf(peakBoostDb, presetHeadroomDb)
+            val requiredHeadroomDb = maxOf(peakBoostDb, presetHeadroomDb)
+            return if (requiredHeadroomDb == 0f) 0f else -requiredHeadroomDb
         }
 
         private fun applySettings(settings: ProcessingSettings) {
