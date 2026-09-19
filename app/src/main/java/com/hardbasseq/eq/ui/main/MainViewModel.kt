@@ -131,7 +131,11 @@ class MainViewModel
         ) {
             val currentGains = _processingSettings.value.bandGainsDb.toMutableMap()
             currentGains[bandIndex] = gainDb
-            val newSettings = _processingSettings.value.copy(bandGainsDb = currentGains)
+            val newSettings =
+                _processingSettings.value.copy(
+                    bandGainsDb = currentGains,
+                    inputGainDb = automaticInputGainDb(currentGains),
+                )
             applySettings(newSettings)
         }
 
@@ -144,7 +148,11 @@ class MainViewModel
                     macroPunchDb = _processingSettings.value.macroPunchDb,
                     macroHaerteDb = _processingSettings.value.macroHaerteDb,
                 )
-            val newSettings = _processingSettings.value.copy(bandGainsDb = calculatedGains)
+            val newSettings =
+                _processingSettings.value.copy(
+                    bandGainsDb = calculatedGains,
+                    inputGainDb = automaticInputGainDb(calculatedGains),
+                )
             applySettings(newSettings)
         }
 
@@ -156,7 +164,16 @@ class MainViewModel
                 macroHaerteDb = preset.macroHaerteDb,
                 limiterEnabled = preset.limiter.enabled,
                 limiterThresholdDb = preset.limiter.thresholdDb,
+                mbcEnabled = preset.mbcEnabled,
+                mbcThresholdDb = preset.mbcThresholdDb,
+                mbcRatio = preset.mbcRatio,
             )
+
+        private fun automaticInputGainDb(bandGainsDb: Map<Int, Float>): Float {
+            val peakBoostDb = bandGainsDb.values.maxOrNull()?.coerceAtLeast(0f) ?: 0f
+            val presetHeadroomDb = _activePreset.value.requestedHeadroomDb.coerceAtLeast(0f)
+            return -maxOf(peakBoostDb, presetHeadroomDb)
+        }
 
         private fun applySettings(settings: ProcessingSettings) {
             _processingSettings.value = settings

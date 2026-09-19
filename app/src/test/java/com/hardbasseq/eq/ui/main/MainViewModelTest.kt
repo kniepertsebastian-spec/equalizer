@@ -86,11 +86,51 @@ class MainViewModelTest {
             assertEquals(BuiltInPresets.DeepRumble.macroBassDb, viewModel.processingSettings.value.macroBassDb)
             assertEquals(BuiltInPresets.DeepRumble.macroPunchDb, viewModel.processingSettings.value.macroPunchDb)
             assertEquals(BuiltInPresets.DeepRumble.macroHaerteDb, viewModel.processingSettings.value.macroHaerteDb)
-            assertEquals(-BuiltInPresets.DeepRumble.requestedHeadroomDb, viewModel.processingSettings.value.inputGainDb)
+            val peakBoostDb =
+                viewModel.processingSettings.value.bandGainsDb.values
+                    .maxOrNull()
+                    ?.coerceAtLeast(0f) ?: 0f
+            val expectedInputGainDb = -maxOf(BuiltInPresets.DeepRumble.requestedHeadroomDb, peakBoostDb)
+            assertEquals(expectedInputGainDb, viewModel.processingSettings.value.inputGainDb)
+            assertEquals(BuiltInPresets.DeepRumble.mbcThresholdDb, viewModel.processingSettings.value.mbcThresholdDb)
+            assertEquals(BuiltInPresets.DeepRumble.mbcRatio, viewModel.processingSettings.value.mbcRatio)
+            assertTrue(viewModel.processingSettings.value.mbcEnabled)
             assertTrue(
                 viewModel.processingSettings.value.bandGainsDb
                     .isNotEmpty(),
             )
+        }
+
+    @Test
+    fun `manual boost automatically reserves matching headroom`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setBandGain(bandIndex = 0, gainDb = 8f)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(-8f, viewModel.processingSettings.value.inputGainDb)
+            assertEquals(8f, viewModel.processingSettings.value.bandGainsDb[0])
+        }
+
+    @Test
+    fun `flat preset disables dynamics and resets controls`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val settings = viewModel.processingSettings.value
+            assertEquals(0f, settings.macroBassDb)
+            assertEquals(0f, settings.macroPunchDb)
+            assertEquals(0f, settings.macroHaerteDb)
+            assertEquals(0f, settings.inputGainDb)
+            assertFalse(settings.mbcEnabled)
+            assertFalse(settings.limiterEnabled)
+            assertTrue(settings.bandGainsDb.values.all { it == 0f })
         }
 
     private fun createViewModel(descriptors: List<AudioEffectDescriptor>): MainViewModel =
