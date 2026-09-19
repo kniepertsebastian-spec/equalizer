@@ -13,8 +13,9 @@ import android.media.AudioTrack
  * session or the global mix (session `0`) — see roadmap §2 on why that
  * distinction matters.
  */
-class TestTonePlayer(private val audioManager: AudioManager) {
-
+class TestTonePlayer(
+    private val audioManager: AudioManager,
+) {
     private var audioTrack: AudioTrack? = null
 
     val audioSessionId: Int
@@ -27,34 +28,37 @@ class TestTonePlayer(private val audioManager: AudioManager) {
         if (audioTrack != null) return
 
         val sampleRate = 44_100
-        val mono = SineWaveGenerator.generateMonoPcm16(
-            sampleRateHz = sampleRate,
-            frequencyHz = frequencyHz,
-            durationSeconds = 1.0,
-        )
+        val mono =
+            SineWaveGenerator.generateMonoPcm16(
+                sampleRateHz = sampleRate,
+                frequencyHz = frequencyHz,
+                durationSeconds = 1.0,
+            )
         val stereo = SineWaveGenerator.interleaveStereo(mono)
         val frameCount = stereo.size / 2
 
         val sessionId = audioManager.generateAudioSessionId()
 
-        val track = AudioTrack.Builder()
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build(),
-            )
-            .setAudioFormat(
-                AudioFormat.Builder()
-                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(sampleRate)
-                    .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
-                    .build(),
-            )
-            .setBufferSizeInBytes(stereo.size * Short.SIZE_BYTES)
-            .setTransferMode(AudioTrack.MODE_STATIC)
-            .setSessionId(sessionId)
-            .build()
+        val track =
+            AudioTrack
+                .Builder()
+                .setAudioAttributes(
+                    AudioAttributes
+                        .Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build(),
+                ).setAudioFormat(
+                    AudioFormat
+                        .Builder()
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                        .build(),
+                ).setBufferSizeInBytes(stereo.size * Short.SIZE_BYTES)
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .setSessionId(sessionId)
+                .build()
 
         track.write(stereo, 0, stereo.size)
         track.setLoopPoints(0, frameCount, -1)

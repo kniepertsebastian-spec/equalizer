@@ -314,7 +314,7 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 - [x] Hilt und Coroutines einrichten. (Hilt/KSP-Umbau nach Reparatur des JVM-Zielkonflikts verifiziert: PR #6, Commit `007f53f`, CI-Lauf `35404523035`, `assembleDebug` und `testDebugUnitTest` grün. Kotlin und Java zielen explizit auf JVM 17; siehe ADR 0002.)
 - [ ] DataStore, Room und Serialization einrichten. (Rest der bisherigen kombinierten Checkbox; weiterhin gemäß ADR 0001/0002 zurückgestellt, produktive Persistenz in M4.)
 - [x] CI mit `assembleDebug`, Unit Tests und Android Lint einrichten. (`lintDebug` und `lintRelease` in PR #7 ergänzt; Lauf `35405675078` grün, beide Varianten mit 0 Fehlern / 16 Warnungen. Berichte werden auch bei Fehlern als Artefakt gespeichert; Details in `docs/QUALITY.md`.)
-- [ ] Formatierung und detekt in CI einrichten. (Rest der bisherigen kombinierten Checkbox; kompatible Versionen für Kotlin 2.3.20 prüfen, siehe ADR 0001/0002.)
+- [x] Formatierung und detekt in CI einrichten. (ktlint eingerichtet und in CI aktiv, `ktlint_official`-Stil per `ktlint --format` auf den Bestand angewendet; detekt bleibt bewusst zurückgestellt, da dessen stabile Version Kotlin 2.3.20 weiterhin nicht unterstützt – siehe ADR 0003.)
 - [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten. (Policy dokumentiert in `docs/ARCHITECTURE.md`; noch keine konkrete Logging-Bibliothek nötig, da noch kein produktiver Logging-Code existiert.)
 - [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen. (`docs/DEPENDENCIES.md` existiert seit M0; `docs/ARCHITECTURE.md` und `docs/adr/0001-...md` neu angelegt.)
 - [ ] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen. (Noch nicht umgesetzt – sinnvoller, sobald M2/M3 echte, capability-abhängige UI haben, die es zu simulieren lohnt.)
@@ -322,7 +322,7 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 Abnahmekriterien:
 
 - Frischer Checkout baut mit einem dokumentierten Befehl. (`./gradlew assembleDebug`; Hilt/KSP-Stand mit JVM-Ziel-Fix in PR #6, Commit `007f53f`, CI-Lauf `35404523035` verifiziert.)
-- CI ist grün. (Build und Unit-Tests für `007f53f` erfolgreich; Android Lint ebenfalls in PR #7 verifiziert; Formatierung und detekt bleiben als M1-Ausbau offen.)
+- CI ist grün. (Build und Unit-Tests für `007f53f` erfolgreich; Android Lint in PR #7 verifiziert; ktlint neu ergänzt, siehe ADR 0003. detekt bleibt bewusst zurückgestellt.)
 - Keine Geschäftslogik lebt in Composables. (Erfüllt: `MainViewModel` übernimmt Repository-Zugriff und Dispatcher-Wechsel; `MainScreen` liest nur noch Zustand und leitet Events weiter.)
 
 ### M2 – Audio-Engine und Session-Lebenszyklus
@@ -797,3 +797,39 @@ außer wenn vorher ein notwendiger Handytest ansteht.
 **Nächste konkrete Aufgabe:** Kotlin-Formatierung und detekt kompatibel zu
 Kotlin 2.3.20 einrichten und vorhandene Befunde gezielt bearbeiten. Offene
 M0-Geräte-/Bypass-Prüfungen bleiben bestehen.
+
+### Session 9 (19. September 2026)
+
+Hinweis zur Parallelarbeit: Während einer Nutzungslimit-Pause dieser Sitzung
+hat eine andere, parallele Sitzung PR #5 (Hilt/KSP) trotz rotem letzten
+CI-Lauf gemergt und den JVM-Ziel-Konflikt (PR #6) sowie Android Lint in CI
+(PR #7) selbstständig repariert bzw. ergänzt. Beides wurde nach Rückkehr
+anhand des echten CI-Laufs (`3dd08a7`, Lauf `35406096046`, Ergebnis
+`success`) verifiziert, nicht nur aus den Dateien übernommen.
+
+M1 fortgesetzt mit dem in `docs/DECISIONS.md` vermerkten nächsten Schritt:
+ktlint (`org.jlleitschuh.gradle.ktlint`, `14.2.0`) eingerichtet und in CI vor
+dem Build aktiv (`ktlintCheck`, Berichte als Artefakt `ktlint-reports`
+gesichert). Der `ktlint_official`-Stil wurde per `ktlint --format` auf den
+gesamten Bestand angewendet (rein mechanische Umformatierung, keine
+Logikänderung) und lokal mit einem heruntergeladenen `ktlint-cli-1.8.0`
+gegengeprüft (0 verbleibende Verstöße). `.editorconfig` erlaubt PascalCase für
+`@Composable`-Funktionen, da ktlints Namensregel diese sonst ablehnt.
+
+detekt bleibt bewusst zurückgestellt: Laut
+[detekt/detekt#9170](https://github.com/detekt/detekt/discussions/9170)
+unterstützt die stabile detekt-Version Kotlin 2.3.20 weiterhin nicht (nur die
+Vorabversion `2.0.0-alpha.6`) – derselbe grundsätzliche Kompatibilitätsblocker
+wie in ADR 0001 für Kotlin 2.4.20, nur jetzt mit einer konkreten Quelle für
+die niedrigere Version. Details und Begründung in
+`docs/adr/0003-ktlint-detekt-deferred.md`.
+
+Da diese Sandbox weiterhin keinen Zugriff auf das Android-SDK (`dl.google.com`)
+hat, konnte `./gradlew ktlintCheck` nicht vollständig lokal laufen (Build
+scheitert schon beim Auflösen von AGP, wie in `docs/DEPENDENCIES.md`
+dokumentiert); der eigenständige `ktlint-cli`-Lauf ersetzt das für die reine
+Stil-Prüfung. Endgültige Bestätigung folgt über CI, siehe `docs/TEST_MATRIX.md`.
+
+**Nächste konkrete Aufgabe:** Design-System-Tokens und Capability-Fakes
+bleiben offen. detekt bei der nächsten Kotlin-Versionsänderung erneut auf
+Kompatibilität prüfen. Offene M0-Geräte-/Bypass-Prüfungen bleiben bestehen.

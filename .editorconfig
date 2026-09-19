@@ -1,0 +1,6 @@
+root = true
+
+[*.{kt,kts}]
+# Jetpack Compose composables are conventionally named in PascalCase, which
+# ktlint_official's standard naming rule otherwise rejects as a function name.
+ktlint_function_naming_ignore_when_annotated_with = Composable

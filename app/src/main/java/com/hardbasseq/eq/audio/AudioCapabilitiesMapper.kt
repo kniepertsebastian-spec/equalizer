@@ -6,7 +6,6 @@ package com.hardbasseq.eq.audio
  * test.
  */
 object AudioCapabilitiesMapper {
-
     fun map(
         descriptors: List<AudioEffectDescriptor>,
         knownTypes: KnownEffectTypeIds,

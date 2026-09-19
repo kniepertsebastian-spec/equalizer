@@ -40,7 +40,10 @@ import com.hardbasseq.eq.ui.main.MainViewModel
  * [MainViewModel]; this composable only reads state and forwards events.
  */
 @Composable
-fun MainScreen(viewModel: MainViewModel, spikeController: SessionAttachSpikeController) {
+fun MainScreen(
+    viewModel: MainViewModel,
+    spikeController: SessionAttachSpikeController,
+) {
     val showDebugEffects by viewModel.showDebugEffects.collectAsStateWithLifecycle()
     val descriptors by viewModel.effectDescriptors.collectAsStateWithLifecycle()
     var showSpikeSection by remember { mutableStateOf(false) }
@@ -97,9 +100,10 @@ fun MainScreen(viewModel: MainViewModel, spikeController: SessionAttachSpikeCont
 private fun EffectDescriptorRow(descriptor: AudioEffectDescriptor) {
     val description = "${descriptor.name}, ${descriptor.implementor}, ${descriptor.connectMode}"
     Column(
-        modifier = Modifier
-            .padding(vertical = 6.dp)
-            .semantics { contentDescription = description },
+        modifier =
+            Modifier
+                .padding(vertical = 6.dp)
+                .semantics { contentDescription = description },
     ) {
         Text(text = descriptor.name, style = MaterialTheme.typography.bodyLarge)
         Text(

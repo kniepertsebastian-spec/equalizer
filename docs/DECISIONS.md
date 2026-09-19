@@ -38,9 +38,14 @@ Punkt 10).
 
 ## Nächste konkrete Aufgabe
 
-Android Lint für Debug und Release ist in PR #7 erfolgreich eingerichtet;
-als Nächstes Formatierung und detekt mit geprüften, kompatiblen Versionen
-ergänzen. Design-System-Tokens und Capability-Fakes bleiben ebenfalls offen.
+Android Lint für Debug und Release ist in PR #7 erfolgreich eingerichtet.
+ktlint ist jetzt ebenfalls eingerichtet und in CI aktiv (`ktlint_official`-Stil,
+bestehender Code per `ktlint --format` automatisch angepasst). detekt bleibt
+bewusst zurückgestellt: seine stabile Version unterstützt Kotlin 2.3.20 laut
+[detekt/detekt#9170](https://github.com/detekt/detekt/discussions/9170)
+weiterhin nicht (nur `2.0.0-alpha.6`) – siehe ADR 0003. Als Nächstes:
+Design-System-Tokens und Capability-Fakes bleiben offen; detekt bei der
+nächsten Kotlin-Versionsänderung erneut auf Kompatibilität prüfen.
 
 Die M0-Restpunkte (Emulator, hörbare reversible Änderung/Bypass und
 schriftliche MVP-Backend-/Fallback-Entscheidung) bleiben ausdrücklich offen.

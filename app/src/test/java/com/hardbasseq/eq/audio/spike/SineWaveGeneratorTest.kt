@@ -5,14 +5,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SineWaveGeneratorTest {
-
     @Test
     fun `frame count matches sample rate times duration`() {
-        val samples = SineWaveGenerator.generateMonoPcm16(
-            sampleRateHz = 44_100,
-            frequencyHz = 220.0,
-            durationSeconds = 1.0,
-        )
+        val samples =
+            SineWaveGenerator.generateMonoPcm16(
+                sampleRateHz = 44_100,
+                frequencyHz = 220.0,
+                durationSeconds = 1.0,
+            )
 
         assertEquals(44_100, samples.size)
     }
@@ -20,12 +20,13 @@ class SineWaveGeneratorTest {
     @Test
     fun `first sample is zero, amplitude stays within requested bound`() {
         val amplitude = 0.2
-        val samples = SineWaveGenerator.generateMonoPcm16(
-            sampleRateHz = 44_100,
-            frequencyHz = 220.0,
-            durationSeconds = 1.0,
-            amplitude = amplitude,
-        )
+        val samples =
+            SineWaveGenerator.generateMonoPcm16(
+                sampleRateHz = 44_100,
+                frequencyHz = 220.0,
+                durationSeconds = 1.0,
+                amplitude = amplitude,
+            )
 
         assertEquals(0, samples[0].toInt())
         val maxAllowed = (amplitude * Short.MAX_VALUE).toInt() + 1

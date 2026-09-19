@@ -22,15 +22,15 @@ data class SessionZeroProbeResult(
  * as a guarantee.
  */
 object SessionZeroExperiment {
-
     fun probe(): SessionZeroProbeResult {
         var equalizer: Equalizer? = null
         return try {
             equalizer = Equalizer(0, 0)
             SessionZeroProbeResult(
                 attachSucceeded = true,
-                detail = "Construction succeeded, ${equalizer.numberOfBands} bands reported. " +
-                    "Never enabled; released immediately.",
+                detail =
+                    "Construction succeeded, ${equalizer.numberOfBands} bands reported. " +
+                        "Never enabled; released immediately.",
             )
         } catch (e: Exception) {
             SessionZeroProbeResult(attachSucceeded = false, detail = e.message ?: e.toString())
