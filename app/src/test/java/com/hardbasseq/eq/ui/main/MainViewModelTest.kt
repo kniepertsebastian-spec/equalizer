@@ -83,6 +83,10 @@ class MainViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertEquals(BuiltInPresets.DeepRumble.macroBassDb, viewModel.processingSettings.value.macroBassDb)
+            assertEquals(BuiltInPresets.DeepRumble.macroPunchDb, viewModel.processingSettings.value.macroPunchDb)
+            assertEquals(BuiltInPresets.DeepRumble.macroHaerteDb, viewModel.processingSettings.value.macroHaerteDb)
+            assertEquals(-BuiltInPresets.DeepRumble.requestedHeadroomDb, viewModel.processingSettings.value.inputGainDb)
             assertTrue(
                 viewModel.processingSettings.value.bandGainsDb
                     .isNotEmpty(),

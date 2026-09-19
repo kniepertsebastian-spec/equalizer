@@ -13,6 +13,9 @@ object BuiltInPresets {
                     TargetPoint(3500f, 1.0f),
                     TargetPoint(8500f, -1.0f),
                 ),
+            macroBassDb = 1.5f,
+            macroPunchDb = 1.5f,
+            macroHaerteDb = 0.5f,
             requestedHeadroomDb = 4.0f,
             metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
         )
@@ -28,6 +31,9 @@ object BuiltInPresets {
                     TargetPoint(280f, -2.5f),
                     TargetPoint(4000f, 0.0f),
                 ),
+            macroBassDb = 2.0f,
+            macroPunchDb = 0.5f,
+            macroHaerteDb = -0.5f,
             requestedHeadroomDb = 5.0f,
             metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
         )
@@ -43,6 +49,9 @@ object BuiltInPresets {
                     TargetPoint(300f, -1.5f),
                     TargetPoint(4000f, 0.5f),
                 ),
+            macroBassDb = 0.5f,
+            macroPunchDb = 0.75f,
+            macroHaerteDb = 0.25f,
             requestedHeadroomDb = 3.0f,
             metadata = PresetMetadata(genre = "hard-dance", builtIn = true),
         )
