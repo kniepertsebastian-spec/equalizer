@@ -45,30 +45,46 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `toggling on queries the repository and exposes descriptors`() = runTest {
-        val descriptor = fakeDescriptor("Fake Equalizer")
-        val viewModel = createViewModel(listOf(descriptor))
+    fun `toggling on queries the repository and exposes descriptors`() =
+        runTest {
+            val descriptor = fakeDescriptor("Fake Equalizer")
+            val viewModel = createViewModel(listOf(descriptor))
 
-        assertFalse(viewModel.showDebugEffects.value)
-        assertTrue(viewModel.effectDescriptors.value.isEmpty())
+            assertFalse(viewModel.showDebugEffects.value)
+            assertTrue(viewModel.effectDescriptors.value.isEmpty())
 
-        viewModel.toggleDebugEffects()
-        dispatcher.scheduler.advanceUntilIdle()
+            viewModel.toggleDebugEffects()
+            dispatcher.scheduler.advanceUntilIdle()
 
-        assertTrue(viewModel.showDebugEffects.value)
-        assertEquals(listOf(descriptor), viewModel.effectDescriptors.value)
-    }
+            assertTrue(viewModel.showDebugEffects.value)
+            assertEquals(listOf(descriptor), viewModel.effectDescriptors.value)
+        }
 
     @Test
-    fun `selectPreset updates active preset and interpolates gains`() = runTest {
-        val viewModel = createViewModel(emptyList())
+    fun `toggling off hides the list without discarding loaded descriptors`() =
+        runTest {
+            val descriptor = fakeDescriptor("Fake Equalizer")
+            val viewModel = createViewModel(listOf(descriptor))
 
-        viewModel.selectPreset(BuiltInPresets.DeepRumble)
-        dispatcher.scheduler.advanceUntilIdle()
+            viewModel.toggleDebugEffects()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.toggleDebugEffects()
 
-        assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
-        assertTrue(viewModel.processingSettings.value.bandGainsDb.isNotEmpty())
-    }
+            assertFalse(viewModel.showDebugEffects.value)
+            assertEquals(listOf(descriptor), viewModel.effectDescriptors.value)
+        }
+
+    @Test
+    fun `selectPreset updates active preset and interpolates gains`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertTrue(viewModel.processingSettings.value.bandGainsDb.isNotEmpty())
+        }
 
     private fun createViewModel(descriptors: List<AudioEffectDescriptor>): MainViewModel {
         return MainViewModel(

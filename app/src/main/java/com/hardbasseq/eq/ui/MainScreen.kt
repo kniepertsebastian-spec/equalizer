@@ -97,9 +97,10 @@ fun MainScreen(
 private fun EffectDescriptorRow(descriptor: AudioEffectDescriptor) {
     val description = "${descriptor.name}, ${descriptor.implementor}, ${descriptor.connectMode}"
     Column(
-        modifier = Modifier
-            .padding(vertical = 4.dp)
-            .semantics { contentDescription = description },
+        modifier =
+            Modifier
+                .padding(vertical = 6.dp)
+                .semantics { contentDescription = description },
     ) {
         Text(text = descriptor.name, style = MaterialTheme.typography.bodyLarge)
         Text(
