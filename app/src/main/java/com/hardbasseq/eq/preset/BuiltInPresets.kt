@@ -42,6 +42,28 @@ object BuiltInPresets {
             metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
         )
 
+    val KickAttack =
+        Preset(
+            id = "builtin_kick_attack",
+            name = "Uptempo – Kick Attack",
+            targetCurve =
+                listOf(
+                    TargetPoint(50f, 3.0f),
+                    TargetPoint(100f, 2.5f),
+                    TargetPoint(250f, -3.0f),
+                    TargetPoint(3200f, 1.5f),
+                    TargetPoint(6000f, -1.0f),
+                    TargetPoint(10000f, -0.5f),
+                ),
+            macroBassDb = 1.0f,
+            macroPunchDb = 2.0f,
+            macroHaerteDb = 1.0f,
+            requestedHeadroomDb = 4.5f,
+            mbcThresholdDb = -6.0f,
+            mbcRatio = 3.0f,
+            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
+        )
+
     val Balanced =
         Preset(
             id = "builtin_balanced",
@@ -80,5 +102,5 @@ object BuiltInPresets {
             metadata = PresetMetadata(genre = "neutral", builtIn = true),
         )
 
-    val all = listOf(CleanPunch, DeepRumble, Balanced, Flat)
+    val all = listOf(CleanPunch, DeepRumble, KickAttack, Balanced, Flat)
 }

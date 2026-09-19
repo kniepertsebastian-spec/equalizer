@@ -734,3 +734,64 @@ und größtenteils solide, aber "die Roadmap ist durch" trifft nicht zu: M4 ist
 praktisch nicht begonnen, M6 nur teilweise. Empfehlung: PR mergen für den
 soliden Kern (M2/M3-DSP, Diagnose), M4/Lokalisierung/Onboarding als eigene,
 nachvollziehbare Folge-Schritte planen statt als bereits erledigt zu führen.
+
+### Session 11 (19. September 2026)
+
+Nutzer meldet zwei konkrete Probleme mit einem Screenshot: (1) Der Equalizer
+erkennt die Audio-Session nicht, wenn Spotify vor HardBass EQ geöffnet und
+gestartet wird; (2) die Hauptansicht wirkt "bugged" – die Debug-Buttonleiste
+läuft über den Bildschirmrand hinaus. Zusätzliche Frage: lässt sich Uptempo
+Hardcore mit vorhandenen/weiteren Features noch besser abbilden?
+
+**Root Cause (1), keine neue Erkenntnis, sondern Bestätigung eines bereits in
+Session 4 dokumentierten Befunds:** `AudioSessionRepository` registriert den
+`ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`-Empfänger erst, wenn
+`MainViewModel` erzeugt wird (App-UI wird geöffnet). Dieser Broadcast feuert
+laut Android-Doku nur **einmal**, wenn der Player seine Session anlegt – i. d.
+R. beim ersten Wiedergabestart nach Prozessstart des Players. Öffnet der
+Nutzer zuerst Spotify und startet Wiedergabe, bevor HardBass EQ läuft, ist der
+Broadcast unwiderruflich verpasst; es gibt keine öffentliche API, um aktive
+Audio-Sessions anderer Apps nachträglich abzufragen. Der M0-Spike hatte zudem
+bereits gezeigt, dass selbst *selbst gesendete* Broadcasts auf dem Pixel
+10/Android 16 nicht beim eigenen Empfänger ankommen – der Mechanismus ist
+also auch unabhängig vom Timing-Problem nicht zuverlässig. Die einzige robuste
+Lösung wäre ein dauerhaft laufender Foreground-Service, der schon lauscht,
+bevor der Player überhaupt startet – das widerspricht aber bewusst §6/M2
+("keine dauerhaft laufende Foreground-Service-Lösung als Voreinstellung",
+"nicht einführen, bevor sie technisch und Play-Policy-seitig begründet ist").
+Das ist eine Produktentscheidung (Akku, Dauerbenachrichtigung, neue
+Berechtigung) und wurde daher **nicht** eigenmächtig umgesetzt, sondern dem
+Nutzer zur Entscheidung vorgelegt statt still implementiert oder ignoriert.
+Stattdessen ergänzt: ein Hinweis-Card in `EqualizerScreen`, der bei Status
+"Wartet auf Audio-Session" sichtbar wird und erklärt, warum das passiert und
+was hilft (Titel pausieren/erneut abspielen, Player neu starten während
+HardBass EQ offen bleibt).
+
+**Root Cause (2), neuer Fund:** `MainScreen`s Debug-Werkzeugleiste
+(„Diagnose & Report“ / „Audioeffekte anzeigen (Debug)“ / „Session-Attach-Spike
+anzeigen (M0)“) steht in einer normalen `Row` ohne `horizontalScroll` oder
+Umbruch. Mit den (im Screenshot sichtbaren) deutschen Strings aus
+`values-de/strings.xml` passen nicht einmal zwei der drei Buttons vollständig
+auf einen Bildschirm – der dritte Button war komplett unerreichbar, ohne dass
+es einen sichtbaren Hinweis darauf gab. Gleiches latentes Problem in der
+`Presets`-Card in `EqualizerScreen` (FilterChip-`Row` ohne Scroll), akut
+relevant, weil dieser Review ein fünftes Preset ergänzt. Beide Zeilen sind
+jetzt horizontal scrollbar (`Modifier.horizontalScroll(rememberScrollState())`).
+
+**Uptempo-Hardcore-Feature:** Neues Built-in-Preset „Uptempo – Kick Attack“
+(`BuiltInPresets.KickAttack`) ergänzt, gezielt auf den harten, extrem
+transienten Kick und die "Screech"-Charakteristik von Uptempo Hardcore
+zugeschnitten statt auf reinen Bass: strafferer Sub (50 Hz +3 dB), stärkerer
+Kick-Punch (100 Hz +2,5 dB), tieferer Mud-Cut bei 250 Hz (−3 dB) für
+Durchsetzungsfähigkeit im Wall-of-Sound-Mix, Anhebung bei 3,2 kHz (+1,5 dB)
+für Kick-Attack-Definition und Screech-Durchsetzung, plus leichte Absenkung
+bei 6–10 kHz, um die ohnehin meist schon sehr laut/hart gemasterten
+Hardcore-Tracks nicht zusätzlich zu verschärfen. `mbcRatio` bewusst höher
+(3.0) für strafferes Einfangen der repetitiven Kick-Transienten.
+
+**Nicht umgesetzt, dem Nutzer zur Entscheidung vorgelegt:** dauerhafter
+Foreground-Service für zuverlässigere Session-Erkennung (s. o.); ein
+zusätzlicher Makroregler speziell für Kick-Attack/Screech statt nur über
+Presets. Build weiterhin nicht lokal verifizierbar (kein Android-SDK-Zugriff
+in dieser Sandbox, wie in allen vorherigen Sessions) – Verifikation über CI
+und ggf. erneuten Gerätetest durch den Nutzer.
