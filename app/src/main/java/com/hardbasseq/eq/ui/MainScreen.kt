@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -64,8 +66,16 @@ fun MainScreen(
                 modifier = Modifier.weight(1f),
             )
 
-            // Diagnostics and Debug Tools bar
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            // Diagnostics and Debug Tools bar. Horizontally scrollable because the
+            // German labels (e.g. "Session-Attach-Spike anzeigen (M0)") don't fit
+            // three buttons on a single screen width - without scrolling, the third
+            // button was pushed off-screen and unreachable.
+            Row(
+                modifier =
+                    Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
                 OutlinedButton(onClick = onNavigateToDiagnostics) {
                     Text("Diagnose & Report")
                 }

@@ -2,6 +2,7 @@ package com.hardbasseq.eq.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -164,6 +166,49 @@ fun EqualizerScreen(
             }
         }
 
+        // No-session guidance: the OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast this
+        // app relies on to find a player's audio session only fires once, when that
+        // session is first created - if HardBass EQ wasn't already listening at that
+        // moment (e.g. Spotify was opened and started playing first), the broadcast
+        // is missed for good and there is no API to query it after the fact. Explain
+        // that instead of leaving the user staring at "Wartet auf Audio-Session".
+        AnimatedVisibility(visible = state is AudioEngineState.Detached) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Row(
+                    modifier = Modifier.padding(spacing.medium),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "Hinweis",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(spacing.small))
+                    Column {
+                        Text(
+                            text = "Keine Audio-Session gefunden",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text =
+                                "HardBass EQ erkennt eine Session nur, wenn die App bereits läuft, " +
+                                    "wenn die Wiedergabe startet. Läuft Spotify o.ä. schon, hilft meist: " +
+                                    "Titel pausieren und erneut abspielen, zum nächsten Titel springen, " +
+                                    "oder die Player-App einmal schließen und neu starten, während HardBass " +
+                                    "EQ im Hintergrund geöffnet bleibt.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
         // Presets Selector Card
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -177,7 +222,10 @@ fun EqualizerScreen(
                 )
                 Spacer(modifier = Modifier.height(spacing.small))
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(spacing.small),
                 ) {
                     BuiltInPresets.all.forEach { preset ->
