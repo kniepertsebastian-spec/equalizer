@@ -7,14 +7,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
@@ -22,6 +19,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -55,17 +53,14 @@ fun EqualizerScreen(
     onMacroPunchChanged: (Float) -> Unit,
     onMacroHaerteChanged: (Float) -> Unit,
     onBandGainChanged: (bandIndex: Int, gainDb: Float) -> Unit,
+    onReconnect: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
     val headroom = EqualizerInterpolator.calculateHeadroom(settings.bandGainsDb)
 
     Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(spacing.medium),
+        modifier = modifier.fillMaxWidth().padding(spacing.medium),
         verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         // Top Header Card: Master Switch, Status, Active Route
@@ -112,18 +107,32 @@ fun EqualizerScreen(
                         is AudioEngineState.Unsupported -> "Nicht unterstützt" to MaterialTheme.colorScheme.errorContainer
                     }
 
-                Box(
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(statusBg)
-                            .padding(horizontal = spacing.small, vertical = spacing.extraSmall),
-                ) {
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(statusBg)
+                                .padding(horizontal = spacing.small, vertical = spacing.extraSmall),
+                    ) {
+                        Text(
+                            text = statusText,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+
+                    // These two states never recover on their own - collecting a new
+                    // AudioSession or a route change is what normally re-attaches, but
+                    // if neither happens (e.g. the same session's effect handle just
+                    // went stale) the user would otherwise be stuck with a working UI
+                    // that no longer changes anything audible.
+                    if (state is AudioEngineState.LostControl || state is AudioEngineState.Error) {
+                        Spacer(modifier = Modifier.width(spacing.small))
+                        OutlinedButton(onClick = onReconnect) {
+                            Text("Neu verbinden", style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
                 }
             }
         }
@@ -146,16 +155,19 @@ fun EqualizerScreen(
                     Spacer(modifier = Modifier.width(spacing.small))
                     Column {
                         Text(
-                            text = "Clipping-Schutz aktiv",
+                            text = "Clipping-Risiko",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                         Text(
-                            text = "Anhebung +${String.format(
-                                "%.1f",
-                                headroom.maxPositiveGainDb,
-                            )} dB. Empfohlene Absenkung: ${String.format("%.1f", headroom.recommendedInputGainDb)} dB.",
+                            text =
+                                "Das lauteste Band ist um +${
+                                    String.format("%.1f", headroom.maxPositiveGainDb)
+                                } dB angehoben. Bei vollem Ausgangspegel kann das den Klang übersteuern (Clipping). " +
+                                    "Empfehlung: Systemlautstärke um ${
+                                        String.format("%.1f", -headroom.recommendedInputGainDb)
+                                    } dB reduzieren, oder die Bänder unten sanfter einstellen.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
@@ -174,6 +186,13 @@ fun EqualizerScreen(
                     text = "Presets",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text =
+                        "Fertige Klangbilder für Uptempo/Hard Dance als Ausgangspunkt. " +
+                            "Danach unten mit den Makro-Reglern oder dem Grafischen EQ feinjustieren.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(spacing.small))
                 Row(
@@ -201,6 +220,13 @@ fun EqualizerScreen(
                     text = "Makro-Regler",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text =
+                        "Schnellzugriff, der mehrere Bänder gleichzeitig verschiebt. " +
+                            "Kleine Schritte (1-2 dB) reichen meist; mehr erhöht das Clipping-Risiko oben.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(modifier = Modifier.height(spacing.small))
 
@@ -255,6 +281,13 @@ fun EqualizerScreen(
                         )
                     }
                 }
+                Text(
+                    text =
+                        "Die tatsächlichen Bänder dieses Geräts, einzeln einstellbar. " +
+                            "\"Bypass\" schaltet kurz auf Flat zurück, um A/B zu vergleichen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
 
                 Spacer(modifier = Modifier.height(spacing.small))
 
