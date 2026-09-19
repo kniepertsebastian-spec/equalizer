@@ -13,3 +13,8 @@ val HardBassDarkSurface = Color(0xFF1E1E22)
 val HardBassDarkSurfaceVariant = Color(0xFF2C2C32)
 val HardBassOnDark = Color(0xFFE1E1E6)
 val HardBassSubtext = Color(0xFFA0A0B0)
+
+// Card outline and background-texture accents for the industrial/hardcore look.
+val HardBassCardBorder = Color(0x26FFFFFF)
+val HardBassBackgroundStreak = Color(0x09FFFFFF)
+val HardBassBackgroundAccent = Color(0x1FFF5722)

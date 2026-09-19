@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -48,7 +49,7 @@ fun MainScreen(
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
     var showSpikeSection by remember { mutableStateOf(false) }
 
-    Scaffold { padding ->
+    Scaffold(containerColor = Color.Transparent) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             EqualizerScreen(
                 state = engineState,

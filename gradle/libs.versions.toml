@@ -47,6 +47,7 @@ compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 junit = { module = "junit:junit", version.ref = "junit" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 
