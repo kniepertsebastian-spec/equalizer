@@ -47,7 +47,8 @@ class MainViewModel
         private val _activePreset = MutableStateFlow<Preset>(BuiltInPresets.CleanPunch)
         val activePreset: StateFlow<Preset> = _activePreset.asStateFlow()
 
-        private val _processingSettings = MutableStateFlow(ProcessingSettings())
+        private val _processingSettings =
+            MutableStateFlow(ProcessingSettings().withPreset(BuiltInPresets.CleanPunch))
         val processingSettings: StateFlow<ProcessingSettings> = _processingSettings.asStateFlow()
 
         init {
@@ -92,15 +93,7 @@ class MainViewModel
 
         fun selectPreset(preset: Preset) {
             _activePreset.value = preset
-            _processingSettings.value =
-                _processingSettings.value.copy(
-                    inputGainDb = -preset.requestedHeadroomDb,
-                    macroBassDb = preset.macroBassDb,
-                    macroPunchDb = preset.macroPunchDb,
-                    macroHaerteDb = preset.macroHaerteDb,
-                    limiterEnabled = preset.limiter.enabled,
-                    limiterThresholdDb = preset.limiter.thresholdDb,
-                )
+            _processingSettings.value = _processingSettings.value.withPreset(preset)
             recalculateBandGains()
         }
 
@@ -154,6 +147,16 @@ class MainViewModel
             val newSettings = _processingSettings.value.copy(bandGainsDb = calculatedGains)
             applySettings(newSettings)
         }
+
+        private fun ProcessingSettings.withPreset(preset: Preset): ProcessingSettings =
+            copy(
+                inputGainDb = -preset.requestedHeadroomDb,
+                macroBassDb = preset.macroBassDb,
+                macroPunchDb = preset.macroPunchDb,
+                macroHaerteDb = preset.macroHaerteDb,
+                limiterEnabled = preset.limiter.enabled,
+                limiterThresholdDb = preset.limiter.thresholdDb,
+            )
 
         private fun applySettings(settings: ProcessingSettings) {
             _processingSettings.value = settings
