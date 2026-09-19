@@ -43,21 +43,22 @@ fun DiagnosticsScreen(
     val reportText = DiagnosticsReportFormatter.generateReport(state, capabilities, route)
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(spacing.medium),
-        verticalArrangement = Arrangement.spacedBy(spacing.medium)
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(spacing.medium),
+        verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "Diagnose & Systemstatus",
                 style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
             Button(onClick = {
                 clipboardManager.setText(AnnotatedString(reportText))
@@ -68,14 +69,14 @@ fun DiagnosticsScreen(
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             SelectionContainer {
                 Text(
                     text = reportText,
                     style = MaterialTheme.typography.bodySmall,
                     fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(spacing.medium)
+                    modifier = Modifier.padding(spacing.medium),
                 )
             }
         }
@@ -84,7 +85,7 @@ fun DiagnosticsScreen(
 
         Button(
             onClick = onBackClicked,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Zurück zum Equalizer")
         }

@@ -8,21 +8,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsReportFormatterTest {
-
     @Test
     fun generateReport_containsEssentialDiagnosticInfo() {
-        val capabilities = AudioCapabilities(
-            hasEqualizer = true,
-            hasDynamicsProcessing = true,
-            bands = listOf(EqualizerBandCapabilities(0, 60, -15f, 15f))
-        )
+        val capabilities =
+            AudioCapabilities(
+                hasEqualizer = true,
+                hasDynamicsProcessing = true,
+                bands = listOf(EqualizerBandCapabilities(0, 60, -15f, 15f)),
+            )
         val route = AudioRoute()
 
-        val report = DiagnosticsReportFormatter.generateReport(
-            engineState = AudioEngineState.Active(123),
-            capabilities = capabilities,
-            route = route,
-        )
+        val report =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Active(123),
+                capabilities = capabilities,
+                route = route,
+            )
 
         assertTrue(report.contains("HardBass EQ Diagnostic Report"))
         assertTrue(report.contains("Has Equalizer: true"))

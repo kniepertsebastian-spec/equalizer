@@ -7,37 +7,39 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 
-private val DarkColorScheme = darkColorScheme(
-    primary = HardBassOrange,
-    onPrimary = HardBassDarkBackground,
-    primaryContainer = HardBassOrangeVariant,
-    onPrimaryContainer = HardBassOnDark,
-    secondary = HardBassYellow,
-    onSecondary = HardBassDarkBackground,
-    background = HardBassDarkBackground,
-    onBackground = HardBassOnDark,
-    surface = HardBassDarkSurface,
-    onSurface = HardBassOnDark,
-    surfaceVariant = HardBassDarkSurfaceVariant,
-    onSurfaceVariant = HardBassSubtext,
-    error = HardBassRed,
-)
+private val DarkColorScheme =
+    darkColorScheme(
+        primary = HardBassOrange,
+        onPrimary = HardBassDarkBackground,
+        primaryContainer = HardBassOrangeVariant,
+        onPrimaryContainer = HardBassOnDark,
+        secondary = HardBassYellow,
+        onSecondary = HardBassDarkBackground,
+        background = HardBassDarkBackground,
+        onBackground = HardBassOnDark,
+        surface = HardBassDarkSurface,
+        onSurface = HardBassOnDark,
+        surfaceVariant = HardBassDarkSurfaceVariant,
+        onSurfaceVariant = HardBassSubtext,
+        error = HardBassRed,
+    )
 
-private val LightColorScheme = lightColorScheme(
-    primary = HardBassOrangeVariant,
-    onPrimary = HardBassOnDark,
-    primaryContainer = HardBassOrange,
-    onPrimaryContainer = HardBassDarkBackground,
-    secondary = HardBassYellow,
-    onSecondary = HardBassDarkBackground,
-    background = HardBassDarkBackground,
-    onBackground = HardBassOnDark,
-    surface = HardBassDarkSurface,
-    onSurface = HardBassOnDark,
-    surfaceVariant = HardBassDarkSurfaceVariant,
-    onSurfaceVariant = HardBassSubtext,
-    error = HardBassRed,
-)
+private val LightColorScheme =
+    lightColorScheme(
+        primary = HardBassOrangeVariant,
+        onPrimary = HardBassOnDark,
+        primaryContainer = HardBassOrange,
+        onPrimaryContainer = HardBassDarkBackground,
+        secondary = HardBassYellow,
+        onSecondary = HardBassDarkBackground,
+        background = HardBassDarkBackground,
+        onBackground = HardBassOnDark,
+        surface = HardBassDarkSurface,
+        onSurface = HardBassOnDark,
+        surfaceVariant = HardBassDarkSurfaceVariant,
+        onSurfaceVariant = HardBassSubtext,
+        error = HardBassRed,
+    )
 
 @Composable
 fun HardBassEqTheme(

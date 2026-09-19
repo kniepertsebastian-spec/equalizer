@@ -5,7 +5,6 @@ import com.hardbasseq.eq.preset.Preset
 import kotlin.math.log10
 
 object EqualizerInterpolator {
-
     fun interpolatePresetToBands(
         preset: Preset,
         bands: List<EqualizerBandCapabilities>,
@@ -27,12 +26,13 @@ object EqualizerInterpolator {
             var interpolatedGain = interpolateFrequency(freqHz, sortedPoints)
 
             // Apply Macros
-            interpolatedGain += calculateMacroDelta(
-                freqHz = freqHz,
-                macroBassDb = macroBassDb,
-                macroPunchDb = macroPunchDb,
-                macroHaerteDb = macroHaerteDb
-            )
+            interpolatedGain +=
+                calculateMacroDelta(
+                    freqHz = freqHz,
+                    macroBassDb = macroBassDb,
+                    macroPunchDb = macroPunchDb,
+                    macroHaerteDb = macroHaerteDb,
+                )
 
             // Clamp to band capabilities
             val clampedGain = interpolatedGain.coerceIn(band.minGainDb, band.maxGainDb)
@@ -42,7 +42,10 @@ object EqualizerInterpolator {
         return result
     }
 
-    fun interpolateFrequency(freqHz: Float, sortedPoints: List<com.hardbasseq.eq.preset.TargetPoint>): Float {
+    fun interpolateFrequency(
+        freqHz: Float,
+        sortedPoints: List<com.hardbasseq.eq.preset.TargetPoint>,
+    ): Float {
         if (sortedPoints.isEmpty()) return 0f
         if (freqHz <= sortedPoints.first().frequencyHz) return sortedPoints.first().gainDb
         if (freqHz >= sortedPoints.last().frequencyHz) return sortedPoints.last().gainDb

@@ -4,20 +4,18 @@ import com.hardbasseq.eq.preset.Preset
 import kotlinx.serialization.json.Json
 
 object PresetJsonSerializer {
-
-    private val json = Json {
-        ignoreUnknownKeys = true
-        prettyPrint = true
-    }
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            prettyPrint = true
+        }
 
     private const val MAX_JSON_SIZE_BYTES = 100 * 1024 // 100 KB limit
 
-    fun exportToJson(preset: Preset): String {
-        return json.encodeToString(Preset.serializer(), preset)
-    }
+    fun exportToJson(preset: Preset): String = json.encodeToString(Preset.serializer(), preset)
 
-    fun importFromJson(jsonString: String): Result<Preset> {
-        return runCatching {
+    fun importFromJson(jsonString: String): Result<Preset> =
+        runCatching {
             if (jsonString.toByteArray(Charsets.UTF_8).size > MAX_JSON_SIZE_BYTES) {
                 throw IllegalArgumentException("Preset JSON exceeds maximum size limit (100 KB)")
             }
@@ -47,5 +45,4 @@ object PresetJsonSerializer {
 
             preset
         }
-    }
 }

@@ -24,7 +24,7 @@ fun AppNavHost(spikeController: SessionAttachSpikeController) {
             MainScreen(
                 viewModel = viewModel,
                 spikeController = spikeController,
-                onNavigateToDiagnostics = { navController.navigate(ROUTE_DIAGNOSTICS) }
+                onNavigateToDiagnostics = { navController.navigate(ROUTE_DIAGNOSTICS) },
             )
         }
         composable(ROUTE_DIAGNOSTICS) {
@@ -37,7 +37,7 @@ fun AppNavHost(spikeController: SessionAttachSpikeController) {
                 state = state,
                 capabilities = capabilities,
                 route = route,
-                onBackClicked = { navController.popBackStack() }
+                onBackClicked = { navController.popBackStack() },
             )
         }
     }

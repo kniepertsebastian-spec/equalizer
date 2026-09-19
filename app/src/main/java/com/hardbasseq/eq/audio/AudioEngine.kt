@@ -8,6 +8,8 @@ interface AudioEngine {
     val currentSettings: StateFlow<ProcessingSettings>
 
     suspend fun attach(session: AudioSession): Boolean
+
     suspend fun detach()
+
     suspend fun apply(settings: ProcessingSettings): Boolean
 }

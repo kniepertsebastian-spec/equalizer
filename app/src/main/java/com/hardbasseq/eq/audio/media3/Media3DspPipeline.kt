@@ -4,8 +4,10 @@ import com.hardbasseq.eq.audio.ProcessingSettings
 import kotlin.math.pow
 
 class Media3DspPipeline {
-
-    fun processAudioFramePcm16(pcmSamples: ShortArray, settings: ProcessingSettings): ShortArray {
+    fun processAudioFramePcm16(
+        pcmSamples: ShortArray,
+        settings: ProcessingSettings,
+    ): ShortArray {
         if (!settings.masterEnabled || settings.bypass) {
             return pcmSamples
         }

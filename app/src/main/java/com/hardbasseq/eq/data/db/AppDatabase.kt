@@ -12,5 +12,6 @@ import com.hardbasseq.eq.data.profile.DeviceProfileEntity
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun presetDao(): PresetDao
+
     abstract fun deviceProfileDao(): DeviceProfileDao
 }

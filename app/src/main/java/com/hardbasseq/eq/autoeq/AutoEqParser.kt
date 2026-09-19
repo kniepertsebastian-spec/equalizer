@@ -5,9 +5,11 @@ import com.hardbasseq.eq.preset.PresetMetadata
 import com.hardbasseq.eq.preset.TargetPoint
 
 object AutoEqParser {
-
-    fun parseAutoEqText(presetName: String, text: String): Result<Preset> {
-        return runCatching {
+    fun parseAutoEqText(
+        presetName: String,
+        text: String,
+    ): Result<Preset> =
+        runCatching {
             val targetPoints = mutableListOf<TargetPoint>()
 
             // AutoEQ GraphicEQ format line example: "GraphicEQ: 20 0; 40 1.5; 80 2.5; 160 -1.0"
@@ -54,8 +56,7 @@ object AutoEqParser {
                 name = presetName,
                 targetCurve = sortedPoints,
                 requestedHeadroomDb = (maxPosGain + 1.0f).coerceAtLeast(0f),
-                metadata = PresetMetadata(genre = "autoeq", builtIn = false)
+                metadata = PresetMetadata(genre = "autoeq", builtIn = false),
             )
         }
-    }
 }

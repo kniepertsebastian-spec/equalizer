@@ -61,65 +61,68 @@ fun EqualizerScreen(
     val headroom = EqualizerInterpolator.calculateHeadroom(settings.bandGainsDb)
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(spacing.medium),
-        verticalArrangement = Arrangement.spacedBy(spacing.medium)
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(spacing.medium),
+        verticalArrangement = Arrangement.spacedBy(spacing.medium),
     ) {
         // Top Header Card: Master Switch, Status, Active Route
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column {
                         Text(
                             text = "HardBass EQ",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
                         )
                         Text(
                             text = "Route: ${route.name}",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     Switch(
                         checked = settings.masterEnabled,
-                        onCheckedChange = onMasterToggled
+                        onCheckedChange = onMasterToggled,
                     )
                 }
 
                 Spacer(modifier = Modifier.height(spacing.small))
 
                 // Engine Status Chip
-                val (statusText, statusBg) = when (state) {
-                    is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to MaterialTheme.colorScheme.primaryContainer
-                    is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to MaterialTheme.colorScheme.surfaceVariant
-                    is AudioEngineState.Detached -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
-                    is AudioEngineState.LostControl -> "Kontrollverlust" to MaterialTheme.colorScheme.errorContainer
-                    is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
-                    is AudioEngineState.Suspended -> "Pausiert: ${state.reason}" to MaterialTheme.colorScheme.surfaceVariant
-                    is AudioEngineState.Unsupported -> "Nicht unterstützt" to MaterialTheme.colorScheme.errorContainer
-                }
+                val (statusText, statusBg) =
+                    when (state) {
+                        is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to MaterialTheme.colorScheme.primaryContainer
+                        is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.Detached -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.LostControl -> "Kontrollverlust" to MaterialTheme.colorScheme.errorContainer
+                        is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
+                        is AudioEngineState.Suspended -> "Pausiert: ${state.reason}" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.Unsupported -> "Nicht unterstützt" to MaterialTheme.colorScheme.errorContainer
+                    }
 
                 Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(statusBg)
-                        .padding(horizontal = spacing.small, vertical = spacing.extraSmall)
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(statusBg)
+                            .padding(horizontal = spacing.small, vertical = spacing.extraSmall),
                 ) {
                     Text(
                         text = statusText,
                         style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
                     )
                 }
             }
@@ -129,16 +132,16 @@ fun EqualizerScreen(
         AnimatedVisibility(visible = headroom.isClippingRisk && settings.masterEnabled) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
             ) {
                 Row(
                     modifier = Modifier.padding(spacing.medium),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Warning,
                         contentDescription = "Clipping Warnung",
-                        tint = MaterialTheme.colorScheme.error
+                        tint = MaterialTheme.colorScheme.error,
                     )
                     Spacer(modifier = Modifier.width(spacing.small))
                     Column {
@@ -146,12 +149,15 @@ fun EqualizerScreen(
                             text = "Clipping-Schutz aktiv",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                         Text(
-                            text = "Anhebung +${String.format("%.1f", headroom.maxPositiveGainDb)} dB. Empfohlene Absenkung: ${String.format("%.1f", headroom.recommendedInputGainDb)} dB.",
+                            text = "Anhebung +${String.format(
+                                "%.1f",
+                                headroom.maxPositiveGainDb,
+                            )} dB. Empfohlene Absenkung: ${String.format("%.1f", headroom.recommendedInputGainDb)} dB.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer
+                            color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                     }
                 }
@@ -161,24 +167,24 @@ fun EqualizerScreen(
         // Presets Selector Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Text(
                     text = "Presets",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(spacing.small))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.small)
+                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
                 ) {
                     BuiltInPresets.all.forEach { preset ->
                         FilterChip(
                             selected = activePreset.id == preset.id,
                             onClick = { onPresetSelected(preset) },
-                            label = { Text(preset.name, fontSize = 12.sp) }
+                            label = { Text(preset.name, fontSize = 12.sp) },
                         )
                     }
                 }
@@ -188,13 +194,13 @@ fun EqualizerScreen(
         // Macro Controls Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Text(
                     text = "Makro-Regler",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(spacing.small))
 
@@ -203,7 +209,7 @@ fun EqualizerScreen(
                 Slider(
                     value = settings.macroBassDb,
                     onValueChange = onMacroBassChanged,
-                    valueRange = -6f..6f
+                    valueRange = -6f..6f,
                 )
 
                 // Punch Macro
@@ -211,7 +217,7 @@ fun EqualizerScreen(
                 Slider(
                     value = settings.macroPunchDb,
                     onValueChange = onMacroPunchChanged,
-                    valueRange = -6f..6f
+                    valueRange = -6f..6f,
                 )
 
                 // Härte Macro
@@ -219,7 +225,7 @@ fun EqualizerScreen(
                 Slider(
                     value = settings.macroHaerteDb,
                     onValueChange = onMacroHaerteChanged,
-                    valueRange = -2f..2f
+                    valueRange = -2f..2f,
                 )
             }
         }
@@ -227,25 +233,25 @@ fun EqualizerScreen(
         // Dynamic Equalizer Bands Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = "Grafischer EQ (${bands.size} Bänder)",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(text = "Bypass", style = MaterialTheme.typography.bodySmall)
                         Spacer(modifier = Modifier.width(spacing.extraSmall))
                         Switch(
                             checked = settings.bypass,
-                            onCheckedChange = onBypassToggled
+                            onCheckedChange = onBypassToggled,
                         )
                     }
                 }
@@ -259,7 +265,7 @@ fun EqualizerScreen(
                     Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(text = freqLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                             Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
@@ -267,7 +273,7 @@ fun EqualizerScreen(
                         Slider(
                             value = gainDb,
                             onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
-                            valueRange = band.minGainDb..band.maxGainDb
+                            valueRange = band.minGainDb..band.maxGainDb,
                         )
                     }
                 }
@@ -276,10 +282,9 @@ fun EqualizerScreen(
     }
 }
 
-private fun formatFrequency(centerFreqHz: Int): String {
-    return if (centerFreqHz >= 1000) {
+private fun formatFrequency(centerFreqHz: Int): String =
+    if (centerFreqHz >= 1000) {
         "${centerFreqHz / 1000} kHz"
     } else {
         "$centerFreqHz Hz"
     }
-}

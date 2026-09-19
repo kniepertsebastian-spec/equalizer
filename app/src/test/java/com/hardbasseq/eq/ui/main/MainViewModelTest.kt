@@ -83,18 +83,20 @@ class MainViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
-            assertTrue(viewModel.processingSettings.value.bandGainsDb.isNotEmpty())
+            assertTrue(
+                viewModel.processingSettings.value.bandGainsDb
+                    .isNotEmpty(),
+            )
         }
 
-    private fun createViewModel(descriptors: List<AudioEffectDescriptor>): MainViewModel {
-        return MainViewModel(
+    private fun createViewModel(descriptors: List<AudioEffectDescriptor>): MainViewModel =
+        MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
             audioEngine = fakeEngine,
             sessionRepository = fakeSessionRepo,
             routeRepository = fakeRouteRepo,
             backgroundDispatcher = dispatcher,
         )
-    }
 
     private fun fakeDescriptor(name: String) =
         AudioEffectDescriptor(
@@ -127,7 +129,9 @@ class MainViewModelTest {
         override val activeSession: StateFlow<AudioSession?> = _activeSession.asStateFlow()
 
         override fun startListening() {}
+
         override fun stopListening() {}
+
         override fun setActiveSession(session: AudioSession?) {
             _activeSession.value = session
         }
@@ -138,6 +142,7 @@ class MainViewModelTest {
         override val activeRoute: StateFlow<AudioRoute> = _activeRoute.asStateFlow()
 
         override fun startMonitoring() {}
+
         override fun stopMonitoring() {}
     }
 }

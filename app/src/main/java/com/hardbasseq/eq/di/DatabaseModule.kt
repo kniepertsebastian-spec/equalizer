@@ -15,16 +15,18 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-
     @Provides
     @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
-        return Room.databaseBuilder(
-            context,
-            AppDatabase::class.java,
-            "hardbasseq.db"
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
-    }
+    fun provideAppDatabase(
+        @ApplicationContext context: Context,
+    ): AppDatabase =
+        Room
+            .databaseBuilder(
+                context,
+                AppDatabase::class.java,
+                "hardbasseq.db",
+            ).fallbackToDestructiveMigration(dropAllTables = true)
+            .build()
 
     @Provides
     fun providePresetDao(db: AppDatabase): PresetDao = db.presetDao()

@@ -6,13 +6,12 @@ import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 
 object DiagnosticsReportFormatter {
-
     fun generateReport(
         engineState: AudioEngineState,
         capabilities: AudioCapabilities,
         route: AudioRoute,
-    ): String {
-        return buildString {
+    ): String =
+        buildString {
             appendLine("=== HardBass EQ Diagnostic Report ===")
             appendLine("App Version: 0.6.0-m6")
             appendLine("Android API Level: ${Build.VERSION.SDK_INT}")
@@ -34,5 +33,4 @@ object DiagnosticsReportFormatter {
             }
             appendLine("====================================")
         }
-    }
 }

@@ -5,7 +5,6 @@ import kotlin.math.ln
 import kotlin.math.sin
 
 object LogarithmicSweepGenerator {
-
     fun generateLogSweepPcm16(
         sampleRateHz: Int = 44100,
         startFreqHz: Double = 20.0,

@@ -5,7 +5,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class Media3DspPipelineTest {
-
     @Test
     fun processAudioFramePcm16_bypassReturnsOriginalSamples() {
         val pipeline = Media3DspPipeline()

@@ -25,125 +25,131 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
-class MainViewModel @Inject constructor(
-    private val repository: AudioEffectRepository,
-    private val audioEngine: AudioEngine,
-    private val sessionRepository: AudioSessionRepository,
-    private val routeRepository: AudioRouteRepository,
-    @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
-) : ViewModel() {
+class MainViewModel
+    @Inject
+    constructor(
+        private val repository: AudioEffectRepository,
+        private val audioEngine: AudioEngine,
+        private val sessionRepository: AudioSessionRepository,
+        private val routeRepository: AudioRouteRepository,
+        @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
+    ) : ViewModel() {
+        private val _showDebugEffects = MutableStateFlow(false)
+        val showDebugEffects: StateFlow<Boolean> = _showDebugEffects.asStateFlow()
 
-    private val _showDebugEffects = MutableStateFlow(false)
-    val showDebugEffects: StateFlow<Boolean> = _showDebugEffects.asStateFlow()
+        private val _effectDescriptors = MutableStateFlow<List<AudioEffectDescriptor>>(emptyList())
+        val effectDescriptors: StateFlow<List<AudioEffectDescriptor>> = _effectDescriptors.asStateFlow()
 
-    private val _effectDescriptors = MutableStateFlow<List<AudioEffectDescriptor>>(emptyList())
-    val effectDescriptors: StateFlow<List<AudioEffectDescriptor>> = _effectDescriptors.asStateFlow()
+        val engineState: StateFlow<AudioEngineState> = audioEngine.state
+        val capabilities = audioEngine.capabilities
+        val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
 
-    val engineState: StateFlow<AudioEngineState> = audioEngine.state
-    val capabilities = audioEngine.capabilities
-    val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
+        private val _activePreset = MutableStateFlow<Preset>(BuiltInPresets.CleanPunch)
+        val activePreset: StateFlow<Preset> = _activePreset.asStateFlow()
 
-    private val _activePreset = MutableStateFlow<Preset>(BuiltInPresets.CleanPunch)
-    val activePreset: StateFlow<Preset> = _activePreset.asStateFlow()
+        private val _processingSettings = MutableStateFlow(ProcessingSettings())
+        val processingSettings: StateFlow<ProcessingSettings> = _processingSettings.asStateFlow()
 
-    private val _processingSettings = MutableStateFlow(ProcessingSettings())
-    val processingSettings: StateFlow<ProcessingSettings> = _processingSettings.asStateFlow()
+        init {
+            sessionRepository.startListening()
+            routeRepository.startMonitoring()
 
-    init {
-        sessionRepository.startListening()
-        routeRepository.startMonitoring()
-
-        viewModelScope.launch {
-            sessionRepository.activeSession.collect { session ->
-                if (session != null) {
-                    audioEngine.attach(session)
-                } else {
-                    audioEngine.detach()
-                }
-            }
-        }
-
-        viewModelScope.launch {
-            audioEngine.capabilities.collect { caps ->
-                recalculateBandGains(caps.bands)
-            }
-        }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        sessionRepository.stopListening()
-        routeRepository.stopMonitoring()
-    }
-
-    fun toggleDebugEffects() {
-        val showing = !_showDebugEffects.value
-        _showDebugEffects.value = showing
-        if (showing) {
             viewModelScope.launch {
-                _effectDescriptors.value = withContext(backgroundDispatcher) {
-                    repository.queryAvailableEffects()
+                sessionRepository.activeSession.collect { session ->
+                    if (session != null) {
+                        audioEngine.attach(session)
+                    } else {
+                        audioEngine.detach()
+                    }
+                }
+            }
+
+            viewModelScope.launch {
+                audioEngine.capabilities.collect { caps ->
+                    recalculateBandGains(caps.bands)
                 }
             }
         }
-    }
 
-    fun selectPreset(preset: Preset) {
-        _activePreset.value = preset
-        recalculateBandGains()
-    }
+        override fun onCleared() {
+            super.onCleared()
+            sessionRepository.stopListening()
+            routeRepository.stopMonitoring()
+        }
 
-    fun setMasterEnabled(enabled: Boolean) {
-        val newSettings = _processingSettings.value.copy(masterEnabled = enabled)
-        applySettings(newSettings)
-    }
+        fun toggleDebugEffects() {
+            val showing = !_showDebugEffects.value
+            _showDebugEffects.value = showing
+            if (showing) {
+                viewModelScope.launch {
+                    _effectDescriptors.value =
+                        withContext(backgroundDispatcher) {
+                            repository.queryAvailableEffects()
+                        }
+                }
+            }
+        }
 
-    fun setBypass(bypass: Boolean) {
-        val newSettings = _processingSettings.value.copy(bypass = bypass)
-        applySettings(newSettings)
-    }
+        fun selectPreset(preset: Preset) {
+            _activePreset.value = preset
+            recalculateBandGains()
+        }
 
-    fun setMacroBass(gainDb: Float) {
-        val newSettings = _processingSettings.value.copy(macroBassDb = gainDb)
-        _processingSettings.value = newSettings
-        recalculateBandGains()
-    }
+        fun setMasterEnabled(enabled: Boolean) {
+            val newSettings = _processingSettings.value.copy(masterEnabled = enabled)
+            applySettings(newSettings)
+        }
 
-    fun setMacroPunch(gainDb: Float) {
-        val newSettings = _processingSettings.value.copy(macroPunchDb = gainDb)
-        _processingSettings.value = newSettings
-        recalculateBandGains()
-    }
+        fun setBypass(bypass: Boolean) {
+            val newSettings = _processingSettings.value.copy(bypass = bypass)
+            applySettings(newSettings)
+        }
 
-    fun setMacroHaerte(gainDb: Float) {
-        val newSettings = _processingSettings.value.copy(macroHaerteDb = gainDb)
-        _processingSettings.value = newSettings
-        recalculateBandGains()
-    }
+        fun setMacroBass(gainDb: Float) {
+            val newSettings = _processingSettings.value.copy(macroBassDb = gainDb)
+            _processingSettings.value = newSettings
+            recalculateBandGains()
+        }
 
-    fun setBandGain(bandIndex: Int, gainDb: Float) {
-        val currentGains = _processingSettings.value.bandGainsDb.toMutableMap()
-        currentGains[bandIndex] = gainDb
-        val newSettings = _processingSettings.value.copy(bandGainsDb = currentGains)
-        applySettings(newSettings)
-    }
+        fun setMacroPunch(gainDb: Float) {
+            val newSettings = _processingSettings.value.copy(macroPunchDb = gainDb)
+            _processingSettings.value = newSettings
+            recalculateBandGains()
+        }
 
-    private fun recalculateBandGains(bands: List<EqualizerBandCapabilities> = audioEngine.capabilities.value.bands) {
-        val calculatedGains = EqualizerInterpolator.interpolatePresetToBands(
-            preset = _activePreset.value,
-            bands = bands,
-            macroBassDb = _processingSettings.value.macroBassDb,
-            macroPunchDb = _processingSettings.value.macroPunchDb,
-            macroHaerteDb = _processingSettings.value.macroHaerteDb,
-        )
-        val newSettings = _processingSettings.value.copy(bandGainsDb = calculatedGains)
-        applySettings(newSettings)
-    }
+        fun setMacroHaerte(gainDb: Float) {
+            val newSettings = _processingSettings.value.copy(macroHaerteDb = gainDb)
+            _processingSettings.value = newSettings
+            recalculateBandGains()
+        }
 
-    private fun applySettings(settings: ProcessingSettings) {
-        _processingSettings.value = settings
-        viewModelScope.launch {
-            audioEngine.apply(settings)
+        fun setBandGain(
+            bandIndex: Int,
+            gainDb: Float,
+        ) {
+            val currentGains = _processingSettings.value.bandGainsDb.toMutableMap()
+            currentGains[bandIndex] = gainDb
+            val newSettings = _processingSettings.value.copy(bandGainsDb = currentGains)
+            applySettings(newSettings)
+        }
+
+        private fun recalculateBandGains(bands: List<EqualizerBandCapabilities> = audioEngine.capabilities.value.bands) {
+            val calculatedGains =
+                EqualizerInterpolator.interpolatePresetToBands(
+                    preset = _activePreset.value,
+                    bands = bands,
+                    macroBassDb = _processingSettings.value.macroBassDb,
+                    macroPunchDb = _processingSettings.value.macroPunchDb,
+                    macroHaerteDb = _processingSettings.value.macroHaerteDb,
+                )
+            val newSettings = _processingSettings.value.copy(bandGainsDb = calculatedGains)
+            applySettings(newSettings)
+        }
+
+        private fun applySettings(settings: ProcessingSettings) {
+            _processingSettings.value = settings
+            viewModelScope.launch {
+                audioEngine.apply(settings)
+            }
         }
     }
-}

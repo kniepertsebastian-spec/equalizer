@@ -6,36 +6,38 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FakeAudioEngineTest {
+    @Test
+    fun attach_transitionsToActiveState() =
+        runTest {
+            val engine = FakeAudioEngine()
+            val session = AudioSession(sessionId = 42, packageName = "test.player")
+
+            val result = engine.attach(session)
+
+            assertTrue(result)
+            assertEquals(AudioEngineState.Active(42), engine.state.value)
+        }
 
     @Test
-    fun attach_transitionsToActiveState() = runTest {
-        val engine = FakeAudioEngine()
-        val session = AudioSession(sessionId = 42, packageName = "test.player")
+    fun detach_transitionsToDetachedState() =
+        runTest {
+            val engine = FakeAudioEngine()
+            val session = AudioSession(sessionId = 42, packageName = "test.player")
+            engine.attach(session)
 
-        val result = engine.attach(session)
+            engine.detach()
 
-        assertTrue(result)
-        assertEquals(AudioEngineState.Active(42), engine.state.value)
-    }
-
-    @Test
-    fun detach_transitionsToDetachedState() = runTest {
-        val engine = FakeAudioEngine()
-        val session = AudioSession(sessionId = 42, packageName = "test.player")
-        engine.attach(session)
-
-        engine.detach()
-
-        assertEquals(AudioEngineState.Detached, engine.state.value)
-    }
+            assertEquals(AudioEngineState.Detached, engine.state.value)
+        }
 
     @Test
-    fun apply_updatesCurrentSettings() = runTest {
-        val engine = FakeAudioEngine()
-        val settings = ProcessingSettings(masterEnabled = true, bypass = false, inputGainDb = -2f)
+    fun apply_updatesCurrentSettings() =
+        runTest {
+            val engine = FakeAudioEngine()
+            val settings = ProcessingSettings(masterEnabled = true, bypass = false, inputGainDb = -2f)
 
-        engine.apply(settings)
+            engine.apply(settings)
 
-        assertEquals(settings, engine.currentSettings.value)
-    }
+            assertEquals(settings, engine.currentSettings.value)
+        }
 }

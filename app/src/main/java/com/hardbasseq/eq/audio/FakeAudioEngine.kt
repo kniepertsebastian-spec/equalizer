@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.asStateFlow
 class FakeAudioEngine(
     initialCapabilities: AudioCapabilities = defaultFakeCapabilities(),
 ) : AudioEngine {
-
     private val _capabilities = MutableStateFlow(initialCapabilities)
     override val capabilities: StateFlow<AudioCapabilities> = _capabilities.asStateFlow()
 
@@ -37,24 +36,24 @@ class FakeAudioEngine(
     }
 
     companion object {
-        fun defaultFakeCapabilities(): AudioCapabilities {
-            return AudioCapabilities(
+        fun defaultFakeCapabilities(): AudioCapabilities =
+            AudioCapabilities(
                 hasEqualizer = true,
                 hasDynamicsProcessing = true,
                 hasBassBoost = true,
                 hasLoudnessEnhancer = true,
                 totalEffectCount = 4,
-                bands = listOf(
-                    EqualizerBandCapabilities(0, 60, -15f, 15f),
-                    EqualizerBandCapabilities(1, 230, -15f, 15f),
-                    EqualizerBandCapabilities(2, 910, -15f, 15f),
-                    EqualizerBandCapabilities(3, 3600, -15f, 15f),
-                    EqualizerBandCapabilities(4, 14000, -15f, 15f),
-                ),
+                bands =
+                    listOf(
+                        EqualizerBandCapabilities(0, 60, -15f, 15f),
+                        EqualizerBandCapabilities(1, 230, -15f, 15f),
+                        EqualizerBandCapabilities(2, 910, -15f, 15f),
+                        EqualizerBandCapabilities(3, 3600, -15f, 15f),
+                        EqualizerBandCapabilities(4, 14000, -15f, 15f),
+                    ),
                 hasInputGain = true,
                 hasLimiter = true,
                 hasMbc = true,
             )
-        }
     }
 }

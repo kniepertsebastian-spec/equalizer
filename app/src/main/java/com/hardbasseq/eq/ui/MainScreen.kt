@@ -57,7 +57,7 @@ fun MainScreen(
                 onMacroPunchChanged = { viewModel.setMacroPunch(it) },
                 onMacroHaerteChanged = { viewModel.setMacroHaerte(it) },
                 onBandGainChanged = { idx, gain -> viewModel.setBandGain(idx, gain) },
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
 
             // Diagnostics and Debug Tools bar

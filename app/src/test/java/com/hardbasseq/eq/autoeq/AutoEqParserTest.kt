@@ -5,7 +5,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AutoEqParserTest {
-
     @Test
     fun parseAutoEqText_graphicEqLineFormat_parsedSuccessfully() {
         val sampleGraphicEqText = "GraphicEQ: 20 0; 50 3.5; 100 2.0; 1000 -1.5"
@@ -22,13 +21,14 @@ class AutoEqParserTest {
 
     @Test
     fun parseAutoEqText_tsvFormat_parsedSuccessfully() {
-        val sampleTsvText = """
+        val sampleTsvText =
+            """
             # Frequency Gain
             20.0	0.0
             60.0	4.0
             250.0	-2.0
             4000.0	1.0
-        """.trimIndent()
+            """.trimIndent()
 
         val result = AutoEqParser.parseAutoEqText("Sennheiser HD 600", sampleTsvText)
 

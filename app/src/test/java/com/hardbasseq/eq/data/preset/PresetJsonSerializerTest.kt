@@ -6,7 +6,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PresetJsonSerializerTest {
-
     @Test
     fun exportAndImport_roundTripPreservesPreset() {
         val original = BuiltInPresets.CleanPunch
@@ -22,7 +21,8 @@ class PresetJsonSerializerTest {
 
     @Test
     fun importFromJson_rejectsInvalidGain() {
-        val invalidJson = """
+        val invalidJson =
+            """
             {
               "schemaVersion": 1,
               "name": "Extreme Gain Test",
@@ -30,7 +30,7 @@ class PresetJsonSerializerTest {
                 { "frequencyHz": 55.0, "gainDb": 100.0 }
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = PresetJsonSerializer.importFromJson(invalidJson)
 
@@ -39,7 +39,8 @@ class PresetJsonSerializerTest {
 
     @Test
     fun importFromJson_rejectsNegativeFrequency() {
-        val invalidJson = """
+        val invalidJson =
+            """
             {
               "schemaVersion": 1,
               "name": "Negative Freq Test",
@@ -47,7 +48,7 @@ class PresetJsonSerializerTest {
                 { "frequencyHz": -50.0, "gainDb": 3.0 }
               ]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val result = PresetJsonSerializer.importFromJson(invalidJson)
 
