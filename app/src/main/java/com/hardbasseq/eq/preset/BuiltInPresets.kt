@@ -17,6 +17,8 @@ object BuiltInPresets {
             macroPunchDb = 1.5f,
             macroHaerteDb = 0.5f,
             requestedHeadroomDb = 4.0f,
+            mbcThresholdDb = -7.0f,
+            mbcRatio = 2.5f,
             metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
         )
 
@@ -35,6 +37,8 @@ object BuiltInPresets {
             macroPunchDb = 0.5f,
             macroHaerteDb = -0.5f,
             requestedHeadroomDb = 5.0f,
+            mbcThresholdDb = -9.0f,
+            mbcRatio = 2.8f,
             metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
         )
 
@@ -53,6 +57,8 @@ object BuiltInPresets {
             macroPunchDb = 0.75f,
             macroHaerteDb = 0.25f,
             requestedHeadroomDb = 3.0f,
+            mbcThresholdDb = -6.0f,
+            mbcRatio = 2.0f,
             metadata = PresetMetadata(genre = "hard-dance", builtIn = true),
         )
 
@@ -69,6 +75,7 @@ object BuiltInPresets {
                     TargetPoint(14000f, 0f),
                 ),
             requestedHeadroomDb = 0.0f,
+            mbcEnabled = false,
             limiter = LimiterConfig(enabled = false, thresholdDb = 0f),
             metadata = PresetMetadata(genre = "neutral", builtIn = true),
         )
