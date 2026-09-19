@@ -6,7 +6,6 @@ package com.hardbasseq.eq.audio
  * "Zentrale Schnittstellen").
  */
 interface AudioEffectRepository {
-
     /** The effect type UUIDs this repository can recognize on this platform. */
     val knownEffectTypeIds: KnownEffectTypeIds
 

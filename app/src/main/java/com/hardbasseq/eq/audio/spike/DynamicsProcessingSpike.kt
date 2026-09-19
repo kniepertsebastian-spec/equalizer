@@ -16,7 +16,6 @@ data class DynamicsProcessingStageResult(
 )
 
 object DynamicsProcessingSpike {
-
     /**
      * Probes each `DynamicsProcessing` stage in isolation on [audioSessionId]:
      * one throwaway engine per stage, with every other stage left disabled
@@ -49,20 +48,26 @@ object DynamicsProcessingSpike {
         }
     }
 
-    private fun describe(dp: DynamicsProcessing, stage: DynamicsProcessingStage): String =
+    private fun describe(
+        dp: DynamicsProcessing,
+        stage: DynamicsProcessingStage,
+    ): String =
         when (stage) {
             DynamicsProcessingStage.INPUT_GAIN -> {
                 dp.setInputGainAllChannelsTo(0f)
                 "inputGain readback=${dp.getInputGainByChannelIndex(0)} dB"
             }
+
             DynamicsProcessingStage.PRE_EQ -> {
                 val eq = dp.getPreEqByChannelIndex(0)
                 "preEq bandCount=${eq.bandCount}"
             }
+
             DynamicsProcessingStage.MBC -> {
                 val mbc = dp.getMbcByChannelIndex(0)
                 "mbc bandCount=${mbc.bandCount}"
             }
+
             DynamicsProcessingStage.LIMITER -> {
                 val limiter = dp.getLimiterByChannelIndex(0)
                 "limiter enabled=${limiter.isEnabled}"
@@ -73,16 +78,20 @@ object DynamicsProcessingSpike {
         val preEqInUse = stage == DynamicsProcessingStage.PRE_EQ
         val mbcInUse = stage == DynamicsProcessingStage.MBC
         val limiterInUse = stage == DynamicsProcessingStage.LIMITER
-        return DynamicsProcessing.Config.Builder(
-            DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
-            /* channelCount = */ 2,
-            preEqInUse,
-            if (preEqInUse) 1 else 0,
-            mbcInUse,
-            if (mbcInUse) 1 else 0,
-            /* postEqInUse = */ false,
-            /* postEqBandCount = */ 0,
-            limiterInUse,
-        ).build()
+        return DynamicsProcessing.Config
+            .Builder(
+                DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
+                // channelCount =
+                2,
+                preEqInUse,
+                if (preEqInUse) 1 else 0,
+                mbcInUse,
+                if (mbcInUse) 1 else 0,
+                // postEqInUse =
+                false,
+                // postEqBandCount =
+                0,
+                limiterInUse,
+            ).build()
     }
 }

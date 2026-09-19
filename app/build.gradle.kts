@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
+    alias(libs.plugins.ktlint)
     alias(libs.plugins.kotlin.serialization)
 }
 
@@ -46,6 +47,12 @@ kotlin {
         // The JDK running Gradle (21 in CI) is not the bytecode target.
         jvmTarget.set(JvmTarget.JVM_17)
     }
+}
+
+ktlint {
+    // Matches the ktlint_official style already implied by
+    // kotlin.code.style=official in gradle.properties.
+    android.set(true)
 }
 
 dependencies {

@@ -29,7 +29,6 @@ import java.util.UUID
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModelTest {
-
     private val dispatcher = StandardTestDispatcher()
     private val fakeEngine = FakeAudioEngine()
     private val fakeSessionRepo = FakeAudioSessionRepository()
@@ -81,23 +80,25 @@ class MainViewModelTest {
         )
     }
 
-    private fun fakeDescriptor(name: String) = AudioEffectDescriptor(
-        typeUuid = UUID.randomUUID(),
-        effectUuid = UUID.randomUUID(),
-        name = name,
-        implementor = "Test",
-        connectMode = EffectConnectMode.INSERT,
-    )
+    private fun fakeDescriptor(name: String) =
+        AudioEffectDescriptor(
+            typeUuid = UUID.randomUUID(),
+            effectUuid = UUID.randomUUID(),
+            name = name,
+            implementor = "Test",
+            connectMode = EffectConnectMode.INSERT,
+        )
 
     private class FakeAudioEffectRepository(
         private val descriptors: List<AudioEffectDescriptor>,
     ) : AudioEffectRepository {
-        override val knownEffectTypeIds = KnownEffectTypeIds(
-            equalizer = UUID.randomUUID(),
-            dynamicsProcessing = UUID.randomUUID(),
-            bassBoost = UUID.randomUUID(),
-            loudnessEnhancer = UUID.randomUUID(),
-        )
+        override val knownEffectTypeIds =
+            KnownEffectTypeIds(
+                equalizer = UUID.randomUUID(),
+                dynamicsProcessing = UUID.randomUUID(),
+                bassBoost = UUID.randomUUID(),
+                loudnessEnhancer = UUID.randomUUID(),
+            )
 
         override fun queryAvailableEffects(): List<AudioEffectDescriptor> = descriptors
     }
