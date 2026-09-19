@@ -90,7 +90,8 @@ class AudioSessionForegroundService : LifecycleService() {
                 PendingIntent.FLAG_IMMUTABLE,
             )
 
-        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+        return NotificationCompat
+            .Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(getString(R.string.session_service_notification_title))
             .setContentText(getString(R.string.session_service_notification_text))
             .setSmallIcon(R.drawable.ic_notification_eq)
