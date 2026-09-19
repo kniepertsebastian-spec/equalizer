@@ -14,6 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "AndroidAudioEngine"
+private const val MBC_BAND_COUNT = 3
 
 @Singleton
 class AndroidAudioEngine
@@ -80,15 +81,10 @@ class AndroidAudioEngine
                                 .Builder(
                                     DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
                                     2, // 2 channels
-                                    // PreEQ and MBC are left out of the requested config, not just
-                                    // unconfigured: an unconfigured-but-active band still processes
-                                    // audio with whatever default the OEM engine picks, which
-                                    // violates the "every DSP stage needs defined bounds" principle
-                                    // (roadmap.md §1). Only the limiter is actually configured below.
                                     false,
                                     0, // PreEQ: not requested
-                                    false,
-                                    0, // MBC: not requested
+                                    true,
+                                    MBC_BAND_COUNT
                                     false,
                                     0, // PostEQ: not requested
                                     true, // Limiter
@@ -113,9 +109,7 @@ class AndroidAudioEngine
                         bands = bandCaps,
                         hasInputGain = dpInputGainSupported,
                         hasLimiter = dpLimiterSupported,
-                        // Not requested in the DynamicsProcessing config above (no MBC
-                        // configuration exists yet), so it isn't actually available.
-                        hasMbc = false,
+                        hasMbc = dpSupported,
                     )
 
                 isAttached.set(true)
@@ -185,6 +179,35 @@ class AndroidAudioEngine
                 dynamicsProcessing?.let { dp ->
                     dp.enabled = shouldEnable
                     if (shouldEnable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        dp.setInputGainAllChannelsTo(settings.inputGainDb.coerceIn(-15f, 0f))
+
+                        val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
+                        val mbcThresholdDb = if (settings.mbcEnabled) settings.mbcThresholdDb.coerceIn(-30f, 0f) else 0f
+                        val mbcBands =
+                            listOf(
+                                MbcBandSettings(120f, 15f, 180f),
+                                MbcBandSettings(1500f, 8f, 120f),
+                                MbcBandSettings(20000f, 3f, 80f),
+                            )
+                        mbcBands.forEachIndexed { bandIndex, band ->
+                            dp.setMbcBandAllChannelsTo(
+                                bandIndex,
+                                DynamicsProcessing.MbcBand(
+                                    true,
+                                    band.cutoffFrequencyHz,
+                                    band.attackMs,
+                                    band.releaseMs,
+                                    mbcRatio,
+                                    mbcThresholdDb,
+                                    6f, // soft knee
+                                    -80f, // effectively disable the noise gate
+                                    1f, // no expansion
+                                    0f,
+                                    0f,
+                                ),
+                            )
+                        }
+
                         val safeThresholdDb = settings.limiterThresholdDb.coerceAtMost(0f)
                         val limiter =
                             DynamicsProcessing.Limiter(
@@ -208,3 +231,9 @@ class AndroidAudioEngine
             }
         }
     }
+
+private data class MbcBandSettings(
+    val cutoffFrequencyHz: Float,
+    val attackMs: Float,
+    val releaseMs: Float,
+)
