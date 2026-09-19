@@ -15,6 +15,7 @@ ersten Projekt-Setup (M0, Aufgabe 1 "Android-Projekt initialisieren").
 | `targetSdk` | 36 (Android 16) | Play-Store-Pflichtwert bis 31. August 2027 (danach 37); konservativ auf der aktuell verlangten Stufe gehalten. |
 | `minSdk` | 28 | Durch Roadmap §3 fest vorgegeben (`DynamicsProcessing` ab API 28 verfügbar). |
 | JVM-Zielversion | 17 | Java `compileOptions` und Kotlin `compilerOptions.jvmTarget` explizit auf 17; Build-JDK ist separat 21 (Temurin, siehe CI). |
+| ktlint (`org.jlleitschuh.gradle.ktlint`) | 14.2.0 | Aktuellste Plugin-Version (März 2026); unabhängig von der Projekt-Kotlin-Version, da ktlint mit einem eigenen gebündelten Kotlin-Compiler parst. Siehe ADR 0003. |
 
 ## Wichtiger Hinweis zur Verifikation
 

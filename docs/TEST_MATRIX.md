@@ -123,3 +123,22 @@ einem Target-SDK-Hinweis sowie `ObsoleteSdkInt` und `MonochromeLauncherIcon`
 für das Launcher-Icon. Keine Baseline oder Suppression hinzugefügt.
 Die Warnungen werden als Folgearbeiten geführt, nicht als behoben ausgegeben.
 Anleitung und verbleibende Aufgaben: `docs/QUALITY.md`.
+
+## M1 – ktlint eingerichtet (19. September 2026)
+
+`org.jlleitschuh.gradle.ktlint` (`14.2.0`) neu in CI vor dem Build. Da diese
+Sandbox weiterhin keinen Android-SDK-Zugriff hat (siehe
+`docs/DEPENDENCIES.md`), lief `./gradlew ktlintCheck` selbst nicht lokal –
+bestätigt stattdessen mit einem eigenständig heruntergeladenen
+`ktlint-cli-1.8.0` (identische Regel-Engine, ohne Android-Gradle-Plugin):
+
+| Prüfung | Ergebnis |
+|---|---|
+| `ktlint "app/src/**/*.kt"` (vor Formatierung) | 11 Regeltypen verletzt, u. a. Funktionsnamen von `@Composable`-Funktionen (Compose-Konvention vs. ktlint-Standardregel) |
+| `.editorconfig` mit `ktlint_function_naming_ignore_when_annotated_with = Composable` | Behebt die Namenskonflikte, ohne Code zu ändern |
+| `ktlint --format "app/src/**/*.kt"` | Alle übrigen, automatisch korrigierbaren Verstöße behoben (Importreihenfolge, Mehrzeilen-Ausdrücke, Funktionssignaturen, u. a.) |
+| `ktlint "app/src/**/*.kt"` (danach) | 0 Verstöße, Exit-Code 0 |
+
+Endgültige Bestätigung mit dem echten Gradle-Plugin (inkl. Zusammenspiel mit
+AGP/Hilt/KSP) steht noch aus und folgt über den nächsten CI-Lauf. detekt bleibt
+zurückgestellt, siehe `docs/adr/0003-ktlint-detekt-deferred.md`.

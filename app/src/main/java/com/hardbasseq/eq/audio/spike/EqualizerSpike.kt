@@ -17,7 +17,6 @@ data class EqualizerCapabilitySnapshot(
 )
 
 object EqualizerSpike {
-
     /**
      * Attaches a throwaway [Equalizer] to [audioSessionId], reads its real
      * band count, center frequencies, frequency ranges and gain range, then
@@ -29,16 +28,17 @@ object EqualizerSpike {
         try {
             val bandCount = equalizer.numberOfBands.toInt()
             val levelRange = equalizer.bandLevelRange
-            val bands = (0 until bandCount).map { index ->
-                val band = index.toShort()
-                val freqRange = equalizer.getBandFreqRange(band)
-                EqualizerBandInfo(
-                    index = index,
-                    centerFreqMilliHz = equalizer.getCenterFreq(band),
-                    minFreqMilliHz = freqRange[0],
-                    maxFreqMilliHz = freqRange[1],
-                )
-            }
+            val bands =
+                (0 until bandCount).map { index ->
+                    val band = index.toShort()
+                    val freqRange = equalizer.getBandFreqRange(band)
+                    EqualizerBandInfo(
+                        index = index,
+                        centerFreqMilliHz = equalizer.getCenterFreq(band),
+                        minFreqMilliHz = freqRange[0],
+                        maxFreqMilliHz = freqRange[1],
+                    )
+                }
             return EqualizerCapabilitySnapshot(
                 numberOfBands = bandCount,
                 minLevelMillibel = levelRange[0].toInt(),

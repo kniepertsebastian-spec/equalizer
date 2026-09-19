@@ -8,7 +8,6 @@ import kotlin.math.sin
  * Kept free of any Android API so it is testable as a plain JVM unit test.
  */
 object SineWaveGenerator {
-
     fun generateMonoPcm16(
         sampleRateHz: Int,
         frequencyHz: Double,
@@ -27,6 +26,5 @@ object SineWaveGenerator {
     }
 
     /** Duplicates a mono buffer into an interleaved stereo (L,R,L,R,...) buffer. */
-    fun interleaveStereo(mono: ShortArray): ShortArray =
-        ShortArray(mono.size * 2) { i -> mono[i / 2] }
+    fun interleaveStereo(mono: ShortArray): ShortArray = ShortArray(mono.size * 2) { i -> mono[i / 2] }
 }

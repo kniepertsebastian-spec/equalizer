@@ -9,6 +9,8 @@ Im Repository-Verzeichnis ausführen (Windows: `gradlew.bat` statt `./gradlew`):
 ./gradlew assembleDebug
 ./gradlew testDebugUnitTest
 ./gradlew lintDebug lintRelease
+./gradlew ktlintCheck
+./gradlew ktlintFormat  # behebt automatisch korrigierbare Verstöße
 ```
 
 Android Lint gehört zum vorhandenen Android Gradle Plugin; es benötigt kein
@@ -27,6 +29,15 @@ existieren; der Upload meldet dann eine Warnung.
 
 Quelle: [Android Lint über die Kommandozeile](https://developer.android.com/studio/write/lint#commandline).
 
+## Formatierung (ktlint)
+
+`org.jlleitschuh.gradle.ktlint` (Plugin-Version `14.2.0`) prüft den
+`ktlint_official`-Codestil (`kotlin.code.style=official` in
+`gradle.properties`) über `ktlintCheck`, ebenfalls ohne Baseline oder
+Unterdrückung. `.editorconfig` erlaubt PascalCase für `@Composable`-Funktionen
+(sonst von ktlints Namensregel abgelehnt). Details und die Begründung, warum
+detekt (noch) nicht dazukommt, stehen in `docs/adr/0003-ktlint-detekt-deferred.md`.
+
 ## Weiterhin offen
 
 - Erster Lauf in PR #7: je Variante 0 Fehler und 16 Warnungen. Davon betreffen
@@ -34,7 +45,9 @@ Quelle: [Android Lint über die Kommandozeile](https://developer.android.com/stu
   (`ObsoleteSdkInt`, `MonochromeLauncherIcon`). Keine Warnung wurde unterdrückt.
   Dependency-/Target-SDK-Updates werden getrennt auf Kompatibilität geprüft;
   die Icon-Hinweise können mit der nächsten UI-Überarbeitung behoben werden.
-- Kotlin-Formatierung und detekt mit zur Projektversion passender Konfiguration.
+- detekt: zurückgestellt, da dessen stabile Version Kotlin 2.3.20 nicht
+  unterstützt (siehe ADR 0003); bei der nächsten Kotlin-Versionsänderung
+  erneut prüfen.
 - Instrumentierte Tests, Emulator und Audio-/Bypass-Prüfungen auf echten Geräten.
 
 Ein grüner Lint-Lauf ist eine statische Prüfung und kein Nachweis für korrektes
