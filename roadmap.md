@@ -795,3 +795,63 @@ zusätzlicher Makroregler speziell für Kick-Attack/Screech statt nur über
 Presets. Build weiterhin nicht lokal verifizierbar (kein Android-SDK-Zugriff
 in dieser Sandbox, wie in allen vorherigen Sessions) – Verifikation über CI
 und ggf. erneuten Gerätetest durch den Nutzer.
+
+### Session 12 (19. September 2026)
+
+Nutzer bestätigt: Session-11-Fixes wirken (PR #14 gemergt). Neuer Wunsch,
+mit einem Ziel-Mockup-Screenshot belegt: Das Design sei "noch ziemlich
+langweilig" – Icon-Grid mit neun Presets (3×3), dunkler Industrial-/
+Brushed-Metal-Hintergrund mit roten Akzentlinien, abgerundete Karten mit
+Rahmen. Der Screenshot zeigt vier Presets, die im Code noch nicht existieren
+(„Hardcore – Raw Power“, „Frenchcore – Fast Attack“, „Terrorcore – Maximum
+Distortion“, „Uptempo – Final Smash“) – laut Auftrag mit „vorhandener
+Einstellung“, also im Stil der bestehenden Presets, zu ergänzen.
+
+**Umgesetzt:**
+- Vier neue Built-in-Presets nach dem Muster der bestehenden ergänzt
+  (`BuiltInPresets.kt`): „Hardcore – Raw Power“ (grundsolide, weniger extrem
+  als die Uptempo-Presets), „Frenchcore – Fast Attack“ (sehr starker,
+  schneller Kick-Punch + `mbcRatio` 3.2 für knackige Transienten),
+  „Terrorcore – Maximum Distortion“ (bewusst **negative** Härte + niedrigerer
+  MBC-Threshold, weil Terrorcore-Quellmaterial bereits massiv verzerrt ist –
+  hier soll gebändigt statt weiter verschärft werden) und „Uptempo – Final
+  Smash“ (die extremste Uptempo-Variante: max. Sub, max. Kick-Punch, max.
+  Präsenz). `BuiltInPresets.all` jetzt in exakt der Reihenfolge des
+  Mockup-Grids (3×3).
+- `androidx.compose.material:material-icons-extended` als neue Abhängigkeit
+  ergänzt (`libs.versions.toml`/`app/build.gradle.kts`, über die bestehende
+  Compose-BOM versioniert, keine neue KSP-/Annotation-Processor-Baustelle).
+  Bisher gab es nur `material-icons-core` mit ca. 50 Basis-Icons – für die
+  Preset-Icons (Faust, Welle, Blitz, Waage, Power-Symbol, Tacho, Verbotssymbol
+  usw.) reicht das nicht.
+- `EqualizerScreen.kt`: Presets-Zeile (Scroll-Row mit `FilterChip`s) durch ein
+  3-spaltiges Icon-Grid ersetzt (`PresetGrid`/`PresetCard`, statisch in
+  Dreier-Reihen gechunkt, kein `LazyVerticalGrid` nötig bei neun statischen
+  Presets). Ausgewähltes Preset bekommt Akzent-Rahmen/-Hintergrund in
+  Primärfarbe. Alle Cards bekommen einheitlich `RoundedCornerShape(20.dp)`
+  und einen dezenten Rahmen (`HardBassCardBorder`) für den "Industrial-Panel"-
+  Look aus dem Mockup.
+- Neuer dunkler Hintergrund-Textur-Modifier
+  (`ui/theme/Background.kt#hardBassIndustrialBackground`): Gradient plus
+  gezeichnete diagonale "Brushed-Metal"-Streifen und ein paar spärliche
+  orangene Akzentlinien, als Ersatz für das Rasterbild aus dem Mockup (kein
+  Bild-Asset verfügbar/verifizierbar in dieser Sandbox). Angewendet in
+  `MainActivity` (App-weite `Surface`, transparent gemacht) sowie in beiden
+  `Scaffold`s (`MainScreen`, `DiagnosticsScreen`) über `containerColor =
+  Color.Transparent`, damit die Textur durchscheint statt vom
+  Scaffold-Hintergrund überdeckt zu werden.
+
+**Bewusste Abweichung vom Mockup:** Kein Schädel-Icon für „Final Smash“
+verwendet – es gibt keinen Schädel im (nicht-extended, klassischen)
+Material-Icons-Set, das `material-icons-extended` bereitstellt. Stattdessen
+`Icons.Filled.Whatshot` (Flamme) als "Maximum/Extrem"-Symbol. Ebenfalls nicht
+übernommen: das im Mockup doppelt auftauchende "Grafischer EQ (0 Bänder)"-
+Element (einmal in der Makro-Karte, einmal als eigene Karte darunter) – wirkt
+wie ein Mockup-Artefakt und hätte keine sinnvolle Funktion; die reale Struktur
+(ein "Grafischer EQ"-Card mit Bypass-Switch im Header) bleibt unverändert.
+
+**Nicht erneut lokal verifizierbar** (weiterhin kein Android-SDK-Zugriff in
+dieser Sandbox) – insbesondere die neue `drawBehind`-Textur und das Icon-Grid
+sollten auf einem echten Gerät gegen den Mockup-Screenshot geprüft werden.
+Verifikation über CI (Build/Unit-Tests/Lint/ktlint) plus Gerätetest durch den
+Nutzer.

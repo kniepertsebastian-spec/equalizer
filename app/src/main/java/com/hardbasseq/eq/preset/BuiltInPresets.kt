@@ -102,5 +102,106 @@ object BuiltInPresets {
             metadata = PresetMetadata(genre = "neutral", builtIn = true),
         )
 
-    val all = listOf(CleanPunch, DeepRumble, KickAttack, Balanced, Flat)
+    val RawPower =
+        Preset(
+            id = "builtin_raw_power",
+            name = "Hardcore – Raw Power",
+            targetCurve =
+                listOf(
+                    TargetPoint(45f, 3.5f),
+                    TargetPoint(90f, 2.0f),
+                    TargetPoint(300f, -2.0f),
+                    TargetPoint(1500f, 1.0f),
+                    TargetPoint(5000f, 0.5f),
+                ),
+            macroBassDb = 1.5f,
+            macroPunchDb = 1.5f,
+            macroHaerteDb = 1.0f,
+            requestedHeadroomDb = 4.5f,
+            mbcThresholdDb = -7.0f,
+            mbcRatio = 2.8f,
+            metadata = PresetMetadata(genre = "hardcore", builtIn = true),
+        )
+
+    val FastAttack =
+        Preset(
+            id = "builtin_fast_attack",
+            name = "Frenchcore – Fast Attack",
+            targetCurve =
+                listOf(
+                    TargetPoint(50f, 2.5f),
+                    TargetPoint(100f, 3.0f),
+                    TargetPoint(260f, -2.5f),
+                    TargetPoint(2000f, 1.0f),
+                    TargetPoint(4500f, 1.5f),
+                    TargetPoint(9000f, -1.0f),
+                ),
+            macroBassDb = 1.0f,
+            macroPunchDb = 2.5f,
+            macroHaerteDb = 1.5f,
+            requestedHeadroomDb = 5.0f,
+            mbcThresholdDb = -6.0f,
+            mbcRatio = 3.2f,
+            metadata = PresetMetadata(genre = "frenchcore", builtIn = true),
+        )
+
+    // Terrorcore source material is already pushed into heavy distortion, so
+    // this preset leans on taming (negative Härte, lower MBC threshold) and
+    // low-end weight rather than adding more high-frequency harshness.
+    val MaximumDistortion =
+        Preset(
+            id = "builtin_maximum_distortion",
+            name = "Terrorcore – Maximum Distortion",
+            targetCurve =
+                listOf(
+                    TargetPoint(50f, 3.5f),
+                    TargetPoint(90f, 1.5f),
+                    TargetPoint(300f, -3.5f),
+                    TargetPoint(2500f, -1.0f),
+                    TargetPoint(6000f, -2.0f),
+                    TargetPoint(12000f, -1.0f),
+                ),
+            macroBassDb = 1.5f,
+            macroPunchDb = 1.0f,
+            macroHaerteDb = -1.0f,
+            requestedHeadroomDb = 5.5f,
+            mbcThresholdDb = -10.0f,
+            mbcRatio = 3.5f,
+            metadata = PresetMetadata(genre = "terrorcore", builtIn = true),
+        )
+
+    val FinalSmash =
+        Preset(
+            id = "builtin_final_smash",
+            name = "Uptempo – Final Smash",
+            targetCurve =
+                listOf(
+                    TargetPoint(50f, 4.0f),
+                    TargetPoint(105f, 3.0f),
+                    TargetPoint(260f, -3.0f),
+                    TargetPoint(3500f, 2.0f),
+                    TargetPoint(7000f, 0.5f),
+                    TargetPoint(12000f, -0.5f),
+                ),
+            macroBassDb = 2.0f,
+            macroPunchDb = 2.5f,
+            macroHaerteDb = 1.5f,
+            requestedHeadroomDb = 5.5f,
+            mbcThresholdDb = -6.0f,
+            mbcRatio = 3.0f,
+            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
+        )
+
+    val all =
+        listOf(
+            CleanPunch,
+            DeepRumble,
+            KickAttack,
+            Balanced,
+            Flat,
+            RawPower,
+            FastAttack,
+            MaximumDistortion,
+            FinalSmash,
+        )
 }

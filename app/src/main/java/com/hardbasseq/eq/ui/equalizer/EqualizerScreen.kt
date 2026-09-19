@@ -1,8 +1,8 @@
 package com.hardbasseq.eq.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,28 +12,40 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Balance
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SportsMma
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Waves
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
@@ -41,7 +53,11 @@ import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.Preset
+import com.hardbasseq.eq.ui.theme.HardBassCardBorder
+import com.hardbasseq.eq.ui.theme.Spacing
 import com.hardbasseq.eq.ui.theme.spacing
+
+private val CardShape = RoundedCornerShape(20.dp)
 
 @Composable
 fun EqualizerScreen(
@@ -73,7 +89,9 @@ fun EqualizerScreen(
         // Top Header Card: Master Switch, Status, Active Route
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = CardShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, HardBassCardBorder),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Row(
@@ -134,7 +152,9 @@ fun EqualizerScreen(
         AnimatedVisibility(visible = headroom.isClippingRisk && settings.masterEnabled) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = CardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                border = BorderStroke(1.dp, HardBassCardBorder),
             ) {
                 Row(
                     modifier = Modifier.padding(spacing.medium),
@@ -175,7 +195,9 @@ fun EqualizerScreen(
         AnimatedVisibility(visible = state is AudioEngineState.Detached) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = CardShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                border = BorderStroke(1.dp, HardBassCardBorder),
             ) {
                 Row(
                     modifier = Modifier.padding(spacing.medium),
@@ -212,7 +234,9 @@ fun EqualizerScreen(
         // Presets Selector Card
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = CardShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, HardBassCardBorder),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Text(
@@ -221,28 +245,21 @@ fun EqualizerScreen(
                     fontWeight = FontWeight.Bold,
                 )
                 Spacer(modifier = Modifier.height(spacing.small))
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.small),
-                ) {
-                    BuiltInPresets.all.forEach { preset ->
-                        FilterChip(
-                            selected = activePreset.id == preset.id,
-                            onClick = { onPresetSelected(preset) },
-                            label = { Text(preset.name, fontSize = 12.sp) },
-                        )
-                    }
-                }
+                PresetGrid(
+                    presets = BuiltInPresets.all,
+                    activePresetId = activePreset.id,
+                    onPresetSelected = onPresetSelected,
+                    spacing = spacing,
+                )
             }
         }
 
         // Macro Controls Card
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = CardShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, HardBassCardBorder),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Text(
@@ -281,7 +298,9 @@ fun EqualizerScreen(
         // Dynamic Equalizer Bands Card
         Card(
             modifier = Modifier.fillMaxWidth(),
+            shape = CardShape,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, HardBassCardBorder),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Row(
@@ -329,6 +348,98 @@ fun EqualizerScreen(
         }
     }
 }
+
+// Three-per-row grid of icon presets, matching the target design. Static/chunked
+// rather than LazyVerticalGrid since the built-in preset list is small and fixed.
+@Composable
+private fun PresetGrid(
+    presets: List<Preset>,
+    activePresetId: String,
+    onPresetSelected: (Preset) -> Unit,
+    spacing: Spacing,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
+        presets.chunked(3).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.small),
+            ) {
+                row.forEach { preset ->
+                    PresetCard(
+                        preset = preset,
+                        selected = preset.id == activePresetId,
+                        onClick = { onPresetSelected(preset) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                repeat(3 - row.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PresetCard(
+    preset: Preset,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = MaterialTheme.spacing
+    val borderColor = if (selected) MaterialTheme.colorScheme.primary else HardBassCardBorder
+    val containerColor =
+        if (selected) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        }
+    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(76.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = containerColor,
+        border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = spacing.small, vertical = spacing.extraSmall),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = presetIcon(preset.id),
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(22.dp),
+            )
+            Spacer(modifier = Modifier.width(spacing.extraSmall))
+            Text(
+                text = preset.name,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+private fun presetIcon(presetId: String): ImageVector =
+    when (presetId) {
+        "builtin_clean_punch" -> Icons.Filled.SportsMma
+        "builtin_deep_rumble" -> Icons.Filled.Waves
+        "builtin_kick_attack" -> Icons.Filled.Bolt
+        "builtin_balanced" -> Icons.Filled.Balance
+        "builtin_flat" -> Icons.Filled.Remove
+        "builtin_raw_power" -> Icons.Filled.PowerSettingsNew
+        "builtin_fast_attack" -> Icons.Filled.Speed
+        "builtin_maximum_distortion" -> Icons.Filled.Block
+        "builtin_final_smash" -> Icons.Filled.Whatshot
+        else -> Icons.Filled.Equalizer
+    }
 
 private fun formatFrequency(centerFreqHz: Int): String =
     if (centerFreqHz >= 1000) {
