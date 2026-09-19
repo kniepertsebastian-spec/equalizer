@@ -73,23 +73,21 @@ class AndroidAudioEngine
                 var dpSupported = false
                 var dpLimiterSupported = false
                 var dpInputGainSupported = false
+                var dpMbcSupported = false
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     try {
-                        val dpConfig =
-                            DynamicsProcessing.Config
-                                .Builder(
-                                    DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
-                                    2, // 2 channels
-                                    false,
-                                    0, // PreEQ: not requested
-                                    true,
-                                    MBC_BAND_COUNT
-                                    false,
-                                    0, // PostEQ: not requested
-                                    true, // Limiter
-                                ).build()
-                        val dp = DynamicsProcessing(0, session.sessionId, dpConfig)
+                        val dp =
+                            try {
+                                val fullConfig = createDynamicsConfig(mbcEnabled = true)
+                                DynamicsProcessing(0, session.sessionId, fullConfig).also {
+                                    dpMbcSupported = true
+                                }
+                            } catch (mbcError: Exception) {
+                                Log.w(TAG, "MBC unavailable; falling back to limiter-only processing", mbcError)
+                                val fallbackConfig = createDynamicsConfig(mbcEnabled = false)
+                                DynamicsProcessing(0, session.sessionId, fallbackConfig)
+                            }
                         dynamicsProcessing = dp
                         dpSupported = true
                         dpLimiterSupported = true
@@ -109,7 +107,7 @@ class AndroidAudioEngine
                         bands = bandCaps,
                         hasInputGain = dpInputGainSupported,
                         hasLimiter = dpLimiterSupported,
-                        hasMbc = dpSupported,
+                        hasMbc = dpMbcSupported,
                     )
 
                 isAttached.set(true)
@@ -159,6 +157,20 @@ class AndroidAudioEngine
                 applyInternal(settings)
             }
 
+        private fun createDynamicsConfig(mbcEnabled: Boolean): DynamicsProcessing.Config =
+            DynamicsProcessing.Config
+                .Builder(
+                    DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
+                    2,
+                    false,
+                    0,
+                    mbcEnabled,
+                    if (mbcEnabled) MBC_BAND_COUNT else 0,
+                    false,
+                    0,
+                    true,
+                ).build()
+
         private fun applyInternal(settings: ProcessingSettings): Boolean {
             val eq = equalizer ?: return false
             try {
@@ -181,31 +193,34 @@ class AndroidAudioEngine
                     if (shouldEnable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         dp.setInputGainAllChannelsTo(settings.inputGainDb.coerceIn(-15f, 0f))
 
-                        val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
-                        val mbcThresholdDb = if (settings.mbcEnabled) settings.mbcThresholdDb.coerceIn(-30f, 0f) else 0f
-                        val mbcBands =
-                            listOf(
-                                MbcBandSettings(120f, 15f, 180f),
-                                MbcBandSettings(1500f, 8f, 120f),
-                                MbcBandSettings(20000f, 3f, 80f),
-                            )
-                        mbcBands.forEachIndexed { bandIndex, band ->
-                            dp.setMbcBandAllChannelsTo(
-                                bandIndex,
-                                DynamicsProcessing.MbcBand(
-                                    true,
-                                    band.cutoffFrequencyHz,
-                                    band.attackMs,
-                                    band.releaseMs,
-                                    mbcRatio,
-                                    mbcThresholdDb,
-                                    6f, // soft knee
-                                    -80f, // effectively disable the noise gate
-                                    1f, // no expansion
-                                    0f,
-                                    0f,
-                                ),
-                            )
+                        if (capabilities.value.hasMbc) {
+                            val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
+                            val mbcThresholdDb =
+                                if (settings.mbcEnabled) settings.mbcThresholdDb.coerceIn(-30f, 0f) else 0f
+                            val mbcBands =
+                                listOf(
+                                    MbcBandSettings(120f, 15f, 180f),
+                                    MbcBandSettings(1500f, 8f, 120f),
+                                    MbcBandSettings(20000f, 3f, 80f),
+                                )
+                            mbcBands.forEachIndexed { bandIndex, band ->
+                                dp.setMbcBandAllChannelsTo(
+                                    bandIndex,
+                                    DynamicsProcessing.MbcBand(
+                                        true,
+                                        band.cutoffFrequencyHz,
+                                        band.attackMs,
+                                        band.releaseMs,
+                                        mbcRatio,
+                                        mbcThresholdDb,
+                                        6f, // soft knee
+                                        -80f, // effectively disable the noise gate
+                                        1f, // no expansion
+                                        0f,
+                                        0f,
+                                    ),
+                                )
+                            }
                         }
 
                         val safeThresholdDb = settings.limiterThresholdDb.coerceAtMost(0f)
