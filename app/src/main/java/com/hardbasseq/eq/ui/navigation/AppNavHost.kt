@@ -18,15 +18,9 @@ const val ROUTE_DIAGNOSTICS = "diagnostics"
 @Composable
 fun AppNavHost(spikeController: SessionAttachSpikeController) {
     val navController = rememberNavController()
-    // Hoisted above NavHost so Home and Diagnostics share one MainViewModel
-    // instance instead of each route creating its own via hiltViewModel():
-    // MainViewModel owns AudioSessionRepository/AudioRouteRepository listening
-    // in init{}/onCleared(), so a second instance would both reset processing
-    // settings to their defaults and stop those (singleton) listeners the
-    // moment the second instance's onCleared() ran.
-    val viewModel: MainViewModel = hiltViewModel()
     NavHost(navController = navController, startDestination = ROUTE_HOME) {
         composable(ROUTE_HOME) {
+            val viewModel: MainViewModel = hiltViewModel()
             MainScreen(
                 viewModel = viewModel,
                 spikeController = spikeController,
@@ -34,6 +28,7 @@ fun AppNavHost(spikeController: SessionAttachSpikeController) {
             )
         }
         composable(ROUTE_DIAGNOSTICS) {
+            val viewModel: MainViewModel = hiltViewModel()
             val state by viewModel.engineState.collectAsStateWithLifecycle()
             val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
             val route by viewModel.currentRoute.collectAsStateWithLifecycle()

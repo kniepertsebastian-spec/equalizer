@@ -64,7 +64,6 @@ class AndroidAudioSessionRepository
                                 _activeSession.value = newSession
                             }
                         }
-
                         AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION -> {
                             Log.d(TAG, "Audio effect control session closed: $sessionId")
                             _sessions.value = _sessions.value.filter { it.sessionId != sessionId }

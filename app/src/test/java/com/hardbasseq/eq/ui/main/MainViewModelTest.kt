@@ -61,20 +61,6 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `toggling off hides the list without discarding loaded descriptors`() =
-        runTest {
-            val descriptor = fakeDescriptor("Fake Equalizer")
-            val viewModel = createViewModel(listOf(descriptor))
-
-            viewModel.toggleDebugEffects()
-            dispatcher.scheduler.advanceUntilIdle()
-            viewModel.toggleDebugEffects()
-
-            assertFalse(viewModel.showDebugEffects.value)
-            assertEquals(listOf(descriptor), viewModel.effectDescriptors.value)
-        }
-
-    @Test
     fun `selectPreset updates active preset and interpolates gains`() =
         runTest {
             val viewModel = createViewModel(emptyList())

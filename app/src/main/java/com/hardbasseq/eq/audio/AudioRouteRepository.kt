@@ -79,7 +79,6 @@ class AndroidAudioRouteRepository
                             id = "bt_${device.id}",
                         )
                     }
-
                     AudioDeviceInfo.TYPE_WIRED_HEADSET,
                     AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
                     AudioDeviceInfo.TYPE_LINE_ANALOG,
@@ -91,7 +90,6 @@ class AndroidAudioRouteRepository
                             id = "wired_${device.id}",
                         )
                     }
-
                     AudioDeviceInfo.TYPE_USB_DEVICE,
                     AudioDeviceInfo.TYPE_USB_HEADSET,
                     AudioDeviceInfo.TYPE_USB_ACCESSORY,

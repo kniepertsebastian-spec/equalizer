@@ -7,8 +7,6 @@ import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,18 +32,7 @@ class AndroidAudioEngine
 
         private val isAttached = AtomicBoolean(false)
 
-        // Serializes attach/detach/apply so a fast run of UI events (e.g. dragging
-        // a band slider while a route change triggers a re-attach) can't interleave
-        // and leave the Equalizer/DynamicsProcessing instances in a half-updated
-        // state (roadmap.md M5: "Schutz vor Parameter-Sprüngen und Race Conditions").
-        private val mutex = Mutex()
-
-        override suspend fun attach(session: AudioSession): Boolean =
-            mutex.withLock {
-                attachLocked(session)
-            }
-
-        private fun attachLocked(session: AudioSession): Boolean {
+        override suspend fun attach(session: AudioSession): Boolean {
             detachInternal()
 
             _state.value = AudioEngineState.Attaching(session.sessionId)
@@ -71,6 +58,7 @@ class AndroidAudioEngine
 
                 var dpSupported = false
                 var dpLimiterSupported = false
+                var dpMbcSupported = false
                 var dpInputGainSupported = false
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -80,23 +68,19 @@ class AndroidAudioEngine
                                 .Builder(
                                     DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
                                     2, // 2 channels
-                                    // PreEQ and MBC are left out of the requested config, not just
-                                    // unconfigured: an unconfigured-but-active band still processes
-                                    // audio with whatever default the OEM engine picks, which
-                                    // violates the "every DSP stage needs defined bounds" principle
-                                    // (roadmap.md §1). Only the limiter is actually configured below.
-                                    false,
-                                    0, // PreEQ: not requested
-                                    false,
-                                    0, // MBC: not requested
-                                    false,
-                                    0, // PostEQ: not requested
+                                    true,
+                                    1, // PreEQ: 1 band
+                                    true,
+                                    1, // MBC: 1 band
+                                    true,
+                                    1, // PostEQ: 1 band
                                     true, // Limiter
                                 ).build()
                         val dp = DynamicsProcessing(0, session.sessionId, dpConfig)
                         dynamicsProcessing = dp
                         dpSupported = true
                         dpLimiterSupported = true
+                        dpMbcSupported = true
                         dpInputGainSupported = true
                     } catch (e: Exception) {
                         Log.w(TAG, "DynamicsProcessing not supported on session ${session.sessionId}", e)
@@ -113,9 +97,7 @@ class AndroidAudioEngine
                         bands = bandCaps,
                         hasInputGain = dpInputGainSupported,
                         hasLimiter = dpLimiterSupported,
-                        // Not requested in the DynamicsProcessing config above (no MBC
-                        // configuration exists yet), so it isn't actually available.
-                        hasMbc = false,
+                        hasMbc = dpMbcSupported,
                     )
 
                 isAttached.set(true)
@@ -130,11 +112,10 @@ class AndroidAudioEngine
             }
         }
 
-        override suspend fun detach() =
-            mutex.withLock {
-                detachInternal()
-                _state.value = AudioEngineState.Detached
-            }
+        override suspend fun detach() {
+            detachInternal()
+            _state.value = AudioEngineState.Detached
+        }
 
         private fun detachInternal() {
             isAttached.set(false)
@@ -158,12 +139,11 @@ class AndroidAudioEngine
             currentSessionId = null
         }
 
-        override suspend fun apply(settings: ProcessingSettings): Boolean =
-            mutex.withLock {
-                _currentSettings.value = settings
-                if (!isAttached.get()) return@withLock false
-                applyInternal(settings)
-            }
+        override suspend fun apply(settings: ProcessingSettings): Boolean {
+            _currentSettings.value = settings
+            if (!isAttached.get()) return false
+            return applyInternal(settings)
+        }
 
         private fun applyInternal(settings: ProcessingSettings): Boolean {
             val eq = equalizer ?: return false
@@ -185,19 +165,21 @@ class AndroidAudioEngine
                 dynamicsProcessing?.let { dp ->
                     dp.enabled = shouldEnable
                     if (shouldEnable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        val safeThresholdDb = settings.limiterThresholdDb.coerceAtMost(0f)
-                        val limiter =
-                            DynamicsProcessing.Limiter(
-                                true,
-                                settings.limiterEnabled,
-                                0, // channel 0
-                                1f, // attack ms
-                                50f, // release ms
-                                10f, // ratio
-                                safeThresholdDb, // threshold
-                                0f, // postGain
-                            )
-                        dp.setLimiterAllChannelsTo(limiter)
+                        if (settings.limiterEnabled) {
+                            val safeThresholdDb = settings.limiterThresholdDb.coerceAtMost(0f)
+                            val limiter =
+                                DynamicsProcessing.Limiter(
+                                    true,
+                                    true,
+                                    0, // channel 0
+                                    1f, // attack ms
+                                    50f, // release ms
+                                    10f, // ratio
+                                    safeThresholdDb, // threshold
+                                    0f, // postGain
+                                )
+                            dp.setLimiterAllChannelsTo(limiter)
+                        }
                     }
                 }
                 return true
