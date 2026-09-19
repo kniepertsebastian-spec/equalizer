@@ -310,14 +310,14 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 ### M1 – Projektfundament
 
 - [x] Paketnamen und Arbeitstitel zentral konfigurierbar machen. (`gradle.properties`: `hardbasseq.applicationId`/`hardbasseq.namespace`, referenziert aus `app/build.gradle.kts`; Anzeigename bleibt in `strings.xml`.)
-- [x] Compose Design System, Navigation und Theme erstellen. (Navigation seit M0/`AppNavHost`; Cyber/Dark-Material-3-Tokens und Spacing-Tokens in Session 10 ergänzt – noch nicht auf Codeebene review-geprüft, siehe Session-10-Log.)
+- [x] Compose Design System, Navigation und Theme erstellen. (Navigation seit M0/`AppNavHost`; Cyber/Dark-Material-3-Farbtokens (`Color.kt`) und `Spacing`-Tokens in Session 10 ergänzt und im Code-Review verifiziert – `MaterialTheme.spacing` wird tatsächlich in `EqualizerScreen`/`DiagnosticsScreen` verwendet, nicht nur definiert.)
 - [x] Hilt und Coroutines einrichten. (Hilt/KSP-Umbau nach Reparatur des JVM-Zielkonflikts verifiziert: PR #6, Commit `007f53f`, CI-Lauf `35404523035`, `assembleDebug` und `testDebugUnitTest` grün. Kotlin und Java zielen explizit auf JVM 17; siehe ADR 0002.)
-- [x] DataStore, Room und Serialization einrichten. (Room `AppDatabase`/DAOs, Kotlinx Serialization und DataStore Preferences in Session 10 ergänzt – Review-Stand siehe Session-10-Log.)
+- [x] DataStore, Room und Serialization einrichten. (Wie in M1 vorgesehen nur die Gradle-Einrichtung: Room `AppDatabase`/DAOs/Entities, `kotlinx-serialization-json` und die DataStore-Preferences-Abhängigkeit sind vorhanden und bauen. Die DataStore-Abhängigkeit hat im Code-Review keine einzige Verwendungsstelle – das ist für M1 in Ordnung, siehe aber M4, wo die tatsächliche Nutzung als nicht erledigt zurückgestuft wurde.)
 - [x] CI mit `assembleDebug`, Unit Tests und Android Lint einrichten. (`lintDebug` und `lintRelease` in PR #7 ergänzt; Lauf `35405675078` grün, beide Varianten mit 0 Fehlern / 16 Warnungen. Berichte werden auch bei Fehlern als Artefakt gespeichert; Details in `docs/QUALITY.md`.)
 - [x] Formatierung und detekt in CI einrichten. (ktlint eingerichtet und in CI aktiv, `ktlint_official`-Stil per `ktlint --format` auf den Bestand angewendet; detekt bleibt bewusst zurückgestellt, da dessen stabile Version Kotlin 2.3.20 weiterhin nicht unterstützt – siehe ADR 0003.)
 - [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten. (Policy dokumentiert in `docs/ARCHITECTURE.md`; noch keine konkrete Logging-Bibliothek nötig, da noch kein produktiver Logging-Code existiert.)
 - [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen. (`docs/DEPENDENCIES.md` existiert seit M0; `docs/ARCHITECTURE.md` und `docs/adr/0001-...md` neu angelegt.)
-- [x] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen. (`FakeAudioEngine` in Session 10 bereitgestellt; ob es aus der UI erreichbar ist, ist im Code-Review noch offen.)
+- [ ] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen. (`FakeAudioEngine` existiert, wird laut Code-Review von Session 10 aber nirgends aus der App heraus gebunden oder erreichbar gemacht – `AudioModule` bindet immer `AndroidAudioEngine`. Aktuell nur als Test-Double in Unit-Tests genutzt, kein echtes Debug-Menü.)
 
 Abnahmekriterien:
 
@@ -329,10 +329,10 @@ Abnahmekriterien:
 
 - [x] `AudioEngine` und Fake-Implementierung erstellen.
 - [x] Android-Implementierung für `Equalizer` erstellen.
-- [x] Optionale Android-Implementierung für `DynamicsProcessing` erstellen.
+- [x] Optionale Android-Implementierung für `DynamicsProcessing` erstellen. (Nur der Limiter ist tatsächlich konfiguriert; PreEQ/MBC/PostEQ wurden im Code-Review von Session 10 bewusst aus der angeforderten Konfiguration entfernt, siehe M5.)
 - [x] Capability Discovery mit Read-back implementieren.
-- [x] AudioEffect-Control-Session-Intents verarbeiten. (`AndroidAudioSessionRepository`)
-- [x] Attach/Detach, Kontrollverlust, tote Session und Engine-Konflikt behandeln.
+- [x] AudioEffect-Control-Session-Intents verarbeiten. (`AndroidAudioSessionRepository`) **Wichtiger Vorbehalt:** Der M0-Spike hat genau diesen Broadcast-Mechanismus (`ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`) bereits als auf dem Testgerät unzuverlässig dokumentiert (`docs/TEST_MATRIX.md`, Session 4/Control-Intent-Test) – selbst gesendete Broadcasts kamen nicht beim eigenen Empfänger an. Diese M2-Implementierung wurde **nicht** erneut auf einem echten Gerät mit einem echten Drittanbieter-Player verifiziert; ob sie in der Praxis funktioniert, ist offen.
+- [ ] Attach/Detach, Kontrollverlust, tote Session und Engine-Konflikt behandeln. (Attach/Detach vorhanden; `AudioEngineState.LostControl` wird bei einem Fehler gesetzt, aber nichts versucht danach automatisch ein Recovery/Re-Attach. Nicht im Detail auditiert.)
 - [x] Route-Erkennung für Speaker, kabelgebunden, Bluetooth und USB implementieren. (`AndroidAudioRouteRepository`)
 - [x] Engine-State als `StateFlow` zur UI führen.
 - [x] Keine dauerhafte Hintergrundausführung einführen, bevor sie technisch und Play-Policy-seitig begründet ist.
@@ -346,47 +346,52 @@ Abnahmekriterien:
 - [x] Master-Bypass und A/B-Vergleich implementieren.
 - [x] Bass-, Punch- und Härte-Makros implementieren.
 - [x] Headroom-Schätzung und Warnung bei Clipping-Risiko anzeigen.
-- [x] Bei verfügbarem Input-Gain automatische Absenkung anwenden.
+- [ ] Bei verfügbarem Input-Gain automatische Absenkung anwenden. (`EqualizerInterpolator.calculateHeadroom()` berechnet nur einen *empfohlenen* Wert für die Anzeige; nirgends im Code wird `dp.setInputGainAllChannelsTo(...)` o. ä. aufgerufen. Die Absenkung wird also nicht angewendet, nur vorgeschlagen.)
 - [x] Alle Änderungen per Read-back verifizieren.
 
 ### M4 – Profile und Persistenz
 
-- [x] Room-Schema für Presets und Geräteprofile implementieren. (`PresetEntity`, `DeviceProfileEntity`)
-- [x] DataStore für globale UI-/App-Einstellungen nutzen.
-- [x] Stabilen, datensparsamen Route-Fingerprint definieren.
-- [x] Profilwechsel bei Route-Wechsel implementieren.
-- [x] Konfliktregeln definieren: manuelle Auswahl schlägt automatische Auswahl bis zum nächsten Route-Wechsel.
-- [x] JSON-Import mit Vorschau und Validierung implementieren. (`PresetJsonSerializer`)
-- [x] JSON-Export über Android Sharesheet/Storage Access Framework implementieren.
+- [x] Room-Schema für Presets und Geräteprofile implementieren. (`PresetEntity`, `DeviceProfileEntity`, DAOs, `AppDatabase` – die Schema-Definitionen existieren.)
+- [ ] DataStore für globale UI-/App-Einstellungen nutzen. (Abhängigkeit eingebunden, aber im Code-Review keine einzige Verwendungsstelle gefunden – `grep` nach `dataStore`/`preferencesDataStore` im Quellcode ergibt nichts.)
+- [ ] Stabilen, datensparsamen Route-Fingerprint definieren. (Keine entsprechende Klasse/Funktion im Code gefunden.)
+- [ ] Profilwechsel bei Route-Wechsel implementieren. (Keine `ProfileRepository`/`DeviceProfileRepository` oder vergleichbare Klasse verwendet die DAOs; `AudioRouteRepository` meldet Route-Wechsel, aber nichts reagiert darauf mit einem Profilwechsel.)
+- [ ] Konfliktregeln definieren: manuelle Auswahl schlägt automatische Auswahl bis zum nächsten Route-Wechsel. (Ohne Profilwechsel-Logik gegenstandslos – nicht umgesetzt.)
+- [ ] JSON-Import mit Vorschau und Validierung implementieren. (`PresetJsonSerializer` existiert und ist unit-getestet – Größenlimit, Schema-Version, Frequenz-/Gain-Grenzen –, wird aber von keiner UI oder ViewModel-Methode aufgerufen. Kein Import-Button, keine Vorschau.)
+- [ ] JSON-Export über Android Sharesheet/Storage Access Framework implementieren. (Kein Sharesheet-/SAF-Code im Projekt; `exportToJson()` wird nirgends aufgerufen.)
 
 ### M5 – Dynamik und Schutz
 
 - [x] Limiter nur bei gemeldeter Unterstützung aktivieren.
-- [x] Sichere Standardwerte definieren; Threshold niemals über 0 dBFS anbieten. (Strikte Begrenzung `<= 0 dBFS`)
-- [x] Optionalen Bass-Multiband-Kompressor für 30–150 Hz anbieten, sofern Engine unterstützt.
-- [x] Attack, Release, Ratio und Gain-Grenzen konservativ begrenzen.
-- [x] Schutz vor Parameter-Sprüngen und Race Conditions implementieren.
+- [x] Sichere Standardwerte definieren; Threshold niemals über 0 dBFS anbieten. (Strikte Begrenzung `<= 0 dBFS`; im Code-Review von Session 10 zusätzlich einen Bug behoben, bei dem `limiterEnabled = false` den bereits aktiven Limiter nicht wirklich abschaltete.)
+- [ ] Optionalen Bass-Multiband-Kompressor für 30–150 Hz anbieten, sofern Engine unterstützt. (War in der `DynamicsProcessing.Config` strukturell aktiv, aber nirgends konfiguriert – lief mit undokumentierten Werkseinstellungen des jeweiligen Geräts. Im Code-Review von Session 10 bewusst aus der Konfiguration entfernt (`mbcInUse = false`), bis eine echte Konfiguration/UI existiert; `hasMbc` meldet jetzt korrekt `false`.)
+- [x] Attack, Release, Ratio und Gain-Grenzen konservativ begrenzen. (Nur für den tatsächlich konfigurierten Limiter zutreffend.)
+- [x] Schutz vor Parameter-Sprüngen und Race Conditions implementieren. (War **nicht** umgesetzt – `attach()`/`detach()`/`apply()` liefen ohne jede Synchronisierung nebeneinander her. Im Code-Review von Session 10 mit einem `Mutex` nachgerüstet, analog zum Muster aus `SessionAttachSpikeController`.)
 
 ### M6 – Diagnose, Onboarding und UX-Politur
 
-- [x] Kompatibilitätsprüfung beim Onboarding.
+- [ ] Kompatibilitätsprüfung beim Onboarding. (Kein Onboarding-Flow im Code; sogar der bisherige M0/M1-Platzhalter-Chip für den Kompatibilitätsstatus wurde beim Umbau von `MainScreen` ersatzlos entfernt.)
 - [x] Diagnoseansicht mit aktiver Route, Session-ID, Effekt-Engine, Bandanzahl und Fähigkeiten. (`DiagnosticsScreen`)
 - [x] Kopierbaren, datensparsamen Diagnosebericht erstellen. (`DiagnosticsReportFormatter`)
-- [x] Deutsche und englische Lokalisierung vervollständigen.
+- [ ] Deutsche und englische Lokalisierung vervollständigen. (Alle neuen Strings in `DiagnosticsScreen.kt`, `EqualizerScreen.kt` und Teilen von `MainScreen.kt` sind hartkodierte deutsche Literale statt `stringResource(...)` – auf einem englischsprachigen Gerät bleiben sie deutsch. Nicht in diesem Review behoben, da es sich um eine größere, eigenständige Lokalisierungsaufgabe handelt.)
 - [x] Keine manipulativen Lautstärkeversprechen oder audiophile Scheinmetriken verwenden.
 
 ### M7 – Qualität und Beta
 
 - [x] Unit Tests für Interpolation, Clamping, Headroom, Makros und Importvalidierung.
-- [x] Contract Tests, die Fake- und Android-Engine gegen dieselben Zustandsregeln prüfen. (`AudioEngineContractTest`)
-- [x] Audio-Smoke-Tests mit Sinustönen, Sweep, Impuls und Testsignalen. (`LogarithmicSweepGenerator`)
+- [ ] Contract Tests, die Fake- und Android-Engine gegen dieselben Zustandsregeln prüfen. (`AudioEngineContractTest` testet ausschließlich `FakeAudioEngine`; `AndroidAudioEngine` kommt darin nicht vor – naheliegend, da es echte Android-Media-Klassen braucht und ohne Instrumented-/Robolectric-Test nicht im reinen JVM-Unit-Test läuft, aber die Behauptung "Fake- und Android-Engine" stimmt so nicht.)
+- [ ] Audio-Smoke-Tests mit Sinustönen, Sweep, Impuls und Testsignalen. (Nur Sweep (`LogarithmicSweepGenerator`) und der bereits aus M0 vorhandene Sinuston (`SineWaveGenerator`) sind vorhanden; kein Impulssignal-Generator/-Test gefunden.)
 
 ### M8 – Post-MVP
 
 - [x] AutoEQ-Import (`AutoEqParser`).
 - [x] Media3 Eigene Wiedergabepipeline & DSP Prototype (`Media3DspPipeline`).
 
-Stand der Roadmap: 19. September 2026.
+Stand der Roadmap: 19. September 2026. **Nicht "durch":** Das Code-Review in
+Session 10 hat einen wiederkehrenden Musters aus PR #9 aufgedeckt – viele
+Checkboxen waren als erledigt markiert, obwohl der zugehörige Code entweder
+gar nicht aus der UI erreichbar war (Room/DataStore/JSON-Import-Export,
+Onboarding, Debug-Menü) oder aktiv, aber unkonfiguriert lief (MBC-Band). Die
+Korrekturen dazu stehen bei den jeweiligen Checkboxen und im Session-10-Log.
 
 ## 19. Session-Log
 
@@ -669,7 +674,63 @@ wurde bewusst kein bereits vorhandener Test verworfen (`toggling off hides
 the list...` aus `main` wurde in die neue, um `AudioEngine`/`AudioSession`/
 `AudioRoute` erweiterte Konstruktor-Signatur übernommen statt gelöscht).
 
-**Wichtig:** Die M2–M8-Checkboxen oben sind unverändert aus PR #9 übernommen
-und noch nicht unabhängig verifiziert (kein Android-SDK in dieser Sandbox,
-siehe `docs/DEPENDENCIES.md`). Ergebnis des Code-Reviews zu PR #9, inklusive
-konkreter Befunde, in `docs/DECISIONS.md` und im PR-Review selbst.
+**Code-Review durchgeführt** (kein Android-SDK in dieser Sandbox, siehe
+`docs/DEPENDENCIES.md` – Review daher per Lesen/Grep/ktlint, nicht per
+Emulator-Lauf). Ergebnis: ein wiederkehrendes Muster aus zu früh als "[x]"
+markierten Punkten, bei denen entweder nur das Datenmodell/die Abhängigkeit
+existiert, aber nichts sie aufruft, oder ein DSP-Stage strukturell aktiviert,
+aber nie konfiguriert wurde. Alle betroffenen Checkboxen oben in M1–M7 wurden
+entsprechend korrigiert (siehe dortige Begründungen).
+
+**Gefundene und in diesem Review behobene Bugs:**
+- `AppNavHost`: Die Diagnose-Route rief `hiltViewModel()` ohne gemeinsamen
+  Scope auf und erzeugte damit eine zweite `MainViewModel`-Instanz. Deren
+  `init{}` setzte Preset/Makros auf ihre Defaults zurück und wandte sie sofort
+  auf die echte, geteilte `AndroidAudioEngine` an – ein Nutzer, der auf
+  "Diagnose & Report" tippt, hätte seinen eingestellten EQ verloren. Beim
+  Zurück-Navigieren stoppte die zweite Instanz zusätzlich dauerhaft
+  `AudioSessionRepository`/`AudioRouteRepository` für den ganzen Prozess.
+  Behoben durch eine einzige, oberhalb von `NavHost` gehaltene
+  `MainViewModel`-Instanz für beide Routen.
+- `AndroidAudioEngine`: `limiterEnabled = false` schaltete den bereits
+  aktiven Limiter nicht ab (kein Code-Pfad dafür) – aktuell ohne UI-Zugriff
+  auf dieses Feld, aber ein latenter Bug für die erste UI, die es exponiert.
+  Behoben.
+- `AndroidAudioEngine`: PreEQ/MBC/PostEQ wurden in der
+  `DynamicsProcessing.Config` strukturell angefordert, aber nirgends
+  konfiguriert – liefen mit unbekannten Geräte-Standardwerten, ein Verstoß
+  gegen das eigene Projektprinzip "Jede DSP-Funktion braucht definierte
+  Grenzen" (§1). Aus der Konfiguration entfernt, bis eine echte Implementierung
+  existiert; `hasMbc` meldet jetzt korrekt `false`.
+- `AndroidAudioEngine`: `attach()`/`detach()`/`apply()` liefen ohne jede
+  Synchronisierung nebeneinander her, obwohl M5 "Schutz vor
+  Parameter-Sprüngen und Race Conditions" als erledigt auswies. Mit einem
+  `Mutex` nachgerüstet (analog zu `SessionAttachSpikeController` aus M0).
+- `MainScreen`: Der M0-Debug-Einstieg für den Session-Attach-Spike
+  (`SessionAttachSpikeSection`) war beim Umbau auf die neue Equalizer-UI
+  ersatzlos verschwunden; der `spikeController`-Parameter war seither
+  toter Code. Wiederhergestellt als Toggle-Button neben den anderen
+  Debug-Werkzeugen.
+- `gradle.properties`: Eine offensichtlich maschinenspezifische
+  `systemProp.http.agent`-Zeile (Gradle/OS/JVM-Version einer fremden
+  Sandbox) war eingecheckt. Entfernt.
+
+**Gefundene, aber nicht in diesem Review behobene Probleme** (siehe die
+jeweiligen Checkboxen oben für Details): M4-Persistenz komplett unverdrahtet
+(Room/DataStore ohne Aufrufer, kein Route-Fingerprint/Profilwechsel, kein
+JSON-Import/-Export in der UI); automatische Input-Gain-Absenkung wird nur
+angezeigt, nie angewendet; kein Onboarding-Kompatibilitätscheck (nicht einmal
+der alte M0-Platzhalter blieb erhalten); große Teile der deutschen UI-Texte
+in `DiagnosticsScreen`/`EqualizerScreen` sind nicht lokalisiert; der
+`AudioSessionRepository`-Broadcast-Mechanismus basiert auf genau den beiden
+Broadcast-Actions, die der M0-Spike bereits als auf dem Testgerät unzuverlässig
+dokumentiert hat (`docs/TEST_MATRIX.md`) – ohne erneuten Gerätetest bleibt
+offen, ob M2 in der Praxis funktioniert.
+
+**Nächste konkrete Aufgabe:** Vor einem Merge sollte der Nutzer diesen Stand
+bewusst gegen die PR-Beschreibung ("M1 bis M6 vollständig") abwägen – die
+Grundgerüste (Equalizer-DSP, Presets, Diagnose-UI, Limiter-Schutz) sind real
+und größtenteils solide, aber "die Roadmap ist durch" trifft nicht zu: M4 ist
+praktisch nicht begonnen, M6 nur teilweise. Empfehlung: PR mergen für den
+soliden Kern (M2/M3-DSP, Diagnose), M4/Lokalisierung/Onboarding als eigene,
+nachvollziehbare Folge-Schritte planen statt als bereits erledigt zu führen.

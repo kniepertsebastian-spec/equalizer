@@ -43,10 +43,24 @@ ktlint ist jetzt ebenfalls eingerichtet und in CI aktiv (`ktlint_official`-Stil,
 bestehender Code per `ktlint --format` automatisch angepasst). detekt bleibt
 bewusst zurückgestellt: seine stabile Version unterstützt Kotlin 2.3.20 laut
 [detekt/detekt#9170](https://github.com/detekt/detekt/discussions/9170)
-weiterhin nicht (nur `2.0.0-alpha.6`) – siehe ADR 0003. Als Nächstes:
-Design-System-Tokens und Capability-Fakes bleiben offen; detekt bei der
-nächsten Kotlin-Versionsänderung erneut auf Kompatibilität prüfen.
+weiterhin nicht (nur `2.0.0-alpha.6`) – siehe ADR 0003.
+
+PR #9 ("Jules") hat M2/M3-DSP-Grundlagen, Presets, Diagnose-UI und
+Design-System-Tokens ergänzt und beansprucht, M1–M8 komplett abzuschließen.
+Das Code-Review in `roadmap.md` §19 Session 10 widerlegt das für mehrere
+Punkte: M4 (Room/DataStore/Import-Export) ist praktisch nicht verdrahtet,
+M6-Onboarding und -Lokalisierung fehlen größtenteils, und mehrere konkrete
+Bugs (doppelte `MainViewModel`-Instanz über Navigation, nicht abschaltbarer
+Limiter, unkonfigurierte DynamicsProcessing-Stages, fehlende Synchronisierung
+zwischen `attach`/`detach`/`apply`) wurden im Review gefunden und behoben.
+Details, inklusive was noch offen bleibt, in `roadmap.md` Session 10 und im
+PR-Review zu PR #9. Als Nächstes: M4-Persistenz tatsächlich verdrahten (Room
++ Route-Fingerprint + Profilwechsel + Import/Export-UI), Onboarding-Check und
+Lokalisierung der neuen Bildschirme nachholen.
 
 Die M0-Restpunkte (Emulator, hörbare reversible Änderung/Bypass und
 schriftliche MVP-Backend-/Fallback-Entscheidung) bleiben ausdrücklich offen.
-Ein erfolgreicher JVM-Build ersetzt keine Audio-Laufzeitprüfung am Gerät.
+Ein erfolgreicher JVM-Build ersetzt keine Audio-Laufzeitprüfung am Gerät –
+das gilt jetzt auch explizit für PR #9: der M0-Spike hat den von
+`AudioSessionRepository` genutzten Broadcast-Mechanismus bereits als auf dem
+Testgerät unzuverlässig dokumentiert, ohne dass PR #9 das erneut getestet hat.

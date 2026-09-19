@@ -15,6 +15,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -41,6 +44,7 @@ fun MainScreen(
     val route by viewModel.currentRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
+    var showSpikeSection by remember { mutableStateOf(false) }
 
     Scaffold { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -73,6 +77,14 @@ fun MainScreen(
                         ),
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedButton(onClick = { showSpikeSection = !showSpikeSection }) {
+                    Text(
+                        stringResource(
+                            if (showSpikeSection) R.string.hide_spike_section else R.string.show_spike_section,
+                        ),
+                    )
+                }
             }
 
             if (showDebugEffects) {
@@ -87,6 +99,12 @@ fun MainScreen(
                             }
                         }
                     }
+                }
+            }
+
+            if (showSpikeSection) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    SessionAttachSpikeSection(controller = spikeController)
                 }
             }
         }
