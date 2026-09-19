@@ -99,7 +99,7 @@ private fun EffectDescriptorRow(descriptor: AudioEffectDescriptor) {
     Column(
         modifier =
             Modifier
-                .padding(vertical = 6.dp)
+                .padding(vertical = 4.dp)
                 .semantics { contentDescription = description },
     ) {
         Text(text = descriptor.name, style = MaterialTheme.typography.bodyLarge)

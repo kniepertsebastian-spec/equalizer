@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.audiofx.AudioEffect
-import android.os.Build
 import android.util.Log
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -65,7 +64,6 @@ class AndroidAudioSessionRepository
                                 _activeSession.value = newSession
                             }
                         }
-
                         AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION -> {
                             Log.d(TAG, "Audio effect control session closed: $sessionId")
                             _sessions.value = _sessions.value.filter { it.sessionId != sessionId }
