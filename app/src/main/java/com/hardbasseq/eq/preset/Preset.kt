@@ -30,6 +30,9 @@ data class Preset(
     val macroPunchDb: Float = 0f,
     val macroHaerteDb: Float = 0f,
     val requestedHeadroomDb: Float = 4.0f,
+    val mbcEnabled: Boolean = true,
+    val mbcThresholdDb: Float = -8.0f,
+    val mbcRatio: Float = 2.5f,
     val limiter: LimiterConfig = LimiterConfig(),
     val metadata: PresetMetadata = PresetMetadata(),
 )
