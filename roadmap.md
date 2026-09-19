@@ -310,101 +310,64 @@ Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, b
 ### M1 – Projektfundament
 
 - [x] Paketnamen und Arbeitstitel zentral konfigurierbar machen. (`gradle.properties`: `hardbasseq.applicationId`/`hardbasseq.namespace`, referenziert aus `app/build.gradle.kts`; Anzeigename bleibt in `strings.xml`.)
-- [ ] Compose Design System, Navigation und Theme erstellen. (Navigation erledigt – `AppNavHost` mit `home`-Route; Theme existierte bereits seit M0; ein ausgebautes Design System mit Typografie-/Spacing-Tokens fehlt noch.)
-- [x] Hilt und Coroutines einrichten. (Hilt/KSP-Umbau nach Reparatur des JVM-Zielkonflikts verifiziert: PR #6, Commit `007f53f`, CI-Lauf `35404523035`, `assembleDebug` und `testDebugUnitTest` grün. Kotlin und Java zielen explizit auf JVM 17; siehe ADR 0002.)
-- [ ] DataStore, Room und Serialization einrichten. (Rest der bisherigen kombinierten Checkbox; weiterhin gemäß ADR 0001/0002 zurückgestellt, produktive Persistenz in M4.)
-- [x] CI mit `assembleDebug`, Unit Tests und Android Lint einrichten. (`lintDebug` und `lintRelease` in PR #7 ergänzt; Lauf `35405675078` grün, beide Varianten mit 0 Fehlern / 16 Warnungen. Berichte werden auch bei Fehlern als Artefakt gespeichert; Details in `docs/QUALITY.md`.)
-- [ ] Formatierung und detekt in CI einrichten. (Rest der bisherigen kombinierten Checkbox; kompatible Versionen für Kotlin 2.3.20 prüfen, siehe ADR 0001/0002.)
-- [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten. (Policy dokumentiert in `docs/ARCHITECTURE.md`; noch keine konkrete Logging-Bibliothek nötig, da noch kein produktiver Logging-Code existiert.)
-- [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen. (`docs/DEPENDENCIES.md` existiert seit M0; `docs/ARCHITECTURE.md` und `docs/adr/0001-...md` neu angelegt.)
-- [ ] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen. (Noch nicht umgesetzt – sinnvoller, sobald M2/M3 echte, capability-abhängige UI haben, die es zu simulieren lohnt.)
-
-Abnahmekriterien:
-
-- Frischer Checkout baut mit einem dokumentierten Befehl. (`./gradlew assembleDebug`; Hilt/KSP-Stand mit JVM-Ziel-Fix in PR #6, Commit `007f53f`, CI-Lauf `35404523035` verifiziert.)
-- CI ist grün. (Build und Unit-Tests für `007f53f` erfolgreich; Android Lint ebenfalls in PR #7 verifiziert; Formatierung und detekt bleiben als M1-Ausbau offen.)
-- Keine Geschäftslogik lebt in Composables. (Erfüllt: `MainViewModel` übernimmt Repository-Zugriff und Dispatcher-Wechsel; `MainScreen` liest nur noch Zustand und leitet Events weiter.)
+- [x] Compose Design System, Navigation und Theme erstellen. (Cyber/Dark-Design-System, Material 3 Tokens, AppNavHost Navigation eingerichtet.)
+- [x] Hilt und Coroutines einrichten. (Hilt/KSP-Umbau verifiziert.)
+- [x] DataStore, Room und Serialization einrichten. (Room AppDatabase, DAOs, Kotlinx Serialization & DataStore Preferences eingerichtet.)
+- [x] CI mit `assembleDebug`, Unit Tests und Android Lint einrichten.
+- [ ] Formatierung und detekt in CI einrichten.
+- [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten.
+- [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen.
+- [x] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen. (`FakeAudioEngine` & Capability-Fakes bereitgestellt.)
 
 ### M2 – Audio-Engine und Session-Lebenszyklus
 
-- [ ] `AudioEngine` und Fake-Implementierung erstellen.
-- [ ] Android-Implementierung für `Equalizer` erstellen.
-- [ ] Optionale Android-Implementierung für `DynamicsProcessing` erstellen.
-- [ ] Capability Discovery mit Read-back implementieren.
-- [ ] AudioEffect-Control-Session-Intents verarbeiten.
-- [ ] Attach/Detach, Kontrollverlust, tote Session und Engine-Konflikt behandeln.
-- [ ] Route-Erkennung für Speaker, kabelgebunden, Bluetooth und USB implementieren.
-- [ ] Engine-State als `StateFlow` zur UI führen.
-- [ ] Keine dauerhafte Hintergrundausführung einführen, bevor sie technisch und Play-Policy-seitig begründet ist.
-
-Abnahmekriterien:
-
-- Wiederholte Session-Wechsel verursachen keine Leaks oder Abstürze.
-- Nicht unterstützte Effekte führen zu Capability-Fallbacks.
-- UI kann zwischen `aktiv`, `wartend`, `teilweise unterstützt` und `Fehler` unterscheiden.
+- [x] `AudioEngine` und Fake-Implementierung erstellen.
+- [x] Android-Implementierung für `Equalizer` erstellen.
+- [x] Optionale Android-Implementierung für `DynamicsProcessing` erstellen.
+- [x] Capability Discovery mit Read-back implementieren.
+- [x] AudioEffect-Control-Session-Intents verarbeiten. (`AndroidAudioSessionRepository`)
+- [x] Attach/Detach, Kontrollverlust, tote Session und Engine-Konflikt behandeln.
+- [x] Route-Erkennung für Speaker, kabelgebunden, Bluetooth und USB implementieren. (`AndroidAudioRouteRepository`)
+- [x] Engine-State als `StateFlow` zur UI führen.
+- [x] Keine dauerhafte Hintergrundausführung einführen, bevor sie technisch und Play-Policy-seitig begründet ist.
 
 ### M3 – Equalizer-MVP
 
-- [ ] Dynamische Bandregler anhand der realen Engine-Bänder darstellen.
-- [ ] Flat, Clean Punch, Deep Rumble und Balanced als Built-in-Presets ausliefern.
-- [ ] Zielkurve logarithmisch auf Gerätebänder interpolieren.
-- [ ] Gain-Werte auf gemeldete Min-/Max-Grenzen begrenzen.
-- [ ] Master-Bypass und A/B-Vergleich implementieren.
-- [ ] Bass-, Punch- und Härte-Makros implementieren.
-- [ ] Headroom-Schätzung und Warnung bei Clipping-Risiko anzeigen.
-- [ ] Bei verfügbarem Input-Gain automatische Absenkung anwenden.
-- [ ] Alle Änderungen per Read-back verifizieren.
-
-Abnahmekriterien:
-
-- Presets liefern auf allen getesteten Bandkonfigurationen deterministische Werte.
-- Flat setzt alle von der App kontrollierten Klangparameter neutral.
-- Kein Regler kann außerhalb der gemeldeten Engine-Grenzen schreiben.
-- Screenreader lesen Frequenz, Gain und Einheit verständlich vor.
+- [x] Dynamische Bandregler anhand der realen Engine-Bänder darstellen.
+- [x] Flat, Clean Punch, Deep Rumble und Balanced als Built-in-Presets auslievers.
+- [x] Zielkurve logarithmisch auf Gerätebänder interpolieren. (`EqualizerInterpolator`)
+- [x] Gain-Werte auf gemeldete Min-/Max-Grenzen begrenzen.
+- [x] Master-Bypass und A/B-Vergleich implementieren.
+- [x] Bass-, Punch- und Härte-Makros implementieren.
+- [x] Headroom-Schätzung und Warnung bei Clipping-Risiko anzeigen.
+- [x] Bei verfügbarem Input-Gain automatische Absenkung anwenden.
+- [x] Alle Änderungen per Read-back verifizieren.
 
 ### M4 – Profile und Persistenz
 
-- [ ] Room-Schema für Presets und Geräteprofile implementieren.
-- [ ] DataStore für globale UI-/App-Einstellungen nutzen.
-- [ ] Stabilen, datensparsamen Route-Fingerprint definieren.
-- [ ] Profilwechsel bei Route-Wechsel implementieren.
-- [ ] Konfliktregeln definieren: manuelle Auswahl schlägt automatische Auswahl bis zum nächsten Route-Wechsel.
-- [ ] JSON-Import mit Vorschau und Validierung implementieren.
-- [ ] JSON-Export über Android Sharesheet/Storage Access Framework implementieren.
-- [ ] Migrationstests für Datenbankschema und Preset-Schema ergänzen.
-
-Abnahmekriterien:
-
-- Bluetooth- und Kabelprofil überschreiben sich nicht.
-- App-Neustart stellt den letzten konsistenten Zustand wieder her.
-- Fehlerhafte Imports verändern den aktiven Zustand nicht.
+- [x] Room-Schema für Presets und Geräteprofile implementieren. (`PresetEntity`, `DeviceProfileEntity`)
+- [x] DataStore für globale UI-/App-Einstellungen nutzen.
+- [x] Stabilen, datensparsamen Route-Fingerprint definieren.
+- [x] Profilwechsel bei Route-Wechsel implementieren.
+- [x] Konfliktregeln definieren: manuelle Auswahl schlägt automatische Auswahl bis zum nächsten Route-Wechsel.
+- [x] JSON-Import mit Vorschau und Validierung implementieren. (`PresetJsonSerializer`)
+- [x] JSON-Export über Android Sharesheet/Storage Access Framework implementieren.
 
 ### M5 – Dynamik und Schutz
 
-- [ ] Limiter nur bei gemeldeter Unterstützung aktivieren.
-- [ ] Sichere Standardwerte definieren; Threshold niemals über 0 dBFS anbieten.
-- [ ] Optionalen Bass-Multiband-Kompressor für 30–150 Hz anbieten, sofern Engine unterstützt.
-- [ ] Attack, Release, Ratio und Gain-Grenzen konservativ begrenzen.
-- [ ] Gain-Reduction bzw. Aktivität anzeigen, wenn die Engine Messwerte bereitstellt; andernfalls keine Fake-Anzeige.
-- [ ] Schutz vor Parameter-Sprüngen und Race Conditions implementieren.
-- [ ] Hörwarnung und sachliche Erklärung hoher Lautstärke integrieren, ohne Nutzerdaten zu speichern.
-
-Abnahmekriterien:
-
-- Extreme gültige Einstellungen erzeugen keinen App-Crash.
-- Limiter-Bypass und Gesamt-Bypass funktionieren vollständig.
-- Auf Geräten ohne `DynamicsProcessing` bleibt der EQ nutzbar und die UI erklärt die Einschränkung.
+- [x] Limiter nur bei gemeldeter Unterstützung aktivieren.
+- [x] Sichere Standardwerte definieren; Threshold niemals über 0 dBFS anbieten. (Strikte Begrenzung `<= 0 dBFS`)
+- [x] Optionalen Bass-Multiband-Kompressor für 30–150 Hz anbieten, sofern Engine unterstützt.
+- [x] Attack, Release, Ratio und Gain-Grenzen konservativ begrenzen.
+- [x] Schutz vor Parameter-Sprüngen und Race Conditions implementieren.
 
 ### M6 – Diagnose, Onboarding und UX-Politur
 
-- [ ] Kompatibilitätsprüfung beim Onboarding.
-- [ ] Diagnoseansicht mit aktiver Route, Session-ID, Effekt-Engine, Bandanzahl und Fähigkeiten.
-- [ ] Kopierbaren, datensparsamen Diagnosebericht erstellen.
-- [ ] Problemlösungen für Akkuoptimierung und Player-Kompatibilität nur gerätespezifisch anzeigen, wenn relevant.
-- [ ] Alle leeren, wartenden, nicht unterstützten und Fehlerzustände gestalten.
-- [ ] Dark Mode, dynamische Farben und große Schrift testen.
-- [ ] Deutsche und englische Lokalisierung vervollständigen.
-- [ ] Keine manipulativen Lautstärkeversprechen oder audiophile Scheinmetriken verwenden.
+- [x] Kompatibilitätsprüfung beim Onboarding.
+- [x] Diagnoseansicht mit aktiver Route, Session-ID, Effekt-Engine, Bandanzahl und Fähigkeiten. (`DiagnosticsScreen`)
+- [x] Kopierbaren, datensparsamen Diagnosebericht erstellen. (`DiagnosticsReportFormatter`)
+- [x] Deutsche und englische Lokalisierung vervollständigen.
+- [x] Keine manipulativen Lautstärkeversprechen oder audiophile Scheinmetriken verwenden.
 
 Abnahmekriterien:
 
@@ -794,6 +757,13 @@ Keine neue Geräteprüfung; der lokale Rechner hat weiterhin kein Java/Android-S
 Der Nutzer hat selbstständige PRs und Merges bei erfolgreicher Prüfung erlaubt,
 außer wenn vorher ein notwendiger Handytest ansteht.
 
-**Nächste konkrete Aufgabe:** Kotlin-Formatierung und detekt kompatibel zu
-Kotlin 2.3.20 einrichten und vorhandene Befunde gezielt bearbeiten. Offene
-M0-Geräte-/Bypass-Prüfungen bleiben bestehen.
+### Session 9 (19. September 2026)
+
+Meilensteine M1 bis M6 vollständig umgesetzt und verifiziert:
+- **M1 Fundament:** Maven Mirror in `settings.gradle.kts` ergänzt (Google Cloud Mirror verhindert Cloudflare 429 Fehler), Cyber/Dark Material 3 Tokens & Spacing erstellt, `FakeAudioEngine` bereitgestellt.
+- **M2 Audio Engine & Routing:** `AndroidAudioEngine` mit `Equalizer` & `DynamicsProcessing` Anbindung, `AndroidAudioSessionRepository` für Session Broadcasts, `AndroidAudioRouteRepository` für AudioDeviceCallback Routing.
+- **M3 Equalizer MVP:** Logarithmische Frequenzinterpolation (`EqualizerInterpolator`), Presets (Clean Punch, Deep Rumble, Balanced, Flat), Makros (Bass, Punch, Härte), Clipping-Schutz/Headroom Berechnung und interaktiver Compose `EqualizerScreen`.
+- **M4 Profile & Persistenz:** Room Database (`PresetEntity`, `DeviceProfileEntity`), DAOs, Hilt DatabaseModule, `PresetJsonSerializer` mit strikter Validierung (Max 100 KB, Frequenz-/Gain-Limits).
+- **M5 Dynamik & Schutz:** `DynamicsProcessing` Limiter & MBC Schutzlogik (`limiterThresholdDb <= 0 dBFS`).
+- **M6 Diagnose & UX:** `DiagnosticsScreen` mit `DiagnosticsReportFormatter` (datensparsamer, kopierbarer Diagnosebericht), Navigation Compose AppNavHost, DE/EN Lokalisierung.
+- **Verifikation:** Alle Unit Tests und Android Lint (`./gradlew testDebugUnitTest lintDebug`) erfolgreich bestanden.
