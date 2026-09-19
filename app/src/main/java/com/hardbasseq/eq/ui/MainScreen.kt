@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,6 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -47,7 +51,13 @@ fun MainScreen(
     var showSpikeSection by remember { mutableStateOf(false) }
 
     Scaffold { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState()),
+        ) {
             EqualizerScreen(
                 state = engineState,
                 route = route,
@@ -61,11 +71,28 @@ fun MainScreen(
                 onMacroPunchChanged = { viewModel.setMacroPunch(it) },
                 onMacroHaerteChanged = { viewModel.setMacroHaerte(it) },
                 onBandGainChanged = { idx, gain -> viewModel.setBandGain(idx, gain) },
-                modifier = Modifier.weight(1f),
+                onReconnect = { viewModel.reconnect() },
             )
 
-            // Diagnostics and Debug Tools bar
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            Text(
+                text = "Entwickler-Werkzeuge",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+
+            // Diagnostics and Debug Tools bar. Horizontally scrollable since these
+            // three buttons don't all fit on a narrow phone screen; without scroll,
+            // the last button gets squeezed into a sliver and its text wraps
+            // character-by-character down a single-column strip.
+            Row(
+                modifier =
+                    Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
                 OutlinedButton(onClick = onNavigateToDiagnostics) {
                     Text("Diagnose & Report")
                 }

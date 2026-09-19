@@ -734,3 +734,45 @@ und größtenteils solide, aber "die Roadmap ist durch" trifft nicht zu: M4 ist
 praktisch nicht begonnen, M6 nur teilweise. Empfehlung: PR mergen für den
 soliden Kern (M2/M3-DSP, Diagnose), M4/Lokalisierung/Onboarding als eigene,
 nachvollziehbare Folge-Schritte planen statt als bereits erledigt zu führen.
+
+### Session 11 (19. September 2026)
+
+Erster echter Gerätetest von PR #9 (Google Pixel 10, Bluetooth-Route "CMF
+Buds Pro 2"). Nutzer meldet: kaputtes Layout (ein Debug-Button wird als
+senkrechte Buchstabenspalte dargestellt), Engine zeigt zwischenzeitlich
+"Kontrollverlust", Presets scheinen bis auf das zuerst aktive keinen
+hörbaren Unterschied mehr zu machen, und die Bedienung/Erklärung von
+Clipping-Schutz war unklar.
+
+Root Causes und Fixes:
+- **Layout:** Die Entwickler-Werkzeuge-Row (`Diagnose & Report`,
+  Debug-Effektliste, M0-Spike) hat auf einem schmalen Bildschirm ohne
+  Scroll/Wrap keinen Platz; der letzte Button wurde auf einen schmalen
+  Streifen gequetscht, dessen Text zeichenweise umbrach. Behoben mit
+  `horizontalScroll` auf dieser Row, zusätzlich optisch als
+  "Entwickler-Werkzeuge" abgesetzt (kleinere Schrift, Trennlinie), damit
+  sie nicht wie primäre Bedienelemente wirkt.
+- **Verschachteltes Scrollen:** `EqualizerScreen` hatte eine eigene
+  `verticalScroll` in einem `Modifier.weight(1f)`-Slot von `MainScreen`.
+  Um jede Unklarheit bei der Höhenberechnung auszuschließen, auf ein
+  einziges, durchgehendes Scrollen der gesamten Seite (`MainScreen`)
+  umgestellt; `EqualizerScreen` scrollt nicht mehr selbst.
+- **Kontrollverlust ohne Erholung:** `AudioEngineState.LostControl`/`Error`
+  erholten sich nie von selbst – ein Routenwechsel (z. B. Bluetooth-Connect)
+  löst nicht zwangsläufig eine neue `AudioSession` aus, sodass die
+  Engine nie neu angebunden wurde und weitere Preset-/Slider-Änderungen
+  wirkungslos blieben (passend zur Beobachtung "nur die erste Option
+  macht einen Unterschied"). `MainViewModel` bindet die Engine jetzt auch
+  bei jedem Routenwechsel neu an die aktuelle Session; zusätzlich ein
+  manueller "Neu verbinden"-Button im Status-Chip für die verbleibenden
+  Fälle.
+- **Erklärung/Bedienung:** Kurze, permanente Hinweistexte in den
+  Presets-, Makro- und Bänder-Karten ergänzt; die Clipping-Warnung
+  erklärt jetzt in Worten, was passiert und was zu tun ist (vorher nur
+  zwei Zahlenwerte, davon eine verwirrend negativ formatiert).
+
+**Nicht auf einem echten Gerät verifiziert** (diese Sandbox hat keinen
+Android-SDK-Zugriff, siehe `docs/DEPENDENCIES.md`) – der Nutzer muss die
+Reconnect- und Layout-Fixes am Handy bestätigen, insbesondere ob Presets
+jetzt durchgängig hörbar wirken und ob Routenwechsel keine störbaren
+Aussetzer verursachen.

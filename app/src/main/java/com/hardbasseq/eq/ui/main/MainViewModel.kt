@@ -64,9 +64,36 @@ class MainViewModel
                 }
             }
 
+            // A route change (e.g. connecting/disconnecting Bluetooth) doesn't
+            // necessarily emit a new AudioSession - the session ID can stay the
+            // same while the underlying audio path changes. Re-attaching on every
+            // route change re-creates the Equalizer/DynamicsProcessing instances
+            // for the current session, which recovers from a stale effect handle
+            // that would otherwise silently stop affecting the audio (or land in
+            // AudioEngineState.LostControl) after the route changes.
+            viewModelScope.launch {
+                routeRepository.activeRoute.collect {
+                    sessionRepository.activeSession.value?.let { session ->
+                        audioEngine.attach(session)
+                    }
+                }
+            }
+
             viewModelScope.launch {
                 audioEngine.capabilities.collect { caps ->
                     recalculateBandGains(caps.bands)
+                }
+            }
+        }
+
+        /**
+         * Re-attaches to the current session after [AudioEngineState.LostControl]
+         * or [AudioEngineState.Error], since neither recovers on its own.
+         */
+        fun reconnect() {
+            viewModelScope.launch {
+                sessionRepository.activeSession.value?.let { session ->
+                    audioEngine.attach(session)
                 }
             }
         }
