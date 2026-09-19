@@ -13,4 +13,6 @@
     <string name="spike_start">Testton starten + Effekte prüfen</string>
     <string name="spike_running">Läuft…</string>
     <string name="spike_stop">Stoppen</string>
+    <string name="session_service_notification_title">HardBass EQ hört mit</string>
+    <string name="session_service_notification_text">Läuft im Hintergrund und wartet auf die Audio-Session eines Players, damit der Equalizer sofort andocken kann.</string>
 </resources>

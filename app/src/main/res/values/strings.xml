@@ -13,4 +13,6 @@
     <string name="spike_start">Start test tone + probe effects</string>
     <string name="spike_running">Running…</string>
     <string name="spike_stop">Stop</string>
+    <string name="session_service_notification_title">HardBass EQ is listening</string>
+    <string name="session_service_notification_text">Watching for a player\'s audio session in the background so the equalizer can attach as soon as one opens.</string>
 </resources>

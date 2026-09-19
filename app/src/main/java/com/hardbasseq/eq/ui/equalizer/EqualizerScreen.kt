@@ -186,12 +186,14 @@ fun EqualizerScreen(
             }
         }
 
-        // No-session guidance: the OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast this
-        // app relies on to find a player's audio session only fires once, when that
-        // session is first created - if HardBass EQ wasn't already listening at that
-        // moment (e.g. Spotify was opened and started playing first), the broadcast
-        // is missed for good and there is no API to query it after the fact. Explain
-        // that instead of leaving the user staring at "Wartet auf Audio-Session".
+        // No-session guidance: AudioSessionForegroundService now listens for the
+        // OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast in the background, independent
+        // of whether this screen is open, so the "app wasn't running yet" case is
+        // covered. But that broadcast only fires once per player session and still
+        // won't arrive at all for a session that was already open before the service
+        // started (e.g. right after install) or - per the M0 spike's unresolved
+        // finding (roadmap.md Session 4) - possibly not at all on some devices. Explain
+        // what to try instead of leaving the user staring at "Wartet auf Audio-Session".
         AnimatedVisibility(visible = state is AudioEngineState.Detached) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -218,11 +220,11 @@ fun EqualizerScreen(
                         )
                         Text(
                             text =
-                                "HardBass EQ erkennt eine Session nur, wenn die App bereits läuft, " +
-                                    "wenn die Wiedergabe startet. Läuft Spotify o.ä. schon, hilft meist: " +
-                                    "Titel pausieren und erneut abspielen, zum nächsten Titel springen, " +
-                                    "oder die Player-App einmal schließen und neu starten, während HardBass " +
-                                    "EQ im Hintergrund geöffnet bleibt.",
+                                "HardBass EQ lauscht jetzt auch im Hintergrund auf neue Sessions. " +
+                                    "Läuft ein Player wie Spotify oder SoundCloud aber schon seit vor der " +
+                                    "Installation bzw. dem letzten Neustart, hilft meist: Titel pausieren " +
+                                    "und erneut abspielen, zum nächsten Titel springen, oder die Player-App " +
+                                    "einmal schließen und neu starten.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

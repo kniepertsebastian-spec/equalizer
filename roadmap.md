@@ -855,3 +855,75 @@ dieser Sandbox) – insbesondere die neue `drawBehind`-Textur und das Icon-Grid
 sollten auf einem echten Gerät gegen den Mockup-Screenshot geprüft werden.
 Verifikation über CI (Build/Unit-Tests/Lint/ktlint) plus Gerätetest durch den
 Nutzer.
+
+### Session 13 (19. September 2026)
+
+Nutzer meldet: Equalizer klappt auch bei SoundCloud nicht, und bittet darum,
+das diesmal „richtig" zu beheben statt nur mit einem Hinweistext zu arbeiten.
+Bevor umgesetzt wurde: per `AskUserQuestion` explizit die in Session 11/12
+aufgeschobene Entscheidung vorgelegt (dauerhafter Foreground-Service mit
+Dauerbenachrichtigung/Akku-Kosten/neuer Berechtigung vs. nur Doku vs. erst
+Gerätetest) – **Nutzer entscheidet sich für den Foreground-Service.**
+
+**Wichtiger Vorbehalt vorab kommuniziert:** Das SoundCloud-Problem hat
+vermutlich zwei Ursachen, von denen der Service nur eine sicher behebt. (1)
+Timing: Der Broadcast feuert nur einmal beim Sessionstart – wenn HardBass EQ
+noch nicht lief, ist er für immer verpasst. (2) Ungeklärt seit Session 4: Auf
+dem Pixel 10/Android 16 kamen selbst **selbst gesendete** Test-Broadcasts nie
+beim eigenen Empfänger an, auch nicht bei aktivem Warten – das deutet auf ein
+tieferliegendes, möglicherweise geräte-/OS-spezifisches Zustellungsproblem
+hin, das ein Service allein nicht lösen kann. Umgesetzt wird trotzdem, weil es
+den einzig bekannten, seriösen nächsten Schritt darstellt und Punkt (1) real
+behebt.
+
+**Umgesetzt:**
+- Neuer `AudioSessionForegroundService` (`service/AudioSessionForegroundService.kt`,
+  `androidx.lifecycle.LifecycleService` + `@AndroidEntryPoint`, injiziert die
+  bestehenden Singletons `AudioSessionRepository`/`AudioRouteRepository`/
+  `AudioEngine`). Startet `sessionRepository.startListening()` und
+  `routeRepository.startMonitoring()` in `onCreate()` und reagiert per
+  `lifecycleScope`-Collector auf `activeSession`-Wechsel mit
+  `audioEngine.attach()`/`detach()` – exakt die Logik, die vorher in
+  `MainViewModel.init` lag, jetzt aber unabhängig vom UI-Lebenszyklus.
+  `START_STICKY`, damit das System den Dienst nach einem Kill neu startet.
+- `HardBassEqApplication.onCreate()` startet den Service sofort beim
+  Prozessstart (`ContextCompat.startForegroundService`) – nicht erst wenn
+  `MainActivity`/`MainViewModel` erzeugt werden. Das verkleinert das
+  Zeitfenster, in dem ein Player-Broadcast verpasst werden kann, auf "Prozess
+  noch nicht gestartet" statt "UI noch nicht geöffnet".
+- `MainViewModel`: `sessionRepository`-Parameter komplett entfernt (wird nicht
+  mehr gebraucht), `startListening/stopListening` und
+  `routeRepository.startMonitoring/stopMonitoring` sowie der
+  `activeSession`-Collector aus `init{}`/`onCleared()` entfernt – der Service
+  ist jetzt alleiniger Owner dieses Lebenszyklus. `MainViewModelTest`
+  entsprechend angepasst (`FakeAudioSessionRepository` entfernt, da ungenutzt).
+- Persistente Low-Priority-Benachrichtigung (`IMPORTANCE_LOW`, kein Sound/
+  Vibration) erklärt dem Nutzer, warum die App im Hintergrund läuft; Tippen
+  öffnet `MainActivity`. Neues, aus dem vorhandenen App-Icon abgeleitetes
+  monochromes Vektor-Icon (`ic_notification_eq.xml`), da Statusleisten-Icons
+  reine weiße Silhouetten auf Transparenz brauchen.
+- Manifest: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK` und
+  `POST_NOTIFICATIONS` ergänzt; `MainActivity` fragt `POST_NOTIFICATIONS` ab
+  API 33 zur Laufzeit an (der Service funktioniert auch ohne die Berechtigung,
+  nur die Benachrichtigung bliebe sonst unsichtbar).
+  `foregroundServiceType="mediaPlayback"` gewählt, da kein FGS-Typ exakt
+  "lauscht auf fremde Audio-Sessions" abbildet und vergleichbare veröffentlichte
+  System-EQ-Apps (z. B. Wavelet) für genau diesen Zweck `mediaPlayback`
+  verwenden statt der Play-Store-review-pflichtigen `specialUse`-Kategorie.
+- Hinweistext in `EqualizerScreen.kt` aktualisiert: erklärt jetzt, dass die
+  App auch im Hintergrund lauscht, und nennt die verbleibenden Fälle (Player
+  lief schon vor Erstinstallation/letztem Neustart; ungeklärtes
+  Zustellungsproblem), in denen Pausieren/Neustarten des Players weiterhin
+  hilft.
+- `androidx.lifecycle:lifecycle-service` als neue Abhängigkeit ergänzt (über
+  die bereits gepinnte `lifecycle`-Version, kein neuer Versionskonflikt).
+
+**Weiterhin nicht umgesetzt/offen:** Kein `BOOT_COMPLETED`-Empfänger – der
+Service startet erst, wenn der Nutzer die App nach einem Geräteneustart
+mindestens einmal öffnet, nicht automatisch beim Booten (das wäre eine
+weitere, hier nicht angefragte Ausweitung). Ob Punkt (2) oben (mögliches
+Zustellungsproblem) durch den Service behoben ist, lässt sich nur auf einem
+echten Gerät klären – das ist der nächste Test, um den der Nutzer gebeten
+werden sollte. Build weiterhin nicht lokal verifizierbar (kein
+Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI plus
+Gerätetest.

@@ -8,7 +8,6 @@ import com.hardbasseq.eq.audio.AudioEngine
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
-import com.hardbasseq.eq.audio.AudioSessionRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.di.DefaultDispatcher
@@ -30,7 +29,6 @@ class MainViewModel
     constructor(
         private val repository: AudioEffectRepository,
         private val audioEngine: AudioEngine,
-        private val sessionRepository: AudioSessionRepository,
         private val routeRepository: AudioRouteRepository,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
@@ -51,31 +49,17 @@ class MainViewModel
             MutableStateFlow(ProcessingSettings().withPreset(BuiltInPresets.CleanPunch))
         val processingSettings: StateFlow<ProcessingSettings> = _processingSettings.asStateFlow()
 
+        // Session listening/attach and route monitoring are owned by
+        // AudioSessionForegroundService now, not this ViewModel - that keeps them
+        // running for as long as the app process is alive, not just while this
+        // screen is open (see roadmap.md Session 13). This ViewModel only reacts to
+        // capability changes the (singleton) engine reports.
         init {
-            sessionRepository.startListening()
-            routeRepository.startMonitoring()
-
-            viewModelScope.launch {
-                sessionRepository.activeSession.collect { session ->
-                    if (session != null) {
-                        audioEngine.attach(session)
-                    } else {
-                        audioEngine.detach()
-                    }
-                }
-            }
-
             viewModelScope.launch {
                 audioEngine.capabilities.collect { caps ->
                     recalculateBandGains(caps.bands)
                 }
             }
-        }
-
-        override fun onCleared() {
-            super.onCleared()
-            sessionRepository.stopListening()
-            routeRepository.stopMonitoring()
         }
 
         fun toggleDebugEffects() {

@@ -4,8 +4,6 @@ import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
-import com.hardbasseq.eq.audio.AudioSession
-import com.hardbasseq.eq.audio.AudioSessionRepository
 import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
@@ -31,7 +29,6 @@ import java.util.UUID
 class MainViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val fakeEngine = FakeAudioEngine()
-    private val fakeSessionRepo = FakeAudioSessionRepository()
     private val fakeRouteRepo = FakeAudioRouteRepository()
 
     @Before
@@ -137,7 +134,6 @@ class MainViewModelTest {
         MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
             audioEngine = fakeEngine,
-            sessionRepository = fakeSessionRepo,
             routeRepository = fakeRouteRepo,
             backgroundDispatcher = dispatcher,
         )
@@ -163,22 +159,6 @@ class MainViewModelTest {
             )
 
         override fun queryAvailableEffects(): List<AudioEffectDescriptor> = descriptors
-    }
-
-    private class FakeAudioSessionRepository : AudioSessionRepository {
-        private val _sessions = MutableStateFlow<List<AudioSession>>(emptyList())
-        override val sessions: StateFlow<List<AudioSession>> = _sessions.asStateFlow()
-
-        private val _activeSession = MutableStateFlow<AudioSession?>(null)
-        override val activeSession: StateFlow<AudioSession?> = _activeSession.asStateFlow()
-
-        override fun startListening() {}
-
-        override fun stopListening() {}
-
-        override fun setActiveSession(session: AudioSession?) {
-            _activeSession.value = session
-        }
     }
 
     private class FakeAudioRouteRepository : AudioRouteRepository {

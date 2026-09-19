@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".HardBassEqApplication"
         android:allowBackup="true"
@@ -18,6 +22,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!--
+          foregroundServiceType="mediaPlayback": this service doesn't play media itself,
+          but there is no FGS type that exactly fits "listen for other apps' audio
+          sessions to attach effects" - mediaPlayback is what comparable published
+          system-wide equalizer apps use for this, and keeps this out of the
+          Play-policy-reviewed "specialUse" category. See roadmap.md Session 13.
+        -->
+        <service
+            android:name=".service.AudioSessionForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
     </application>
 
 </manifest>
