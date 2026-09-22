@@ -150,7 +150,7 @@ class MainViewModel
 
         private fun ProcessingSettings.withPreset(preset: Preset): ProcessingSettings =
             copy(
-                inputGainDb = -preset.requestedHeadroomDb * INPUT_GAIN_SAFETY_RATIO,
+                inputGainDb = safetyScaledInputGainDb(preset.requestedHeadroomDb),
                 macroBassDb = preset.macroBassDb,
                 macroPunchDb = preset.macroPunchDb,
                 macroHaerteDb = preset.macroHaerteDb,
@@ -163,7 +163,15 @@ class MainViewModel
 
         private fun automaticInputGainDb(bandGainsDb: Map<Int, Float>): Float {
             val peakBoostDb = bandGainsDb.values.maxOrNull()?.coerceAtLeast(0f) ?: 0f
-            return -(peakBoostDb * INPUT_GAIN_SAFETY_RATIO)
+            return safetyScaledInputGainDb(peakBoostDb)
+        }
+
+        // Guard against returning -0.0f: boxed Float.equals() (used by assertEquals in
+        // tests, and by anything else comparing boxed Floats) treats -0.0f and 0.0f as
+        // unequal even though == says they're the same.
+        private fun safetyScaledInputGainDb(boostDb: Float): Float {
+            if (boostDb == 0f) return 0f
+            return -(boostDb * INPUT_GAIN_SAFETY_RATIO)
         }
 
         private fun applySettings(settings: ProcessingSettings) {
