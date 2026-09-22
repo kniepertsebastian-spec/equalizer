@@ -1035,3 +1035,66 @@ bekannte Einschränkung dokumentiert wird (z. B. im Hinweistext in
 weiterhin nicht lokal verifizierbar (kein Android-SDK-Zugriff in dieser
 Sandbox) – Verifikation über CI (Build/Lint) plus Gerätetest durch den
 Nutzer.
+
+### Session 16 (22. September 2026)
+
+Nutzer meldet, noch bevor PR #17 gemergt ist, den eigentlichen Kern des
+Lautheits-Problems: Die Uptempo-Presets klingen im direkten Vergleich zu
+Flat weder bassiger noch klarer – Flat wirkt sogar lauter, aber "genauso
+klar". Der MBC-Makeup-Gain-Fix aus Session 14 allein reicht also nicht.
+
+**Root Cause, per Handrechnung mit den echten Pixel-10-Bändern (M0-Spike,
+`docs/TEST_MATRIX.md`: 60/230/910/3600/14000 Hz) nachvollzogen:**
+`MainViewModel.automaticInputGainDb()` bildete bisher
+`-maxOf(peakBoostDb, presetHeadroomDb)` – und `presetHeadroomDb` (z. B. 4.0 dB
+bei „Clean Punch") liegt in der Praxis nahe an oder sogar über dem tatsächlich
+interpolierten `peakBoostDb` (für „Clean Punch" bei Band 60 Hz: ≈4.37 dB nach
+Zielkurve + Bass-Makro). Ergebnis: Der verpflichtende Input-Gain-Cut hat die
+EQ-Anhebung am stärksten angehobenen Band nahezu **exakt auf 0 dB netto**
+zurückgerechnet – noch bevor Dynamikverarbeitung überhaupt beginnt. Nur der
+MBC-Makeup-Gain-Fix (Session 14) sorgte danach noch für ein bisschen
+hörbaren Unterschied, aber nur während der Kompressor tatsächlich greift.
+Effektiv: Die Presets klangen kaum anders als Flat, exakt wie gemeldet.
+
+Das ist letztlich dieselbe Baustelle, die roadmap.md §8 selbst schon als
+vorläufig markiert hatte: „Automatischer Headroom basiert konservativ auf dem
+maximalen positiven EQ-Gain; später kann eine präzisere Schätzung folgen" –
+dieses „später" ist jetzt.
+
+**Fix:** `automaticInputGainDb()` cancelt den Peak-Boost nicht mehr
+vollständig, sondern nur noch zur Hälfte (`INPUT_GAIN_SAFETY_RATIO = 0.5f`,
+neue Konstante in `MainViewModel.kt`). Der `presetHeadroomDb`-Floor
+(`maxOf(...)`) entfällt komplett zugunsten des tatsächlich gemessenen
+Peak-Boosts – `Preset.requestedHeadroomDb` bleibt als Datenfeld/anfänglicher
+Platzhalterwert (`withPreset()`, ebenfalls ×0.5 skaliert) und in
+`PresetJsonSerializer` bestehen, spielt aber für die eigentliche
+Gain-Berechnung keine Rolle mehr. Die verbleibende Sicherheit gegen echtes
+Clipping trägt jetzt stärker der **unveränderte** Limiter (hartes
+10:1-Verhältnis, Schwelle ≤ 0 dBFS) – genau seine eigentliche Aufgabe, statt
+dass der Input-Gain-Cut sie ihm vorab komplett abnimmt und die EQ-Kurve dabei
+mit wegrasiert.
+
+Neu-Rechnung für „Clean Punch"/Band 60 Hz: Cut jetzt −2,18 dB statt −4,37 dB
+→ netto **+2,18 dB** vor Dynamikverarbeitung (vorher ±0 dB), plus MBC-Makeup
+während lauter Passagen. Für „Uptempo – Final Smash" (extremster Boost, ≈5,7
+dB an Band 60 Hz) ergibt sich netto bis zu ≈+4,85 dB inklusive MBC-Makeup –
+spürbar mehr Bass, aber der Limiter fängt reale Pegelspitzen weiterhin
+zuverlässig ab.
+
+**Tests angepasst:** `MainViewModelTest` – „manual boost automatically
+reserves matching headroom" umbenannt zu „...reserves half as headroom" mit
+neuem Erwartungswert (`-4f` statt `-8f` bei `setBandGain(gainDb = 8f)`);
+„selectPreset updates active preset and interpolates gains" erwartet jetzt
+`-(peakBoostDb * 0.5f)` statt der alten `maxOf(...)`-Formel.
+
+**Ehrlich zum Trade-off:** Der Limiter muss jetzt öfter/stärker eingreifen
+als vorher, weil weniger Vorab-Absenkung stattfindet – das ist bei einem
+Uptempo-Hardcore-EQ eher erwünschter Charakter (spürbare Kompression/Limiting
+gehört zum Genre-Sound) als ein Risiko, aber ob sich das auf einem echten
+Gerät gut statt übersteuert anhört, lässt sich nur durch Hörprobe klären.
+
+**Nächste konkrete Aufgabe:** Nutzer hört auf dem Gerät gegen, ob die Presets
+jetzt hörbar mehr Bass/Punch liefern als Flat, ohne unangenehm zu pumpen oder
+zu verzerren. Build weiterhin nicht lokal verifizierbar (kein
+Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI (Build/Unit-Tests)
+plus Gerätetest/Hörprobe durch den Nutzer.
