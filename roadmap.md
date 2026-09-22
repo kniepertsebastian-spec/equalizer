@@ -1001,33 +1001,37 @@ Cooperative-only-Feature aus der Java-`MediaPlayer`-Ära; viele moderne, auf
 ExoPlayer/Media3 aufbauende Player senden ihn nie automatisch, sofern die
 App-Entwickler es nicht explizit nachbauen.
 
-**Umgesetzt – zweite, robustere Session-Quelle statt reiner
-Broadcast-Abhängigkeit:** `AndroidAudioSessionRepository` nutzt jetzt
-zusätzlich `AudioManager.registerAudioPlaybackCallback(...)` /
-`AudioPlaybackConfiguration.getAudioSessionId()` (öffentliches API seit
-API 26, damit über `minSdk 28` immer verfügbar). Das ist KEIN Broadcast, auf
-den der Player sich einlassen muss, sondern eine vom Audio-Framework selbst
-getriebene, vollständige Liste aller aktuell aktiven Wiedergabe-Sessions
-systemweit – funktioniert unabhängig davon, ob die abspielende App kooperiert.
-Einzige Voraussetzung: die normale (kein Laufzeit-Dialog)
-`MODIFY_AUDIO_SETTINGS`-Berechtigung, sonst liefert
-`getAudioSessionId()` für fremde Apps nur `0` (anonymisiert). Der bisherige
-Broadcast-Empfänger bleibt als sekundäre Quelle bestehen (liefert weiterhin
-den echten Paketnamen, wenn ein Player ihn doch sendet) und annotiert nur noch
-Paketnamen statt die Liste allein zu führen; `AudioPlaybackCallback` ist jetzt
-die primäre, autoritative Quelle für `sessions`/`activeSession`.
+**Versucht, aber verworfen – zweite Session-Quelle über
+`AudioManager.registerAudioPlaybackCallback(...)` /
+`AudioPlaybackConfiguration.getAudioSessionId()`:** Der Plan war, diese vom
+Audio-Framework selbst getriebene, vollständige Liste aller aktuell aktiven
+Wiedergabe-Sessions systemweit zu nutzen, unabhängig davon, ob die abspielende
+App kooperiert. **Fehleinschätzung, durch CI aufgedeckt:**
+`AudioPlaybackConfiguration.getAudioSessionId()` ist entgegen der ursprünglichen
+Annahme **kein Teil der öffentlichen Android-SDK-Stubs** (`compileSdk 37`) –
+der Build schlug mit `Unresolved reference 'audioSessionId'` fehl. Diese
+Methode ist offenbar `@SystemApi`/versteckt und für normale (nicht
+System-/privilegierte) Apps schlicht nicht aufrufbar, auch nicht mit der
+`MODIFY_AUDIO_SETTINGS`-Berechtigung. Die Änderung wurde vollständig
+zurückgenommen (`AudioSessionRepository.kt`/Manifest wieder auf den Stand von
+PR #16), bevor sie gemergt wurde – kein rotes CI im gemergten Code.
 
-**Ehrlich zur Unsicherheit:** Ob `getAudioSessionId()` mit
-`MODIFY_AUDIO_SETTINGS` auf diesem Gerät tatsächlich echte Session-IDs für
-SoundCloud liefert (statt weiterhin `0`), ist in dieser Sandbox nicht
-verifizierbar – das ist der entscheidende, noch offene Test. Sollte auch das
-fehlschlagen, gäbe es ohne Root/Systemrechte keinen bekannten, roadmap-
-konformen Weg mehr (MediaProjection/Playback-Capture ist laut §2
-ausdrücklich ausgeschlossen; Root ist laut §3 „Nicht im MVP"), und SoundCloud
-müsste ehrlich als „vom Player nicht unterstützt" dokumentiert werden statt
-weiter Workarounds zu suchen.
+**Ehrliche Schlussfolgerung, nicht nur für diese Sitzung:** Damit gibt es
+aktuell **keinen bekannten, im öffentlichen Android-SDK verfügbaren Weg**,
+die Audio-Session einer fremden App zu ermitteln, wenn diese sie nicht selbst
+per `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-Broadcast meldet – und
+SoundCloud tut das nachweislich nicht. MediaProjection/Playback-Capture ist
+laut §2 ausdrücklich ausgeschlossen, Root ist laut §3 „Nicht im MVP". Ohne
+neue Erkenntnis (z. B. falls SoundCloud den Broadcast doch unter bestimmten
+Bedingungen sendet, oder eine andere, tatsächlich öffentliche API existiert)
+sollte SoundCloud ehrlich als „von diesem Player nicht unterstützt"
+dokumentiert werden (roadmap-Prinzip „Ehrliche Kompatibilität", §1.3), statt
+weiter Workarounds zu suchen, die denselben SDK-Sichtbarkeits-Constraint
+treffen dürften.
 
-**Nächste konkrete Aufgabe:** Nutzer testet erneut auf dem Gerät, ob
-SoundCloud jetzt „Aktiv" erreicht. Build weiterhin nicht lokal verifizierbar
-(kein Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI
-(Build/Lint) plus Gerätetest durch den Nutzer.
+**Nächste konkrete Aufgabe:** Mit dem Nutzer klären, ob SoundCloud als
+bekannte Einschränkung dokumentiert wird (z. B. im Hinweistext in
+`EqualizerScreen.kt`), oder ob noch weitere Recherche gewünscht ist. Build
+weiterhin nicht lokal verifizierbar (kein Android-SDK-Zugriff in dieser
+Sandbox) – Verifikation über CI (Build/Lint) plus Gerätetest durch den
+Nutzer.
