@@ -981,3 +981,53 @@ verifizierbar (kein Android-SDK-Zugriff in dieser Sandbox); `AndroidAudioEngine`
 ist laut M7 ohnehin nicht durch reine JVM-Unit-Tests abgedeckt (echte
 Android-Media-Klassen nötig) – Verifikation über CI (Build/Lint) plus
 Gerätetest/Hörprobe durch den Nutzer.
+
+### Session 15 (22. September 2026)
+
+Nutzer testet PR #16 auf dem Gerät und meldet ein eindeutiges, sehr
+aufschlussreiches Ergebnis: Bei **Spotify** zeigt der Status-Chip jetzt
+„Aktiv (Session #…)" – der Foreground-Service aus Session 13 hat das
+Timing-Problem also tatsächlich behoben. Bei **SoundCloud** dagegen bleibt
+der Status durchgehend leer/„Wartet auf Audio-Session" – keine einzige
+Session wird je erkannt.
+
+**Das grenzt die Ursache entscheidend ein:** Der Broadcast-Mechanismus selbst
+funktioniert auf diesem Gerät (widerlegt die pessimistischste Lesart von
+Session 4, dass er grundsätzlich systemweit blockiert wäre) – SoundCloud
+sendet den `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-Broadcast schlicht nie.
+Das ist keine Eigenheit unseres Codes, sondern eine Entscheidung/ein
+Implementierungsdetail von SoundCloud: Der Broadcast ist ein optionales,
+Cooperative-only-Feature aus der Java-`MediaPlayer`-Ära; viele moderne, auf
+ExoPlayer/Media3 aufbauende Player senden ihn nie automatisch, sofern die
+App-Entwickler es nicht explizit nachbauen.
+
+**Umgesetzt – zweite, robustere Session-Quelle statt reiner
+Broadcast-Abhängigkeit:** `AndroidAudioSessionRepository` nutzt jetzt
+zusätzlich `AudioManager.registerAudioPlaybackCallback(...)` /
+`AudioPlaybackConfiguration.getAudioSessionId()` (öffentliches API seit
+API 26, damit über `minSdk 28` immer verfügbar). Das ist KEIN Broadcast, auf
+den der Player sich einlassen muss, sondern eine vom Audio-Framework selbst
+getriebene, vollständige Liste aller aktuell aktiven Wiedergabe-Sessions
+systemweit – funktioniert unabhängig davon, ob die abspielende App kooperiert.
+Einzige Voraussetzung: die normale (kein Laufzeit-Dialog)
+`MODIFY_AUDIO_SETTINGS`-Berechtigung, sonst liefert
+`getAudioSessionId()` für fremde Apps nur `0` (anonymisiert). Der bisherige
+Broadcast-Empfänger bleibt als sekundäre Quelle bestehen (liefert weiterhin
+den echten Paketnamen, wenn ein Player ihn doch sendet) und annotiert nur noch
+Paketnamen statt die Liste allein zu führen; `AudioPlaybackCallback` ist jetzt
+die primäre, autoritative Quelle für `sessions`/`activeSession`.
+
+**Ehrlich zur Unsicherheit:** Ob `getAudioSessionId()` mit
+`MODIFY_AUDIO_SETTINGS` auf diesem Gerät tatsächlich echte Session-IDs für
+SoundCloud liefert (statt weiterhin `0`), ist in dieser Sandbox nicht
+verifizierbar – das ist der entscheidende, noch offene Test. Sollte auch das
+fehlschlagen, gäbe es ohne Root/Systemrechte keinen bekannten, roadmap-
+konformen Weg mehr (MediaProjection/Playback-Capture ist laut §2
+ausdrücklich ausgeschlossen; Root ist laut §3 „Nicht im MVP"), und SoundCloud
+müsste ehrlich als „vom Player nicht unterstützt" dokumentiert werden statt
+weiter Workarounds zu suchen.
+
+**Nächste konkrete Aufgabe:** Nutzer testet erneut auf dem Gerät, ob
+SoundCloud jetzt „Aktiv" erreicht. Build weiterhin nicht lokal verifizierbar
+(kein Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI
+(Build/Lint) plus Gerätetest durch den Nutzer.
