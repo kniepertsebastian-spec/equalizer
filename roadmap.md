@@ -927,3 +927,57 @@ echten Gerät klären – das ist der nächste Test, um den der Nutzer gebeten
 werden sollte. Build weiterhin nicht lokal verifizierbar (kein
 Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI plus
 Gerätetest.
+
+### Session 14 (22. September 2026)
+
+Nutzer meldet nach dem Foreground-Service-Merge: SoundCloud klappt weiterhin
+nicht, und zusätzlich wird die Musik durch HardBass EQ insgesamt **leiser**
+statt druckvoller – während SoundCloud selbst (eigene Lautheits-Normalisierung/
+Mastering) lauter *und* basslastiger klingt.
+
+**Zwei getrennte Themen, nicht dasselbe Problem:**
+
+1. **SoundCloud-Lautheit ist unabhängig von HardBass EQ.** Was der Nutzer bei
+   SoundCloud hört, ist deren eigene, App-/serverseitige Lautheits-
+   Normalisierung bzw. ein eigener Loudness-Maximizer auf ihrer Wiedergabe-
+   Pipeline – das hat nichts mit Androids Session-basiertem `AudioEffect`
+   zu tun, über das HardBass EQ arbeitet. Kein Code-Fund hierzu nötig, reine
+   Erklärung an den Nutzer.
+
+2. **"Equalizer wird leiser" ist ein echter, gefundener Gain-Staging-Bug in
+   `AndroidAudioEngine.applyInternal()`**, unabhängig vom Session-Erkennungs-
+   problem – tritt bei jedem Preset auf, sobald überhaupt eine Session
+   angehängt ist:
+   - Jedes Preset erzwingt einen festen negativen `inputGainDb`
+     (`requestedHeadroomDb`, roadmap-konform 3–5,5 dB „Ziel-Headroom" – **nicht**
+     der Bug, sondern bewusste Spezifikation aus §5).
+   - Die `DynamicsProcessing.MbcBand`-Konfiguration setzte `preGain`/`postGain`
+     aber fest auf `0f, 0f` – der Multiband-Kompressor senkt bei lauten
+     Passagen (bei den Uptempo-/Hardcore-Presets praktisch dauerhaft, da die
+     Schwellen niedrig sind) die Lautstärke weiter ab, **ohne** die übliche
+     Kompressor-Makeup-Gain, die das kompensiert. In Kombination mit dem
+     Input-Gain-Cut ergab das netto fast immer leiseres statt druckvolleres
+     Ergebnis – das genaue Gegenteil vom Ziel der App.
+
+**Fix:** `postGain` je MBC-Band nicht mehr `0f`, sondern eine konservative
+Standard-Kompressor-Makeup-Gain-Heuristik
+(`(-threshold) * (1 - 1/ratio) * 0.5`, gekappt auf 0–4 dB). Der Limiter danach
+bleibt **unverändert** (weiterhin hartes 10:1-Verhältnis, Safe-Threshold ≤ 0
+dBFS) – er fängt etwaige zusätzliche Pegelspitzen aus der Makeup-Gain weiterhin
+ab, „Clipping-Schutz zuerst" bleibt also intakt. Die feste
+`requestedHeadroomDb`-Sicherheitsmarge pro Preset wurde bewusst **nicht**
+angetastet, da sie explizite Produktspezifikation aus §5 ist, nicht der
+gefundene Bug.
+
+**Weiterhin offen, an den Nutzer zurückgespielt:** Ob SoundCloud nach dem
+Foreground-Service (Session 13) jetzt wenigstens den Status „Aktiv
+(Session #…)" erreicht oder weiterhin dauerhaft bei „Wartet auf
+Audio-Session" hängen bleibt, lässt sich nur auf dem Gerät sehen – das würde
+zwischen „Session-Erkennung funktioniert jetzt, nur der Klang war das
+Problem" (durch diesen Fix erledigt) und „Session-Erkennung schlägt bei
+SoundCloud weiterhin grundsätzlich fehl" (das ungeklärte, tiefere
+Zustellungsproblem aus Session 4) unterscheiden. Build weiterhin nicht lokal
+verifizierbar (kein Android-SDK-Zugriff in dieser Sandbox); `AndroidAudioEngine`
+ist laut M7 ohnehin nicht durch reine JVM-Unit-Tests abgedeckt (echte
+Android-Media-Klassen nötig) – Verifikation über CI (Build/Lint) plus
+Gerätetest/Hörprobe durch den Nutzer.
