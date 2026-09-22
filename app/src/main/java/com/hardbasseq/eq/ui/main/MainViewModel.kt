@@ -27,9 +27,10 @@ import javax.inject.Inject
 // signal ever reaches dynamics processing. At 1.0 the boost is fully cancelled before
 // the Limiter (still a hard, unchanged 10:1-ratio ceiling) gets a chance to do its own
 // job, which made every preset sound indistinguishable from flat - see roadmap.md
-// Session 16. 0.5 leaves the boost clearly audible while still giving the limiter a
-// meaningfully smaller peak to catch than an uncut signal would.
-private const val INPUT_GAIN_SAFETY_RATIO = 0.5f
+// Session 16. Lowered further to 0.3 in Session 17 at the user's explicit request for
+// more aggressive kicks/less pre-cancellation, after 0.5 still felt too subtle - the
+// Limiter is still unchanged and remains the actual clipping safety net.
+private const val INPUT_GAIN_SAFETY_RATIO = 0.3f
 
 @HiltViewModel
 class MainViewModel
