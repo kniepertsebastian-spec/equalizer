@@ -1098,3 +1098,52 @@ jetzt hörbar mehr Bass/Punch liefern als Flat, ohne unangenehm zu pumpen oder
 zu verzerren. Build weiterhin nicht lokal verifizierbar (kein
 Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI (Build/Unit-Tests)
 plus Gerätetest/Hörprobe durch den Nutzer.
+
+### Session 17 (22. September 2026)
+
+Nutzer testet noch VOR dem Merge von PR #17 (also noch auf altem Code) und
+bestätigt entsprechend erwartungsgemäß keinen Unterschied – wichtiger
+Hinweis dazu direkt an den Nutzer gegeben. Zusätzlich klare Ansage: mehr
+aggressive Kicks, weniger Sicherheitsabsenkung, als eigener nächster Schritt
+(nicht mehr in PR #17 gestapelt, damit einzeln testbar und bei Bedarf
+zurückrollbar).
+
+**Zweiter, unabhängiger Bug beim vollständigen Audit der Kette gefunden:**
+Das „Punch"-Makro (`EqualizerInterpolator.calculateMacroDelta`) hatte ein
+Peak-Fenster von 80–150 Hz und ein Dip-Fenster von 250–350 Hz – auf den
+echten Pixel-10-Bändern (60/230/910/3600/14000 Hz, `docs/TEST_MATRIX.md`)
+liegt **keines der 5 Bänder** in einem dieser Fenster. Der Punch-Regler in
+der UI hatte auf diesem Gerät also **keinerlei hörbaren Effekt**, egal wie
+weit man ihn zieht – unabhängig vom Gain-Staging-Bug aus Session 16. Fenster
+auf 70–160 Hz (Peak) / 220–360 Hz (Dip) verbreitert, sodass Band 1 (230 Hz)
+jetzt im Dip-Fenster liegt und tatsächlich reagiert.
+
+**Umgesetzt (noch nicht gepusht/PR eröffnet – erst nach Merge von PR #17,
+damit die Schritte einzeln testbar bleiben):**
+- `INPUT_GAIN_SAFETY_RATIO` in `MainViewModel.kt`: 0.5 → 0.3 (nur noch 30 %
+  des Peak-Boosts werden vorab abgezogen, nicht mehr die Hälfte). Für „Clean
+  Punch" ergibt das am Sub-Bass-Band jetzt ≈+3,06 dB netto vor
+  Dynamikverarbeitung statt ≈+2,18 dB.
+- Punch-Makro-Fenster verbreitert (s. o.), damit der Regler auf dem echten
+  Testgerät überhaupt etwas bewirkt.
+- `macroPunchDb` in den Kick-fokussierten Presets moderat angehoben (+0,5 dB):
+  Clean Punch 1,5→2,0, Kick Attack 2,0→2,5, Raw Power 1,5→2,0, Fast Attack
+  2,5→3,0, Final Smash 2,5→3,0. **Bewusst unverändert:** Deep Rumble, Balanced
+  (nicht Kick-fokussiert) und Terrorcore – Maximum Distortion (dessen
+  gesamtes Design in Session 12 explizit auf Zähmen statt Verschärfen
+  ausgelegt wurde – noch aggressiver zu machen würde diesem Zweck
+  widersprechen).
+- `MainViewModelTest` entsprechend angepasst (30 % statt 50 % in beiden
+  betroffenen Tests).
+
+**Ehrlich zum Risiko:** Mit 0.3 statt 0.5 muss der Limiter noch öfter/stärker
+eingreifen. Das bleibt eine bewusste, vom Nutzer angefragte Entscheidung
+("kann man immer einen Schritt zurückgehen") – ohne Gerätetest nicht
+abschließend beurteilbar, ob es zu hörbarem Pumping/Verzerrung führt.
+
+**Nächste konkrete Aufgabe:** Sobald PR #17 gemerged ist, diesen Stand als
+eigenen PR gegen `main` öffnen. Nutzer testet danach gezielt: (1) Punch-Regler
+hat jetzt hörbaren Effekt? (2) Presets insgesamt spürbar aggressiver als vorher,
+aber noch sauber (kein Pumping/Verzerren)? Build weiterhin nicht lokal
+verifizierbar (kein Android-SDK-Zugriff in dieser Sandbox) – Verifikation über
+CI (Build/Unit-Tests) plus Gerätetest/Hörprobe durch den Nutzer.
