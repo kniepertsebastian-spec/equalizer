@@ -1,5 +1,12 @@
 # Roadmap: Bass-orientierte Equalizer-App für Android
 
+> **Ab 23. September 2026 gilt `roadmap-2026.md` als aktuelle Produkt- und
+> Technik-Roadmap** (Meilensteine, Architekturzielbild, Prioritäten). Diese
+> Datei bleibt das **Entwicklungs-Session-Log** mit der vollständigen
+> bisherigen Historie (siehe „Session-Log" unten) – bestehende Verweise wie
+> „roadmap.md Session 16" oder „roadmap.md §2/§3" bleiben dadurch gültig.
+> Neue Session-Log-Einträge gehören weiterhin hierher.
+
 > Arbeitsdokument für Claude Code. Diese Datei ist zugleich Produktspezifikation, Architekturentscheidung und Umsetzungsplan. Arbeite die Meilensteine der Reihe nach ab, halte den Build nach jedem Meilenstein grün und aktualisiere die Checklisten in dieser Datei.
 
 ## 1. Produktvision
