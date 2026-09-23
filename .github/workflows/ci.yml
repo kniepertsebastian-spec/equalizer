@@ -32,7 +32,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ktlint-reports
-          path: app/build/reports/ktlint
+          path: |
+            app/build/reports/ktlint
+            core/build/reports/ktlint
+            desktop/build/reports/ktlint
           if-no-files-found: warn
 
       - name: Assemble debug APK
@@ -40,6 +43,22 @@ jobs:
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
+
+      # :core and :desktop are plain Kotlin/JVM modules (Session 18's
+      # Windows/Linux companion) and don't use the Android testDebugUnitTest
+      # task above, so they need their own explicit test invocation.
+      - name: Run core/desktop unit tests
+        run: ./gradlew :core:test :desktop:test --stacktrace
+
+      - name: Upload core/desktop test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-desktop-test-results
+          path: |
+            core/build/reports/tests/test
+            desktop/build/reports/tests/test
+          if-no-files-found: warn
 
       - name: Run Android Lint
         run: ./gradlew lintDebug lintRelease --stacktrace

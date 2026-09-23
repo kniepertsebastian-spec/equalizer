@@ -927,3 +927,96 @@ echten Gerät klären – das ist der nächste Test, um den der Nutzer gebeten
 werden sollte. Build weiterhin nicht lokal verifizierbar (kein
 Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI plus
 Gerätetest.
+
+### Session 18 (23. September 2026)
+
+Nutzer bittet: „Mache den Equalizer für Windows und Linux Debian/Ubuntu
+nutzbar." Vor der Umsetzung per `AskUserQuestion` zwei Grundsatzentscheidungen
+geklärt, weil die Aufwände um Größenordnungen auseinanderliegen: (1) Ansatz –
+**Presets für bestehende, bereits system-weit wirkende Engines exportieren**
+(Equalizer APO unter Windows, EasyEffects/PipeWire unter Linux) statt einer
+kompletten eigenen DSP-Engine pro Plattform (eigener Treiber, Codesigning,
+im Grunde ein neues Produkt pro OS); (2) Codebasis – **neues Modul im
+selben Repo** statt separates Projekt. Außerdem explizit gefragt und
+bestätigt bekommen, dass dies auf einem eigenen Branch/PR entsteht, nicht in
+PR #17 (Audio-Engine-Fixes) gemischt wird.
+
+**Modul-Umbau:**
+- Neues, reines Kotlin/JVM-Modul `:core` (kein Android-, kein Compose-
+  Dependency) mit den bereits plattform-unabhängigen Domänenklassen, die
+  vorher unter `:app` lagen: `preset/Preset.kt`, `preset/BuiltInPresets.kt`,
+  `dsp/EqualizerInterpolator.kt`, `audio/EqualizerBandCapabilities.kt`,
+  `data/preset/PresetJsonSerializer.kt` (plus ihre bestehenden Unit-Tests).
+  `:app` hängt jetzt von `:core` ab statt die Dateien selbst zu enthalten;
+  Paketnamen unverändert, daher keine Import-Änderungen nötig. Damit nutzt
+  der Desktop-Client exakt dieselbe Preset-Definition und
+  Interpolationslogik wie die Android-App – ein Preset ist eine Kurve, keine
+  zwei gepflegten Kopien.
+- Neues Modul `:desktop` (Compose Multiplatform 1.12.1, Kotlin 2.3.20 – wie
+  im restlichen Projekt gepinnt, siehe ADR 0001 zur KSP/Kotlin-Version-
+  Kopplung; das betrifft `:desktop` nicht direkt, da hier kein KSP läuft,
+  aber eine einzige Kotlin-Version für das ganze Repo vermeidet
+  Klassenlader-Überraschungen).
+
+**Desktop-App (`desktop/src/main/kotlin/com/hardbasseq/eq/desktop/`):**
+- `App.kt`/`Main.kt`: einfaches Compose-UI – Preset-Liste (alle
+  `BuiltInPresets.all`), drei Macro-Slider (Bass/Punch/Härte), Ziel-
+  Plattform-Umschalter (Auto-Erkennung über `os.name`, manuell überschreibbar
+  für den Fall, dass die Erkennung falschliegt oder zum Testen).
+- `VirtualBands.kt`: 15 log-verteilte Frequenzpunkte (31 Hz–16 kHz) als
+  Ersatz für die festen Hardware-Bänder eines echten Android-Geräts – Desktop-
+  Engines unterstützen beliebige parametrische Filter, aber
+  `EqualizerInterpolator.interpolatePresetToBands` (aus `:core`) erwartet eine
+  konkrete Bandliste. Mehr Auflösung im Bass-/Kick-Bereich als ein
+  typisches 10-Band-Grafik-EQ, weil genau dort die Uptempo-Hardcore-Presets
+  den Löwenanteil ihrer Kurve platzieren.
+- `PresetCurve.kt`: `automaticPreampDb()` – anders als auf Android (wo der
+  Limiter als Sicherheitsnetz den Rest abfängt, siehe Session 16/17) gibt es
+  bei einem reinen parametrischen EQ ohne Compressor/Limiter kein solches
+  Netz. Der Preamp hier annulliert den positiven Spitzenpegel deshalb
+  bewusst **vollständig**, nicht nur anteilig – konservativer als die
+  Android-Lösung, aber richtig für den Kontext.
+- `exporter/EqualizerApoExporter.kt`: erzeugt gültige Equalizer-APO-Filter-
+  Syntax (`Filter N: ON PK Fc … Hz Gain … dB Q …` + `Preamp: … dB`,
+  verifiziert gegen die offizielle Configuration-Reference-Doku). Schreibt
+  **nicht** direkt in `config.txt` – stattdessen eine eigene Include-Datei
+  (`HardBassEQ.txt`) plus eine einmalige, idempotente `Include:`-Zeile in
+  `config.txt`, damit weder eigene Konfiguration des Nutzers überschrieben
+  noch bei wiederholtem Anwenden Zeilen dupliziert werden.
+- `exporter/EasyEffectsExporter.kt`: erzeugt ein EasyEffects-Preset-JSON
+  (`output.equalizer#0` mit `left`/`right`-Bändern, Typ `Bell`). Es gibt
+  keine offizielle Schema-Doku dafür – das Format wurde anhand realer,
+  funktionierender Community-Presets (u. a. github.com/wwmm/easyeffects-
+  Umfeld) nachvollzogen. Schreibt nach
+  `~/.config/easyeffects/output/<Preset-Name>.json`; der Nutzer muss das
+  Preset in EasyEffects noch selbst auswählen, da es keinen dokumentierten,
+  stabilen Weg gibt, es von außen live zu erzwingen.
+- Bewusst **nicht** portiert: MBC-Kompressor/Limiter-Dynamik aus der Android-
+  Engine. Beide Ziel-Engines sind reine parametrische EQs; eine vollwertige
+  Dynamikkette nachzubauen wäre ein eigenes, deutlich größeres Vorhaben und
+  war nicht Teil der Entscheidung in `AskUserQuestion`.
+
+**CI:** `.github/workflows/ci.yml` erweitert – der bestehende
+`ktlintCheck`-Schritt deckt `:core`/`:desktop` automatisch mit ab (Root-
+Aggregat-Task), neuer Schritt `./gradlew :core:test :desktop:test` für die
+JVM-Unit-Tests (Android-spezifisches `testDebugUnitTest` erfasst sie nicht),
+plus Report-Upload für beide.
+
+**Nicht umgesetzt/offen:**
+- Keine gebauten Installer (.msi/.deb) in CI – `compose.desktop.application`
+  ist zwar für beide `TargetFormat`s konfiguriert, aber `jpackage` kann ein
+  MSI nur auf einem Windows-Host bauen und ein DEB nur auf einem Linux-Host
+  (WiX Toolset bzw. dpkg werden vom jeweiligen Betriebssystem-Toolchain
+  vorausgesetzt). Der CI-Runner ist `ubuntu-latest`, daher hier bewusst nur
+  Kompilieren + Testen, kein `packageMsi`/`packageDeb`. Siehe
+  `desktop/README.md` für die lokalen Bau-Befehle pro Plattform.
+- Kein automatischer Live-Reload für EasyEffects (Linux) – das JSON landet
+  im Preset-Ordner, Auswahl in der EasyEffects-UI bleibt ein manueller
+  Schritt.
+- Build weiterhin nicht lokal verifizierbar (Sandbox-Policy blockiert
+  `dl.google.com`, nötig für die Android-Gradle-Plugin-Auflösung, die auch
+  beim reinen `:core`/`:desktop`-Build mitläuft, da beide im selben Root-
+  Projekt liegen) – Verifikation über CI.
+- EasyEffects-JSON-Schema ist nicht offiziell dokumentiert und daher nicht
+  hundertprozentig garantiert stabil über Versionen hinweg – falls ein Import
+  fehlschlägt, ist das der erste Verdächtige.
