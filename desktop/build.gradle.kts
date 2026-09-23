@@ -33,7 +33,6 @@ dependencies {
     implementation(compose.material3)
     implementation(compose.foundation)
     implementation(compose.runtime)
-    implementation(compose.components.resources)
 
     testImplementation(libs.junit)
 }
