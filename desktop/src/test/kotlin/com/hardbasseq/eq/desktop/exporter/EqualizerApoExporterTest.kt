@@ -31,14 +31,16 @@ class EqualizerApoExporterTest {
         val config = EqualizerApoExporter.generateConfig(BuiltInPresets.CleanPunch)
 
         val preampDb =
-            config.lines()
+            config
+                .lines()
                 .first { it.startsWith("Preamp:") }
                 .substringAfter("Preamp:")
                 .substringBefore("dB")
                 .trim()
                 .toFloat()
         val maxGainDb =
-            config.lines()
+            config
+                .lines()
                 .filter { it.startsWith("Filter") }
                 .map { line -> line.substringAfter("Gain ").substringBefore(" dB").toFloat() }
                 .max()
