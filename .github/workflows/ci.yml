@@ -27,6 +27,16 @@ jobs:
       - name: Run ktlint
         run: ./gradlew ktlintCheck --stacktrace
 
+      # ktlintCheck only prints "violations found, see report" to the
+      # console, not the violations themselves - print the actual report
+      # contents into the job log too so a failure is diagnosable without
+      # downloading the ktlint-reports artifact.
+      - name: Print ktlint violations
+        if: failure()
+        run: |
+          find app/build/reports/ktlint core/build/reports/ktlint desktop/build/reports/ktlint \
+            -name '*.txt' -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null || true
+
       - name: Upload ktlint reports
         if: always()
         uses: actions/upload-artifact@v4
