@@ -385,7 +385,8 @@ Jeder Release-Kandidat wird mindestens mit folgenden Abläufen geprüft:
 - ✅ Punkt 2 (Session-Ereignisprotokoll mit Zeitstempeln): `DiagnosticsRecorder` umgesetzt.
 - ✅ Punkt 5 (Sweep als zweites Testsignal): `LogarithmicSweepGenerator` in die M0-Spike-Werkzeuge eingebunden.
 - ✅ Punkt 1 (Testmatrix-Vorlage) und Punkt 6 (Entscheidungsvorlage): als ausfüllbare Vorlagen in `docs/TEST_MATRIX.md` bzw. `docs/DECISIONS.md` ergänzt – **die eigentlichen Gerätetests und die Entscheidung selbst sind nicht durch Code ersetzbar** und bleiben offen.
-- ⏳ Punkt 3 (Zustandsautomat `LostControl`/`Retrying` spezifizieren) und Punkt 4 (vier Startreihenfolgen auf echten Geräten testen): noch offen.
+- ✅ Punkt 3 (Zustandsautomat `LostControl`/`Retrying` spezifizieren): Spezifikation in `docs/STATE_MACHINE.md` – Ziel-Zustandsmenge (inkl. neuer `Listening`-/`Retrying`-Zustände, Wegfall des toten `Suspended`-Zustands), Übergangstabelle, Backoff-Policy (5 Versuche, 2s–30s) und UI-Status-Mapping. **Die eigentliche Umsetzung in `AudioEngineState.kt`/`AndroidAudioEngine.kt` ist M1-Arbeit und bleibt offen.**
+- ⏳ Punkt 4 (vier Startreihenfolgen auf echten Geräten testen): noch offen – benötigt reale Hardware.
 - Punkt 7 (Re-Attach-Implementierung) bewusst **nicht** begonnen, wie im Sprint-Backlog selbst gefordert ("erst danach").
 
 ## 9. Release-Kennzahlen
