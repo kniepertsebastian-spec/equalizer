@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.spike.ControlIntentTestResult
+import com.hardbasseq.eq.audio.spike.RootSessionZeroProbeResult
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeResult
 import com.hardbasseq.eq.audio.spike.SessionZeroProbeResult
@@ -97,6 +98,53 @@ fun SessionAttachSpikeSection(controller: SessionAttachSpikeController) {
 
         Spacer(modifier = Modifier.height(24.dp))
         SessionZeroExperimentSection(controller, scope)
+
+        Spacer(modifier = Modifier.height(24.dp))
+        RootSessionZeroProbeSection(controller, scope)
+    }
+}
+
+@Composable
+private fun RootSessionZeroProbeSection(
+    controller: SessionAttachSpikeController,
+    scope: CoroutineScope,
+) {
+    var isBusy by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<RootSessionZeroProbeResult?>(null) }
+
+    Column {
+        Text("Root session-0 probe (experimental)", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "Requests root through su, then starts a short-lived Android process as UID 0. " +
+                "It only tries to construct Equalizer on session 0 and releases it immediately; " +
+                "the effect is never enabled. This tests root access and session-0 creation, " +
+                "not audible system-wide equalization.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            enabled = !isBusy,
+            onClick = {
+                isBusy = true
+                scope.launch {
+                    result = controller.probeRootSessionZero()
+                    isBusy = false
+                }
+            },
+        ) {
+            Text(if (isBusy) "Waiting for root…" else "Probe session 0 as root")
+        }
+        result?.let { probe ->
+            Spacer(modifier = Modifier.height(8.dp))
+            val status =
+                when {
+                    !probe.rootGranted -> "ROOT NOT CONFIRMED"
+                    probe.attachSucceeded -> "ROOT + ATTACH OK"
+                    else -> "ROOT OK, ATTACH FAILED"
+                }
+            Text("[$status] ${probe.detail}", style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 

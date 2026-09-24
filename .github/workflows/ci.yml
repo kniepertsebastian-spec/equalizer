@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
 
 permissions:
@@ -90,10 +90,11 @@ jobs:
 
       # Optional: pushes the debug APK to a shared Google Drive folder so it
       # can be installed on a phone without downloading it from GitHub. The
-      # step always runs; scripts/upload_apk_to_drive.sh itself exits 0
-      # immediately if GDRIVE_SA_KEY_JSON is empty (see docs/DRIVE_UPLOAD.md),
-      # so CI stays green either way until that secret is configured.
+      # step only runs on main so a feature-branch test cannot replace the
+      # shared "latest" APK. The script exits 0 if its service-account secret
+      # is empty (see docs/DRIVE_UPLOAD.md).
       - name: Upload debug APK to Google Drive
+        if: github.ref == 'refs/heads/main'
         env:
           GDRIVE_SA_KEY_JSON: ${{ secrets.GDRIVE_SA_KEY }}
           GDRIVE_FOLDER_ID: "1xtR1iAIItwWrOco71gJG46bzRMHFnuhh"

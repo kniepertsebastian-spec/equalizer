@@ -147,6 +147,34 @@ Pixel 10.
       beginnen (physisches Gerät vorhanden, Emulator weiterhin offen –
       diese Sandbox hat keinen Android-SDK-Zugriff, siehe oben).
 
+## Root session-0 spike (separater Prototyp)
+
+Der Debug-Bereich enthält jetzt zusätzlich „Probe session 0 as root“. Der
+Button startet über `su` einen kurzlebigen `app_process`-Prozess aus dem
+installierten APK. Der Prozess prüft seine UID und versucht, einen
+`Equalizer` auf Session `0` zu konstruieren. Der Effekt wird nicht aktiviert
+und unmittelbar wieder freigegeben.
+
+Das Ergebnis beantwortet nur zwei Vorfragen: ob die Root-Verbindung klappt
+und ob die Geräte-Implementierung Session `0` unter UID 0 akzeptiert. Es ist
+**keine** systemweite EQ-Implementierung und belegt keinen hörbaren Effekt.
+Wenn der Attach auch als Root scheitert, braucht ein System-EQ einen eigenen
+HAL-/Magisk-Audioeffekt-Pfad; Root allein reicht nicht. Wenn er gelingt, ist
+das ein Anlass für einen zweiten Spike, der die Lebensdauer des Effekts und
+die Parametersteuerung testet, weiterhin klar als experimentelles
+Root-Backend.
+
+### Test auf einem gerooteten Gerät
+
+1. Den Debug-APK-Branch-Build installieren und die App öffnen.
+2. `Show session-attach spike (M0)` öffnen.
+3. `Probe session 0 as root` antippen und die Root-Anfrage des installierten
+   Root-Managers bestätigen.
+4. Den vollständigen Status samt Geräte-/Android-Version zurückmelden.
+
+Erwartete Statusfälle sind `ROOT NOT CONFIRMED`, `ROOT OK, ATTACH FAILED`
+oder `ROOT + ATTACH OK`. Keiner dieser Fälle aktiviert den Effekt.
+
 ## Wie man diesen Stand testet
 
 Sobald ein Android SDK verfügbar ist (lokal mit Android Studio oder über CI):

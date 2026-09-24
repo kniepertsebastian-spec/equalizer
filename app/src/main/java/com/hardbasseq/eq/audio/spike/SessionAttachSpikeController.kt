@@ -48,6 +48,7 @@ class SessionAttachSpikeController
         private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         private val player = TestTonePlayer(audioManager)
         private val controlIntentSpike = ControlSessionIntentSpike(appContext)
+        private val rootSessionZeroProbe = RootSessionZeroProbe(appContext)
         private val mutex = Mutex()
 
         suspend fun run(signal: TestSignal = TestSignal.SINE): SessionAttachSpikeResult =
@@ -106,6 +107,9 @@ class SessionAttachSpikeController
             mutex.withLock {
                 SessionZeroExperiment.probe()
             }
+
+        /** Runs the read-only session-0 construction probe in a root process. */
+        suspend fun probeRootSessionZero(): RootSessionZeroProbeResult = rootSessionZeroProbe.run()
 
         suspend fun stop() =
             mutex.withLock {
