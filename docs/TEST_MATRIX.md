@@ -115,33 +115,46 @@ back." – dieser Broadcast ist ein freiwilliges Opt-in des jeweiligen Players.
 Spotify sendet ihn, SoundCloud und YouTube offenbar nicht (mehr). Kein
 Empfänger-Code kann einen Player zwingen, ihn zu senden.
 
-**Umgesetzte Gegenmaßnahme:** `AudioSessionRepository.kt` erkennt Sessions
-jetzt zusätzlich über `AudioManager.AudioPlaybackCallback`
-(`registerAudioPlaybackCallback`, API 26+) plus
-`AudioPlaybackConfiguration.getAudioSessionId()` (API 28+, deckt sich mit
-`minSdk`). Dieser Weg ist unabhängig von der Kooperation des Players – er
-funktioniert für jede systemweit laufende Wiedergabe, sofern die App die
-(normale, automatisch gewährte) Berechtigung `MODIFY_AUDIO_SETTINGS` besitzt,
-die jetzt im Manifest steht. Die beiden Erkennungswege laufen parallel und
-werden dedupliziert (Broadcast-Treffer haben Vorrang, da sie einen
-Paketnamen liefern; der Callback-Weg liefert nur die Session-ID).
-Details/Begründung als Kommentar direkt in `AudioSessionRepository.kt`.
+**Versuchte, verworfene Gegenmaßnahme:** `AudioSessionRepository.kt` sollte
+Sessions zusätzlich über `AudioManager.AudioPlaybackCallback` plus
+`AudioPlaybackConfiguration.getAudioSessionId()`/`getPlayerState()` erkennen –
+unabhängig von der Kooperation des Players. **CI-Build hat das widerlegt:**
+`./gradlew assembleDebug` schlägt mit `Unresolved reference 'playerState'`,
+`'PLAYER_STATE_STARTED'` und `'audioSessionId'` fehl
+([Lauf 36042295600](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/36042295600)).
+Diese drei Member sind in `compileSdk 37`s öffentlichem Stub-JAR schlicht
+nicht vorhanden – anders als vermutet sind sie kein Teil der öffentlichen
+Android-API, sondern `@SystemApi`/verborgen (nur für Systemapps oder per
+Reflection erreichbar, was auf Android 9+ durch die Hidden-API-Policy
+zunehmend blockiert wird und speziell auf einem aktuellen Android-16-Gerät
+wie dem Pixel 10 sehr wahrscheinlich nicht mehr funktioniert). Die Änderung
+wurde vollständig zurückgerollt (`AudioSessionRepository.kt` und
+`AndroidManifest.xml` sind wieder im Stand vor diesem Versuch); `MODIFY_AUDIO_SETTINGS`
+ist wieder aus dem Manifest entfernt.
 
-**Nicht verifiziert:** Diese Änderung konnte in dieser Sandbox nicht auf
-echter Hardware getestet werden (kein Gerät/Emulator, kein Android-SDK-
-Zugriff). Ob `getAudioSessionId()` auf dem konkreten Pixel-10/Android-16-
-Stand tatsächlich die reale Session-ID statt `0` liefert, ist unklar – die
-öffentliche Dokumentation der Berechtigung war zum Zeitpunkt dieser Änderung
-nicht über die sonst genutzten Quellen abrufbar (siehe `docs/DEPENDENCIES.md`
-zur Netzwerkbeschränkung dieser Sandbox), die Implementierung stützt sich auf
-bekanntes Verhalten dieser API aus vergleichbaren Open-Source-Projekten.
-Nächster Schritt: neue Debug-APK installieren (nächster grüner CI-Lauf auf
-`main`) und Sprint-0-Punkt 4 erneut für SoundCloud und YouTube ausführen
-(siehe „Ausführungsanleitung für Punkt 4" oben); insbesondere prüfen, ob der
-Status-Chip jetzt „Aktiv" statt „Wartet auf Audio-Session" zeigt, und den
-Diagnosebericht danach hier ergänzen. Falls weiterhin `0`/kein Attach: der
-Fallback allein reicht nicht, und laut `docs/DECISIONS.md` Release-Gate A muss
-dann die B/C-Option (eigener Player als Ergänzung) ernsthaft geprüft werden.
+**Tatsächlicher Stand:** Es gibt derzeit **keinen bekannten, öffentlichen
+API-Weg**, der Fremd-Sessions ohne Kooperation des Players zuverlässig
+erkennt. Damit bestätigt sich `docs/DECISIONS.md` Release-Gate A als reales
+Problem, nicht nur als theoretisches Risiko: Spotify funktioniert, SoundCloud
+und YouTube sind mit dem aktuellen Session-basierten Ansatz (Stand jetzt)
+nicht erreichbar. Die verbleibenden, tatsächlich funktionierenden Wege sind
+laut `docs/DECISIONS.md`:
+- **B/C – eigener Player oder Audio-Capture-Pipeline:**
+  `AudioPlaybackCaptureConfiguration` + `MediaProjection` (öffentliche API
+  seit API 29) erlaubt es, den System-Sound unabhängig von der Kooperation
+  des Players mitzuschneiden, zu verarbeiten und wiederzugeben – technisch
+  tragfähig, aber eine grundlegend andere Architektur (eigene Wiedergabe-
+  /Capture-Pipeline statt Effekt-Attach auf fremde Sessions), mit eigener
+  Nutzerfreigabe (Bildschirmaufnahme-ähnlicher Consent-Dialog) und höherer
+  Latenz/Akkulast. Das ist keine kleine Ergänzung mehr, sondern der in
+  Release-Gate A beschriebene Architekturentscheid.
+- Reflection auf die verborgenen `AudioPlaybackConfiguration`-Member bliebe
+  theoretisch möglich, ist aber offiziell nicht unterstützt und auf einem
+  Android-16-Gerät voraussichtlich blockiert – nicht empfohlen.
+
+Nächster Schritt liegt bei der Produktentscheidung in
+`docs/DECISIONS.md` „Entscheidungsvorlage: Session-EQ vs. eigener Player",
+nicht mehr bei einem weiteren Code-Versuch im bisherigen Rahmen.
 
 ## Getestete Geräte/Android-Versionen
 

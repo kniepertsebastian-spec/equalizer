@@ -59,11 +59,18 @@ ausgefüllt ist – trifft die Entscheidung nicht selbst.
 **Status:** Noch nicht entschieden – wartet auf die M0-Sprint-0-Testmatrix.
 Erste reale Rückmeldung (24. September 2026, siehe `docs/TEST_MATRIX.md`
 "Reale Rückmeldung"): Spotify wird erkannt, SoundCloud und YouTube nicht –
-bestätigt Punkt 3 oben als reales, nicht nur theoretisches Risiko. Als
-Gegenmaßnahme wurde `AudioSessionRepository` um einen vom Broadcast
-unabhängigen Erkennungsweg (`AudioManager.AudioPlaybackCallback`) ergänzt;
-ob das für SoundCloud/YouTube tatsächlich reicht, ist noch nicht auf echter
-Hardware bestätigt. Bis dahin bleibt die Entscheidung offen.
+bestätigt Punkt 3 oben als reales, nicht nur theoretisches Risiko. Ein
+Versuch, das über `AudioManager.AudioPlaybackCallback` +
+`AudioPlaybackConfiguration.getAudioSessionId()` broadcast-unabhängig zu
+lösen, scheiterte am CI-Build: Diese Member sind entgegen der Annahme kein
+Teil der öffentlichen Android-API (`@SystemApi`/verborgen, nicht im
+`compileSdk`-Stub) und wurden zurückgerollt – Details in
+`docs/TEST_MATRIX.md` "Reale Rückmeldung". Es gibt damit aktuell **keinen
+bekannten Weg**, Option A (reiner Session-EQ) für SoundCloud/YouTube zum
+Laufen zu bringen; der einzige öffentlich unterstützte Weg dafür wäre eine
+Audio-Capture-Pipeline (`AudioPlaybackCaptureConfiguration` + `MediaProjection`,
+Option B/C) – ein eigener Architekturentscheid, keine kleine Ergänzung.
+Die Entscheidung bleibt offen, rückt aber näher an B/C.
 
 ## Weiterhin offen (aus Roadmap §17, unverändert)
 
