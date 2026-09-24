@@ -2,7 +2,6 @@ package com.hardbasseq.eq.audio.spike
 
 import android.content.Context
 import android.media.audiofx.Equalizer
-import android.os.Process as AndroidProcess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -10,6 +9,7 @@ import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.util.concurrent.TimeUnit
+import android.os.Process as AndroidProcess
 
 data class RootSessionZeroProbeResult(
     val rootGranted: Boolean,
