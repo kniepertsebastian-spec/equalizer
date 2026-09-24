@@ -24,6 +24,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+// How much of the peak EQ boost the automatic input-gain cut pre-cancels before the
+// signal ever reaches dynamics processing. At 1.0 the boost is fully cancelled before
+// the Limiter (still a hard, unchanged 10:1-ratio ceiling) gets a chance to do its own
+// job, which made every preset sound indistinguishable from flat - see roadmap.md
+// Session 16. Lowered further to 0.3 in Session 17 at the user's explicit request for
+// more aggressive kicks/less pre-cancellation, after 0.5 still felt too subtle - the
+// Limiter is still unchanged and remains the actual clipping safety net.
+private const val INPUT_GAIN_SAFETY_RATIO = 0.3f
+
 @HiltViewModel
 class MainViewModel
     @Inject
@@ -145,7 +154,7 @@ class MainViewModel
 
         private fun ProcessingSettings.withPreset(preset: Preset): ProcessingSettings =
             copy(
-                inputGainDb = -preset.requestedHeadroomDb,
+                inputGainDb = safetyScaledInputGainDb(preset.requestedHeadroomDb),
                 macroBassDb = preset.macroBassDb,
                 macroPunchDb = preset.macroPunchDb,
                 macroHaerteDb = preset.macroHaerteDb,
@@ -158,9 +167,15 @@ class MainViewModel
 
         private fun automaticInputGainDb(bandGainsDb: Map<Int, Float>): Float {
             val peakBoostDb = bandGainsDb.values.maxOrNull()?.coerceAtLeast(0f) ?: 0f
-            val presetHeadroomDb = _activePreset.value.requestedHeadroomDb.coerceAtLeast(0f)
-            val requiredHeadroomDb = maxOf(peakBoostDb, presetHeadroomDb)
-            return if (requiredHeadroomDb == 0f) 0f else -requiredHeadroomDb
+            return safetyScaledInputGainDb(peakBoostDb)
+        }
+
+        // Guard against returning -0.0f: boxed Float.equals() (used by assertEquals in
+        // tests, and by anything else comparing boxed Floats) treats -0.0f and 0.0f as
+        // unequal even though == says they're the same.
+        private fun safetyScaledInputGainDb(boostDb: Float): Float {
+            if (boostDb == 0f) return 0f
+            return -(boostDb * INPUT_GAIN_SAFETY_RATIO)
         }
 
         private fun applySettings(settings: ProcessingSettings) {

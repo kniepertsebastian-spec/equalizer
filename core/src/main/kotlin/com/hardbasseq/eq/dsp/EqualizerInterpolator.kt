@@ -82,10 +82,13 @@ object EqualizerInterpolator {
             delta += macroBassDb * factor
         }
 
-        // Macro Punch: Peak 90-140 Hz, dip 250-350 Hz
-        if (freqHz in 80f..150f) {
+        // Macro Punch: peak 70-160 Hz, dip 220-360 Hz. Widened in Session 17 - the
+        // original 80-150/250-350 Hz windows missed every band on the real Pixel 10
+        // layout (60/230/910/3600/14000 Hz), so the Punch slider had zero audible
+        // effect on that device. These wider windows now cover the 230 Hz band too.
+        if (freqHz in 70f..160f) {
             delta += macroPunchDb
-        } else if (freqHz in 250f..350f) {
+        } else if (freqHz in 220f..360f) {
             delta -= macroPunchDb * 0.5f
         }
 

@@ -935,6 +935,226 @@ werden sollte. Build weiterhin nicht lokal verifizierbar (kein
 Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI plus
 Gerätetest.
 
+### Session 14 (22. September 2026)
+
+Nutzer meldet nach dem Foreground-Service-Merge: SoundCloud klappt weiterhin
+nicht, und zusätzlich wird die Musik durch HardBass EQ insgesamt **leiser**
+statt druckvoller – während SoundCloud selbst (eigene Lautheits-Normalisierung/
+Mastering) lauter *und* basslastiger klingt.
+
+**Zwei getrennte Themen, nicht dasselbe Problem:**
+
+1. **SoundCloud-Lautheit ist unabhängig von HardBass EQ.** Was der Nutzer bei
+   SoundCloud hört, ist deren eigene, App-/serverseitige Lautheits-
+   Normalisierung bzw. ein eigener Loudness-Maximizer auf ihrer Wiedergabe-
+   Pipeline – das hat nichts mit Androids Session-basiertem `AudioEffect`
+   zu tun, über das HardBass EQ arbeitet. Kein Code-Fund hierzu nötig, reine
+   Erklärung an den Nutzer.
+
+2. **"Equalizer wird leiser" ist ein echter, gefundener Gain-Staging-Bug in
+   `AndroidAudioEngine.applyInternal()`**, unabhängig vom Session-Erkennungs-
+   problem – tritt bei jedem Preset auf, sobald überhaupt eine Session
+   angehängt ist:
+   - Jedes Preset erzwingt einen festen negativen `inputGainDb`
+     (`requestedHeadroomDb`, roadmap-konform 3–5,5 dB „Ziel-Headroom" – **nicht**
+     der Bug, sondern bewusste Spezifikation aus §5).
+   - Die `DynamicsProcessing.MbcBand`-Konfiguration setzte `preGain`/`postGain`
+     aber fest auf `0f, 0f` – der Multiband-Kompressor senkt bei lauten
+     Passagen (bei den Uptempo-/Hardcore-Presets praktisch dauerhaft, da die
+     Schwellen niedrig sind) die Lautstärke weiter ab, **ohne** die übliche
+     Kompressor-Makeup-Gain, die das kompensiert. In Kombination mit dem
+     Input-Gain-Cut ergab das netto fast immer leiseres statt druckvolleres
+     Ergebnis – das genaue Gegenteil vom Ziel der App.
+
+**Fix:** `postGain` je MBC-Band nicht mehr `0f`, sondern eine konservative
+Standard-Kompressor-Makeup-Gain-Heuristik
+(`(-threshold) * (1 - 1/ratio) * 0.5`, gekappt auf 0–4 dB). Der Limiter danach
+bleibt **unverändert** (weiterhin hartes 10:1-Verhältnis, Safe-Threshold ≤ 0
+dBFS) – er fängt etwaige zusätzliche Pegelspitzen aus der Makeup-Gain weiterhin
+ab, „Clipping-Schutz zuerst" bleibt also intakt. Die feste
+`requestedHeadroomDb`-Sicherheitsmarge pro Preset wurde bewusst **nicht**
+angetastet, da sie explizite Produktspezifikation aus §5 ist, nicht der
+gefundene Bug.
+
+**Weiterhin offen, an den Nutzer zurückgespielt:** Ob SoundCloud nach dem
+Foreground-Service (Session 13) jetzt wenigstens den Status „Aktiv
+(Session #…)" erreicht oder weiterhin dauerhaft bei „Wartet auf
+Audio-Session" hängen bleibt, lässt sich nur auf dem Gerät sehen – das würde
+zwischen „Session-Erkennung funktioniert jetzt, nur der Klang war das
+Problem" (durch diesen Fix erledigt) und „Session-Erkennung schlägt bei
+SoundCloud weiterhin grundsätzlich fehl" (das ungeklärte, tiefere
+Zustellungsproblem aus Session 4) unterscheiden. Build weiterhin nicht lokal
+verifizierbar (kein Android-SDK-Zugriff in dieser Sandbox); `AndroidAudioEngine`
+ist laut M7 ohnehin nicht durch reine JVM-Unit-Tests abgedeckt (echte
+Android-Media-Klassen nötig) – Verifikation über CI (Build/Lint) plus
+Gerätetest/Hörprobe durch den Nutzer.
+
+### Session 15 (22. September 2026)
+
+Nutzer testet PR #16 auf dem Gerät und meldet ein eindeutiges, sehr
+aufschlussreiches Ergebnis: Bei **Spotify** zeigt der Status-Chip jetzt
+„Aktiv (Session #…)" – der Foreground-Service aus Session 13 hat das
+Timing-Problem also tatsächlich behoben. Bei **SoundCloud** dagegen bleibt
+der Status durchgehend leer/„Wartet auf Audio-Session" – keine einzige
+Session wird je erkannt.
+
+**Das grenzt die Ursache entscheidend ein:** Der Broadcast-Mechanismus selbst
+funktioniert auf diesem Gerät (widerlegt die pessimistischste Lesart von
+Session 4, dass er grundsätzlich systemweit blockiert wäre) – SoundCloud
+sendet den `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-Broadcast schlicht nie.
+Das ist keine Eigenheit unseres Codes, sondern eine Entscheidung/ein
+Implementierungsdetail von SoundCloud: Der Broadcast ist ein optionales,
+Cooperative-only-Feature aus der Java-`MediaPlayer`-Ära; viele moderne, auf
+ExoPlayer/Media3 aufbauende Player senden ihn nie automatisch, sofern die
+App-Entwickler es nicht explizit nachbauen.
+
+**Versucht, aber verworfen – zweite Session-Quelle über
+`AudioManager.registerAudioPlaybackCallback(...)` /
+`AudioPlaybackConfiguration.getAudioSessionId()`:** Der Plan war, diese vom
+Audio-Framework selbst getriebene, vollständige Liste aller aktuell aktiven
+Wiedergabe-Sessions systemweit zu nutzen, unabhängig davon, ob die abspielende
+App kooperiert. **Fehleinschätzung, durch CI aufgedeckt:**
+`AudioPlaybackConfiguration.getAudioSessionId()` ist entgegen der ursprünglichen
+Annahme **kein Teil der öffentlichen Android-SDK-Stubs** (`compileSdk 37`) –
+der Build schlug mit `Unresolved reference 'audioSessionId'` fehl. Diese
+Methode ist offenbar `@SystemApi`/versteckt und für normale (nicht
+System-/privilegierte) Apps schlicht nicht aufrufbar, auch nicht mit der
+`MODIFY_AUDIO_SETTINGS`-Berechtigung. Die Änderung wurde vollständig
+zurückgenommen (`AudioSessionRepository.kt`/Manifest wieder auf den Stand von
+PR #16), bevor sie gemergt wurde – kein rotes CI im gemergten Code.
+
+**Ehrliche Schlussfolgerung, nicht nur für diese Sitzung:** Damit gibt es
+aktuell **keinen bekannten, im öffentlichen Android-SDK verfügbaren Weg**,
+die Audio-Session einer fremden App zu ermitteln, wenn diese sie nicht selbst
+per `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-Broadcast meldet – und
+SoundCloud tut das nachweislich nicht. MediaProjection/Playback-Capture ist
+laut §2 ausdrücklich ausgeschlossen, Root ist laut §3 „Nicht im MVP". Ohne
+neue Erkenntnis (z. B. falls SoundCloud den Broadcast doch unter bestimmten
+Bedingungen sendet, oder eine andere, tatsächlich öffentliche API existiert)
+sollte SoundCloud ehrlich als „von diesem Player nicht unterstützt"
+dokumentiert werden (roadmap-Prinzip „Ehrliche Kompatibilität", §1.3), statt
+weiter Workarounds zu suchen, die denselben SDK-Sichtbarkeits-Constraint
+treffen dürften.
+
+**Nächste konkrete Aufgabe:** Mit dem Nutzer klären, ob SoundCloud als
+bekannte Einschränkung dokumentiert wird (z. B. im Hinweistext in
+`EqualizerScreen.kt`), oder ob noch weitere Recherche gewünscht ist. Build
+weiterhin nicht lokal verifizierbar (kein Android-SDK-Zugriff in dieser
+Sandbox) – Verifikation über CI (Build/Lint) plus Gerätetest durch den
+Nutzer.
+
+### Session 16 (22. September 2026)
+
+Nutzer meldet, noch bevor PR #17 gemergt ist, den eigentlichen Kern des
+Lautheits-Problems: Die Uptempo-Presets klingen im direkten Vergleich zu
+Flat weder bassiger noch klarer – Flat wirkt sogar lauter, aber "genauso
+klar". Der MBC-Makeup-Gain-Fix aus Session 14 allein reicht also nicht.
+
+**Root Cause, per Handrechnung mit den echten Pixel-10-Bändern (M0-Spike,
+`docs/TEST_MATRIX.md`: 60/230/910/3600/14000 Hz) nachvollzogen:**
+`MainViewModel.automaticInputGainDb()` bildete bisher
+`-maxOf(peakBoostDb, presetHeadroomDb)` – und `presetHeadroomDb` (z. B. 4.0 dB
+bei „Clean Punch") liegt in der Praxis nahe an oder sogar über dem tatsächlich
+interpolierten `peakBoostDb` (für „Clean Punch" bei Band 60 Hz: ≈4.37 dB nach
+Zielkurve + Bass-Makro). Ergebnis: Der verpflichtende Input-Gain-Cut hat die
+EQ-Anhebung am stärksten angehobenen Band nahezu **exakt auf 0 dB netto**
+zurückgerechnet – noch bevor Dynamikverarbeitung überhaupt beginnt. Nur der
+MBC-Makeup-Gain-Fix (Session 14) sorgte danach noch für ein bisschen
+hörbaren Unterschied, aber nur während der Kompressor tatsächlich greift.
+Effektiv: Die Presets klangen kaum anders als Flat, exakt wie gemeldet.
+
+Das ist letztlich dieselbe Baustelle, die roadmap.md §8 selbst schon als
+vorläufig markiert hatte: „Automatischer Headroom basiert konservativ auf dem
+maximalen positiven EQ-Gain; später kann eine präzisere Schätzung folgen" –
+dieses „später" ist jetzt.
+
+**Fix:** `automaticInputGainDb()` cancelt den Peak-Boost nicht mehr
+vollständig, sondern nur noch zur Hälfte (`INPUT_GAIN_SAFETY_RATIO = 0.5f`,
+neue Konstante in `MainViewModel.kt`). Der `presetHeadroomDb`-Floor
+(`maxOf(...)`) entfällt komplett zugunsten des tatsächlich gemessenen
+Peak-Boosts – `Preset.requestedHeadroomDb` bleibt als Datenfeld/anfänglicher
+Platzhalterwert (`withPreset()`, ebenfalls ×0.5 skaliert) und in
+`PresetJsonSerializer` bestehen, spielt aber für die eigentliche
+Gain-Berechnung keine Rolle mehr. Die verbleibende Sicherheit gegen echtes
+Clipping trägt jetzt stärker der **unveränderte** Limiter (hartes
+10:1-Verhältnis, Schwelle ≤ 0 dBFS) – genau seine eigentliche Aufgabe, statt
+dass der Input-Gain-Cut sie ihm vorab komplett abnimmt und die EQ-Kurve dabei
+mit wegrasiert.
+
+Neu-Rechnung für „Clean Punch"/Band 60 Hz: Cut jetzt −2,18 dB statt −4,37 dB
+→ netto **+2,18 dB** vor Dynamikverarbeitung (vorher ±0 dB), plus MBC-Makeup
+während lauter Passagen. Für „Uptempo – Final Smash" (extremster Boost, ≈5,7
+dB an Band 60 Hz) ergibt sich netto bis zu ≈+4,85 dB inklusive MBC-Makeup –
+spürbar mehr Bass, aber der Limiter fängt reale Pegelspitzen weiterhin
+zuverlässig ab.
+
+**Tests angepasst:** `MainViewModelTest` – „manual boost automatically
+reserves matching headroom" umbenannt zu „...reserves half as headroom" mit
+neuem Erwartungswert (`-4f` statt `-8f` bei `setBandGain(gainDb = 8f)`);
+„selectPreset updates active preset and interpolates gains" erwartet jetzt
+`-(peakBoostDb * 0.5f)` statt der alten `maxOf(...)`-Formel.
+
+**Ehrlich zum Trade-off:** Der Limiter muss jetzt öfter/stärker eingreifen
+als vorher, weil weniger Vorab-Absenkung stattfindet – das ist bei einem
+Uptempo-Hardcore-EQ eher erwünschter Charakter (spürbare Kompression/Limiting
+gehört zum Genre-Sound) als ein Risiko, aber ob sich das auf einem echten
+Gerät gut statt übersteuert anhört, lässt sich nur durch Hörprobe klären.
+
+**Nächste konkrete Aufgabe:** Nutzer hört auf dem Gerät gegen, ob die Presets
+jetzt hörbar mehr Bass/Punch liefern als Flat, ohne unangenehm zu pumpen oder
+zu verzerren. Build weiterhin nicht lokal verifizierbar (kein
+Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI (Build/Unit-Tests)
+plus Gerätetest/Hörprobe durch den Nutzer.
+
+### Session 17 (22. September 2026)
+
+Nutzer testet noch VOR dem Merge von PR #17 (also noch auf altem Code) und
+bestätigt entsprechend erwartungsgemäß keinen Unterschied – wichtiger
+Hinweis dazu direkt an den Nutzer gegeben. Zusätzlich klare Ansage: mehr
+aggressive Kicks, weniger Sicherheitsabsenkung, als eigener nächster Schritt
+(nicht mehr in PR #17 gestapelt, damit einzeln testbar und bei Bedarf
+zurückrollbar).
+
+**Zweiter, unabhängiger Bug beim vollständigen Audit der Kette gefunden:**
+Das „Punch"-Makro (`EqualizerInterpolator.calculateMacroDelta`) hatte ein
+Peak-Fenster von 80–150 Hz und ein Dip-Fenster von 250–350 Hz – auf den
+echten Pixel-10-Bändern (60/230/910/3600/14000 Hz, `docs/TEST_MATRIX.md`)
+liegt **keines der 5 Bänder** in einem dieser Fenster. Der Punch-Regler in
+der UI hatte auf diesem Gerät also **keinerlei hörbaren Effekt**, egal wie
+weit man ihn zieht – unabhängig vom Gain-Staging-Bug aus Session 16. Fenster
+auf 70–160 Hz (Peak) / 220–360 Hz (Dip) verbreitert, sodass Band 1 (230 Hz)
+jetzt im Dip-Fenster liegt und tatsächlich reagiert.
+
+**Umgesetzt (noch nicht gepusht/PR eröffnet – erst nach Merge von PR #17,
+damit die Schritte einzeln testbar bleiben):**
+- `INPUT_GAIN_SAFETY_RATIO` in `MainViewModel.kt`: 0.5 → 0.3 (nur noch 30 %
+  des Peak-Boosts werden vorab abgezogen, nicht mehr die Hälfte). Für „Clean
+  Punch" ergibt das am Sub-Bass-Band jetzt ≈+3,06 dB netto vor
+  Dynamikverarbeitung statt ≈+2,18 dB.
+- Punch-Makro-Fenster verbreitert (s. o.), damit der Regler auf dem echten
+  Testgerät überhaupt etwas bewirkt.
+- `macroPunchDb` in den Kick-fokussierten Presets moderat angehoben (+0,5 dB):
+  Clean Punch 1,5→2,0, Kick Attack 2,0→2,5, Raw Power 1,5→2,0, Fast Attack
+  2,5→3,0, Final Smash 2,5→3,0. **Bewusst unverändert:** Deep Rumble, Balanced
+  (nicht Kick-fokussiert) und Terrorcore – Maximum Distortion (dessen
+  gesamtes Design in Session 12 explizit auf Zähmen statt Verschärfen
+  ausgelegt wurde – noch aggressiver zu machen würde diesem Zweck
+  widersprechen).
+- `MainViewModelTest` entsprechend angepasst (30 % statt 50 % in beiden
+  betroffenen Tests).
+
+**Ehrlich zum Risiko:** Mit 0.3 statt 0.5 muss der Limiter noch öfter/stärker
+eingreifen. Das bleibt eine bewusste, vom Nutzer angefragte Entscheidung
+("kann man immer einen Schritt zurückgehen") – ohne Gerätetest nicht
+abschließend beurteilbar, ob es zu hörbarem Pumping/Verzerrung führt.
+
+**Nächste konkrete Aufgabe:** Sobald PR #17 gemerged ist, diesen Stand als
+eigenen PR gegen `main` öffnen. Nutzer testet danach gezielt: (1) Punch-Regler
+hat jetzt hörbaren Effekt? (2) Presets insgesamt spürbar aggressiver als vorher,
+aber noch sauber (kein Pumping/Verzerren)? Build weiterhin nicht lokal
+verifizierbar (kein Android-SDK-Zugriff in dieser Sandbox) – Verifikation über
+CI (Build/Unit-Tests) plus Gerätetest/Hörprobe durch den Nutzer.
+
 ### Session 18 (23. September 2026)
 
 Nutzer bittet: „Mache den Equalizer für Windows und Linux Debian/Ubuntu

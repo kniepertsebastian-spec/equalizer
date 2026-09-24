@@ -197,6 +197,18 @@ class AndroidAudioEngine
                             val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
                             val mbcThresholdDb =
                                 if (settings.mbcEnabled) settings.mbcThresholdDb.coerceIn(-30f, 0f) else 0f
+                            // Standard compressor makeup-gain heuristic (half the average gain
+                            // reduction the ratio/threshold combination implies), capped
+                            // conservatively. Without this, every preset ends up net quieter
+                            // than flat instead of punchier: the Limiter below (unchanged, hard
+                            // 10:1 ceiling) still protects the final output, so this only
+                            // restores loudness the compression itself removed.
+                            val mbcMakeupGainDb =
+                                if (mbcRatio > 1f) {
+                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.5f).coerceIn(0f, 4f)
+                                } else {
+                                    0f
+                                }
                             val mbcBands =
                                 listOf(
                                     MbcBandSettings(120f, 15f, 180f),
@@ -216,8 +228,8 @@ class AndroidAudioEngine
                                         6f, // soft knee
                                         -80f, // effectively disable the noise gate
                                         1f, // no expansion
-                                        0f,
-                                        0f,
+                                        0f, // preGain
+                                        mbcMakeupGainDb, // postGain
                                     ),
                                 )
                             }
