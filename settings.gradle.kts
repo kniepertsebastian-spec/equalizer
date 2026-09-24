@@ -19,3 +19,5 @@ dependencyResolutionManagement {
 rootProject.name = "HardBassEQ"
 
 include(":app")
+include(":core")
+include(":desktop")

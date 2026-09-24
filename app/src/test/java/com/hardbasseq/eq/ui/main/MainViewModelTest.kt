@@ -7,6 +7,7 @@ import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
+import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
 import com.hardbasseq.eq.preset.BuiltInPresets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -138,6 +139,7 @@ class MainViewModelTest {
             repository = FakeAudioEffectRepository(descriptors),
             audioEngine = fakeEngine,
             routeRepository = fakeRouteRepo,
+            diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
             backgroundDispatcher = dispatcher,
         )
 

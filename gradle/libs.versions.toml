@@ -22,6 +22,11 @@ ktlint = "14.2.0"
 room = "2.7.0-alpha13"
 datastore = "1.1.3"
 kotlinxSerialization = "1.7.3"
+# Desktop module (Session 18): Compose Multiplatform for the Windows/Linux
+# equalizer preset exporter. Compose compiler ships inside the Kotlin plugin
+# itself since 2.0, so no separate compose-compiler version is needed - only
+# the org.jetbrains.compose Gradle plugin, which is independently versioned.
+composeMultiplatform = "1.12.1"
 
 [libraries]
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
@@ -55,8 +60,10 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlint" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }

@@ -11,6 +11,7 @@
     <string name="spike_title">Session-attach spike (M0)</string>
     <string name="spike_description">Plays a quiet test tone in its own audio session, attaches Equalizer/DynamicsProcessing to it, and reads back the real band/gain capabilities this device reports.</string>
     <string name="spike_start">Start test tone + probe effects</string>
+    <string name="spike_start_sweep">Start (sweep 20 Hz–20 kHz)</string>
     <string name="spike_running">Running…</string>
     <string name="spike_stop">Stop</string>
     <string name="session_service_notification_title">HardBass EQ is listening</string>

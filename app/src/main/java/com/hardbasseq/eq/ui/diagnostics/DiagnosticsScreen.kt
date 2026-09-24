@@ -30,6 +30,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.hardbasseq.eq.audio.AudioCapabilities
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
+import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.diagnostics.DiagnosticsEvent
 import com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatter
 import com.hardbasseq.eq.ui.theme.spacing
 
@@ -41,10 +43,19 @@ fun DiagnosticsScreen(
     route: AudioRoute,
     onBackClicked: () -> Unit,
     modifier: Modifier = Modifier,
+    processingSettings: ProcessingSettings? = null,
+    recentEvents: List<DiagnosticsEvent> = emptyList(),
 ) {
     val spacing = MaterialTheme.spacing
     val clipboardManager = LocalClipboardManager.current
-    val reportText = DiagnosticsReportFormatter.generateReport(state, capabilities, route)
+    val reportText =
+        DiagnosticsReportFormatter.generateReport(
+            engineState = state,
+            capabilities = capabilities,
+            route = route,
+            processingSettings = processingSettings,
+            recentEvents = recentEvents,
+        )
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

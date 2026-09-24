@@ -24,6 +24,7 @@ import com.hardbasseq.eq.audio.spike.ControlIntentTestResult
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeResult
 import com.hardbasseq.eq.audio.spike.SessionZeroProbeResult
+import com.hardbasseq.eq.audio.spike.TestSignal
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -55,13 +56,27 @@ fun SessionAttachSpikeSection(controller: SessionAttachSpikeController) {
                 onClick = {
                     isBusy = true
                     scope.launch {
-                        result = controller.run()
+                        result = controller.run(TestSignal.SINE)
                         isPlaying = true
                         isBusy = false
                     }
                 },
             ) {
                 Text(stringResource(if (isBusy) R.string.spike_running else R.string.spike_start))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            OutlinedButton(
+                enabled = !isBusy,
+                onClick = {
+                    isBusy = true
+                    scope.launch {
+                        result = controller.run(TestSignal.SWEEP)
+                        isPlaying = true
+                        isBusy = false
+                    }
+                },
+            ) {
+                Text(stringResource(if (isBusy) R.string.spike_running else R.string.spike_start_sweep))
             }
             if (isPlaying) {
                 Spacer(modifier = Modifier.width(8.dp))

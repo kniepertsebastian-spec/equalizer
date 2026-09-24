@@ -11,6 +11,14 @@ import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Which test signal [SessionAttachSpikeController.run] should play. SWEEP
+ * covers the full audible range instead of one fixed pitch, so a broadband
+ * EQ change (e.g. a dipped band) is audible as a dip in the sweep rather
+ * than only at one frequency - roadmap-2026.md M0 sprint backlog item 5.
+ */
+enum class TestSignal { SINE, SWEEP }
+
 data class SessionAttachSpikeResult(
     val audioSessionId: Int,
     val equalizer: EqualizerCapabilitySnapshot?,
@@ -42,9 +50,12 @@ class SessionAttachSpikeController
         private val controlIntentSpike = ControlSessionIntentSpike(appContext)
         private val mutex = Mutex()
 
-        suspend fun run(): SessionAttachSpikeResult =
+        suspend fun run(signal: TestSignal = TestSignal.SINE): SessionAttachSpikeResult =
             mutex.withLock {
-                player.start()
+                when (signal) {
+                    TestSignal.SINE -> player.start()
+                    TestSignal.SWEEP -> player.startSweep()
+                }
                 val sessionId = player.audioSessionId
 
                 val equalizerResult = runCatching { EqualizerSpike.readCapabilities(sessionId) }

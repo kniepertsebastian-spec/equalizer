@@ -26,10 +26,42 @@ Punkt 10).
   ergänzt, wenn ein konkreter, implementierter Anwendungsfall (Session-Attach
   in M2) sie tatsächlich benötigt (Roadmap §12).
 
+## Entscheidungsvorlage: Session-EQ vs. eigener Player (Release-Gate A)
+
+Aus `roadmap-2026.md` M1 "Release-Gate A" (23. September 2026): Wird auf
+wichtigen Playern (Spotify, SoundCloud) keine verlässliche
+Fremd-Session-Anbindung erreicht, muss **vor** M3 entschieden werden, ob ein
+eigener Player Teil des Produkts wird. Diese Vorlage strukturiert die
+Entscheidung, sobald `docs/TEST_MATRIX.md` (M0-Sprint-0-Vorlage oben)
+ausgefüllt ist – trifft die Entscheidung nicht selbst.
+
+**Optionen** (roadmap-2026.md M1):
+- **A – Session-basierter System-EQ bleibt Kernprodukt.** Voraussetzung:
+  ≥95 % erfolgreiche Attach-Vorgänge über 50 definierte Starts je
+  Ziel-Player/Testgerät (Abnahmekriterium M1).
+- **B – Eigener Media3-Player für garantiertes DSP wird ergänzt.**
+  Auslöser: Attach-Rate liegt strukturell unter dem Zielwert, oder ein
+  wichtiger Player (z. B. SoundCloud) ist auf absehbare Zeit technisch
+  nicht erreichbar (siehe Session-Log-Eintrag zu SoundCloud/Broadcast-
+  Zuverlässigkeit).
+- **C – Hybrid.** Session-EQ bleibt Standard, eigener Player als
+  Fallback/Zusatzoption für nicht unterstützte Player.
+
+**Eingabedaten für die Entscheidung** (aus der ausgefüllten Testmatrix):
+1. Attach-Erfolgsquote pro Player, aggregiert über alle getesteten
+   Geräte/Routen.
+2. Ob der Kontrollverlust (`LostControl`) reproduzierbar durch Re-Attach
+   behebbar ist oder strukturell auftritt (z. B. bei jedem Trackwechsel).
+3. Ob das Zustellungsproblem bei SoundCloud (Broadcast kommt nie an, siehe
+   `docs/TEST_MATRIX.md` "Control-Intents und Session-0-Experiment")
+   geräte- oder plattformweit ist.
+
+**Status:** Noch nicht entschieden – wartet auf die M0-Sprint-0-Testmatrix.
+
 ## Weiterhin offen (aus Roadmap §17, unverändert)
 
 - [ ] Finaler App-Name und Package-ID
-- [ ] Ausschließlich Session-Controller oder langfristig zusätzlich eigener Player
+- [ ] Ausschließlich Session-Controller oder langfristig zusätzlich eigener Player (siehe Entscheidungsvorlage oben)
 - [x] Physisches Testgerät: Google Pixel 10 / Android 16 (M0-Spikes getestet).
 - [ ] Weitere Hersteller und Emulator für die Testmatrix verfügbar machen.
 - [ ] Soll die erste öffentliche Version AutoEQ-Import enthalten oder erst Post-MVP?

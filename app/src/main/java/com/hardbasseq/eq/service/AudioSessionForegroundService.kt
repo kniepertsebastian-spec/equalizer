@@ -15,6 +15,7 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEngine
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSessionRepository
+import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -38,6 +39,9 @@ class AudioSessionForegroundService : LifecycleService() {
     @Inject
     lateinit var audioEngine: AudioEngine
 
+    @Inject
+    lateinit var diagnosticsRecorder: DiagnosticsRecorder
+
     override fun onCreate() {
         super.onCreate()
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -48,10 +52,24 @@ class AudioSessionForegroundService : LifecycleService() {
         lifecycleScope.launch {
             sessionRepository.activeSession.collect { session ->
                 if (session != null) {
+                    diagnosticsRecorder.record("Session attached: id=${session.sessionId} package=${session.packageName}")
                     audioEngine.attach(session)
                 } else {
+                    diagnosticsRecorder.record("Session detached")
                     audioEngine.detach()
                 }
+            }
+        }
+
+        lifecycleScope.launch {
+            routeRepository.activeRoute.collect { route ->
+                diagnosticsRecorder.record("Route changed: ${route.type.name} (${route.name})")
+            }
+        }
+
+        lifecycleScope.launch {
+            audioEngine.state.collect { state ->
+                diagnosticsRecorder.record("Engine state: $state")
             }
         }
     }

@@ -37,11 +37,15 @@ fun AppNavHost(spikeController: SessionAttachSpikeController) {
             val state by viewModel.engineState.collectAsStateWithLifecycle()
             val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
             val route by viewModel.currentRoute.collectAsStateWithLifecycle()
+            val processingSettings by viewModel.processingSettings.collectAsStateWithLifecycle()
+            val diagnosticsEvents by viewModel.diagnosticsEvents.collectAsStateWithLifecycle()
 
             DiagnosticsScreen(
                 state = state,
                 capabilities = capabilities,
                 route = route,
+                processingSettings = processingSettings,
+                recentEvents = diagnosticsEvents,
                 onBackClicked = { navController.popBackStack() },
             )
         }

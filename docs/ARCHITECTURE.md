@@ -1,8 +1,13 @@
 # Architektur
 
 Stand: M1 (Projektfundament). Dieses Dokument beschreibt den aktuellen
-Stand, nicht die vollständige Zielarchitektur aus `roadmap.md` §7 – das
-wird laufend nachgeführt, wenn neue Meilensteine landen.
+Stand, nicht die vollständige Zielarchitektur. Ab 23. September 2026 ist
+`roadmap-2026.md` §5 ("Empfohlene technische Architektur") die aktuelle
+Referenz für die Zielarchitektur (Domänenpipeline + Komponententabelle:
+`AudioSessionCoordinator`, `CurveComposer`, `CapabilityAdapter`,
+`HeadroomCalculator`, `DiagnosticsRecorder` u. a.) – wird laufend
+nachgeführt, wenn neue Meilensteine landen. `DiagnosticsRecorder` ist seit
+dieser Session bereits als erste Komponente umgesetzt (siehe unten).
 
 ## Modulstruktur
 
@@ -40,6 +45,13 @@ Der Session-Attach-Spike-Bereich (`SessionAttachSpikeController` +
 `SessionAttachSpikeSection`) ist bewusst **nicht** in `MainViewModel`
 integriert: Er ist explizit als M0-Wegwerf-Diagnosecode markiert (siehe
 `docs/FEASIBILITY.md`) und wird nicht Teil der Produktarchitektur.
+
+`DiagnosticsRecorder` (`diagnostics/DiagnosticsRecorder.kt`) ist dagegen
+Produktcode: ein `@Singleton`, den `AudioSessionForegroundService` mit
+Session-/Route-/Engine-State-Ereignissen füttert und den `MainViewModel`
+für den Diagnosebericht (`DiagnosticsReportFormatter`) ausliest. Bewusst
+nur ein beschränkter In-Memory-Ringpuffer (50 Einträge), keine Persistenz –
+siehe Fehler-/Logstrategie unten zu personenbezogenen Daten.
 
 ## Dependency Injection
 
