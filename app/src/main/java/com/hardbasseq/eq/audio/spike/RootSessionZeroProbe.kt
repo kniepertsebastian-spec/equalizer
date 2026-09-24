@@ -2,7 +2,7 @@ package com.hardbasseq.eq.audio.spike
 
 import android.content.Context
 import android.media.audiofx.Equalizer
-import android.os.Process
+import android.os.Process as AndroidProcess
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -188,7 +188,7 @@ object RootSessionZeroProcess {
         val input = System.`in`.bufferedReader()
         val output = System.out.bufferedWriter()
         var equalizer: Equalizer? = null
-        val uid = Process.myUid()
+        val uid = AndroidProcess.myUid()
 
         fun respond(value: String) {
             output.write(value.replace('\n', ' ').replace('\r', ' '))
