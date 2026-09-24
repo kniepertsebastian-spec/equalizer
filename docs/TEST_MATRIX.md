@@ -11,6 +11,71 @@ Noch nicht ausgefüllt – die Zeilen sind eine Vorlage für die tatsächlichen
 Gerätetests, die nur auf echter Hardware durchgeführt werden können. Pro
 Kombination aus Gerät × Route × Player × Startreihenfolge eine Zeile:
 
+### Ausführungsanleitung für Punkt 4 (vier Startreihenfolgen)
+
+Sprint-0-Punkt 4 ist enger gefasst als die volle Matrix unten (Punkt 1):
+„Spotify und SoundCloud in vier Startreihenfolgen testen" = 2 Player × 2
+Startreihenfolgen = die ersten vier Datenzeilen der Tabelle unten (Pixel 10,
+Lautsprecher, Spotify/SoundCloud × HardBass-EQ-zuerst/Player-zuerst). Alle
+weiteren Zeilen (Bluetooth, USB, Samsung) gehören zu Punkt 1 (volle
+Geräte-Matrix) und sind für den Sprint-0-Abschluss nicht zwingend, aber
+willkommen, falls Zeit ist.
+
+**Voraussetzungen:**
+
+- Debug-APK: entweder aktuellster grüner CI-Lauf auf `main` → Artefakt
+  `app-debug-apk`, oder – falls `GDRIVE_SA_KEY` konfiguriert ist (siehe
+  `docs/DRIVE_UPLOAD.md`) – `HardBassEQ-debug-latest.apk` im geteilten
+  Drive-Ordner. Auf dem Pixel 10 installieren (unbekannte Quellen
+  zulassen, falls nötig).
+- Spotify und SoundCloud installiert und mit einem Account angemeldet, der
+  Wiedergabe erlaubt (kein reiner Vorschau-Modus).
+- Beim ersten Start: Benachrichtigungsberechtigung für HardBass EQ
+  erlauben (sonst kann der Foreground-Service, der Sessions im Hintergrund
+  erkennt, keine sichtbare Notification zeigen – siehe
+  `AudioSessionForegroundService`).
+
+**Pro Testfall (einmal für jede der vier Zeilen wiederholen):**
+
+1. **Startreihenfolge herstellen:**
+   - „HardBass EQ zuerst": HardBass EQ öffnen und offen lassen, danach erst
+     Spotify/SoundCloud öffnen und einen Track abspielen.
+   - „Player zuerst": Spotify/SoundCloud öffnen und einen Track abspielen,
+     danach erst HardBass EQ öffnen.
+2. **Status-Chip ablesen** (oben auf dem HardBass-EQ-Startbildschirm,
+   direkt unter „Route: …"): notieren, ob er „Aktiv (Session #…)" zeigt.
+   Zeigt er stattdessen „Wartet auf Audio-Session", „Fehler: …" oder
+   „Kontrollverlust" → das ist bereits das Ergebnis für „Attach OK?" = Nein.
+3. **EQ-Wirkung prüfen:** einen Regler deutlich verschieben (z. B. Bass-
+   Makro-Regler weit nach oben) und hören, ob sich der Klang hörbar
+   ändert. Das ist die Spalte „EQ-Wirkung hör-/messbar?".
+4. **Pause/Resume:** in Spotify/SoundCloud pausieren und fortsetzen,
+   Status-Chip erneut prüfen → Spalte „Verhalten nach Pause".
+5. **Trackwechsel:** zum nächsten Track springen, Status-Chip erneut
+   prüfen → Spalte „Verhalten nach Trackwechsel".
+6. **Route-Wechsel** (optional für Punkt 4, aber leicht mitzuerfassen):
+   Bluetooth-Kopfhörer verbinden/trennen, Status-Chip erneut prüfen →
+   Spalte „Verhalten nach Route-Wechsel".
+7. **Diagnosereport sichern:** in HardBass EQ auf „Diagnose & Report"
+   tippen, dann oben rechts auf „Kopieren" – der Report enthält exakt die
+   Felder, die für die übrigen Spalten gebraucht werden:
+   - „Session-ID erhalten": aus „--- Recent Session Events ---" die Zeile
+     `Session attached: id=… package=…`.
+   - „Kontrollverlust während Wiedergabe?": prüfen, ob dort eine Zeile
+     `Engine state: LostControl(…)` auftaucht.
+   - „Engine State" ganz oben im Report bestätigt den zuletzt beobachteten
+     Zustand noch einmal maschinenlesbar.
+   Den kopierten Report als Klartext in die entsprechende Zeile unten
+   einfügen (oder als separate Datei/Anhang sichern) – das ist zugleich der
+   von den Abnahmekriterien geforderte „dokumentierte Ablauf" bei
+   Fehlschlägen.
+8. **Zeile unten ausfüllen** und Datum eintragen.
+
+Nach den vier Zeilen: kurz zurückmelden (z. B. hier im Chat oder als PR),
+welche der vier Fälle fehlgeschlagen sind, inkl. der kopierten
+Diagnoseberichte – daraus lässt sich der nächste Schritt (Punkt 7,
+Re-Attach-Implementierung) konkret ableiten.
+
 | Gerät | Route | Player | Startreihenfolge | Session-ID erhalten | Attach OK? | Kontrollverlust während Wiedergabe? | Verhalten nach Pause | Verhalten nach Trackwechsel | Verhalten nach Route-Wechsel | EQ-Wirkung hör-/messbar? | Datum |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Pixel 10 | Lautsprecher | Spotify | HardBass EQ zuerst | | | | | | | | |
@@ -34,6 +99,62 @@ Sprint-Abschlusskriterium (roadmap-2026.md §8): mindestens zwei Player und
 zwei Audio-Routen ausgefüllt, jeder Fehlschlag mit Diagnosedaten (Kopie des
 Diagnoseberichts, seit dieser Session inkl. `DiagnosticsRecorder`-Ereignissen
 mit Zeitstempeln) und reproduzierbarem Ablauf belegt.
+
+## Reale Rückmeldung (24. September 2026): Spotify erkannt, SoundCloud/YouTube nicht
+
+Erste tatsächliche Ausführung von Sprint-0-Punkt 4 durch den Nutzer (noch
+ohne die formalen Spalten oben ausgefüllt, ohne kopierten Diagnosebericht):
+Spotify wird von HardBass EQ als Session erkannt und angebunden; SoundCloud
+und YouTube werden **nicht** erkannt.
+
+**Root Cause:** kein Bug im bisherigen `AudioSessionRepository`, sondern die
+bekannte Grenze des Broadcast-Mechanismus (`ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`),
+siehe `docs/DECISIONS.md` „Eingabedaten für die Entscheidung", Punkt 3, und
+den früheren Session-Log-Befund „Control-Intents … No broadcasts received
+back." – dieser Broadcast ist ein freiwilliges Opt-in des jeweiligen Players.
+Spotify sendet ihn, SoundCloud und YouTube offenbar nicht (mehr). Kein
+Empfänger-Code kann einen Player zwingen, ihn zu senden.
+
+**Versuchte, verworfene Gegenmaßnahme:** `AudioSessionRepository.kt` sollte
+Sessions zusätzlich über `AudioManager.AudioPlaybackCallback` plus
+`AudioPlaybackConfiguration.getAudioSessionId()`/`getPlayerState()` erkennen –
+unabhängig von der Kooperation des Players. **CI-Build hat das widerlegt:**
+`./gradlew assembleDebug` schlägt mit `Unresolved reference 'playerState'`,
+`'PLAYER_STATE_STARTED'` und `'audioSessionId'` fehl
+([Lauf 36042295600](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/36042295600)).
+Diese drei Member sind in `compileSdk 37`s öffentlichem Stub-JAR schlicht
+nicht vorhanden – anders als vermutet sind sie kein Teil der öffentlichen
+Android-API, sondern `@SystemApi`/verborgen (nur für Systemapps oder per
+Reflection erreichbar, was auf Android 9+ durch die Hidden-API-Policy
+zunehmend blockiert wird und speziell auf einem aktuellen Android-16-Gerät
+wie dem Pixel 10 sehr wahrscheinlich nicht mehr funktioniert). Die Änderung
+wurde vollständig zurückgerollt (`AudioSessionRepository.kt` und
+`AndroidManifest.xml` sind wieder im Stand vor diesem Versuch); `MODIFY_AUDIO_SETTINGS`
+ist wieder aus dem Manifest entfernt.
+
+**Tatsächlicher Stand:** Es gibt derzeit **keinen bekannten, öffentlichen
+API-Weg**, der Fremd-Sessions ohne Kooperation des Players zuverlässig
+erkennt. Damit bestätigt sich `docs/DECISIONS.md` Release-Gate A als reales
+Problem, nicht nur als theoretisches Risiko: Spotify funktioniert, SoundCloud
+und YouTube sind mit dem aktuellen Session-basierten Ansatz (Stand jetzt)
+nicht erreichbar. Die verbleibenden, tatsächlich funktionierenden Wege sind
+laut `docs/DECISIONS.md`:
+- **B/C – eigener Player oder Audio-Capture-Pipeline:**
+  `AudioPlaybackCaptureConfiguration` + `MediaProjection` (öffentliche API
+  seit API 29) erlaubt es, den System-Sound unabhängig von der Kooperation
+  des Players mitzuschneiden, zu verarbeiten und wiederzugeben – technisch
+  tragfähig, aber eine grundlegend andere Architektur (eigene Wiedergabe-
+  /Capture-Pipeline statt Effekt-Attach auf fremde Sessions), mit eigener
+  Nutzerfreigabe (Bildschirmaufnahme-ähnlicher Consent-Dialog) und höherer
+  Latenz/Akkulast. Das ist keine kleine Ergänzung mehr, sondern der in
+  Release-Gate A beschriebene Architekturentscheid.
+- Reflection auf die verborgenen `AudioPlaybackConfiguration`-Member bliebe
+  theoretisch möglich, ist aber offiziell nicht unterstützt und auf einem
+  Android-16-Gerät voraussichtlich blockiert – nicht empfohlen.
+
+Nächster Schritt liegt bei der Produktentscheidung in
+`docs/DECISIONS.md` „Entscheidungsvorlage: Session-EQ vs. eigener Player",
+nicht mehr bei einem weiteren Code-Versuch im bisherigen Rahmen.
 
 ## Getestete Geräte/Android-Versionen
 
