@@ -27,12 +27,25 @@ jobs:
       - name: Run ktlint
         run: ./gradlew ktlintCheck --stacktrace
 
+      # ktlintCheck only prints "violations found, see report" to the
+      # console, not the violations themselves - print the actual report
+      # contents into the job log too so a failure is diagnosable without
+      # downloading the ktlint-reports artifact.
+      - name: Print ktlint violations
+        if: failure()
+        run: |
+          find app/build/reports/ktlint core/build/reports/ktlint desktop/build/reports/ktlint \
+            -name '*.txt' -exec echo "--- {} ---" \; -exec cat {} \; 2>/dev/null || true
+
       - name: Upload ktlint reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ktlint-reports
-          path: app/build/reports/ktlint
+          path: |
+            app/build/reports/ktlint
+            core/build/reports/ktlint
+            desktop/build/reports/ktlint
           if-no-files-found: warn
 
       - name: Assemble debug APK
@@ -40,6 +53,22 @@ jobs:
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
+
+      # :core and :desktop are plain Kotlin/JVM modules (Session 18's
+      # Windows/Linux companion) and don't use the Android testDebugUnitTest
+      # task above, so they need their own explicit test invocation.
+      - name: Run core/desktop unit tests
+        run: ./gradlew :core:test :desktop:test --stacktrace
+
+      - name: Upload core/desktop test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-desktop-test-results
+          path: |
+            core/build/reports/tests/test
+            desktop/build/reports/tests/test
+          if-no-files-found: warn
 
       - name: Run Android Lint
         run: ./gradlew lintDebug lintRelease --stacktrace
