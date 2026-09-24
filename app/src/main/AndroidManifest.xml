@@ -4,6 +4,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      Normal permission, granted automatically at install (no runtime prompt). Required for
+      AudioPlaybackConfiguration.getAudioSessionId() in AudioSessionRepository's
+      AudioManager.AudioPlaybackCallback fallback path - without it that call returns
+      AUDIO_SESSION_ID_GENERATE (0) for other apps' sessions instead of the real id. See
+      AudioSessionRepository.kt for why this fallback exists alongside the broadcast receiver.
+    -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application
         android:name=".HardBassEqApplication"

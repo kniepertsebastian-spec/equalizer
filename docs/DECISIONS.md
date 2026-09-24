@@ -57,6 +57,13 @@ ausgefüllt ist – trifft die Entscheidung nicht selbst.
    geräte- oder plattformweit ist.
 
 **Status:** Noch nicht entschieden – wartet auf die M0-Sprint-0-Testmatrix.
+Erste reale Rückmeldung (24. September 2026, siehe `docs/TEST_MATRIX.md`
+"Reale Rückmeldung"): Spotify wird erkannt, SoundCloud und YouTube nicht –
+bestätigt Punkt 3 oben als reales, nicht nur theoretisches Risiko. Als
+Gegenmaßnahme wurde `AudioSessionRepository` um einen vom Broadcast
+unabhängigen Erkennungsweg (`AudioManager.AudioPlaybackCallback`) ergänzt;
+ob das für SoundCloud/YouTube tatsächlich reicht, ist noch nicht auf echter
+Hardware bestätigt. Bis dahin bleibt die Entscheidung offen.
 
 ## Weiterhin offen (aus Roadmap §17, unverändert)
 

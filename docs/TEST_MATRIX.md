@@ -100,6 +100,49 @@ zwei Audio-Routen ausgefüllt, jeder Fehlschlag mit Diagnosedaten (Kopie des
 Diagnoseberichts, seit dieser Session inkl. `DiagnosticsRecorder`-Ereignissen
 mit Zeitstempeln) und reproduzierbarem Ablauf belegt.
 
+## Reale Rückmeldung (24. September 2026): Spotify erkannt, SoundCloud/YouTube nicht
+
+Erste tatsächliche Ausführung von Sprint-0-Punkt 4 durch den Nutzer (noch
+ohne die formalen Spalten oben ausgefüllt, ohne kopierten Diagnosebericht):
+Spotify wird von HardBass EQ als Session erkannt und angebunden; SoundCloud
+und YouTube werden **nicht** erkannt.
+
+**Root Cause:** kein Bug im bisherigen `AudioSessionRepository`, sondern die
+bekannte Grenze des Broadcast-Mechanismus (`ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`),
+siehe `docs/DECISIONS.md` „Eingabedaten für die Entscheidung", Punkt 3, und
+den früheren Session-Log-Befund „Control-Intents … No broadcasts received
+back." – dieser Broadcast ist ein freiwilliges Opt-in des jeweiligen Players.
+Spotify sendet ihn, SoundCloud und YouTube offenbar nicht (mehr). Kein
+Empfänger-Code kann einen Player zwingen, ihn zu senden.
+
+**Umgesetzte Gegenmaßnahme:** `AudioSessionRepository.kt` erkennt Sessions
+jetzt zusätzlich über `AudioManager.AudioPlaybackCallback`
+(`registerAudioPlaybackCallback`, API 26+) plus
+`AudioPlaybackConfiguration.getAudioSessionId()` (API 28+, deckt sich mit
+`minSdk`). Dieser Weg ist unabhängig von der Kooperation des Players – er
+funktioniert für jede systemweit laufende Wiedergabe, sofern die App die
+(normale, automatisch gewährte) Berechtigung `MODIFY_AUDIO_SETTINGS` besitzt,
+die jetzt im Manifest steht. Die beiden Erkennungswege laufen parallel und
+werden dedupliziert (Broadcast-Treffer haben Vorrang, da sie einen
+Paketnamen liefern; der Callback-Weg liefert nur die Session-ID).
+Details/Begründung als Kommentar direkt in `AudioSessionRepository.kt`.
+
+**Nicht verifiziert:** Diese Änderung konnte in dieser Sandbox nicht auf
+echter Hardware getestet werden (kein Gerät/Emulator, kein Android-SDK-
+Zugriff). Ob `getAudioSessionId()` auf dem konkreten Pixel-10/Android-16-
+Stand tatsächlich die reale Session-ID statt `0` liefert, ist unklar – die
+öffentliche Dokumentation der Berechtigung war zum Zeitpunkt dieser Änderung
+nicht über die sonst genutzten Quellen abrufbar (siehe `docs/DEPENDENCIES.md`
+zur Netzwerkbeschränkung dieser Sandbox), die Implementierung stützt sich auf
+bekanntes Verhalten dieser API aus vergleichbaren Open-Source-Projekten.
+Nächster Schritt: neue Debug-APK installieren (nächster grüner CI-Lauf auf
+`main`) und Sprint-0-Punkt 4 erneut für SoundCloud und YouTube ausführen
+(siehe „Ausführungsanleitung für Punkt 4" oben); insbesondere prüfen, ob der
+Status-Chip jetzt „Aktiv" statt „Wartet auf Audio-Session" zeigt, und den
+Diagnosebericht danach hier ergänzen. Falls weiterhin `0`/kein Attach: der
+Fallback allein reicht nicht, und laut `docs/DECISIONS.md` Release-Gate A muss
+dann die B/C-Option (eigener Player als Ergänzung) ernsthaft geprüft werden.
+
 ## Getestete Geräte/Android-Versionen
 
 | Gerät | Android-Version | Getestet am | Ergebnis |
