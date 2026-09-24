@@ -45,12 +45,13 @@ class RootSessionZeroProbe(
 
     suspend fun run(timeoutSeconds: Long = 30): RootSessionZeroProbeResult =
         withContext(Dispatchers.IO) {
-            val process = startProcess()
-                ?: return@withContext RootSessionZeroProbeResult(
-                    rootGranted = false,
-                    attachSucceeded = false,
-                    detail = "Could not start su or app_process.",
-                )
+            val process =
+                startProcess()
+                    ?: return@withContext RootSessionZeroProbeResult(
+                        rootGranted = false,
+                        attachSucceeded = false,
+                        detail = "Could not start su or app_process.",
+                    )
             val input = process.inputStream.bufferedReader()
             val output = process.outputStream.bufferedWriter()
             try {
@@ -81,8 +82,12 @@ class RootSessionZeroProbe(
         mutex.withLock {
             withContext(Dispatchers.IO) {
                 stopProcess()
-                val process = startProcess()
-                    ?: return@withContext RootAudioStartResult(false, "Could not start su or app_process.")
+                val process =
+                    startProcess()
+                        ?: return@withContext RootAudioStartResult(
+                            started = false,
+                            detail = "Could not start su or app_process.",
+                        )
                 val input = process.inputStream.bufferedReader()
                 val output = process.outputStream.bufferedWriter()
                 output.send("START")
