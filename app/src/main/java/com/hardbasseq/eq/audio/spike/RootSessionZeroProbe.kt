@@ -46,12 +46,15 @@ class RootSessionZeroProbe(
     suspend fun run(timeoutSeconds: Long = 30): RootSessionZeroProbeResult =
         withContext(Dispatchers.IO) {
             val process =
-                startProcess()
-                    ?: return@withContext RootSessionZeroProbeResult(
+                try {
+                    startProcess()
+                } catch (e: Exception) {
+                    return@withContext RootSessionZeroProbeResult(
                         rootGranted = false,
                         attachSucceeded = false,
-                        detail = "Could not start su or app_process.",
+                        detail = "Could not launch su: ${e.javaClass.simpleName}: ${e.message ?: e}",
                     )
+                }
             val input = process.inputStream.bufferedReader()
             val output = process.outputStream.bufferedWriter()
             try {
@@ -83,11 +86,14 @@ class RootSessionZeroProbe(
             withContext(Dispatchers.IO) {
                 stopProcess()
                 val process =
-                    startProcess()
-                        ?: return@withContext RootAudioStartResult(
+                    try {
+                        startProcess()
+                    } catch (e: Exception) {
+                        return@withContext RootAudioStartResult(
                             started = false,
-                            detail = "Could not start su or app_process.",
+                            detail = "Could not launch su: ${e.javaClass.simpleName}: ${e.message ?: e}",
                         )
+                    }
                 val input = process.inputStream.bufferedReader()
                 val output = process.outputStream.bufferedWriter()
                 output.send("START")
@@ -127,16 +133,14 @@ class RootSessionZeroProbe(
             withContext(Dispatchers.IO) { stopProcess() }
         }
 
-    private fun startProcess(): Process? {
+    private fun startProcess(): Process {
         val apkPath = context.applicationInfo.sourceDir
         val command =
             "CLASSPATH=${shellQuote(apkPath)} app_process /system/bin " +
                 RootSessionZeroProcess::class.java.name
-        return runCatching {
-            ProcessBuilder("su", "-c", command)
-                .redirectErrorStream(true)
-                .start()
-        }.getOrNull()
+        return ProcessBuilder("su", "-c", command)
+            .redirectErrorStream(true)
+            .start()
     }
 
     private fun transact(command: String): String {
