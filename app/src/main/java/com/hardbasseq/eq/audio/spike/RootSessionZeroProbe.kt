@@ -18,7 +18,9 @@ data class RootSessionZeroProbeResult(
  * but never enable, an Equalizer on output session 0. This is an engineering
  * probe only; it does not provide an active system-wide equalizer backend.
  */
-class RootSessionZeroProbe(private val context: Context) {
+class RootSessionZeroProbe(
+    private val context: Context,
+) {
     suspend fun run(timeoutSeconds: Long = 30): RootSessionZeroProbeResult =
         withContext(Dispatchers.IO) {
             val apkPath = context.applicationInfo.sourceDir
@@ -47,7 +49,11 @@ class RootSessionZeroProbe(private val context: Context) {
                 )
             }
 
-            val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+            val output =
+                process.inputStream
+                    .bufferedReader()
+                    .use { it.readText() }
+                    .trim()
             val rootGranted = output.contains("ROOT_UID=0")
             val succeeded = output.contains("ATTACH=OK")
             RootSessionZeroProbeResult(
