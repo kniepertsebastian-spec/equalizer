@@ -111,6 +111,15 @@ class SessionAttachSpikeController
         /** Runs the read-only session-0 construction probe in a root process. */
         suspend fun probeRootSessionZero(): RootSessionZeroProbeResult = rootSessionZeroProbe.run()
 
+        suspend fun startRootEqualizer(): RootAudioStartResult = rootSessionZeroProbe.startRootEqualizer()
+
+        suspend fun setRootBandGain(
+            bandIndex: Int,
+            gainDb: Float,
+        ): String = rootSessionZeroProbe.setBandGain(bandIndex, gainDb)
+
+        suspend fun stopRootEqualizer() = rootSessionZeroProbe.stopRootEqualizer()
+
         suspend fun stop() =
             mutex.withLock {
                 controlIntentSpike.stopListening()

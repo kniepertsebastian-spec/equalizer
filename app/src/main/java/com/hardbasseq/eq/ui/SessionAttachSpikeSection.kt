@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -21,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.spike.ControlIntentTestResult
+import com.hardbasseq.eq.audio.spike.RootAudioStartResult
 import com.hardbasseq.eq.audio.spike.RootSessionZeroProbeResult
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeResult
@@ -111,6 +113,13 @@ private fun RootSessionZeroProbeSection(
 ) {
     var isBusy by remember { mutableStateOf(false) }
     var result by remember { mutableStateOf<RootSessionZeroProbeResult?>(null) }
+    var audioResult by remember { mutableStateOf<RootAudioStartResult?>(null) }
+    var bandGains by remember { mutableStateOf(emptyMap<Int, Float>()) }
+    val rootBands = audioResult?.bands.orEmpty()
+
+    DisposableEffect(controller) {
+        onDispose { scope.launch { controller.stopRootEqualizer() } }
+    }
 
     Column {
         Text("Root session-0 probe (experimental)", style = MaterialTheme.typography.titleMedium)
@@ -144,6 +153,68 @@ private fun RootSessionZeroProbeSection(
                     else -> "ROOT OK, ATTACH FAILED"
                 }
             Text("[$status] ${probe.detail}", style = MaterialTheme.typography.bodySmall)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("Live system-mix test", style = MaterialTheme.typography.titleSmall)
+        Text(
+            "Starting this test enables the output-mix effect. It may change audio from every app. " +
+                "Stop it here to release the effect.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row {
+            Button(
+                enabled = !isBusy && audioResult?.started != true,
+                onClick = {
+                    isBusy = true
+                    scope.launch {
+                        val start = controller.startRootEqualizer()
+                        audioResult = start
+                        bandGains = start.bands.associate { it.index to 0f }
+                        isBusy = false
+                    }
+                },
+            ) {
+                Text(if (isBusy) "Waiting…" else "Start root output EQ")
+            }
+            if (audioResult?.started == true) {
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedButton(
+                    enabled = !isBusy,
+                    onClick = {
+                        isBusy = true
+                        scope.launch {
+                            controller.stopRootEqualizer()
+                            audioResult = null
+                            bandGains = emptyMap()
+                            isBusy = false
+                        }
+                    },
+                ) {
+                    Text("Stop")
+                }
+            }
+        }
+        audioResult?.let { start ->
+            Text(
+                if (start.started) "[ACTIVE] ${start.detail}" else "[FAILED] ${start.detail}",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        if (audioResult?.started == true) {
+            rootBands.forEach { band ->
+                val gain = bandGains[band.index] ?: 0f
+                Text("${band.centerFrequencyHz} Hz · ${"%.1f".format(gain)} dB", style = MaterialTheme.typography.bodySmall)
+                Slider(
+                    value = gain,
+                    valueRange = band.minGainDb..band.maxGainDb,
+                    onValueChange = { changed -> bandGains = bandGains + (band.index to changed) },
+                    onValueChangeFinished = {
+                        scope.launch { controller.setRootBandGain(band.index, bandGains[band.index] ?: 0f) }
+                    },
+                )
+            }
         }
     }
 }
