@@ -70,7 +70,41 @@ bekannten Weg**, Option A (reiner Session-EQ) für SoundCloud/YouTube zum
 Laufen zu bringen; der einzige öffentlich unterstützte Weg dafür wäre eine
 Audio-Capture-Pipeline (`AudioPlaybackCaptureConfiguration` + `MediaProjection`,
 Option B/C) – ein eigener Architekturentscheid, keine kleine Ergänzung.
-Die Entscheidung bleibt offen, rückt aber näher an B/C.
+Die Entscheidung bleibt offen, rückt aber näher an B/C. **Bewusst auf
+später verschoben** (24. September 2026) – blockiert Sprint 0 nicht mehr,
+siehe „Für später notiert" unten für die vollständige Einordnung.
+
+### Für später notiert: Root-Modus und Cross-Platform (Android/iOS/Web)
+
+Nicht Teil von Sprint 0 oder M1, aber als Kontext für die spätere B/C-
+Entscheidung festgehalten:
+
+- **Root-Modus als vierte technische Option (D):** Auf gerooteten Geräten
+  lässt sich Audio systemweit auf HAL-Ebene abfangen (`audio_effects.xml`
+  als systemweiter Post-Processing-Effekt, oder Library-Injection in
+  `audioserver`/AudioFlinger) – genau der Mechanismus hinter Viper4Android
+  und dem Root-Modus von RootlessJamesDSP/Wavelet. Das funktioniert für
+  jede App inkl. Spotify/SoundCloud/YouTube, unabhängig von Kooperation,
+  da es am gemischten Endsignal ansetzt statt an einzelnen Sessions.
+  Voraussetzung ist ein entsperrter Bootloader/Root – auf vielen aktuellen
+  Geräten (u. a. vielen Samsung-Modellen) praktisch nicht gegeben, und
+  Root-only-Vertrieb erreicht nur eine kleine, technikaffine Zielgruppe.
+  Rein Android-spezifisch, kein Beitrag zum Cross-Platform-Ziel unten.
+- **Cross-Platform-Ziel (Android/iOS, „vermutlich per Web"):** Weder
+  Session-Attach (A) noch Audio-Capture (B/C) noch Root (D) existieren
+  auf iOS oder im Web – das sind alles Android-spezifische OS-Mechanismen.
+  Ein „eigener Player" mit eigener Decode-/DSP-Pipeline (Media3/
+  AVAudioEngine/Web Audio API) wäre die einzige Architektur, die auf allen
+  drei Plattformen technisch gleich funktioniert – **aber**: Spotify,
+  SoundCloud und YouTube lassen sich aus Lizenz-/ToS-Gründen nicht über
+  einen eigenen Drittanbieter-Decoder abspielen (Spotifys App-Remote-SDK
+  steuert nur die Spotify-App selbst, YouTubes offizielle APIs liefern
+  keinen extrahierbaren Stream, SoundClouds API-Zugang ist stark
+  eingeschränkt). Ein eigener Player würde also nur für lokale Dateien
+  oder Dienste mit expliziter Stream-Freigabe funktionieren, nicht für die
+  drei aktuell getesteten Ziel-Player. Diese Spannung (Cross-Platform vs.
+  „wirkt auf die Streaming-Dienste, die der Nutzer eh hat") ist ungelöst
+  und Teil jeder künftigen B/C/D-Entscheidung, nicht nur eine Fußnote.
 
 ## Weiterhin offen (aus Roadmap §17, unverändert)
 
