@@ -386,8 +386,9 @@ Jeder Release-Kandidat wird mindestens mit folgenden Abläufen geprüft:
 - ✅ Punkt 5 (Sweep als zweites Testsignal): `LogarithmicSweepGenerator` in die M0-Spike-Werkzeuge eingebunden.
 - ✅ Punkt 1 (Testmatrix-Vorlage) und Punkt 6 (Entscheidungsvorlage): als ausfüllbare Vorlagen in `docs/TEST_MATRIX.md` bzw. `docs/DECISIONS.md` ergänzt – **die eigentlichen Gerätetests und die Entscheidung selbst sind nicht durch Code ersetzbar** und bleiben offen.
 - ✅ Punkt 3 (Zustandsautomat `LostControl`/`Retrying` spezifizieren): Spezifikation in `docs/STATE_MACHINE.md` – Ziel-Zustandsmenge (inkl. neuer `Listening`-/`Retrying`-Zustände, Wegfall des toten `Suspended`-Zustands), Übergangstabelle, Backoff-Policy (5 Versuche, 2s–30s) und UI-Status-Mapping. **Die eigentliche Umsetzung in `AudioEngineState.kt`/`AndroidAudioEngine.kt` ist M1-Arbeit und bleibt offen.**
-- ⏳ Punkt 4 (vier Startreihenfolgen auf echten Geräten testen): noch offen – benötigt reale Hardware.
-- Punkt 7 (Re-Attach-Implementierung) bewusst **nicht** begonnen, wie im Sprint-Backlog selbst gefordert ("erst danach").
+- ⏳ Punkt 4 (vier Startreihenfolgen auf echten Geräten testen): Schritt-für-Schritt-Ausführungsanleitung in `docs/TEST_MATRIX.md` ("Ausführungsanleitung für Punkt 4") ergänzt – **die eigentliche Ausführung auf echter Hardware kann nicht durch Code ersetzt werden** und bleibt offen, bis die vier Zeilen der Vorlage ausgefüllt zurückgemeldet werden.
+- Punkt 7 (Re-Attach-Implementierung) bewusst **nicht** begonnen, wie im Sprint-Backlog selbst gefordert ("erst danach") – zusätzlich blockiert durch das noch offene Punkt 4.
+- **Damit ist Sprint 0 vollständig so weit umgesetzt, wie es ohne echte Geräte und ohne die Produktentscheidung (Punkt 6) aus Punkt 1 möglich ist.** Die verbleibenden Schritte erfordern zwingend menschliches Handeln (Gerätetests, Entscheidung), siehe `docs/TEST_MATRIX.md` und `docs/DECISIONS.md`.
 
 ## 9. Release-Kennzahlen
 

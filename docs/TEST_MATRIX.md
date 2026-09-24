@@ -11,6 +11,71 @@ Noch nicht ausgefüllt – die Zeilen sind eine Vorlage für die tatsächlichen
 Gerätetests, die nur auf echter Hardware durchgeführt werden können. Pro
 Kombination aus Gerät × Route × Player × Startreihenfolge eine Zeile:
 
+### Ausführungsanleitung für Punkt 4 (vier Startreihenfolgen)
+
+Sprint-0-Punkt 4 ist enger gefasst als die volle Matrix unten (Punkt 1):
+„Spotify und SoundCloud in vier Startreihenfolgen testen" = 2 Player × 2
+Startreihenfolgen = die ersten vier Datenzeilen der Tabelle unten (Pixel 10,
+Lautsprecher, Spotify/SoundCloud × HardBass-EQ-zuerst/Player-zuerst). Alle
+weiteren Zeilen (Bluetooth, USB, Samsung) gehören zu Punkt 1 (volle
+Geräte-Matrix) und sind für den Sprint-0-Abschluss nicht zwingend, aber
+willkommen, falls Zeit ist.
+
+**Voraussetzungen:**
+
+- Debug-APK: entweder aktuellster grüner CI-Lauf auf `main` → Artefakt
+  `app-debug-apk`, oder – falls `GDRIVE_SA_KEY` konfiguriert ist (siehe
+  `docs/DRIVE_UPLOAD.md`) – `HardBassEQ-debug-latest.apk` im geteilten
+  Drive-Ordner. Auf dem Pixel 10 installieren (unbekannte Quellen
+  zulassen, falls nötig).
+- Spotify und SoundCloud installiert und mit einem Account angemeldet, der
+  Wiedergabe erlaubt (kein reiner Vorschau-Modus).
+- Beim ersten Start: Benachrichtigungsberechtigung für HardBass EQ
+  erlauben (sonst kann der Foreground-Service, der Sessions im Hintergrund
+  erkennt, keine sichtbare Notification zeigen – siehe
+  `AudioSessionForegroundService`).
+
+**Pro Testfall (einmal für jede der vier Zeilen wiederholen):**
+
+1. **Startreihenfolge herstellen:**
+   - „HardBass EQ zuerst": HardBass EQ öffnen und offen lassen, danach erst
+     Spotify/SoundCloud öffnen und einen Track abspielen.
+   - „Player zuerst": Spotify/SoundCloud öffnen und einen Track abspielen,
+     danach erst HardBass EQ öffnen.
+2. **Status-Chip ablesen** (oben auf dem HardBass-EQ-Startbildschirm,
+   direkt unter „Route: …"): notieren, ob er „Aktiv (Session #…)" zeigt.
+   Zeigt er stattdessen „Wartet auf Audio-Session", „Fehler: …" oder
+   „Kontrollverlust" → das ist bereits das Ergebnis für „Attach OK?" = Nein.
+3. **EQ-Wirkung prüfen:** einen Regler deutlich verschieben (z. B. Bass-
+   Makro-Regler weit nach oben) und hören, ob sich der Klang hörbar
+   ändert. Das ist die Spalte „EQ-Wirkung hör-/messbar?".
+4. **Pause/Resume:** in Spotify/SoundCloud pausieren und fortsetzen,
+   Status-Chip erneut prüfen → Spalte „Verhalten nach Pause".
+5. **Trackwechsel:** zum nächsten Track springen, Status-Chip erneut
+   prüfen → Spalte „Verhalten nach Trackwechsel".
+6. **Route-Wechsel** (optional für Punkt 4, aber leicht mitzuerfassen):
+   Bluetooth-Kopfhörer verbinden/trennen, Status-Chip erneut prüfen →
+   Spalte „Verhalten nach Route-Wechsel".
+7. **Diagnosereport sichern:** in HardBass EQ auf „Diagnose & Report"
+   tippen, dann oben rechts auf „Kopieren" – der Report enthält exakt die
+   Felder, die für die übrigen Spalten gebraucht werden:
+   - „Session-ID erhalten": aus „--- Recent Session Events ---" die Zeile
+     `Session attached: id=… package=…`.
+   - „Kontrollverlust während Wiedergabe?": prüfen, ob dort eine Zeile
+     `Engine state: LostControl(…)` auftaucht.
+   - „Engine State" ganz oben im Report bestätigt den zuletzt beobachteten
+     Zustand noch einmal maschinenlesbar.
+   Den kopierten Report als Klartext in die entsprechende Zeile unten
+   einfügen (oder als separate Datei/Anhang sichern) – das ist zugleich der
+   von den Abnahmekriterien geforderte „dokumentierte Ablauf" bei
+   Fehlschlägen.
+8. **Zeile unten ausfüllen** und Datum eintragen.
+
+Nach den vier Zeilen: kurz zurückmelden (z. B. hier im Chat oder als PR),
+welche der vier Fälle fehlgeschlagen sind, inkl. der kopierten
+Diagnoseberichte – daraus lässt sich der nächste Schritt (Punkt 7,
+Re-Attach-Implementierung) konkret ableiten.
+
 | Gerät | Route | Player | Startreihenfolge | Session-ID erhalten | Attach OK? | Kontrollverlust während Wiedergabe? | Verhalten nach Pause | Verhalten nach Trackwechsel | Verhalten nach Route-Wechsel | EQ-Wirkung hör-/messbar? | Datum |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | Pixel 10 | Lautsprecher | Spotify | HardBass EQ zuerst | | | | | | | | |
