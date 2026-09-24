@@ -11,6 +11,7 @@
     <string name="spike_title">Session-Attach-Spike (M0)</string>
     <string name="spike_description">Spielt einen leisen Testton in einer eigenen Audio-Session ab, hängt Equalizer/DynamicsProcessing daran und liest die echten Band-/Gain-Fähigkeiten dieses Geräts aus.</string>
     <string name="spike_start">Testton starten + Effekte prüfen</string>
+    <string name="spike_start_sweep">Sweep starten (20 Hz–20 kHz)</string>
     <string name="spike_running">Läuft…</string>
     <string name="spike_stop">Stoppen</string>
     <string name="session_service_notification_title">HardBass EQ hört mit</string>

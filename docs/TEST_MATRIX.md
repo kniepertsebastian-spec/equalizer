@@ -1,7 +1,39 @@
 # Test-Matrix
 
 Wird am Ende jeder Arbeitssession aktualisiert (siehe `roadmap.md` §15,
-Punkt 10 und §10 M0-Abnahmekriterium "Geräte-Matrix").
+Punkt 10 und §10 M0-Abnahmekriterium "Geräte-Matrix"). Ab 23. September 2026
+gilt zusätzlich `roadmap-2026.md` M0 als Vorgabe für Umfang und Spalten
+dieser Matrix.
+
+## M0-Sprint-0-Vorlage (roadmap-2026.md §8, Punkt 1+4)
+
+Noch nicht ausgefüllt – die Zeilen sind eine Vorlage für die tatsächlichen
+Gerätetests, die nur auf echter Hardware durchgeführt werden können. Pro
+Kombination aus Gerät × Route × Player × Startreihenfolge eine Zeile:
+
+| Gerät | Route | Player | Startreihenfolge | Session-ID erhalten | Attach OK? | Kontrollverlust während Wiedergabe? | Verhalten nach Pause | Verhalten nach Trackwechsel | Verhalten nach Route-Wechsel | EQ-Wirkung hör-/messbar? | Datum |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Pixel 10 | Lautsprecher | Spotify | HardBass EQ zuerst | | | | | | | | |
+| Pixel 10 | Lautsprecher | Spotify | Player zuerst | | | | | | | | |
+| Pixel 10 | Lautsprecher | SoundCloud | HardBass EQ zuerst | | | | | | | | |
+| Pixel 10 | Lautsprecher | SoundCloud | Player zuerst | | | | | | | | |
+| Pixel 10 | Bluetooth-Kopfhörer | Spotify | HardBass EQ zuerst | | | | | | | | |
+| Pixel 10 | Bluetooth-Kopfhörer | Spotify | Player zuerst | | | | | | | | |
+| Pixel 10 | Bluetooth-Kopfhörer | SoundCloud | HardBass EQ zuerst | | | | | | | | |
+| Pixel 10 | Bluetooth-Kopfhörer | SoundCloud | Player zuerst | | | | | | | | |
+| Pixel 10 | Kabelgebunden/USB | Spotify | HardBass EQ zuerst | | | | | | | | |
+| Pixel 10 | Kabelgebunden/USB | SoundCloud | HardBass EQ zuerst | | | | | | | | |
+| _Samsung-Gerät (Modell offen)_ | Lautsprecher | Spotify | HardBass EQ zuerst | | | | | | | | |
+| _Samsung-Gerät (Modell offen)_ | Lautsprecher | Spotify | Player zuerst | | | | | | | | |
+| _Samsung-Gerät (Modell offen)_ | Lautsprecher | SoundCloud | HardBass EQ zuerst | | | | | | | | |
+| _Samsung-Gerät (Modell offen)_ | Lautsprecher | SoundCloud | Player zuerst | | | | | | | | |
+| _Samsung-Gerät (Modell offen)_ | Bluetooth-Kopfhörer | Spotify | HardBass EQ zuerst | | | | | | | | |
+| _Samsung-Gerät (Modell offen)_ | Bluetooth-Kopfhörer | SoundCloud | HardBass EQ zuerst | | | | | | | | |
+
+Sprint-Abschlusskriterium (roadmap-2026.md §8): mindestens zwei Player und
+zwei Audio-Routen ausgefüllt, jeder Fehlschlag mit Diagnosedaten (Kopie des
+Diagnoseberichts, seit dieser Session inkl. `DiagnosticsRecorder`-Ereignissen
+mit Zeitstempeln) und reproduzierbarem Ablauf belegt.
 
 ## Getestete Geräte/Android-Versionen
 

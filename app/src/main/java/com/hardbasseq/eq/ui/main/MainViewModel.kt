@@ -11,6 +11,7 @@ import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.di.DefaultDispatcher
+import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.Preset
@@ -30,6 +31,7 @@ class MainViewModel
         private val repository: AudioEffectRepository,
         private val audioEngine: AudioEngine,
         private val routeRepository: AudioRouteRepository,
+        private val diagnosticsRecorder: DiagnosticsRecorder,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -41,6 +43,7 @@ class MainViewModel
         val engineState: StateFlow<AudioEngineState> = audioEngine.state
         val capabilities = audioEngine.capabilities
         val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
+        val diagnosticsEvents = diagnosticsRecorder.events
 
         private val _activePreset = MutableStateFlow<Preset>(BuiltInPresets.CleanPunch)
         val activePreset: StateFlow<Preset> = _activePreset.asStateFlow()
