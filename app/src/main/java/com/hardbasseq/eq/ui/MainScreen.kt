@@ -24,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,6 +47,7 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.integration.PlayerSource
+import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
@@ -66,14 +68,61 @@ fun MainScreen(
     val route by viewModel.currentRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
+    val allPresets by viewModel.allPresets.collectAsStateWithLifecycle()
+    val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
+    val pendingDeletePreset by viewModel.pendingDeletePreset.collectAsStateWithLifecycle()
     val showSourcePicker by viewModel.showSourcePicker.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
     var showSpikeSection by remember { mutableStateOf(false) }
+    var showSaveAsNewDialog by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<Preset?>(null) }
 
     if (showSourcePicker) {
         PlayerSourcePickerDialog(
             onSourceChosen = { viewModel.choosePlayerSource(it) },
             onDismiss = { viewModel.dismissSourcePicker() },
+        )
+    }
+
+    if (showSaveAsNewDialog) {
+        PresetNameDialog(
+            title = "Als neues Preset speichern",
+            initialName = "",
+            onConfirm = { name ->
+                viewModel.saveAsNewPreset(name)
+                showSaveAsNewDialog = false
+            },
+            onDismiss = { showSaveAsNewDialog = false },
+        )
+    }
+
+    renameTarget?.let { target ->
+        PresetNameDialog(
+            title = "Preset umbenennen",
+            initialName = target.name,
+            onConfirm = { name ->
+                viewModel.renamePreset(target, name)
+                renameTarget = null
+            },
+            onDismiss = { renameTarget = null },
+        )
+    }
+
+    pendingDeletePreset?.let { target ->
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelDeletePreset() },
+            title = { Text("Preset löschen?") },
+            text = { Text("\"${target.name}\" wird dauerhaft gelöscht.") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmDeletePreset() }) {
+                    Text("Löschen")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelDeletePreset() }) {
+                    Text("Abbrechen")
+                }
+            },
         )
     }
 
@@ -96,10 +145,17 @@ fun MainScreen(
                 settings = settings,
                 bands = capabilities.bands,
                 activePreset = activePreset,
+                allPresets = allPresets,
+                isDirty = isDirty,
                 onMasterToggled = { viewModel.setMasterEnabled(it) },
                 onOpenSourcePicker = { viewModel.openSourcePicker() },
                 onBypassToggled = { viewModel.setBypass(it) },
                 onPresetSelected = { viewModel.selectPreset(it) },
+                onResetToActivePreset = { viewModel.resetToActivePreset() },
+                onSaveAsNewRequest = { showSaveAsNewDialog = true },
+                onDuplicatePreset = { viewModel.duplicatePreset(it) },
+                onRenamePresetRequest = { renameTarget = it },
+                onDeletePresetRequest = { viewModel.requestDeletePreset(it) },
                 onMacroBassChanged = { viewModel.setMacroBass(it) },
                 onMacroPunchChanged = { viewModel.setMacroPunch(it) },
                 onMacroHaerteChanged = { viewModel.setMacroHaerte(it) },
@@ -180,6 +236,44 @@ private fun PlayerSourcePickerDialog(
         dismissButton = {
             TextButton(onClick = { onSourceChosen(PlayerSource.YOUTUBE) }) {
                 Text("YouTube")
+            }
+        },
+    )
+}
+
+// Shared by "als neues Preset speichern" and "umbenennen" - both are just "give this
+// preset a name", differing only in title/initial value/what happens on confirm.
+@Composable
+private fun PresetNameDialog(
+    title: String,
+    initialName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf(initialName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                label = { Text("Name") },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name.trim()) },
+                enabled = name.isNotBlank(),
+            ) {
+                Text("Speichern")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen")
             }
         },
     )

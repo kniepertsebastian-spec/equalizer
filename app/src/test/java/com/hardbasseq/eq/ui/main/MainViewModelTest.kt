@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui.main
 
+import com.hardbasseq.eq.audio.AudioCapabilities
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
 import com.hardbasseq.eq.audio.AudioEngineState
@@ -9,12 +10,18 @@ import com.hardbasseq.eq.audio.AudioSession
 import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
+import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInPresets
+import com.hardbasseq.eq.preset.Preset
+import com.hardbasseq.eq.preset.PresetRepository
+import com.hardbasseq.eq.settings.AppSettingsRepository
+import com.hardbasseq.eq.settings.LiveSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +32,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -265,9 +273,285 @@ class MainViewModelTest {
             assertEquals(PlayerSource.SOUNDCLOUD, playerBridge.lastLaunchedSource)
         }
 
+    // --- M2: persistence and custom-preset workflow ---
+
+    @Test
+    fun `on init, saved settings referencing a built-in preset are restored`() =
+        runTest {
+            val saved =
+                LiveSettings(
+                    activePresetId = BuiltInPresets.DeepRumble.id,
+                    isDirty = false,
+                    processingSettings = ProcessingSettings().copy(masterEnabled = false, macroBassDb = 3f),
+                )
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(saved))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertFalse(viewModel.processingSettings.value.masterEnabled)
+            assertEquals(3f, viewModel.processingSettings.value.macroBassDb)
+            assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `on init, saved settings referencing a custom preset are restored once it loads`() =
+        runTest {
+            val custom = customPreset(name = "My Sound")
+            val saved = LiveSettings(activePresetId = custom.id, isDirty = true, processingSettings = ProcessingSettings())
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel =
+                createViewModel(
+                    emptyList(),
+                    presetRepository = presetRepository,
+                    appSettingsRepository = FakeAppSettingsRepository(saved),
+                )
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(custom.id, viewModel.activePreset.value.id)
+            assertTrue(viewModel.isDirty.value)
+            assertTrue(viewModel.allPresets.value.any { it.id == custom.id })
+        }
+
+    @Test
+    fun `a saved preset id that no longer resolves keeps the default instead of crashing`() =
+        runTest {
+            val saved = LiveSettings(activePresetId = "no-such-preset", isDirty = true, processingSettings = ProcessingSettings())
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(saved))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.CleanPunch.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `manual band edits mark the active preset dirty`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.isDirty.value)
+
+            viewModel.setBandGain(bandIndex = 0, gainDb = 4f)
+
+            assertTrue(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `manual macro edits mark the active preset dirty`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setMacroBass(2f)
+
+            assertTrue(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `selecting a preset clears the dirty flag`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setBandGain(bandIndex = 0, gainDb = 4f)
+            assertTrue(viewModel.isDirty.value)
+
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+
+            assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `resetToActivePreset discards manual edits`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val originalGains = viewModel.processingSettings.value.bandGainsDb
+            viewModel.setBandGain(bandIndex = 0, gainDb = 12f)
+            assertTrue(viewModel.isDirty.value)
+
+            viewModel.resetToActivePreset()
+
+            assertFalse(viewModel.isDirty.value)
+            assertEquals(originalGains, viewModel.processingSettings.value.bandGainsDb)
+        }
+
+    @Test
+    fun `saveAsNewPreset persists the current state and activates it`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setBandGain(bandIndex = 0, gainDb = 6f)
+
+            viewModel.saveAsNewPreset("My Custom")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, presetRepository.savedPresets.size)
+            val saved = presetRepository.savedPresets.single()
+            assertEquals("My Custom", saved.name)
+            assertFalse(saved.metadata.builtIn)
+            assertEquals(viewModel.activePreset.value.id, saved.id)
+            assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `saveAsNewPreset falls back to the active preset's curve when no bands are known yet`() =
+        runTest {
+            // PresetJsonSerializer.importFromJson rejects an empty targetCurve - a
+            // save made before any session has attached (bands only populate once
+            // one does) must not silently produce a preset that then disappears the
+            // next time it's read back.
+            val emptyCapsEngine = FakeAudioEngine(initialCapabilities = AudioCapabilities())
+            val presetRepository = FakePresetRepository()
+            val viewModel =
+                MainViewModel(
+                    repository = FakeAudioEffectRepository(emptyList()),
+                    audioEngine = emptyCapsEngine,
+                    routeRepository = fakeRouteRepo,
+                    diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
+                    playerBridge = FakePlayerBridge(),
+                    presetRepository = presetRepository,
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    backgroundDispatcher = dispatcher,
+                )
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setMacroBass(2f)
+
+            viewModel.saveAsNewPreset("No Bands Yet")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val saved = presetRepository.savedPresets.single()
+            assertTrue(saved.targetCurve.isNotEmpty())
+            assertEquals(BuiltInPresets.CleanPunch.targetCurve, saved.targetCurve)
+        }
+
+    @Test
+    fun `duplicatePreset saves a copy with a new id and selects it`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.duplicatePreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val copy = presetRepository.savedPresets.single()
+            assertFalse(copy.id == BuiltInPresets.DeepRumble.id)
+            assertFalse(copy.metadata.builtIn)
+            assertEquals(copy.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `renamePreset ignores built-in presets`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.renamePreset(BuiltInPresets.DeepRumble, "Hacked Name")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(presetRepository.savedPresets.isEmpty())
+        }
+
+    @Test
+    fun `renamePreset updates the active preset when it is the one being renamed`() =
+        runTest {
+            val custom = customPreset(name = "Old Name")
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(custom)
+
+            viewModel.renamePreset(custom, "New Name")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("New Name", viewModel.activePreset.value.name)
+        }
+
+    @Test
+    fun `requestDeletePreset ignores built-ins and does not set a pending preset`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+
+            viewModel.requestDeletePreset(BuiltInPresets.DeepRumble)
+
+            assertNull(viewModel.pendingDeletePreset.value)
+        }
+
+    @Test
+    fun `requestDeletePreset then confirmDeletePreset removes a custom preset`() =
+        runTest {
+            val custom = customPreset(name = "Doomed")
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.requestDeletePreset(custom)
+            assertEquals(custom.id, viewModel.pendingDeletePreset.value?.id)
+
+            viewModel.confirmDeletePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.pendingDeletePreset.value)
+            assertEquals(listOf(custom.id), presetRepository.deletedIds)
+        }
+
+    @Test
+    fun `deleting the active custom preset falls back to CleanPunch`() =
+        runTest {
+            val custom = customPreset(name = "Doomed")
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(custom)
+
+            viewModel.requestDeletePreset(custom)
+            viewModel.confirmDeletePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.CleanPunch.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `cancelDeletePreset clears the pending preset without deleting anything`() =
+        runTest {
+            val custom = customPreset(name = "Safe")
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.requestDeletePreset(custom)
+
+            viewModel.cancelDeletePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.pendingDeletePreset.value)
+            assertTrue(presetRepository.deletedIds.isEmpty())
+        }
+
+    @Test
+    fun `allPresets combines built-ins with custom presets`() =
+        runTest {
+            val custom = customPreset(name = "Extra")
+            val viewModel =
+                createViewModel(emptyList(), presetRepository = FakePresetRepository(initial = listOf(custom)))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val ids = viewModel.allPresets.value.map { it.id }
+            assertTrue(ids.containsAll(BuiltInPresets.all.map { it.id }))
+            assertTrue(ids.contains(custom.id))
+        }
+
+    private fun customPreset(name: String): Preset =
+        BuiltInPresets.CleanPunch.copy(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            metadata = BuiltInPresets.CleanPunch.metadata.copy(builtIn = false),
+        )
+
     private fun createViewModel(
         descriptors: List<AudioEffectDescriptor>,
         playerBridge: PlayerBridge = FakePlayerBridge(),
+        presetRepository: PresetRepository = FakePresetRepository(),
+        appSettingsRepository: AppSettingsRepository = FakeAppSettingsRepository(),
     ): MainViewModel =
         MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
@@ -275,6 +559,8 @@ class MainViewModelTest {
             routeRepository = fakeRouteRepo,
             diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
             playerBridge = playerBridge,
+            presetRepository = presetRepository,
+            appSettingsRepository = appSettingsRepository,
             backgroundDispatcher = dispatcher,
         )
 
@@ -331,6 +617,40 @@ class MainViewModelTest {
 
         override fun togglePlayback() {
             toggleCount++
+        }
+    }
+
+    private class FakePresetRepository(
+        initial: List<Preset> = emptyList(),
+    ) : PresetRepository {
+        private val presets = MutableStateFlow(initial)
+        override val customPresets: Flow<List<Preset>> = presets
+
+        val savedPresets = mutableListOf<Preset>()
+        val deletedIds = mutableListOf<String>()
+
+        override suspend fun save(preset: Preset) {
+            savedPresets.add(preset)
+            presets.value = presets.value.filterNot { it.id == preset.id } + preset
+        }
+
+        override suspend fun delete(id: String) {
+            deletedIds.add(id)
+            presets.value = presets.value.filterNot { it.id == id }
+        }
+    }
+
+    private class FakeAppSettingsRepository(
+        initial: LiveSettings? = null,
+    ) : AppSettingsRepository {
+        private val settings = MutableStateFlow(initial)
+        override val liveSettings: Flow<LiveSettings?> = settings
+
+        val savedSettings = mutableListOf<LiveSettings>()
+
+        override suspend fun save(liveSettings: LiveSettings) {
+            savedSettings.add(liveSettings)
+            settings.value = liveSettings
         }
     }
 }

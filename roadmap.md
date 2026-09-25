@@ -1247,3 +1247,74 @@ plus Report-Upload für beide.
 - EasyEffects-JSON-Schema ist nicht offiziell dokumentiert und daher nicht
   hundertprozentig garantiert stabil über Versionen hinweg – falls ein Import
   fehlschlägt, ist das der erste Verdächtige.
+
+### Session 19 (25. September 2026)
+
+**Vorbemerkung – Dokumentationslücke:** Zwischen Session 18 und diesem
+Eintrag liegt tatsächlich mehrere Sessions Arbeit, die nie protokolliert
+wurde: die vormals eigenständige Player-App (SoundCloud-Suche/-Login,
+`PlayerActivity`, `AudioPlayerService`) wurde vollständig in dieses Repo
+gemergt (als Library-Modul `:player`, siehe `settings.gradle.kts`), die
+M1-Aufgabe „Zustandsautomat" aus `docs/STATE_MACHINE.md` wurde umgesetzt
+(`AudioEngineState.Listening`/`Retrying`, begrenztes Re-Attach mit Backoff
+in `AndroidAudioEngine.kt`), und drei parallel entstandene PRs (#10, #23,
+#24) wurden zusammengeführt bzw. als überholt geschlossen. Diese Lücke wird
+hier nicht rückwirkend aufgefüllt – nur als Hinweis, dass der Session-Log
+ab hier wieder lückenlos weitergeführt wird, aber davor eine echte Lücke hat.
+
+Setzt roadmap-2026.md M2 „Persistenz und Custom-Workflow" um.
+
+**Repository-Schicht:**
+- `PresetEntity` (Room, Tabelle `custom_presets`) hält nur noch
+  `id`/`name`/`presetJson`/`updatedAtMillis` – der gesamte `Preset` wird als
+  ein einziger, über `PresetJsonSerializer` validierter JSON-Blob
+  gespeichert statt einer Spalte pro Feld. Built-ins werden nie in diese
+  Tabelle geschrieben (bleiben `BuiltInPresets.all`, compile-time), was die
+  M2-Abnahme „Built-ins bleiben unveränderlich" strukturell statt nur per
+  Konvention erfüllt. `RoomPresetRepository` überspringt (und loggt) Zeilen,
+  die `PresetJsonSerializer.importFromJson` nicht validiert – die
+  M2-Abnahme „ein beschädigtes Nutzerpreset kann die App nicht am Start
+  hindern".
+- Neu: `com.hardbasseq.eq.settings` (`AppSettingsRepository`,
+  `DataStoreAppSettingsRepository`) – der komplette Live-Zustand
+  (`activePresetId`, `isDirty`, das volle `ProcessingSettings` inkl.
+  manueller Band-Werte) wird als ein JSON-Blob in Preferences DataStore
+  persistiert, nicht nur benannte Presets. Grund: Die Abnahme verlangt
+  „Alle Einstellungen überleben App-, Prozess- und Geräteneustart", nicht
+  nur gespeicherte Presets – ein manuell verstellter Band-Regler, der nie
+  als eigenes Preset gespeichert wurde, muss einen Neustart trotzdem
+  überleben.
+- `ProcessingSettings` ist jetzt `@Serializable` (kotlinx.serialization);
+  `:app` hat dafür `libs.plugins.kotlin.serialization` und
+  `kotlinx-serialization-json` neu bekommen (`:core` hatte beides schon).
+
+**`AppDatabase`:** `exportSchema = true` (vorher `false`) – die
+`presets`-Tabelle (jetzt `custom_presets`) hatte laut Repo-weiter Suche nach
+`PresetDao`-Aufrufstellen vor dieser Session **nie** einen echten
+Schreibpfad, war also nie wirklich „ausgeliefert". Version bleibt bei 1
+(keine echte Vorversion, von der aus zu migrieren wäre) – `exportSchema`
+wird ab jetzt aktiviert, damit die *nächste* Schemaänderung eine echte
+Baseline zum Migrieren hat.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- **Automatisierte Migrationstests** (M2-Abnahme „Migrationstests decken
+  mindestens die vorherige Schema-Version ab"): `MigrationTestHelper`
+  braucht Robolectric oder eine Instrumentierungsumgebung – keines von
+  beiden ist in diesem Repo eingerichtet (`ci.yml` führt nur
+  `testDebugUnitTest`, reines JVM, auf dem Room/SQLite gar nicht laufen).
+  Das Einrichten von Robolectric ist Voraussetzung für die *nächste*
+  Migration, nicht für diese Session (siehe oben: es gibt noch keine echte
+  Vorversion, von der aus zu testen wäre).
+- **Undo/Redo innerhalb der laufenden Bearbeitung** (M2-Aufgabe) – bewusst
+  zurückgestellt, um diese Session nicht weiter aufzublähen; alle anderen
+  M2-Aktionen (Zurücksetzen, als neues Preset speichern, duplizieren,
+  umbenennen, löschen mit Bestätigung) sind umgesetzt und UI-erreichbar
+  (`EqualizerScreen.kt`/`MainScreen.kt`), nicht nur als totes
+  Repository-Skelett wie es laut Code-Review in Session 10 zuvor bei
+  Room/DataStore der Fall war.
+- Ganzer Verlauf weiterhin nicht lokal mit `./gradlew` verifizierbar (kein
+  Android-SDK in dieser Sandbox) – Ktlint-Konformität wurde stattdessen mit
+  einem lokal heruntergeladenen, eigenständigen `ktlint`-CLI plus portablem
+  JDK 21 gegen exakt die geänderten Dateien geprüft (0 Verstöße außerhalb
+  von `:player`, das weiterhin keine ktlint-Anwendung hat). Kompilieren,
+  Unit-Tests und Android Lint bleiben CI-only.

@@ -1,5 +1,8 @@
 package com.hardbasseq.eq.audio
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ProcessingSettings(
     val masterEnabled: Boolean = true,
     val bypass: Boolean = false,
