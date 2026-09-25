@@ -230,6 +230,41 @@ class MainViewModelTest {
             assertEquals(AudioEngineState.Active(7), fakeEngine.state.value)
         }
 
+    @Test
+    fun `opening the source picker shows it even with an active session`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+            fakeEngine.attach(AudioSession(sessionId = 42))
+
+            viewModel.openSourcePicker()
+
+            assertTrue(viewModel.showSourcePicker.value)
+        }
+
+    @Test
+    fun `toggling now playing playback delegates to the player bridge`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+
+            viewModel.toggleNowPlayingPlayback()
+
+            assertEquals(1, playerBridge.toggleCount)
+        }
+
+    @Test
+    fun `reopening the player launches SoundCloud`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+
+            viewModel.reopenPlayer()
+
+            assertEquals(1, playerBridge.launchCount)
+            assertEquals(PlayerSource.SOUNDCLOUD, playerBridge.lastLaunchedSource)
+        }
+
     private fun createViewModel(
         descriptors: List<AudioEffectDescriptor>,
         playerBridge: PlayerBridge = FakePlayerBridge(),
@@ -280,6 +315,8 @@ class MainViewModelTest {
             private set
         var stopCount = 0
             private set
+        var toggleCount = 0
+            private set
         var lastLaunchedSource: PlayerSource? = null
             private set
 
@@ -290,6 +327,10 @@ class MainViewModelTest {
 
         override fun stopPlayer() {
             stopCount++
+        }
+
+        override fun togglePlayback() {
+            toggleCount++
         }
     }
 }

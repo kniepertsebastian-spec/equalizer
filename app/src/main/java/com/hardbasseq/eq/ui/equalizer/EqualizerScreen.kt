@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Speed
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
@@ -75,6 +77,7 @@ fun EqualizerScreen(
     bands: List<EqualizerBandCapabilities>,
     activePreset: Preset,
     onMasterToggled: (Boolean) -> Unit,
+    onOpenSourcePicker: () -> Unit,
     onBypassToggled: (Boolean) -> Unit,
     onPresetSelected: (Preset) -> Unit,
     onMacroBassChanged: (Float) -> Unit,
@@ -121,10 +124,25 @@ fun EqualizerScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Switch(
-                        checked = settings.masterEnabled,
-                        onCheckedChange = onMasterToggled,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Independent of the master switch below - that one only
+                        // offers the source picker when flipped on with nothing
+                        // attached yet (see MainViewModel.setMasterEnabled), so
+                        // switching/reopening a source with the EQ already on, or
+                        // something else already attached, needed disabling and
+                        // re-enabling the master bar just to see the dialog again.
+                        IconButton(onClick = onOpenSourcePicker) {
+                            Icon(
+                                imageVector = Icons.Default.LibraryMusic,
+                                contentDescription = "Quelle wählen",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = settings.masterEnabled,
+                            onCheckedChange = onMasterToggled,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(spacing.small))

@@ -7,12 +7,21 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
+import android.text.InputType
+import android.view.Gravity
+import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
+import android.widget.EditText
+import android.widget.FrameLayout
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 
 class SoundCloudLoginActivity : AppCompatActivity() {
 
@@ -48,6 +57,19 @@ class SoundCloudLoginActivity : AppCompatActivity() {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().remove(KEY_OAUTH_TOKEN).apply()
         }
+
+        // Android WebView attaches an "X-Requested-With: <package name>" header to
+        // every request by default, on top of whatever User-Agent is set. Google's
+        // sign-in explicitly checks for that header to detect it's being loaded
+        // inside an embedded WebView rather than a real browser and blocks the
+        // flow ("This browser or app may not be secure") regardless of UA
+        // spoofing - this is the actual mechanism behind that block, not the UA
+        // string. Clearing the allow-list removes the header for every origin.
+        private fun disableRequestedWithHeader(webView: WebView) {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())
+            }
+        }
     }
 
     private lateinit var webView: WebView
@@ -60,7 +82,34 @@ class SoundCloudLoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         webView = WebView(this)
-        setContentView(webView)
+
+        // Google's sign-in blocks embedded WebViews outright (see
+        // disableRequestedWithHeader below) for accounts that only ever signed up
+        // via "Continue with Google" - no UA/header spoofing gets around it
+        // reliably, and there's no email/password fallback to offer instead. Until
+        // there's a real fix (would need SoundCloud's own OAuth API access, which
+        // is closed to third-party developers - see docs/DECISIONS.md), offer a
+        // manual escape hatch: log in via real Chrome (where Google's block
+        // doesn't apply) and paste the resulting oauth_token cookie in here.
+        val manualEntryButton =
+            Button(this).apply {
+                text = "Token manuell eingeben"
+                setOnClickListener { showManualTokenDialog() }
+            }
+        val root =
+            FrameLayout(this).apply {
+                addView(webView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                addView(
+                    manualEntryButton,
+                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                        gravity = Gravity.BOTTOM or Gravity.END
+                        val marginPx = (16 * resources.displayMetrics.density).toInt()
+                        bottomMargin = marginPx
+                        rightMargin = marginPx
+                    },
+                )
+            }
+        setContentView(root)
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -70,6 +119,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
         // silently swallows that call and nothing happens on click.
         webView.settings.setSupportMultipleWindows(true)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        disableRequestedWithHeader(webView)
 
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
@@ -106,6 +156,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                 popup.settings.javaScriptEnabled = true
                 popup.settings.domStorageEnabled = true
                 popup.settings.userAgentString = CHROME_USER_AGENT
+                disableRequestedWithHeader(popup)
                 cookieManager.setAcceptThirdPartyCookies(popup, true)
 
                 val dialog = Dialog(this@SoundCloudLoginActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
@@ -161,6 +212,39 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                 }
             }
         cookiePoller.postDelayed(tick, 1000)
+    }
+
+    private fun showManualTokenDialog() {
+        val input =
+            EditText(this).apply {
+                hint = "oauth_token"
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                val paddingPx = (16 * resources.displayMetrics.density).toInt()
+                setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+            }
+
+        AlertDialog.Builder(this)
+            .setTitle("SoundCloud-Token einfügen")
+            .setMessage(
+                "1. Öffne Chrome und melde dich auf soundcloud.com mit Google an.\n" +
+                    "2. Lege ein Lesezeichen mit dieser Adresse an: javascript:prompt('Cookie',document.cookie)\n" +
+                    "3. Öffne das Lesezeichen, während du auf soundcloud.com eingeloggt bist - " +
+                    "im Popup erscheinen deine Cookies.\n" +
+                    "4. Kopiere daraus den Wert nach \"oauth_token=\" bis zum nächsten \";\" " +
+                    "und füge ihn unten ein.",
+            )
+            .setView(input)
+            .setPositiveButton("Speichern") { _, _ ->
+                val token = input.text.toString().trim()
+                if (token.isNotEmpty()) {
+                    polling = false
+                    saveToken(this, token)
+                    setResult(RESULT_OK)
+                    finish()
+                }
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
     }
 
     private fun checkCookies() {

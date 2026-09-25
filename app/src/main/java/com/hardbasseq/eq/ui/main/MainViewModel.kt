@@ -17,6 +17,8 @@ import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.Preset
+import com.soundcloud.equalizer.player.playback.NowPlaying
+import com.soundcloud.equalizer.player.playback.NowPlayingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,6 +53,8 @@ class MainViewModel
 
         private val _showSourcePicker = MutableStateFlow(false)
         val showSourcePicker: StateFlow<Boolean> = _showSourcePicker.asStateFlow()
+
+        val nowPlaying: StateFlow<NowPlaying?> = NowPlayingState.current
 
         private val _effectDescriptors = MutableStateFlow<List<AudioEffectDescriptor>>(emptyList())
         val effectDescriptors: StateFlow<List<AudioEffectDescriptor>> = _effectDescriptors.asStateFlow()
@@ -136,6 +140,23 @@ class MainViewModel
             viewModelScope.launch {
                 audioEngine.retry()
             }
+        }
+
+        // Lets the user pick/switch a source directly, any time - the master switch's
+        // own picker only fires on enabling it with nothing attached (setMasterEnabled
+        // above), which meant switching sources while something was already playing
+        // needed disabling the master bar and re-enabling it just to see the dialog
+        // again.
+        fun openSourcePicker() {
+            _showSourcePicker.value = true
+        }
+
+        fun toggleNowPlayingPlayback() {
+            playerBridge.togglePlayback()
+        }
+
+        fun reopenPlayer() {
+            playerBridge.launchPlayer(PlayerSource.SOUNDCLOUD)
         }
 
         fun setBypass(bypass: Boolean) {

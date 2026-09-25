@@ -14,4 +14,7 @@ interface PlayerBridge {
     fun launchPlayer(source: PlayerSource)
 
     fun stopPlayer()
+
+    /** Play/pause the currently loaded track without bringing the player screen forward. */
+    fun togglePlayback()
 }

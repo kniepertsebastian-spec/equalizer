@@ -33,4 +33,12 @@ class AndroidPlayerBridge
                 }
             context.startService(stopIntent)
         }
+
+        override fun togglePlayback() {
+            val toggleIntent =
+                Intent(context, AudioPlayerService::class.java).apply {
+                    action = AudioPlayerService.ACTION_TOGGLE_PLAYBACK
+                }
+            context.startService(toggleIntent)
+        }
     }
