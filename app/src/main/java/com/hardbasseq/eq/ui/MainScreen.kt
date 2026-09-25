@@ -75,6 +75,7 @@ fun MainScreen(
                 onMacroPunchChanged = { viewModel.setMacroPunch(it) },
                 onMacroHaerteChanged = { viewModel.setMacroHaerte(it) },
                 onBandGainChanged = { idx, gain -> viewModel.setBandGain(idx, gain) },
+                onRetryAttach = { viewModel.retryAttach() },
                 modifier = Modifier.weight(1f),
             )
 
