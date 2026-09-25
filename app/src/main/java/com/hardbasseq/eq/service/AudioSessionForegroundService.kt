@@ -86,6 +86,7 @@ class AudioSessionForegroundService : LifecycleService() {
     override fun onDestroy() {
         sessionRepository.stopListening()
         routeRepository.stopMonitoring()
+        audioEngine.markDetached()
         super.onDestroy()
     }
 

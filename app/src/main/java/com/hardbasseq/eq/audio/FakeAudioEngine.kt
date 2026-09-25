@@ -16,19 +16,33 @@ class FakeAudioEngine(
     private val _currentSettings = MutableStateFlow(ProcessingSettings())
     override val currentSettings: StateFlow<ProcessingSettings> = _currentSettings.asStateFlow()
 
+    private var lastSessionId: Int? = null
+
     override suspend fun attach(session: AudioSession): Boolean {
+        lastSessionId = session.sessionId
         _state.value = AudioEngineState.Attaching(session.sessionId)
         _state.value = AudioEngineState.Active(session.sessionId)
         return true
     }
 
     override suspend fun detach() {
-        _state.value = AudioEngineState.Detached
+        lastSessionId = null
+        _state.value = AudioEngineState.Listening
     }
 
     override suspend fun apply(settings: ProcessingSettings): Boolean {
         _currentSettings.value = settings
         return true
+    }
+
+    override fun markDetached() {
+        lastSessionId = null
+        _state.value = AudioEngineState.Detached
+    }
+
+    override suspend fun retry(): Boolean {
+        val sessionId = lastSessionId ?: return false
+        return attach(AudioSession(sessionId = sessionId))
     }
 
     fun updateCapabilities(capabilities: AudioCapabilities) {

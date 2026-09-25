@@ -107,8 +107,12 @@ class MainViewModel
                 // Only offer to start the player when nothing is attached yet - if
                 // some other app is already playing, flipping the master bar on
                 // should just enable processing for that session, not also prompt
-                // to launch an unrelated player on top of it.
-                if (engineState.value is AudioEngineState.Detached) {
+                // to launch an unrelated player on top of it. Detached and
+                // Listening both mean "no session" (Detached is only the brief
+                // cold-start window; the engine spends the rest of its idle time
+                // in Listening, see docs/STATE_MACHINE.md).
+                val hasNoSession = engineState.value.let { it is AudioEngineState.Detached || it is AudioEngineState.Listening }
+                if (hasNoSession) {
                     _showSourcePicker.value = true
                 }
             } else {
@@ -124,6 +128,14 @@ class MainViewModel
 
         fun dismissSourcePicker() {
             _showSourcePicker.value = false
+        }
+
+        // Backs the "Erneut versuchen" button shown when engineState is Error
+        // (roadmap-2026.md M1: "Fehler: konkrete nächste Handlung anbieten").
+        fun retryAttach() {
+            viewModelScope.launch {
+                audioEngine.retry()
+            }
         }
 
         fun setBypass(bypass: Boolean) {

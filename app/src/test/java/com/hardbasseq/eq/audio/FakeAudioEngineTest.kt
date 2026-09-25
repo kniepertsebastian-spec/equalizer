@@ -19,7 +19,7 @@ class FakeAudioEngineTest {
         }
 
     @Test
-    fun detach_transitionsToDetachedState() =
+    fun detach_transitionsToListeningState() =
         runTest {
             val engine = FakeAudioEngine()
             val session = AudioSession(sessionId = 42, packageName = "test.player")
@@ -27,7 +27,50 @@ class FakeAudioEngineTest {
 
             engine.detach()
 
+            assertEquals(AudioEngineState.Listening, engine.state.value)
+        }
+
+    @Test
+    fun markDetached_transitionsToDetachedState() =
+        runTest {
+            val engine = FakeAudioEngine()
+            engine.attach(AudioSession(sessionId = 42))
+
+            engine.markDetached()
+
             assertEquals(AudioEngineState.Detached, engine.state.value)
+        }
+
+    @Test
+    fun retry_withNoPriorSession_returnsFalse() =
+        runTest {
+            val engine = FakeAudioEngine()
+
+            assertEquals(false, engine.retry())
+        }
+
+    @Test
+    fun retry_reattachesLastAttachedSession() =
+        runTest {
+            val engine = FakeAudioEngine()
+            engine.attach(AudioSession(sessionId = 42))
+
+            val result = engine.retry()
+
+            assertTrue(result)
+            assertEquals(AudioEngineState.Active(42), engine.state.value)
+        }
+
+    @Test
+    fun retry_afterCleanDetach_returnsFalse() =
+        runTest {
+            val engine = FakeAudioEngine()
+            engine.attach(AudioSession(sessionId = 42))
+            engine.detach()
+
+            // A clean detach means the session ended normally - nothing to retry,
+            // unlike reaching Error via a failed Retrying cycle.
+            assertEquals(false, engine.retry())
         }
 
     @Test
