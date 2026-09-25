@@ -4,10 +4,12 @@ import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
+import com.hardbasseq.eq.audio.AudioSession
 import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
 import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
+import com.hardbasseq.eq.integration.PlayerLauncher
 import com.hardbasseq.eq.preset.BuiltInPresets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -134,12 +136,61 @@ class MainViewModelTest {
             assertTrue(settings.bandGainsDb.values.all { it == 0f })
         }
 
-    private fun createViewModel(descriptors: List<AudioEffectDescriptor>): MainViewModel =
+    @Test
+    fun `enabling master with no session and player installed launches the player`() =
+        runTest {
+            val playerLauncher = FakePlayerLauncher(installed = true)
+            val viewModel = createViewModel(emptyList(), playerLauncher)
+
+            viewModel.setMasterEnabled(true)
+
+            assertEquals(1, playerLauncher.launchCount)
+        }
+
+    @Test
+    fun `enabling master with an active session does not launch the player`() =
+        runTest {
+            val playerLauncher = FakePlayerLauncher(installed = true)
+            val viewModel = createViewModel(emptyList(), playerLauncher)
+            fakeEngine.attach(AudioSession(sessionId = 42))
+
+            viewModel.setMasterEnabled(true)
+
+            assertEquals(0, playerLauncher.launchCount)
+        }
+
+    @Test
+    fun `enabling master without the player installed does not attempt to launch it`() =
+        runTest {
+            val playerLauncher = FakePlayerLauncher(installed = false)
+            val viewModel = createViewModel(emptyList(), playerLauncher)
+
+            viewModel.setMasterEnabled(true)
+
+            assertEquals(0, playerLauncher.launchCount)
+        }
+
+    @Test
+    fun `disabling master stops the player when installed`() =
+        runTest {
+            val playerLauncher = FakePlayerLauncher(installed = true)
+            val viewModel = createViewModel(emptyList(), playerLauncher)
+
+            viewModel.setMasterEnabled(false)
+
+            assertEquals(1, playerLauncher.stopCount)
+        }
+
+    private fun createViewModel(
+        descriptors: List<AudioEffectDescriptor>,
+        playerLauncher: PlayerLauncher = FakePlayerLauncher(),
+    ): MainViewModel =
         MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
             audioEngine = fakeEngine,
             routeRepository = fakeRouteRepo,
             diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
+            playerLauncher = playerLauncher,
             backgroundDispatcher = dispatcher,
         )
 
@@ -173,5 +224,24 @@ class MainViewModelTest {
         override fun startMonitoring() {}
 
         override fun stopMonitoring() {}
+    }
+
+    private class FakePlayerLauncher(
+        private val installed: Boolean = true,
+    ) : PlayerLauncher {
+        var launchCount = 0
+            private set
+        var stopCount = 0
+            private set
+
+        override fun isPlayerInstalled(): Boolean = installed
+
+        override fun launchPlayer() {
+            launchCount++
+        }
+
+        override fun stopPlayer() {
+            stopCount++
+        }
     }
 }

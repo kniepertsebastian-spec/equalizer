@@ -5,6 +5,12 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Package visibility (Android 11+) so PlayerLauncher can find and launch the
+         companion SC Equalizer Player app from the master on/off bar. -->
+    <queries>
+        <package android:name="com.soundcloud.equalizer.player" />
+    </queries>
+
     <application
         android:name=".HardBassEqApplication"
         android:allowBackup="true"
