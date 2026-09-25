@@ -11,10 +11,13 @@ import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
 import com.hardbasseq.eq.data.profile.DeviceProfileEntity
 import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
+import com.hardbasseq.eq.dsp.CurveComposer
+import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInPresets
@@ -100,15 +103,24 @@ class MainViewModelTest {
             assertEquals(BuiltInPresets.DeepRumble.macroBassDb, viewModel.processingSettings.value.macroBassDb)
             assertEquals(BuiltInPresets.DeepRumble.macroPunchDb, viewModel.processingSettings.value.macroPunchDb)
             assertEquals(BuiltInPresets.DeepRumble.macroHaerteDb, viewModel.processingSettings.value.macroHaerteDb)
-            val peakBoostDb =
-                viewModel.processingSettings.value.bandGainsDb.values
-                    .maxOrNull()
-                    ?.coerceAtLeast(0f) ?: 0f
+            // M4: inputGainDb now comes from HeadroomCalculator sampling the combined
+            // (correction + voicing) curve, not from the highest of the discrete
+            // post-band-mapping gains - recompute it the same way MainViewModel does
+            // (no correction profile selected here, so this is BuiltInPresets.DeepRumble's
+            // own curve unchanged) rather than asserting a stale, pre-M3/M4 formula.
+            val combinedCurve = CurveComposer.combine(BuiltInCorrectionProfiles.None.curve, BuiltInPresets.DeepRumble.targetCurve)
+            val headroom =
+                HeadroomCalculator.fromCombinedCurve(
+                    combinedCurve = combinedCurve,
+                    macroBassDb = BuiltInPresets.DeepRumble.macroBassDb,
+                    macroPunchDb = BuiltInPresets.DeepRumble.macroPunchDb,
+                    macroHaerteDb = BuiltInPresets.DeepRumble.macroHaerteDb,
+                )
             // Input gain only pre-cancels 30% of the peak boost (INPUT_GAIN_SAFETY_RATIO
             // in MainViewModel) - the rest stays audible, with the Limiter as the real
             // safety net against clipping. See roadmap.md Session 16/17.
-            val expectedInputGainDb = -(peakBoostDb * 0.3f)
-            assertEquals(expectedInputGainDb, viewModel.processingSettings.value.inputGainDb)
+            val expectedInputGainDb = -(headroom.maxPositiveGainDb * 0.3f)
+            assertEquals(expectedInputGainDb, viewModel.processingSettings.value.inputGainDb, 0.01f)
             assertEquals(BuiltInPresets.DeepRumble.mbcThresholdDb, viewModel.processingSettings.value.mbcThresholdDb)
             assertEquals(BuiltInPresets.DeepRumble.mbcRatio, viewModel.processingSettings.value.mbcRatio)
             assertTrue(viewModel.processingSettings.value.mbcEnabled)
