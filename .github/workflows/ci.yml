@@ -88,6 +88,13 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
+      - name: Upload player debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: player-debug-apk
+          path: player/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
       # Optional: pushes the debug APK to a shared Google Drive folder so it
       # can be installed on a phone without downloading it from GitHub. The
       # step always runs; scripts/upload_apk_to_drive.sh itself exits 0

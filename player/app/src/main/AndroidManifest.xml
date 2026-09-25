@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@android:drawable/ic_media_play"
+        android:label="SC Equalizer Player"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SoundCloudEqualizerPlayer"
+        android:usesCleartextTraffic="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".auth.SoundCloudLoginActivity"
+            android:exported="false"
+            android:label="SoundCloud Login" />
+
+        <service
+            android:name=".service.AudioPlayerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <!--
+          Exported so HardBass EQ can tell this player to stop when the user switches
+          the equalizer's master bar off, without needing a same-signature bind. Only
+          reacts to its own explicit action, so any app can send it but the only effect
+          is stopping our own playback.
+        -->
+        <receiver
+            android:name=".integration.EqualizerControlReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.soundcloud.equalizer.player.ACTION_STOP_FROM_EQUALIZER" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
