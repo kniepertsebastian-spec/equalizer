@@ -215,10 +215,11 @@ fun EqualizerScreen(
                         // "Wartet" category (surfaceVariant); Unsupported and Error get
                         // their own distinct categories so all 4 required statuses are
                         // visually distinguishable.
+                        val statusColors = MaterialTheme.colorScheme
                         val (statusText, statusBg) =
                             when (state) {
-                                is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to MaterialTheme.colorScheme.primaryContainer
-                                is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to MaterialTheme.colorScheme.surfaceVariant
+                                is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to statusColors.primaryContainer
+                                is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to statusColors.surfaceVariant
                                 is AudioEngineState.Detached -> "Startet…" to MaterialTheme.colorScheme.surfaceVariant
                                 is AudioEngineState.Listening -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
                                 is AudioEngineState.LostControl ->
@@ -482,7 +483,10 @@ fun EqualizerScreen(
                         )
 
                         // Punch Macro
-                        Text(text = "Punch: ${String.format("%+.1f", settings.macroPunchDb)} dB", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "Punch: ${String.format("%+.1f", settings.macroPunchDb)} dB",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                         Slider(
                             value = settings.macroPunchDb,
                             onValueChange = onMacroPunchChanged,
@@ -491,7 +495,10 @@ fun EqualizerScreen(
                         )
 
                         // Härte Macro
-                        Text(text = "Härte: ${String.format("%+.1f", settings.macroHaerteDb)} dB", style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            text = "Härte: ${String.format("%+.1f", settings.macroHaerteDb)} dB",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                         Slider(
                             value = settings.macroHaerteDb,
                             onValueChange = onMacroHaerteChanged,
