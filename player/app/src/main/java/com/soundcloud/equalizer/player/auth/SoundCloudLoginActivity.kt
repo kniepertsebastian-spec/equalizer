@@ -1,12 +1,12 @@
 package com.soundcloud.equalizer.player.auth
 
 import android.annotation.SuppressLint
+import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
-import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -53,6 +53,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private val cookiePoller = Handler(Looper.getMainLooper())
     private var polling = false
+    private var popupDialog: Dialog? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -93,16 +94,28 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                 isUserGesture: Boolean,
                 resultMsg: Message?,
             ): Boolean {
-                // The OAuth provider popup doesn't need its own visible window -
-                // create an off-screen WebView, let it run the OAuth redirect
-                // chain (setting cookies on the real soundcloud.com domain as it
-                // goes via shared CookieManager/third-party-cookie state), and
-                // fold it back into the main WebView once it lands somewhere.
+                // The OAuth provider popup needs to actually be shown - the user has
+                // to type credentials/approve the sign-in on it. A previous version
+                // of this routed it to an off-screen, never-attached WebView, so
+                // nothing visibly happened on tapping Google/Facebook/Apple and
+                // those WebViews were never destroyed either (leaking on every
+                // attempt). Show it full-screen in a Dialog instead.
+                popupDialog?.dismiss()
+
                 val popup = WebView(this@SoundCloudLoginActivity)
                 popup.settings.javaScriptEnabled = true
                 popup.settings.domStorageEnabled = true
                 popup.settings.userAgentString = CHROME_USER_AGENT
                 cookieManager.setAcceptThirdPartyCookies(popup, true)
+
+                val dialog = Dialog(this@SoundCloudLoginActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+                dialog.setContentView(popup)
+                dialog.setOnDismissListener {
+                    popup.destroy()
+                    if (popupDialog === dialog) popupDialog = null
+                }
+                popupDialog = dialog
+
                 popup.webViewClient =
                     object : WebViewClient() {
                         override fun onPageFinished(popupView: WebView?, url: String?) {
@@ -116,13 +129,14 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                                 !url.contains("facebook.com") && !url.contains("appleid.apple.com")
                             ) {
                                 webView.loadUrl(url)
-                                (view?.parent as? ViewGroup)?.removeView(popup)
+                                dialog.dismiss()
                             }
                         }
                     }
                 val transport = resultMsg?.obj as? WebView.WebViewTransport
                 transport?.webView = popup
                 resultMsg?.sendToTarget()
+                dialog.show()
                 return true
             }
         }
@@ -172,6 +186,11 @@ class SoundCloudLoginActivity : AppCompatActivity() {
     override fun onDestroy() {
         polling = false
         cookiePoller.removeCallbacksAndMessages(null)
+        popupDialog?.dismiss()
+        popupDialog = null
+        if (::webView.isInitialized) {
+            webView.destroy()
+        }
         super.onDestroy()
     }
 }
