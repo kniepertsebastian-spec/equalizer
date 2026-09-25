@@ -5,6 +5,90 @@ Punkt 10 und §10 M0-Abnahmekriterium "Geräte-Matrix"). Ab 23. September 2026
 gilt zusätzlich `roadmap-2026.md` M0 als Vorgabe für Umfang und Spalten
 dieser Matrix.
 
+## M3–M6: Was jetzt getestet werden muss (Stand 25. September 2026)
+
+M3 (Geräteprofile/Korrekturebene), M4 (Headroom/Limiter/Metering) und M5
+(AutoEQ-Workflow) sind vollständig implementiert (PR #26), M6 Phase 1
+(Filtermodell/Biquad-Mathematik, PR #27) ebenfalls – siehe die jeweiligen
+„Umsetzungsstand"-Abschnitte in `roadmap-2026.md`. Nichts davon wurde bisher
+auf echter Hardware verifiziert; alle vier CI-Läufe waren grün (Build +
+Unit-Tests), das deckt aber nur Kompilierbarkeit und die reinen
+DSP-/Parsing-Berechnungen ab, kein tatsächliches Geräteverhalten. Diese
+Liste ist die konkrete Testphase, die jetzt ansteht, bevor M7 beginnt.
+
+### M3 – Geräteprofile und Korrekturebene
+
+- [ ] **Stabiler Route-Fingerprint (echter Bugfix, höchste Priorität):**
+  Bluetooth-Kopfhörer verbinden, HardBass EQ nutzen, Kopfhörer trennen, App
+  komplett beenden (aus Übersicht wischen), App neu starten, Kopfhörer
+  wieder verbinden. Erwartung: dasselbe Geräteprofil wird wiedererkannt
+  (nicht als neues Gerät behandelt) – das war vor dem Fix in dieser Session
+  kaputt, weil `AudioDeviceInfo.getId()` laut Android-Doku sessionübergreifend
+  nicht stabil ist.
+- [ ] Route-Wechsel (Bluetooth an/aus, USB an/aus, zurück zu Lautsprecher)
+  während laufender Wiedergabe: Profil wechselt automatisch, subjektiv
+  innerhalb von ~2 Sekunden (Abnahmekriterium).
+- [ ] Lautsprecherprofil wird nie versehentlich auf Bluetooth-Kopfhörer
+  angewandt und umgekehrt (mehrfach schnell hintereinander wechseln).
+- [ ] Konfliktregel: manuell ein anderes Korrekturprofil/Klangstil wählen,
+  Wiedergabe fortsetzen (Auswahl muss halten), dann Route wechseln (Auswahl
+  muss auf das für die neue Route hinterlegte Profil zurückfallen).
+- [ ] „Mein Kopfhörer" auf „Kein Korrekturprofil" stellen bei aktivem
+  Klangstil-Preset: Korrektur ist hörbar aus, Klangstil bleibt aktiv (und
+  umgekehrt) – Abnahmekriterium „unabhängig deaktivierbar".
+- [ ] Resultierende kombinierte Kurve wird in der UI sichtbar dargestellt.
+
+### M4 – Headroom, Limiter und Metering
+
+- [ ] „Signal & Sicherheit"-Karte ist dauerhaft sichtbar und zeigt
+  Input-Gain, Limiter-Status/Threshold und MBC-Status.
+- [ ] Jedes Built-in-Preset (insbesondere „Final Smash") mit Sinus- oder
+  Sweep-Testsignal (vorhandene M0-Spike-Werkzeuge) auf hörbares/messbares
+  Clipping prüfen – Abnahmekriterium „kein Built-in-Preset clippt".
+- [ ] Angezeigter Input-Gain mit dem über den Diagnosereport auslesbaren,
+  tatsächlich angewandten Wert vergleichen (müssen übereinstimmen).
+- [ ] Limiter im UI deaktivieren, per Diagnosereport/Debug-Effektliste
+  bestätigen, dass er tatsächlich aus ist (nicht nur der Schalter).
+- [ ] Für ein Preset mit wenig, mittlerem und starkem Boost jeweils prüfen,
+  ob die angezeigte Warnstufe (SUFFICIENT/OCCASIONAL_LIMITING/
+  HEAVY_LIMITING) zum tatsächlich gehörten Verhalten passt.
+- [ ] Prüfen, dass an keiner Stelle der UI eine Schätzung als Messung
+  bezeichnet wird (Sichtprüfung der Texte).
+
+### M5 – AutoEQ-Workflow
+
+- [ ] Echten Import: eine reale `GraphicEQ`-Datei (z. B. von
+  autoeq.app) über den System-Dateipicker importieren, Vorschau (Quelle/
+  Frequenzbereich/max. Boost/Headroom) gegen die Datei prüfen, bestätigen.
+- [ ] Dieselbe Prüfung mit einer CSV/TSV-Datei.
+- [ ] Eine Datei mit Boost über 12 dB importieren: Zusatzwarnung im
+  Vorschau-Dialog erscheint.
+- [ ] Eine absichtlich fehlerhafte/leere Datei importieren: abweisbarer
+  Fehlerdialog statt stillem Nichtstun oder Absturz.
+- [ ] Ein importiertes Korrekturprofil exportieren (Share-Icon), die
+  exportierte Datei erneut importieren: Kurve muss identisch sein
+  (verlustfreier Round-Trip) – über ein echtes Android-Share-Sheet, nicht
+  nur die JSON-Validierung im Unit-Test.
+- [ ] Importiertes Profil an ein Geräteprofil binden, Route wechseln und
+  zurück: Bindung bleibt erhalten (Zusammenspiel mit M3-Konfliktregel).
+
+### M6 Phase 1 – Parametrisches Filtermodell
+
+- Noch nicht sinnvoll auf echter Hardware testbar: Phase 1 ist bewusst nur
+  die Mathematik (Filtermodell + Biquad-Koeffizienten, analytisch
+  verifiziert). Die eigentliche, für M6 offene Frage – welcher der drei
+  Ausführungspfade (`DynamicsProcessing`/Herstellereffekte, eigener
+  Media3-DSP, grafische Approximation) auf den Zielgeräten tragfähig ist – 
+  ist selbst der nächste Testschritt, kein nachträglicher Verifikationsschritt:
+  - [ ] Auf mindestens Pixel 10 und dem Samsung-Testgerät prüfen, ob
+    `DynamicsProcessing`/`PRE_EQ` mit den in `BiquadFilterDesigner`
+    berechneten Koeffizienten überhaupt annehmbar ist (Effekt-Query,
+    analog zum bestehenden Session-Attach-Spike).
+  - [ ] Falls ja: Latenz, CPU-Last, Akkuverbrauch und hörbare Artefakte
+    grob einschätzen, um Release-Gate B eine erste Grundlage zu geben.
+  - Phase 2 (PEQ-UI, Produktintegration) bleibt bis dahin bewusst nicht
+    begonnen.
+
 ## M0-Sprint-0-Vorlage (roadmap-2026.md §8, Punkt 1+4)
 
 Noch nicht ausgefüllt – die Zeilen sind eine Vorlage für die tatsächlichen
