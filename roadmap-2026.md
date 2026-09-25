@@ -313,6 +313,30 @@ M1 ist ein Stop-or-Go-Punkt. Wird auf wichtigen Playern keine verlässliche Frem
 
 Wenn echtes PEQ für fremde Apps nicht zuverlässig möglich ist, wird es nur im eigenen Player angeboten. Der systemweite Modus bleibt dann ein grafischer, geräteabhängiger EQ. Diese Grenze muss Teil der Produktkommunikation sein.
 
+### Umsetzungsstand Phase 1 (25. September 2026)
+
+- ✅ Filtermodell (`ParametricFilter`/`ParametricFilterType`: Peak, Low Shelf,
+  High Shelf, Low-/High-Pass) und Parametergrenzen (`ParametricFilterBounds`:
+  20 Hz–20 kHz, ±24 dB, Q 0.1–10) in `:core`.
+  Referenzimplementierung: `BiquadFilterDesigner` nach den Standard-„Audio EQ
+  Cookbook"-Formeln (Robert Bristow-Johnson), plus eine analytische
+  Frequenzantwort-Auswertung (`magnitudeResponseDb`) direkt aus der
+  Übertragungsfunktion – exakt für ein ideales Biquad, ohne Testsignal
+  abspielen zu müssen.
+- ❌ **Die drei Ausführungspfade wurden nicht verglichen** (Android
+  `DynamicsProcessing`/Herstellereffekte vs. eigener Media3-DSP vs. grafische
+  Approximation) – das erfordert Messungen auf echter Hardware (Latenz, CPU,
+  Akku, hörbare Artefakte), die in dieser Sandbox nicht möglich sind. Das ist
+  genau die Lücke, die laut Release-Gate B vor jeder Phase-2-Arbeit (PEQ-UI,
+  Produktintegration) geschlossen werden muss – Phase 2 wurde deshalb bewusst
+  nicht begonnen.
+- Nicht mit `./gradlew` gebaut/getestet (kein Android-SDK-Zugriff in dieser
+  Sandbox) – nur lokal mit `ktlint` geprüft. Die Formeln selbst sind nicht
+  eigens hergeleitet, sondern die seit Jahrzehnten verbreitete Standard-
+  Referenz (u. a. auch in der Web-Audio-API-Spezifikation identisch
+  verwendet) – aber auch das ersetzt keine echte Verifikation an einem
+  laufenden Filter.
+
 ## M7 – Release-Qualität
 
 **Zweck:** Aus der technisch funktionierenden App einen belastbaren Beta-/Store-Kandidaten machen.
