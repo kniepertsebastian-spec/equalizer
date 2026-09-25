@@ -1,5 +1,8 @@
 package com.hardbasseq.eq.ui
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
@@ -36,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -71,6 +75,8 @@ fun MainScreen(
     val allPresets by viewModel.allPresets.collectAsStateWithLifecycle()
     val activeCorrectionProfile by viewModel.activeCorrectionProfile.collectAsStateWithLifecycle()
     val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
+    val pendingImportPreview by viewModel.pendingImportPreview.collectAsStateWithLifecycle()
+    val importError by viewModel.importError.collectAsStateWithLifecycle()
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
     val pendingDeletePreset by viewModel.pendingDeletePreset.collectAsStateWithLifecycle()
     val showSourcePicker by viewModel.showSourcePicker.collectAsStateWithLifecycle()
@@ -78,6 +84,30 @@ fun MainScreen(
     var showSpikeSection by remember { mutableStateOf(false) }
     var showSaveAsNewDialog by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Preset?>(null) }
+
+    val context = LocalContext.current
+    // M5 "Import, Export und Teilen ... über Android Storage Access Framework/
+    // Share Sheet integrieren" - OpenDocument shows the system file picker (any
+    // storage provider, no runtime storage permission needed) and hands back a
+    // content:// Uri; the file's text is read here (this composable has the
+    // Context/ContentResolver access) and handed to the ViewModel, which owns
+    // parsing/validation.
+    val importCorrectionProfileLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            val text =
+                runCatching {
+                    context.contentResolver
+                        .openInputStream(uri)
+                        ?.bufferedReader()
+                        ?.use { it.readText() }
+                }.getOrNull()
+            if (text.isNullOrBlank()) {
+                return@rememberLauncherForActivityResult
+            }
+            val sourceName = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "Importiertes Profil"
+            viewModel.previewCorrectionProfileImport(sourceName, text)
+        }
 
     if (showSourcePicker) {
         PlayerSourcePickerDialog(
@@ -128,6 +158,58 @@ fun MainScreen(
         )
     }
 
+    // M5 "Vor dem Anwenden ist die resultierende Kurve sichtbar" / "Extreme
+    // Boosts werden nicht still angewandt, sondern begrenzt oder bestätigt" -
+    // nothing is saved until this dialog's "Importieren" is pressed.
+    pendingImportPreview?.let { preview ->
+        AlertDialog(
+            onDismissRequest = { viewModel.cancelCorrectionProfileImport() },
+            title = { Text(preview.profile.name) },
+            text = {
+                Column {
+                    Text("Quelle: ${preview.profile.sourceLabel}")
+                    Text(
+                        "Frequenzbereich: ${preview.minFreqHz.toInt()}–${preview.maxFreqHz.toInt()} Hz, " +
+                            "${preview.profile.curve.size} Punkte",
+                    )
+                    Text("Maximaler Boost: +${String.format("%.1f", preview.maxBoostDb)} dB")
+                    Text("Benötigter Headroom: ${String.format("%.1f", preview.requiredHeadroomDb)} dB")
+                    if (preview.isExtremeBoost) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Dieser Boost ist ungewöhnlich stark - bitte prüfen, bevor du importierst.",
+                            color = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.confirmCorrectionProfileImport() }) {
+                    Text("Importieren")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelCorrectionProfileImport() }) {
+                    Text("Abbrechen")
+                }
+            },
+        )
+    }
+
+    importError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissImportError() },
+            title = { Text("Import fehlgeschlagen") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.dismissImportError() }) {
+                    Text("OK")
+                }
+            },
+        )
+    }
+
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
@@ -156,6 +238,23 @@ fun MainScreen(
                 onBypassToggled = { viewModel.setBypass(it) },
                 onPresetSelected = { viewModel.selectPreset(it) },
                 onCorrectionProfileSelected = { viewModel.selectCorrectionProfile(it) },
+                onImportCorrectionProfileRequested = {
+                    // "*/*" rather than a specific text MIME type: AutoEQ files are
+                    // typically .txt/.csv, but different file managers/providers
+                    // report inconsistent MIME types for those (some report
+                    // application/octet-stream) - permissive here, AutoEqParser
+                    // itself already validates the actual content.
+                    importCorrectionProfileLauncher.launch(arrayOf("*/*"))
+                },
+                onExportCorrectionProfile = { profile ->
+                    val shareIntent =
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, viewModel.exportCorrectionProfileJson(profile))
+                            putExtra(Intent.EXTRA_SUBJECT, profile.name)
+                        }
+                    context.startActivity(Intent.createChooser(shareIntent, "Korrekturprofil teilen"))
+                },
                 onResetToActivePreset = { viewModel.resetToActivePreset() },
                 onSaveAsNewRequest = { showSaveAsNewDialog = true },
                 onDuplicatePreset = { viewModel.duplicatePreset(it) },

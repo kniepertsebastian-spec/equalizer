@@ -10,9 +10,11 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.autoeq.AutoEqParser
 import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
+import com.hardbasseq.eq.data.correction.CorrectionProfileJsonSerializer
 import com.hardbasseq.eq.di.DefaultDispatcher
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import com.hardbasseq.eq.dsp.CurveComposer
@@ -56,6 +58,25 @@ import javax.inject.Inject
 // more aggressive kicks/less pre-cancellation, after 0.5 still felt too subtle - the
 // Limiter is still unchanged and remains the actual clipping safety net.
 private const val INPUT_GAIN_SAFETY_RATIO = 0.3f
+
+// roadmap-2026.md M5: "Extreme Boosts werden nicht still angewandt, sondern
+// begrenzt oder bestätigt" - an imported correction curve peaking above this
+// needs an explicit confirmation in the import preview, not just a silent clamp
+// (AutoEqParser/CorrectionProfileJsonSerializer already hard-clamp to ±24 dB;
+// this is a much lower, "are you sure" style threshold on top of that).
+private const val EXTREME_BOOST_WARNING_THRESHOLD_DB = 12f
+
+// M5 "Importvorschau mit Quelle, Frequenzbereich, maximalem Boost und benötigtem
+// Headroom anzeigen" - shown to the user before anything is written to
+// CorrectionProfileRepository.
+data class CorrectionProfileImportPreview(
+    val profile: CorrectionProfile,
+    val minFreqHz: Float,
+    val maxFreqHz: Float,
+    val maxBoostDb: Float,
+    val requiredHeadroomDb: Float,
+    val isExtremeBoost: Boolean,
+)
 
 @HiltViewModel
 class MainViewModel
@@ -123,6 +144,16 @@ class MainViewModel
             customCorrectionProfilesState
                 .map { custom -> BuiltInCorrectionProfiles.all + custom }
                 .stateIn(viewModelScope, SharingStarted.Eagerly, BuiltInCorrectionProfiles.all)
+
+        // M5 "Importvorschau ... anzeigen" / "Extreme Boosts werden nicht still
+        // angewandt, sondern begrenzt oder bestätigt": set by
+        // previewCorrectionProfileImport(), cleared by confirm/cancel. Nothing is
+        // saved to CorrectionProfileRepository until the user actually confirms.
+        private val _pendingImportPreview = MutableStateFlow<CorrectionProfileImportPreview?>(null)
+        val pendingImportPreview: StateFlow<CorrectionProfileImportPreview?> = _pendingImportPreview.asStateFlow()
+
+        private val _importError = MutableStateFlow<String?>(null)
+        val importError: StateFlow<String?> = _importError.asStateFlow()
 
         private val _processingSettings =
             MutableStateFlow(ProcessingSettings().withPreset(BuiltInPresets.CleanPunch))
@@ -305,6 +336,66 @@ class MainViewModel
             persistLiveSettings()
             saveDeviceProfileBinding()
         }
+
+        // M5: parses `text` (a file the caller already read, e.g. via a SAF
+        // OpenDocument picker) and, on success, populates pendingImportPreview for
+        // the UI to show before anything is saved - see confirmCorrectionProfileImport.
+        // Malformed/empty input surfaces through importError instead (M5: "Ungültige,
+        // doppelte oder extreme Punkte verständlich melden").
+        fun previewCorrectionProfileImport(
+            sourceName: String,
+            text: String,
+        ) {
+            AutoEqParser.parseAutoEqText(sourceName, text).fold(
+                onSuccess = { profile ->
+                    val minFreq = profile.curve.minOf { it.frequencyHz }
+                    val maxFreq = profile.curve.maxOf { it.frequencyHz }
+                    val maxBoostDb = profile.curve.maxOf { it.gainDb }.coerceAtLeast(0f)
+                    val headroom = HeadroomCalculator.fromCombinedCurve(profile.curve)
+                    _pendingImportPreview.value =
+                        CorrectionProfileImportPreview(
+                            profile = profile,
+                            minFreqHz = minFreq,
+                            maxFreqHz = maxFreq,
+                            maxBoostDb = maxBoostDb,
+                            requiredHeadroomDb = headroom.maxPositiveGainDb,
+                            isExtremeBoost = maxBoostDb > EXTREME_BOOST_WARNING_THRESHOLD_DB,
+                        )
+                    _importError.value = null
+                },
+                onFailure = { e ->
+                    _importError.value = e.message ?: "Import fehlgeschlagen: unbekannter Fehler"
+                    _pendingImportPreview.value = null
+                },
+            )
+        }
+
+        // Only actually writes the imported profile once the user has seen the
+        // preview and confirmed (also the extreme-boost confirmation, if the UI
+        // asked for one first) - selects it immediately after, same as picking any
+        // other correction profile.
+        fun confirmCorrectionProfileImport() {
+            val preview = _pendingImportPreview.value ?: return
+            _pendingImportPreview.value = null
+            viewModelScope.launch {
+                correctionProfileRepository.save(preview.profile)
+            }
+            selectCorrectionProfile(preview.profile)
+        }
+
+        fun cancelCorrectionProfileImport() {
+            _pendingImportPreview.value = null
+        }
+
+        fun dismissImportError() {
+            _importError.value = null
+        }
+
+        // M5 "Import, Export und Teilen ... integrieren": the JSON the UI hands to
+        // a Share Sheet intent (ACTION_SEND) - the same validated format
+        // previewCorrectionProfileImport()/CorrectionProfileRepository already use,
+        // so re-importing an exported file round-trips losslessly.
+        fun exportCorrectionProfileJson(profile: CorrectionProfile): String = CorrectionProfileJsonSerializer.exportToJson(profile)
 
         // Discards manual edits, re-applying activePreset fresh.
         fun resetToActivePreset() = selectPreset(_activePreset.value)

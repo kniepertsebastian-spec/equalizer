@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsMma
 import androidx.compose.material.icons.filled.Warning
@@ -93,6 +94,8 @@ fun EqualizerScreen(
     onBypassToggled: (Boolean) -> Unit,
     onPresetSelected: (Preset) -> Unit,
     onCorrectionProfileSelected: (CorrectionProfile) -> Unit,
+    onImportCorrectionProfileRequested: () -> Unit,
+    onExportCorrectionProfile: (CorrectionProfile) -> Unit,
     onResetToActivePreset: () -> Unit,
     onSaveAsNewRequest: () -> Unit,
     onDuplicatePreset: (Preset) -> Unit,
@@ -381,16 +384,31 @@ fun EqualizerScreen(
             border = BorderStroke(1.dp, HardBassCardBorder),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
-                Text(
-                    text = "Mein Kopfhörer",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Mein Kopfhörer",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    // M5 "Vorhandenen AutoEQ-Parser in einen vollständigen
+                    // Importflow integrieren" - opens the SAF file picker; the
+                    // actual parsing/preview happens back in MainViewModel once
+                    // the picked file's text is read (MainScreen owns the
+                    // ContentResolver access this needs).
+                    TextButton(onClick = onImportCorrectionProfileRequested) {
+                        Text("Importieren")
+                    }
+                }
                 Spacer(modifier = Modifier.height(spacing.small))
                 CorrectionProfileRow(
                     profiles = allCorrectionProfiles,
                     activeProfileId = activeCorrectionProfile.id,
                     onProfileSelected = onCorrectionProfileSelected,
+                    onExportProfile = onExportCorrectionProfile,
                     spacing = spacing,
                 )
             }
@@ -581,6 +599,7 @@ private fun CorrectionProfileRow(
     profiles: List<CorrectionProfile>,
     activeProfileId: String,
     onProfileSelected: (CorrectionProfile) -> Unit,
+    onExportProfile: (CorrectionProfile) -> Unit,
     spacing: Spacing,
 ) {
     Row(
@@ -604,18 +623,39 @@ private fun CorrectionProfileRow(
                 color = containerColor,
                 border = BorderStroke(1.dp, borderColor),
             ) {
-                Column(modifier = Modifier.padding(horizontal = spacing.small, vertical = spacing.extraSmall)) {
-                    Text(
-                        text = profile.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = contentColor,
-                    )
-                    Text(
-                        text = profile.sourceLabel,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = contentColor,
-                    )
+                Row(
+                    modifier = Modifier.padding(horizontal = spacing.small, vertical = spacing.extraSmall),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column {
+                        Text(
+                            text = profile.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = contentColor,
+                        )
+                        Text(
+                            text = profile.sourceLabel,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = contentColor,
+                        )
+                    }
+                    // M5 "Import, Export und Teilen ... integrieren" - only for
+                    // imported/custom profiles, mirroring PresetCard's own
+                    // built-in-vs-custom distinction (built-ins have nothing
+                    // device-specific worth exporting).
+                    if (!profile.builtIn) {
+                        IconButton(
+                            onClick = { onExportProfile(profile) },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "Exportieren: ${profile.name}",
+                                tint = contentColor,
+                            )
+                        }
+                    }
                 }
             }
         }
