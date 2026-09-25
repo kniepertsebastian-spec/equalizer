@@ -3,6 +3,9 @@ package com.soundcloud.equalizer.player.soundcloud
 import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.TrackItem
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -137,18 +140,23 @@ class SoundCloudClient(
             "https://api-v2.soundcloud.com/search/tracks?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit"
         }
 
-        val list = mutableListOf<TrackItem>()
-        if (jsonStr.isBlank()) return@withContext list
+        if (jsonStr.isBlank()) return@withContext emptyList()
 
         val root = JSONObject(jsonStr)
         val collection = root.optJSONArray("collection") ?: JSONArray()
 
-        for (i in 0 until collection.length()) {
-            val obj = collection.getJSONObject(i)
-            parseTrack(obj, clientId)?.let { list.add(it) }
+        // Each track needs its own network round-trip to resolve a stream URL
+        // (see parseTrack/resolveStreamUrl) - resolving them one at a time made a
+        // single slow or dropped connection stall the whole search, and since a
+        // failed one used to throw, it silently wiped out every track already
+        // parsed before it. Resolve them all concurrently instead: faster, and one
+        // track failing no longer takes the rest down with it.
+        return@withContext coroutineScope {
+            (0 until collection.length())
+                .map { i -> async { runCatching { parseTrack(collection.getJSONObject(i), clientId) }.getOrNull() } }
+                .awaitAll()
+                .filterNotNull()
         }
-
-        return@withContext list
     }
 
     suspend fun searchPlaylists(query: String, limit: Int = 10): List<PlaylistItem> = withContext(Dispatchers.IO) {
@@ -156,38 +164,44 @@ class SoundCloudClient(
             "https://api-v2.soundcloud.com/search/playlists?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit"
         }
 
-        val list = mutableListOf<PlaylistItem>()
-        if (jsonStr.isBlank()) return@withContext list
+        if (jsonStr.isBlank()) return@withContext emptyList()
 
         val root = JSONObject(jsonStr)
         val collection = root.optJSONArray("collection") ?: JSONArray()
 
-        for (i in 0 until collection.length()) {
-            val obj = collection.getJSONObject(i)
-            val id = obj.optLong("id")
-            val title = obj.optString("title", "Untitled Playlist")
-            val trackCount = obj.optInt("track_count", 0)
-            val artwork = obj.optString("artwork_url", "")
+        // See searchTracks: resolve every playlist's tracks concurrently rather
+        // than one network round-trip at a time, so one slow/failed track can't
+        // stall or wipe out the rest.
+        return@withContext coroutineScope {
+            (0 until collection.length())
+                .map { i ->
+                    async {
+                        val obj = collection.getJSONObject(i)
+                        val id = obj.optLong("id")
+                        val title = obj.optString("title", "Untitled Playlist")
+                        val trackCount = obj.optInt("track_count", 0)
+                        val artwork = obj.optString("artwork_url", "")
 
-            val rawTracks = obj.optJSONArray("tracks") ?: JSONArray()
-            val tracksList = mutableListOf<TrackItem>()
-            for (j in 0 until rawTracks.length()) {
-                val tObj = rawTracks.getJSONObject(j)
-                parseTrack(tObj, clientId)?.let { tracksList.add(it) }
-            }
+                        val rawTracks = obj.optJSONArray("tracks") ?: JSONArray()
+                        val tracksList =
+                            (0 until rawTracks.length())
+                                .map { j ->
+                                    async { runCatching { parseTrack(rawTracks.getJSONObject(j), clientId) }.getOrNull() }
+                                }
+                                .awaitAll()
+                                .filterNotNull()
 
-            list.add(
-                PlaylistItem(
-                    id = id,
-                    title = title,
-                    trackCount = trackCount,
-                    artworkUrl = if (artwork.isNotBlank()) artwork else null,
-                    tracks = tracksList
-                )
-            )
+                        PlaylistItem(
+                            id = id,
+                            title = title,
+                            trackCount = trackCount,
+                            artworkUrl = if (artwork.isNotBlank()) artwork else null,
+                            tracks = tracksList
+                        )
+                    }
+                }
+                .awaitAll()
         }
-
-        return@withContext list
     }
 
     suspend fun resolveStreamUrl(transcodingsJsonArray: JSONArray, clientId: String): String? = withContext(Dispatchers.IO) {
@@ -210,10 +224,16 @@ class SoundCloudClient(
         val targetUrl = progressiveUrl ?: hlsUrl ?: return@withContext null
         val fullReqUrl = if (targetUrl.contains("?")) "$targetUrl&client_id=$clientId" else "$targetUrl?client_id=$clientId"
 
-        val jsonStr = executeRequest(fullReqUrl).use { response ->
-            if (!response.isSuccessful) return@withContext null
-            response.body?.string() ?: ""
-        }
+        // A single track's stream-URL lookup failing outright (timeout, dropped
+        // connection) must not take down the whole search result - one bad track
+        // is worth showing as unplayable, not worth losing every other result
+        // over. Callers already treat a null streamUrl as "resolve on tap".
+        val jsonStr = runCatching {
+            executeRequest(fullReqUrl).use { response ->
+                if (!response.isSuccessful) return@withContext null
+                response.body?.string() ?: ""
+            }
+        }.getOrNull() ?: return@withContext null
 
         if (jsonStr.isBlank()) return@withContext null
         val root = JSONObject(jsonStr)

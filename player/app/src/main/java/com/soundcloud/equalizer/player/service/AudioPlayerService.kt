@@ -18,6 +18,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.soundcloud.equalizer.player.PlayerActivity
+import com.soundcloud.equalizer.player.playback.NowPlaying
+import com.soundcloud.equalizer.player.playback.NowPlayingState
 
 class AudioPlayerService : Service() {
 
@@ -28,18 +30,19 @@ class AudioPlayerService : Service() {
         const val ACTION_PLAY = "com.soundcloud.equalizer.player.PLAY"
         const val ACTION_PAUSE = "com.soundcloud.equalizer.player.PAUSE"
         const val ACTION_STOP = "com.soundcloud.equalizer.player.STOP"
+        const val ACTION_TOGGLE_PLAYBACK = "com.soundcloud.equalizer.player.TOGGLE_PLAYBACK"
         const val EXTRA_STREAM_URL = "extra_stream_url"
         const val EXTRA_TRACK_TITLE = "extra_track_title"
         const val EXTRA_ARTIST_NAME = "extra_artist_name"
 
-        const val ACTION_OPEN_AUDIO_EFFECT_SESSION = "android.media.action.OPEN_AUDIO_EFFECT_SESSION"
-        const val ACTION_CLOSE_AUDIO_EFFECT_SESSION = "android.media.action.CLOSE_AUDIO_EFFECT_SESSION"
     }
 
     private val binder = LocalBinder()
     private var exoPlayer: ExoPlayer? = null
     private var currentAudioSessionId: Int = C.AUDIO_SESSION_ID_UNSET
     private var isAudioSessionActive = false
+    private var currentTitle: String = ""
+    private var currentArtist: String = ""
 
     inner class LocalBinder : Binder() {
         fun getService(): AudioPlayerService = this@AudioPlayerService
@@ -74,6 +77,13 @@ class AudioPlayerService : Service() {
                         if (isPlaying) {
                             openAudioSession()
                         }
+                        // Covers every reason isPlaying can flip, not just taps on our
+                        // own play/pause controls - audio focus loss, headphones
+                        // unplugged, playback reaching the end - so the mini-player
+                        // bar HardBass EQ's main screen shows never goes stale.
+                        if (currentTitle.isNotEmpty()) {
+                            NowPlayingState.update(NowPlaying(currentTitle, currentArtist, isPlaying))
+                        }
                     }
                 })
             }
@@ -86,7 +96,12 @@ class AudioPlayerService : Service() {
         if (sessionId != C.AUDIO_SESSION_ID_UNSET && (!isAudioSessionActive || currentAudioSessionId != sessionId)) {
             currentAudioSessionId = sessionId
 
-            val intent = Intent(ACTION_OPEN_AUDIO_EFFECT_SESSION)
+            // Must match the action AudioSessionRepository actually listens for
+            // (AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION) - this used to
+            // broadcast a custom "OPEN_AUDIO_EFFECT_SESSION" action (missing
+            // "_CONTROL_") that nothing was ever listening for, so HardBass EQ never
+            // saw this player's session at all.
+            val intent = Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
             intent.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, currentAudioSessionId)
             intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
             intent.putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
@@ -98,7 +113,7 @@ class AudioPlayerService : Service() {
 
     fun closeAudioSession() {
         if (isAudioSessionActive && currentAudioSessionId != C.AUDIO_SESSION_ID_UNSET) {
-            val intent = Intent(ACTION_CLOSE_AUDIO_EFFECT_SESSION)
+            val intent = Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
             intent.putExtra(AudioEffect.EXTRA_AUDIO_SESSION, currentAudioSessionId)
             intent.putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
 
@@ -113,6 +128,10 @@ class AudioPlayerService : Service() {
         player.setMediaItem(mediaItem)
         player.prepare()
         player.play()
+
+        currentTitle = title
+        currentArtist = artist
+        NowPlayingState.update(NowPlaying(title, artist, isPlaying = true))
 
         startForeground(NOTIFICATION_ID, buildNotification(title, artist, true))
         openAudioSession()
@@ -130,12 +149,19 @@ class AudioPlayerService : Service() {
     fun stopPlayer() {
         exoPlayer?.stop()
         closeAudioSession()
+        currentTitle = ""
+        currentArtist = ""
+        NowPlayingState.update(null)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
         } else {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
+    }
+
+    fun togglePlayback() {
+        if (isPlaying()) pauseTrack() else resumeTrack()
     }
 
     fun getAudioSessionId(): Int {
@@ -158,6 +184,7 @@ class AudioPlayerService : Service() {
             }
             ACTION_PAUSE -> pauseTrack()
             ACTION_STOP -> stopPlayer()
+            ACTION_TOGGLE_PLAYBACK -> togglePlayback()
         }
         return START_NOT_STICKY
     }
@@ -166,6 +193,7 @@ class AudioPlayerService : Service() {
 
     override fun onDestroy() {
         closeAudioSession()
+        NowPlayingState.update(null)
         exoPlayer?.release()
         exoPlayer = null
         super.onDestroy()
