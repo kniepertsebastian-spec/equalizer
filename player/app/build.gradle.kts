@@ -1,11 +1,13 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
 }
 
 android {
     namespace = "com.soundcloud.equalizer.player"
-    compileSdk = 34
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.soundcloud.equalizer.player"
@@ -30,11 +32,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         viewBinding = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        // Matches the :app module - the JDK running Gradle isn't the bytecode target.
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
