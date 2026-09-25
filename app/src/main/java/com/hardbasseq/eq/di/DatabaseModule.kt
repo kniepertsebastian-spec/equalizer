@@ -25,7 +25,14 @@ object DatabaseModule {
                 context,
                 AppDatabase::class.java,
                 "hardbasseq.db",
-            ).fallbackToDestructiveMigration(dropAllTables = true)
+            )
+            // Only guards against a future downgrade (newer DB opened by an older
+            // app build) - there's no forward migration to fall back from today
+            // since version 1 is still the only schema this DB has ever had.
+            // Per-row corruption (one bad custom preset) is handled in
+            // PresetRepository instead, which is what M2's "ein beschädigtes
+            // Nutzerpreset kann die App nicht am Start hindern" actually asks for.
+            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
 
     @Provides

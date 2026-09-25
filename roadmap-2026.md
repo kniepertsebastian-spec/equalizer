@@ -159,6 +159,19 @@ M1 ist ein Stop-or-Go-Punkt. Wird auf wichtigen Playern keine verlässliche Frem
 - Migrationstests decken mindestens die vorherige Schema-Version ab.
 - Ein beschädigtes Nutzerpreset kann die App nicht am Start hindern.
 
+### Umsetzungsstand (siehe `roadmap.md` Session 19 für Details)
+
+- ✅ Repository-Schicht (`PresetRepository`/`AppSettingsRepository`), alle
+  Aktionen (Zurücksetzen/speichern/duplizieren/umbenennen/löschen), Custom-
+  Markierung, Persistenz über Neustart, sicherer Fallback bei beschädigten
+  Presets.
+- ⏳ Migrationstests: `exportSchema` ist jetzt an, aber es gibt noch keine
+  echte Vorversion zu testen (die Tabelle hatte vorher nie einen
+  Schreibpfad) und keine Robolectric-/Instrumentierungs-Infrastruktur, die
+  `MigrationTestHelper` bräuchte - Voraussetzung für die *nächste*
+  Schemaänderung, nicht für diese.
+- ❌ Undo/Redo innerhalb der laufenden Bearbeitung - bewusst zurückgestellt.
+
 ## M3 – Geräteprofile und getrennte Korrekturebene
 
 **Zweck:** Derselbe Geschmack soll auf unterschiedlichen Kopfhörern sinnvoll funktionieren.

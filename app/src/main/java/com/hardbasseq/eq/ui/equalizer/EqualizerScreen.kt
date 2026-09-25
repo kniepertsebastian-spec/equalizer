@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Speed
@@ -33,6 +34,8 @@ import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +44,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,7 +64,6 @@ import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
-import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
 import com.hardbasseq.eq.ui.theme.Spacing
@@ -76,10 +79,17 @@ fun EqualizerScreen(
     settings: ProcessingSettings,
     bands: List<EqualizerBandCapabilities>,
     activePreset: Preset,
+    allPresets: List<Preset>,
+    isDirty: Boolean,
     onMasterToggled: (Boolean) -> Unit,
     onOpenSourcePicker: () -> Unit,
     onBypassToggled: (Boolean) -> Unit,
     onPresetSelected: (Preset) -> Unit,
+    onResetToActivePreset: () -> Unit,
+    onSaveAsNewRequest: () -> Unit,
+    onDuplicatePreset: (Preset) -> Unit,
+    onRenamePresetRequest: (Preset) -> Unit,
+    onDeletePresetRequest: (Preset) -> Unit,
     onMacroBassChanged: (Float) -> Unit,
     onMacroPunchChanged: (Float) -> Unit,
     onMacroHaerteChanged: (Float) -> Unit,
@@ -287,16 +297,38 @@ fun EqualizerScreen(
             border = BorderStroke(1.dp, HardBassCardBorder),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
-                Text(
-                    text = "Presets",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "Presets",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    // M2: "manuelle Änderung eines Presets automatisch als Custom
+                    // markieren" - only shown once a band/macro edit has actually
+                    // moved away from what activePreset alone would produce.
+                    AnimatedVisibility(visible = isDirty) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = onResetToActivePreset) {
+                                Text("Zurücksetzen")
+                            }
+                            TextButton(onClick = onSaveAsNewRequest) {
+                                Text("Speichern")
+                            }
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(spacing.small))
                 PresetGrid(
-                    presets = BuiltInPresets.all,
+                    presets = allPresets,
                     activePresetId = activePreset.id,
                     onPresetSelected = onPresetSelected,
+                    onDuplicatePreset = onDuplicatePreset,
+                    onRenamePresetRequest = onRenamePresetRequest,
+                    onDeletePresetRequest = onDeletePresetRequest,
                     spacing = spacing,
                 )
             }
@@ -404,6 +436,9 @@ private fun PresetGrid(
     presets: List<Preset>,
     activePresetId: String,
     onPresetSelected: (Preset) -> Unit,
+    onDuplicatePreset: (Preset) -> Unit,
+    onRenamePresetRequest: (Preset) -> Unit,
+    onDeletePresetRequest: (Preset) -> Unit,
     spacing: Spacing,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
@@ -417,6 +452,9 @@ private fun PresetGrid(
                         preset = preset,
                         selected = preset.id == activePresetId,
                         onClick = { onPresetSelected(preset) },
+                        onDuplicate = { onDuplicatePreset(preset) },
+                        onRenameRequest = { onRenamePresetRequest(preset) },
+                        onDeleteRequest = { onDeletePresetRequest(preset) },
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -433,6 +471,9 @@ private fun PresetCard(
     preset: Preset,
     selected: Boolean,
     onClick: () -> Unit,
+    onDuplicate: () -> Unit,
+    onRenameRequest: () -> Unit,
+    onDeleteRequest: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
@@ -444,6 +485,7 @@ private fun PresetCard(
             MaterialTheme.colorScheme.surfaceVariant
         }
     val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    var showMenu by remember { mutableStateOf(false) }
 
     Surface(
         onClick = onClick,
@@ -453,7 +495,7 @@ private fun PresetCard(
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = spacing.small, vertical = spacing.extraSmall),
+            modifier = Modifier.fillMaxSize().padding(start = spacing.small, end = spacing.extraSmall, vertical = spacing.extraSmall),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
@@ -470,7 +512,47 @@ private fun PresetCard(
                 color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
+            Box {
+                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(20.dp)) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Weitere Aktionen für ${preset.name}",
+                        tint = contentColor,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+                // "Duplizieren" works on any preset, built-in included - it's the
+                // way to turn one into an editable starting point. "Umbenennen"/
+                // "Löschen" only make sense for custom presets: "Built-ins bleiben
+                // unveränderlich" (M2 acceptance criterion).
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Duplizieren") },
+                        onClick = {
+                            showMenu = false
+                            onDuplicate()
+                        },
+                    )
+                    if (!preset.metadata.builtIn) {
+                        DropdownMenuItem(
+                            text = { Text("Umbenennen") },
+                            onClick = {
+                                showMenu = false
+                                onRenameRequest()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Löschen") },
+                            onClick = {
+                                showMenu = false
+                                onDeleteRequest()
+                            },
+                        )
+                    }
+                }
+            }
         }
     }
 }

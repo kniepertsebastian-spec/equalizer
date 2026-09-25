@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ktlint)
@@ -55,6 +56,17 @@ ktlint {
     android.set(true)
 }
 
+ksp {
+    // M2: exports the DB schema to JSON on every build, the baseline
+    // MigrationTestHelper tests need. The `presets` table has never had a real
+    // write path before this change (verified: nothing referenced PresetDao),
+    // so there's no real prior schema to migrate away from yet - this starts
+    // the practice from the first schema that's actually reachable. No
+    // MigrationTestHelper test exists yet either (needs Robolectric or
+    // instrumentation, neither set up in this repo - see AppDatabase.kt).
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     // Shared preset/DSP domain logic - also used by the :desktop module.
     implementation(project(":core"))
@@ -85,6 +97,7 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     implementation(libs.datastore.preferences)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
