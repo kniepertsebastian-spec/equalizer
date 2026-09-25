@@ -63,6 +63,15 @@ Das MVP ist erreicht, wenn:
 
 Die Schätzungen sind Richtwerte für eine Person und setzen voraus, dass keine herstellerspezifischen Android-Blocker auftreten.
 
+**Codestand (25. September 2026):** M0–M2 sowie die code-seitigen Anteile von
+M3, M4, M5 und M6-Phase-1 sind umgesetzt (siehe jeweiliger „Umsetzungsstand"-
+Abschnitt unten). Offen sind durchgängig nur zwei Dinge, beide nicht durch
+weiteren Code in dieser Sandbox lösbar: (1) die Geräteverifikation der
+jeweiligen Abnahmekriterien – siehe `docs/TEST_MATRIX.md`, Abschnitt „M3–M6:
+Was jetzt getestet werden muss"; (2) M6 Phase 2 (Produktintegration), die laut
+Release-Gate B erst nach dem echten Drei-Wege-Hardwarevergleich beginnen darf.
+M7 wurde noch nicht begonnen.
+
 ---
 
 ## 4. Meilensteine
@@ -230,6 +239,31 @@ M1 ist ein Stop-or-Go-Punkt. Wird auf wichtigen Playern keine verlässliche Frem
 - Korrektur und Voicing können unabhängig deaktiviert werden.
 - Die resultierende Kurve ist für den Nutzer sichtbar.
 
+### Umsetzungsstand (PR #26, 25. September 2026)
+
+- ✅ Datenmodell vollständig: `CorrectionProfile` (`:core`), `DeviceProfileEntity`
+  (um `boundCorrectionProfileId` erweitert), bestehendes `Preset` als
+  `VoicingPreset`, bestehende manuelle Bandwerte als `CustomOverrides`.
+- ✅ Stabiler, datenschutzarmer Route-Fingerprint: SHA-256-Hash aus
+  Geräte-Typ+Produktname statt des laut Android-Doku session-instabilen
+  `AudioDeviceInfo.getId()` – dabei aufgedeckter echter Bug, nicht nur
+  Vorbereitung.
+- ✅ Profilwechsel bei Bluetooth-/USB-/Lautsprecherwechsel
+  (`applyDeviceProfileForRoute` in `MainViewModel`) und Konfliktregel
+  (manuelle Auswahl gilt bis zum nächsten Route-Wechsel) implementiert.
+- ✅ `CurveComposer.combine()` kombiniert Korrektur- und Voicing-Kurve
+  mathematisch; Begrenzung auf Gerätegrenzen weiterhin über die bestehende
+  Band-Interpolation.
+- ✅ Oberfläche getrennt: neue „Mein Kopfhörer"-Karte, bestehende
+  „Presets"-Sektion zu „Klangstil" umbenannt, bestehender manueller
+  Band-Editor als „Feinanpassung".
+- ❌ **Nicht auf echter Hardware verifiziert:** Die vier Abnahmekriterien
+  oben (2-Sekunden-Ziel beim Route-Wechsel, Bluetooth/Lautsprecher-
+  Verwechslung ausgeschlossen, insbesondere ob derselbe Kopfhörer nach
+  Neuverbindung und App-Neustart durch den neuen stabilen Fingerprint
+  korrekt wiedererkannt wird) – siehe `docs/TEST_MATRIX.md` neuer
+  Abschnitt „M3–M6: Was jetzt getestet werden muss".
+
 ## M4 – Headroom, Limiter und Metering
 
 **Zweck:** Aggressive Presets wie Final Smash müssen sicher und transparent arbeiten.
@@ -255,6 +289,32 @@ M1 ist ein Stop-or-Go-Punkt. Wird auf wichtigen Playern keine verlässliche Frem
 - Deaktivierter Limiter ist nachweisbar deaktiviert.
 - Die Oberfläche bezeichnet keine Schätzung als echte Messung.
 
+### Umsetzungsstand (PR #26, 25. September 2026)
+
+- ✅ `HeadroomCalculator` leitet Headroom jetzt aus der **kombinierten,
+  kontinuierlichen** Korrektur+Voicing-Kurve ab (120 logarithmisch verteilte
+  Stützstellen, 20 Hz–20 kHz über `EqualizerInterpolator.resolveGainAtFrequency`)
+  statt wie zuvor nur aus dem höchsten diskreten, bereits auf Hardware-Bänder
+  gemappten Gain-Wert – genau die im Aufgabentext benannte Lücke, real
+  behoben, nicht nur vorbereitet.
+- ✅ Neue, dauerhaft sichtbare „Signal & Sicherheit"-Karte: angewandter
+  Input-Gain, Limiter-Status/Threshold, MBC-Status.
+- ✅ Warnstufen definiert (`HeadroomWarningLevel`: SUFFICIENT/
+  OCCASIONAL_LIMITING/HEAVY_LIMITING) mit Schwelle bei 6 dB Boost.
+- ✅ „Prüfen, welche Geräte echtes Peak-/GR-Metering bereitstellen": beantwortet
+  mit „keines über eine öffentliche Android-API" – deshalb ist die gesamte
+  Warnstufen-/Headroom-Anzeige durchgängig als Schätzung gekennzeichnet
+  (Code-Kommentar in `HeadroomWarningLevel.kt` hält das Abnahmekriterium
+  „keine Schätzung als echte Messung bezeichnen" ausdrücklich fest).
+- ❌ Lautheitsabgeglichener A/B-Modus: nicht umgesetzt – bewusst
+  zurückgestellt, braucht eine echte Lautheitsmessung.
+- ❌ MBC-Steuerung nur als Status angezeigt, nicht weiter transparent gemacht
+  oder ausgeblendet.
+- ⏳ **Nicht auf echter Hardware verifiziert:** kein Built-in-Preset clippt bei
+  Testsignalen, angezeigter == tatsächlich angewandter Input-Gain, Limiter
+  bei Deaktivierung nachweisbar aus – siehe `docs/TEST_MATRIX.md` neuer
+  Abschnitt „M3–M6: Was jetzt getestet werden muss".
+
 ## M5 – AutoEQ-Workflow
 
 **Zweck:** Nutzer können eine nachvollziehbare Kopfhörerkorrektur importieren und mit Uptempo-Presets kombinieren.
@@ -278,6 +338,31 @@ M1 ist ein Stop-or-Go-Punkt. Wird auf wichtigen Playern keine verlässliche Frem
 - Vor dem Anwenden ist die resultierende Kurve sichtbar.
 - Importierte Daten können exportiert und verlustfrei wieder eingelesen werden.
 - Extreme Boosts werden nicht still angewandt, sondern begrenzt oder bestätigt.
+
+### Umsetzungsstand (PR #26, 25. September 2026)
+
+- ✅ `AutoEqParser` vollständig in den Importflow integriert: SAF-Dateiauswahl
+  (Button auf der „Mein Kopfhörer"-Karte) → Vorschau-Dialog (Quelle,
+  Frequenzbereich, max. Boost, benötigter Headroom) → erst nach Bestätigung
+  gespeichert.
+- ✅ **Dabei gefundener echter Modellfehler:** `AutoEqParser` lieferte bisher
+  `Preset` statt `CorrectionProfile` – semantisch falsch, da eine AutoEQ-Datei
+  immer eine Kopfhörerkorrektur beschreibt, kein Voicing. Kein reines Rename,
+  echte Signaturänderung inkl. angepasstem Test.
+- ✅ `GraphicEQ` und CSV/TSV unterstützt; parametrische Profile bewusst erst
+  ab M6.
+- ✅ Ungültige Importe zeigen einen abweisbaren Fehlerdialog; ein Boost über
+  12 dB löst im Vorschau-Dialog eine zusätzliche Warnung aus.
+- ✅ Export über `ACTION_SEND` mit demselben validierten JSON, das der Import
+  erwartet – verlustfreier Round-Trip; Share-Icon pro eigenem
+  Korrekturprofil.
+- ✅ Korrekturprofile an Geräteprofile gebunden (`DeviceProfileEntity.boundCorrectionProfileId`).
+- ✅ Herkunft (`sourceLabel`, z. B. „AutoEQ: Sony WH-1000XM4") und Custom-Flag
+  (`builtIn`) gespeichert.
+- ⏳ **Nicht auf echter Hardware verifiziert:** echter Import einer realen
+  AutoEQ-Datei über den System-Dateipicker, Export-Reimport-Round-Trip über
+  ein echtes Share-Sheet – siehe `docs/TEST_MATRIX.md` neuer Abschnitt
+  „M3–M6: Was jetzt getestet werden muss".
 
 ## M6 – Parametrischer EQ und DSP-Entscheidung
 
