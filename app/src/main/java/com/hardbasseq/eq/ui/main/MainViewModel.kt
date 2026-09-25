@@ -10,9 +10,16 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.autoeq.AutoEqParser
+import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
+import com.hardbasseq.eq.correction.CorrectionProfile
+import com.hardbasseq.eq.correction.CorrectionProfileRepository
+import com.hardbasseq.eq.data.correction.CorrectionProfileJsonSerializer
 import com.hardbasseq.eq.di.DefaultDispatcher
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
+import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
+import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInPresets
@@ -21,6 +28,7 @@ import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetMetadata
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.TargetPoint
+import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
 import com.soundcloud.equalizer.player.playback.NowPlaying
@@ -51,6 +59,25 @@ import javax.inject.Inject
 // Limiter is still unchanged and remains the actual clipping safety net.
 private const val INPUT_GAIN_SAFETY_RATIO = 0.3f
 
+// roadmap-2026.md M5: "Extreme Boosts werden nicht still angewandt, sondern
+// begrenzt oder bestätigt" - an imported correction curve peaking above this
+// needs an explicit confirmation in the import preview, not just a silent clamp
+// (AutoEqParser/CorrectionProfileJsonSerializer already hard-clamp to ±24 dB;
+// this is a much lower, "are you sure" style threshold on top of that).
+private const val EXTREME_BOOST_WARNING_THRESHOLD_DB = 12f
+
+// M5 "Importvorschau mit Quelle, Frequenzbereich, maximalem Boost und benötigtem
+// Headroom anzeigen" - shown to the user before anything is written to
+// CorrectionProfileRepository.
+data class CorrectionProfileImportPreview(
+    val profile: CorrectionProfile,
+    val minFreqHz: Float,
+    val maxFreqHz: Float,
+    val maxBoostDb: Float,
+    val requiredHeadroomDb: Float,
+    val isExtremeBoost: Boolean,
+)
+
 @HiltViewModel
 class MainViewModel
     @Inject
@@ -62,6 +89,8 @@ class MainViewModel
         private val playerBridge: PlayerBridge,
         private val presetRepository: PresetRepository,
         private val appSettingsRepository: AppSettingsRepository,
+        private val correctionProfileRepository: CorrectionProfileRepository,
+        private val deviceProfileRepository: DeviceProfileRepository,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -103,6 +132,29 @@ class MainViewModel
         private val _pendingDeletePreset = MutableStateFlow<Preset?>(null)
         val pendingDeletePreset: StateFlow<Preset?> = _pendingDeletePreset.asStateFlow()
 
+        // M3 "Mein Kopfhörer": the headphone/speaker correction curve, combined with
+        // activePreset ("Klangstil") via CurveComposer before mapping to hardware
+        // bands - see recalculateBandGains().
+        private val _activeCorrectionProfile = MutableStateFlow(BuiltInCorrectionProfiles.None)
+        val activeCorrectionProfile: StateFlow<CorrectionProfile> = _activeCorrectionProfile.asStateFlow()
+
+        private val customCorrectionProfilesState = MutableStateFlow<List<CorrectionProfile>>(emptyList())
+
+        val allCorrectionProfiles: StateFlow<List<CorrectionProfile>> =
+            customCorrectionProfilesState
+                .map { custom -> BuiltInCorrectionProfiles.all + custom }
+                .stateIn(viewModelScope, SharingStarted.Eagerly, BuiltInCorrectionProfiles.all)
+
+        // M5 "Importvorschau ... anzeigen" / "Extreme Boosts werden nicht still
+        // angewandt, sondern begrenzt oder bestätigt": set by
+        // previewCorrectionProfileImport(), cleared by confirm/cancel. Nothing is
+        // saved to CorrectionProfileRepository until the user actually confirms.
+        private val _pendingImportPreview = MutableStateFlow<CorrectionProfileImportPreview?>(null)
+        val pendingImportPreview: StateFlow<CorrectionProfileImportPreview?> = _pendingImportPreview.asStateFlow()
+
+        private val _importError = MutableStateFlow<String?>(null)
+        val importError: StateFlow<String?> = _importError.asStateFlow()
+
         private val _processingSettings =
             MutableStateFlow(ProcessingSettings().withPreset(BuiltInPresets.CleanPunch))
         val processingSettings: StateFlow<ProcessingSettings> = _processingSettings.asStateFlow()
@@ -128,11 +180,29 @@ class MainViewModel
             viewModelScope.launch {
                 restoreSavedState()
             }
+            // M3 "Profilwechsel bei Bluetooth-, USB- und Lautsprecherwechsel": the
+            // starting route is handled inside restoreSavedState() itself (it may
+            // still be resolving when this collector's first emission fires); this
+            // only reacts to routes that change *after* that, e.g. a Bluetooth
+            // headset connecting/disconnecting during the session. AudioRoute is a
+            // data class and activeRoute is a StateFlow, so equal consecutive
+            // routes (including a rapid double-emission of the same route) are
+            // already deduplicated before this collector ever sees them.
+            viewModelScope.launch {
+                routeRepository.activeRoute
+                    .drop(1)
+                    .collect { route ->
+                        if (hasRestoredState) applyDeviceProfileForRoute(route)
+                    }
+            }
         }
 
         private suspend fun restoreSavedState() {
             val initialCustomPresets = presetRepository.customPresets.first()
             customPresetsState.value = initialCustomPresets
+
+            val initialCorrectionProfiles = correctionProfileRepository.customProfiles.first()
+            customCorrectionProfilesState.value = initialCorrectionProfiles
 
             val saved = appSettingsRepository.liveSettings.first()
             if (saved != null) {
@@ -143,21 +213,33 @@ class MainViewModel
                     _processingSettings.value = saved.processingSettings
                     audioEngine.apply(saved.processingSettings)
                 }
-                // A saved activePresetId that no longer resolves (its custom preset
-                // was deleted from another install, say) just keeps this
-                // ViewModel's own compiled-in default - not an error, nothing to
-                // recover, per M2's "beschädigtes ... kann die App nicht am Start
-                // hindern".
+                _activeCorrectionProfile.value =
+                    findCorrectionProfileById(saved.activeCorrectionProfileId, initialCorrectionProfiles)
+                // A saved activePresetId/activeCorrectionProfileId that no longer
+                // resolves (its custom entry was deleted from another install, say)
+                // just keeps this ViewModel's own compiled-in default - not an
+                // error, nothing to recover, per M2's "beschädigtes ... kann die
+                // App nicht am Start hindern".
             }
 
             hasRestoredState = true
 
-            // Keep collecting custom-preset changes after this point (deletions,
-            // saves) - the one-shot .first() above was only for resolving the
-            // restore above without a race against this collector's first emission.
+            // Route-specific binding takes precedence over the plain "last active"
+            // LiveSettings restored above, if this route has one - that's the
+            // actual point of M3 (same taste, different headphones).
+            applyDeviceProfileForRoute(routeRepository.activeRoute.value)
+
+            // Keep collecting custom-preset/-correction-profile changes after this
+            // point (deletions, saves) - the one-shot .first() calls above were
+            // only for resolving the restore above without a race against these
+            // collectors' first emission.
             presetRepository.customPresets
                 .drop(1)
                 .onEach { customPresetsState.value = it }
+                .launchIn(viewModelScope)
+            correctionProfileRepository.customProfiles
+                .drop(1)
+                .onEach { customCorrectionProfilesState.value = it }
                 .launchIn(viewModelScope)
         }
 
@@ -165,6 +247,50 @@ class MainViewModel
             id: String,
             customPresets: List<Preset>,
         ): Preset? = BuiltInPresets.all.find { it.id == id } ?: customPresets.find { it.id == id }
+
+        private fun findCorrectionProfileById(
+            id: String,
+            customProfiles: List<CorrectionProfile>,
+        ): CorrectionProfile =
+            BuiltInCorrectionProfiles.all.find { it.id == id }
+                ?: customProfiles.find { it.id == id }
+                ?: BuiltInCorrectionProfiles.None
+
+        // Looks up whether `route` has its own saved voicing/correction binding
+        // (DeviceProfileRepository) and, if so, switches to it - the M3 conflict
+        // rule ("manuelle Auswahl gilt bis zum nächsten Route-Wechsel") means this
+        // is the *only* place a route is allowed to change the active
+        // preset/correction; selectPreset()/selectCorrectionProfile() never do.
+        private suspend fun applyDeviceProfileForRoute(route: AudioRoute) {
+            val binding = deviceProfileRepository.getProfileForRoute(route.id) ?: return
+            val preset = findPresetById(binding.boundPresetId, customPresetsState.value) ?: return
+            val correction = findCorrectionProfileById(binding.boundCorrectionProfileId, customCorrectionProfilesState.value)
+
+            _activePreset.value = preset
+            _activeCorrectionProfile.value = correction
+            _isDirty.value = false
+            _processingSettings.value = _processingSettings.value.withPreset(preset)
+            recalculateBandGains()
+            persistLiveSettings()
+        }
+
+        // Persists which voicing/correction are active while `route` (the current
+        // route unless stated otherwise) is the active one - called from every
+        // user-initiated preset/correction selection, never from
+        // applyDeviceProfileForRoute() above (that would just save back the exact
+        // binding it just read).
+        private fun saveDeviceProfileBinding() {
+            val route = currentRoute.value
+            viewModelScope.launch {
+                deviceProfileRepository.saveProfile(
+                    routeId = route.id,
+                    routeType = route.type.name,
+                    displayName = route.name,
+                    boundPresetId = _activePreset.value.id,
+                    boundCorrectionProfileId = _activeCorrectionProfile.value.id,
+                )
+            }
+        }
 
         private fun persistLiveSettings() {
             if (!hasRestoredState) return
@@ -174,6 +300,7 @@ class MainViewModel
                         activePresetId = _activePreset.value.id,
                         isDirty = _isDirty.value,
                         processingSettings = _processingSettings.value,
+                        activeCorrectionProfileId = _activeCorrectionProfile.value.id,
                     ),
                 )
             }
@@ -198,7 +325,77 @@ class MainViewModel
             _processingSettings.value = _processingSettings.value.withPreset(preset)
             recalculateBandGains()
             persistLiveSettings()
+            saveDeviceProfileBinding()
         }
+
+        // M3 "Mein Kopfhörer": switches the active correction curve, independent of
+        // the voicing (selectPreset above) it gets combined with.
+        fun selectCorrectionProfile(profile: CorrectionProfile) {
+            _activeCorrectionProfile.value = profile
+            recalculateBandGains()
+            persistLiveSettings()
+            saveDeviceProfileBinding()
+        }
+
+        // M5: parses `text` (a file the caller already read, e.g. via a SAF
+        // OpenDocument picker) and, on success, populates pendingImportPreview for
+        // the UI to show before anything is saved - see confirmCorrectionProfileImport.
+        // Malformed/empty input surfaces through importError instead (M5: "Ungültige,
+        // doppelte oder extreme Punkte verständlich melden").
+        fun previewCorrectionProfileImport(
+            sourceName: String,
+            text: String,
+        ) {
+            AutoEqParser.parseAutoEqText(sourceName, text).fold(
+                onSuccess = { profile ->
+                    val minFreq = profile.curve.minOf { it.frequencyHz }
+                    val maxFreq = profile.curve.maxOf { it.frequencyHz }
+                    val maxBoostDb = profile.curve.maxOf { it.gainDb }.coerceAtLeast(0f)
+                    val headroom = HeadroomCalculator.fromCombinedCurve(profile.curve)
+                    _pendingImportPreview.value =
+                        CorrectionProfileImportPreview(
+                            profile = profile,
+                            minFreqHz = minFreq,
+                            maxFreqHz = maxFreq,
+                            maxBoostDb = maxBoostDb,
+                            requiredHeadroomDb = headroom.maxPositiveGainDb,
+                            isExtremeBoost = maxBoostDb > EXTREME_BOOST_WARNING_THRESHOLD_DB,
+                        )
+                    _importError.value = null
+                },
+                onFailure = { e ->
+                    _importError.value = e.message ?: "Import fehlgeschlagen: unbekannter Fehler"
+                    _pendingImportPreview.value = null
+                },
+            )
+        }
+
+        // Only actually writes the imported profile once the user has seen the
+        // preview and confirmed (also the extreme-boost confirmation, if the UI
+        // asked for one first) - selects it immediately after, same as picking any
+        // other correction profile.
+        fun confirmCorrectionProfileImport() {
+            val preview = _pendingImportPreview.value ?: return
+            _pendingImportPreview.value = null
+            viewModelScope.launch {
+                correctionProfileRepository.save(preview.profile)
+            }
+            selectCorrectionProfile(preview.profile)
+        }
+
+        fun cancelCorrectionProfileImport() {
+            _pendingImportPreview.value = null
+        }
+
+        fun dismissImportError() {
+            _importError.value = null
+        }
+
+        // M5 "Import, Export und Teilen ... integrieren": the JSON the UI hands to
+        // a Share Sheet intent (ACTION_SEND) - the same validated format
+        // previewCorrectionProfileImport()/CorrectionProfileRepository already use,
+        // so re-importing an exported file round-trips losslessly.
+        fun exportCorrectionProfileJson(profile: CorrectionProfile): String = CorrectionProfileJsonSerializer.exportToJson(profile)
 
         // Discards manual edits, re-applying activePreset fresh.
         fun resetToActivePreset() = selectPreset(_activePreset.value)
@@ -393,19 +590,44 @@ class MainViewModel
             applySettings(newSettings)
         }
 
+        // M3 "Zielkurven kombinieren": correction ("Mein Kopfhörer") and voicing
+        // ("Klangstil") are combined into one curve before anything else - band
+        // mapping, headroom - happens. EqualizerScreen recomputes this same
+        // combination from activeCorrectionProfile/activePreset (both already
+        // collected there) for its own headroom banner via the same CurveComposer
+        // call, rather than this ViewModel exposing the combined curve itself.
+        private fun combinedCurve(): List<TargetPoint> =
+            CurveComposer.combine(_activeCorrectionProfile.value.curve, _activePreset.value.targetCurve)
+
         private fun recalculateBandGains(bands: List<EqualizerBandCapabilities> = audioEngine.capabilities.value.bands) {
+            val curve = combinedCurve()
+            val macroBassDb = _processingSettings.value.macroBassDb
+            val macroPunchDb = _processingSettings.value.macroPunchDb
+            val macroHaerteDb = _processingSettings.value.macroHaerteDb
+
             val calculatedGains =
-                EqualizerInterpolator.interpolatePresetToBands(
-                    preset = _activePreset.value,
+                EqualizerInterpolator.interpolateCurveToBands(
+                    curve = curve,
                     bands = bands,
-                    macroBassDb = _processingSettings.value.macroBassDb,
-                    macroPunchDb = _processingSettings.value.macroPunchDb,
-                    macroHaerteDb = _processingSettings.value.macroHaerteDb,
+                    macroBassDb = macroBassDb,
+                    macroPunchDb = macroPunchDb,
+                    macroHaerteDb = macroHaerteDb,
+                )
+            // roadmap-2026.md M4: headroom from the combined *continuous* curve, not
+            // just the highest of these discrete post-mapping band gains - see
+            // HeadroomCalculator for why that undercounts a peak that falls between
+            // two hardware band centers.
+            val headroom =
+                HeadroomCalculator.fromCombinedCurve(
+                    combinedCurve = curve,
+                    macroBassDb = macroBassDb,
+                    macroPunchDb = macroPunchDb,
+                    macroHaerteDb = macroHaerteDb,
                 )
             val newSettings =
                 _processingSettings.value.copy(
                     bandGainsDb = calculatedGains,
-                    inputGainDb = automaticInputGainDb(calculatedGains),
+                    inputGainDb = safetyScaledInputGainDb(headroom.maxPositiveGainDb),
                 )
             applySettings(newSettings)
         }

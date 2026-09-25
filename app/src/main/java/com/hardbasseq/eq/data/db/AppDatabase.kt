@@ -2,6 +2,7 @@ package com.hardbasseq.eq.data.db
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
+import com.hardbasseq.eq.data.correction.CorrectionProfileEntity
 import com.hardbasseq.eq.data.preset.PresetEntity
 import com.hardbasseq.eq.data.profile.DeviceProfileEntity
 
@@ -15,7 +16,7 @@ import com.hardbasseq.eq.data.profile.DeviceProfileEntity
 // a repo-wide search for PresetDao call sites - there were none), so version
 // 1 here is the first schema real user data will ever be written under.
 @Database(
-    entities = [PresetEntity::class, DeviceProfileEntity::class],
+    entities = [PresetEntity::class, DeviceProfileEntity::class, CorrectionProfileEntity::class],
     version = 1,
     exportSchema = true,
 )
@@ -23,4 +24,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun presetDao(): PresetDao
 
     abstract fun deviceProfileDao(): DeviceProfileDao
+
+    abstract fun correctionProfileDao(): CorrectionProfileDao
 }

@@ -11,10 +11,20 @@ object EqualizerInterpolator {
         macroBassDb: Float = 0f,
         macroPunchDb: Float = 0f,
         macroHaerteDb: Float = 0f,
+    ): Map<Int, Float> = interpolateCurveToBands(preset.targetCurve, bands, macroBassDb, macroPunchDb, macroHaerteDb)
+
+    // Curve-based variant of the above, for the M3 CurveComposer output (correction
+    // profile + voicing preset combined) rather than a single Preset's own curve.
+    fun interpolateCurveToBands(
+        curve: List<com.hardbasseq.eq.preset.TargetPoint>,
+        bands: List<EqualizerBandCapabilities>,
+        macroBassDb: Float = 0f,
+        macroPunchDb: Float = 0f,
+        macroHaerteDb: Float = 0f,
     ): Map<Int, Float> {
         if (bands.isEmpty()) return emptyMap()
 
-        val sortedPoints = preset.targetCurve.sortedBy { it.frequencyHz }
+        val sortedPoints = curve.sortedBy { it.frequencyHz }
         if (sortedPoints.isEmpty()) {
             return bands.associate { it.index to 0f }
         }
@@ -23,24 +33,28 @@ object EqualizerInterpolator {
 
         for (band in bands) {
             val freqHz = band.centerFreqHz.toFloat()
-            var interpolatedGain = interpolateFrequency(freqHz, sortedPoints)
-
-            // Apply Macros
-            interpolatedGain +=
-                calculateMacroDelta(
-                    freqHz = freqHz,
-                    macroBassDb = macroBassDb,
-                    macroPunchDb = macroPunchDb,
-                    macroHaerteDb = macroHaerteDb,
-                )
-
-            // Clamp to band capabilities
-            val clampedGain = interpolatedGain.coerceIn(band.minGainDb, band.maxGainDb)
+            val resolvedGain = resolveGainAtFrequency(freqHz, sortedPoints, macroBassDb, macroPunchDb, macroHaerteDb)
+            val clampedGain = resolvedGain.coerceIn(band.minGainDb, band.maxGainDb)
             result[band.index] = clampedGain
         }
 
         return result
     }
+
+    // Curve interpolation plus macro deltas, unclamped - the single source of truth
+    // both interpolateCurveToBands (clamped to hardware bands) and
+    // HeadroomCalculator (sampled densely, never clamped) build on, so headroom is
+    // always computed against the same resolved gain the engine will actually try
+    // to apply.
+    fun resolveGainAtFrequency(
+        freqHz: Float,
+        sortedCurve: List<com.hardbasseq.eq.preset.TargetPoint>,
+        macroBassDb: Float = 0f,
+        macroPunchDb: Float = 0f,
+        macroHaerteDb: Float = 0f,
+    ): Float =
+        interpolateFrequency(freqHz, sortedCurve) +
+            calculateMacroDelta(freqHz, macroBassDb, macroPunchDb, macroHaerteDb)
 
     fun interpolateFrequency(
         freqHz: Float,

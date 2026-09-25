@@ -15,4 +15,10 @@ data class LiveSettings(
     val activePresetId: String,
     val isDirty: Boolean,
     val processingSettings: ProcessingSettings,
+    // M3: which CorrectionProfile ("Mein Kopfhörer") is active, alongside the
+    // voicing (activePresetId, "Klangstil") this was already tracking. Defaulted
+    // rather than made nullable/required so JSON saved before M3 (missing this
+    // field) still decodes - kotlinx.serialization applies the default for a
+    // field absent from the source JSON.
+    val activeCorrectionProfileId: String = "correction_none",
 )

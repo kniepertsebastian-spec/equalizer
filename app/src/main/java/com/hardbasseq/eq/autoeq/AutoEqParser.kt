@@ -1,14 +1,17 @@
 package com.hardbasseq.eq.autoeq
 
-import com.hardbasseq.eq.preset.Preset
-import com.hardbasseq.eq.preset.PresetMetadata
+import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.preset.TargetPoint
 
+// roadmap-2026.md M5: an AutoEQ file describes a headphone/speaker CORRECTION
+// curve ("Mein Kopfhörer", M3), meant to be combined with a separate voicing
+// preset ("Klangstil") via CurveComposer - not a Preset/VoicingPreset itself, so
+// this returns CorrectionProfile.
 object AutoEqParser {
     fun parseAutoEqText(
-        presetName: String,
+        profileName: String,
         text: String,
-    ): Result<Preset> =
+    ): Result<CorrectionProfile> =
         runCatching {
             val targetPoints = mutableListOf<TargetPoint>()
 
@@ -49,14 +52,13 @@ object AutoEqParser {
             }
 
             val sortedPoints = targetPoints.sortedBy { it.frequencyHz }
-            val maxPosGain = sortedPoints.maxOf { it.gainDb }.coerceAtLeast(0f)
 
-            Preset(
-                id = "autoeq_${presetName.lowercase().replace("\\s+".toRegex(), "_")}",
-                name = presetName,
-                targetCurve = sortedPoints,
-                requestedHeadroomDb = (maxPosGain + 1.0f).coerceAtLeast(0f),
-                metadata = PresetMetadata(genre = "autoeq", builtIn = false),
+            CorrectionProfile(
+                id = "autoeq_${profileName.lowercase().replace("\\s+".toRegex(), "_")}",
+                name = profileName,
+                curve = sortedPoints,
+                sourceLabel = "AutoEQ-Import",
+                builtIn = false,
             )
         }
 }
