@@ -26,13 +26,13 @@ class AudioEngineContractTest {
         }
 
     @Test
-    fun contract_detachingActiveEngineReturnsToDetached() =
+    fun contract_detachingActiveEngineReturnsToListening() =
         runTest {
             val engine: AudioEngine = FakeAudioEngine()
             engine.attach(AudioSession(sessionId = 101))
 
             engine.detach()
 
-            assertEquals(AudioEngineState.Detached, engine.state.value)
+            assertEquals(AudioEngineState.Listening, engine.state.value)
         }
 }

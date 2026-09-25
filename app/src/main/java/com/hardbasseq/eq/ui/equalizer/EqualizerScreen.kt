@@ -36,11 +36,17 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
+import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.preset.BuiltInPresets
@@ -58,6 +65,7 @@ import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
 import com.hardbasseq.eq.ui.theme.Spacing
 import com.hardbasseq.eq.ui.theme.spacing
+import kotlinx.coroutines.delay
 
 private val CardShape = RoundedCornerShape(20.dp)
 
@@ -76,6 +84,7 @@ fun EqualizerScreen(
     onMacroPunchChanged: (Float) -> Unit,
     onMacroHaerteChanged: (Float) -> Unit,
     onBandGainChanged: (bandIndex: Int, gainDb: Float) -> Unit,
+    onRetryAttach: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
@@ -138,16 +147,23 @@ fun EqualizerScreen(
 
                 Spacer(modifier = Modifier.height(spacing.small))
 
-                // Engine Status Chip
+                // Engine Status Chip - docs/STATE_MACHINE.md §5 UI-status mapping.
+                // Detached/Listening/Attaching/LostControl/Retrying all share the
+                // "Wartet" category (surfaceVariant); Unsupported and Error get
+                // their own distinct categories so all 4 required statuses are
+                // visually distinguishable.
                 val (statusText, statusBg) =
                     when (state) {
                         is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to MaterialTheme.colorScheme.primaryContainer
                         is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Detached -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.LostControl -> "Kontrollverlust" to MaterialTheme.colorScheme.errorContainer
+                        is AudioEngineState.Detached -> "Startet…" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.Listening -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.LostControl ->
+                            "Verbindung verloren, versuche erneut…" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.Retrying -> retryingStatusText(state) to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.Unsupported ->
+                            "Nicht unterstützt: ${state.reason}" to MaterialTheme.colorScheme.tertiaryContainer
                         is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
-                        is AudioEngineState.Suspended -> "Pausiert: ${state.reason}" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Unsupported -> "Nicht unterstützt" to MaterialTheme.colorScheme.errorContainer
                     }
 
                 Box(
@@ -162,6 +178,17 @@ fun EqualizerScreen(
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
                     )
+                }
+
+                // "Fehler: konkrete nächste Handlung anbieten" (roadmap-2026.md M1) -
+                // resets the retry budget and re-attempts the last known session.
+                AnimatedVisibility(visible = state is AudioEngineState.Error) {
+                    OutlinedButton(
+                        onClick = onRetryAttach,
+                        modifier = Modifier.padding(top = spacing.extraSmall),
+                    ) {
+                        Text("Erneut versuchen")
+                    }
                 }
             }
         }
@@ -212,7 +239,8 @@ fun EqualizerScreen(
         // started (e.g. right after install) or - per the M0 spike's unresolved
         // finding (roadmap.md Session 4) - possibly not at all on some devices. Explain
         // what to try instead of leaving the user staring at "Wartet auf Audio-Session".
-        AnimatedVisibility(visible = state is AudioEngineState.Detached) {
+        // Detached and Listening both mean "no session" - see AudioEngineState.
+        AnimatedVisibility(visible = state is AudioEngineState.Detached || state is AudioEngineState.Listening) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = CardShape,
@@ -467,3 +495,21 @@ private fun formatFrequency(centerFreqHz: Int): String =
     } else {
         "$centerFreqHz Hz"
     }
+
+// docs/STATE_MACHINE.md §5: "Erneuter Versuch in {sekunden}s (Versuch
+// {attempt}/5)" - ticks down live so the acceptance criterion ("kein
+// dauerhafter Kontrollverlust") is visible to the user, not just true in
+// the abstract.
+@Composable
+private fun retryingStatusText(state: AudioEngineState.Retrying): String {
+    var remainingSeconds by remember(state) { mutableStateOf(secondsUntil(state.nextRetryAtMillis)) }
+    LaunchedEffect(state) {
+        while (remainingSeconds > 0) {
+            delay(1000)
+            remainingSeconds = secondsUntil(state.nextRetryAtMillis)
+        }
+    }
+    return "Erneuter Versuch in ${remainingSeconds}s (Versuch ${state.attempt}/$MAX_RETRY_ATTEMPTS)"
+}
+
+private fun secondsUntil(millis: Long): Long = ((millis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)

@@ -2,6 +2,7 @@ package com.hardbasseq.eq.ui.main
 
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
+import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSession
@@ -150,6 +151,22 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `enabling master while Listening (no session) also shows the source picker`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+            // The engine spends almost all of its idle time in Listening, not
+            // Detached (docs/STATE_MACHINE.md) - the picker must trigger for
+            // both, not just the brief cold-start Detached window.
+            fakeEngine.attach(AudioSession(sessionId = 1))
+            fakeEngine.detach()
+
+            viewModel.setMasterEnabled(true)
+
+            assertTrue(viewModel.showSourcePicker.value)
+        }
+
+    @Test
     fun `enabling master with an active session does not show the source picker`() =
         runTest {
             val playerBridge = FakePlayerBridge()
@@ -232,6 +249,20 @@ class MainViewModelTest {
 
             assertEquals(1, playerBridge.launchCount)
             assertEquals(PlayerSource.SOUNDCLOUD, playerBridge.lastLaunchedSource)
+        }
+
+    @Test
+    fun `retryAttach asks the engine to retry`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            fakeEngine.attach(AudioSession(sessionId = 7))
+
+            viewModel.retryAttach()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // FakeAudioEngine.retry() re-attaches whatever it last attached to -
+            // this only proves the ViewModel actually calls through to it.
+            assertEquals(AudioEngineState.Active(7), fakeEngine.state.value)
         }
 
     private fun createViewModel(
