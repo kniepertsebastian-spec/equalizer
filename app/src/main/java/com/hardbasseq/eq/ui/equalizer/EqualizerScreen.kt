@@ -495,7 +495,13 @@ private fun PresetCard(
         border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(start = spacing.small, end = spacing.extraSmall, vertical = spacing.extraSmall),
+            modifier =
+                Modifier.fillMaxSize().padding(
+                    start = spacing.small,
+                    end = spacing.extraSmall,
+                    top = spacing.extraSmall,
+                    bottom = spacing.extraSmall,
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(

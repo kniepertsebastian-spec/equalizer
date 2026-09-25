@@ -31,6 +31,19 @@ android {
         }
     }
 
+    testOptions {
+        unitTests {
+            // android.jar's real classes are stubbed out (throw
+            // "not mocked") under plain testDebugUnitTest by default - this repo
+            // has code (e.g. RoomPresetRepository's corrupted-row logging) that
+            // legitimately calls android.util.Log from a path unit tests exercise,
+            // with no Robolectric/instrumentation set up to provide a real
+            // implementation. Falling back to harmless defaults (Log.w() no-ops
+            // and returns 0) instead of throwing is the standard fix.
+            isReturnDefaultValues = true
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
