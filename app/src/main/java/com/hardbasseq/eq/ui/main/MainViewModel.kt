@@ -13,6 +13,7 @@ import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.di.DefaultDispatcher
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
+import com.hardbasseq.eq.integration.PlayerLauncher
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.Preset
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,6 +42,7 @@ class MainViewModel
         private val audioEngine: AudioEngine,
         private val routeRepository: AudioRouteRepository,
         private val diagnosticsRecorder: DiagnosticsRecorder,
+        private val playerLauncher: PlayerLauncher,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -96,6 +98,19 @@ class MainViewModel
         fun setMasterEnabled(enabled: Boolean) {
             val newSettings = _processingSettings.value.copy(masterEnabled = enabled)
             applySettings(newSettings)
+
+            if (!playerLauncher.isPlayerInstalled()) return
+            if (enabled) {
+                // Only auto-start the companion player when nothing is attached yet -
+                // if some other app is already playing, flipping the master bar on
+                // should just enable processing for that session, not also launch
+                // an unrelated player on top of it.
+                if (engineState.value is AudioEngineState.Detached) {
+                    playerLauncher.launchPlayer()
+                }
+            } else {
+                playerLauncher.stopPlayer()
+            }
         }
 
         fun setBypass(bypass: Boolean) {
