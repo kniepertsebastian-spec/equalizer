@@ -166,16 +166,20 @@ class MainActivity : AppCompatActivity() {
             binding.btnPlayPause.text = "Pause"
         } else {
             lifecycleScope.launch {
-                val refreshed = soundCloudClient.searchTracks(track.title, limit = 1)
-                val target = refreshed.firstOrNull()
-                if (target?.streamUrl != null) {
-                    audioService?.playTrack(target.streamUrl, target.title, target.artist)
-                    binding.cardNowPlaying.visibility = View.VISIBLE
-                    binding.tvNowPlayingTitle.text = target.title
-                    binding.tvNowPlayingArtist.text = target.artist
-                    binding.btnPlayPause.text = "Pause"
-                } else {
-                    Toast.makeText(this@MainActivity, "Unable to stream this track", Toast.LENGTH_SHORT).show()
+                try {
+                    val refreshed = soundCloudClient.searchTracks(track.title, limit = 1)
+                    val target = refreshed.firstOrNull()
+                    if (target?.streamUrl != null) {
+                        audioService?.playTrack(target.streamUrl, target.title, target.artist)
+                        binding.cardNowPlaying.visibility = View.VISIBLE
+                        binding.tvNowPlayingTitle.text = target.title
+                        binding.tvNowPlayingArtist.text = target.artist
+                        binding.btnPlayPause.text = "Pause"
+                    } else {
+                        Toast.makeText(this@MainActivity, "Unable to stream this track", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "Playback error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }

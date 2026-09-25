@@ -6,8 +6,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 
@@ -17,6 +19,14 @@ class SoundCloudClient(
         .readTimeout(15, TimeUnit.SECONDS)
         .build()
 ) {
+    companion object {
+        // Matches SoundCloudLoginActivity's WebView UA - a generic OkHttp UA is an
+        // easy anti-bot tell, this at least looks like the same browser that logged in.
+        private const val USER_AGENT =
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+    }
+
     @Volatile
     private var cachedClientId: String? = null
     @Volatile
@@ -28,19 +38,22 @@ class SoundCloudClient(
 
     fun getUserAuthToken(): String? = userAuthToken
 
-    suspend fun getClientId(): String = withContext(Dispatchers.IO) {
-        cachedClientId?.let { return@withContext it }
+    suspend fun getClientId(forceRefresh: Boolean = false): String = withContext(Dispatchers.IO) {
+        if (!forceRefresh) {
+            cachedClientId?.let { return@withContext it }
+        }
 
         val mainPageRequest = Request.Builder()
             .url("https://soundcloud.com")
-            .header("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
+            .header("User-Agent", USER_AGENT)
             .build()
 
-        val html = runCatching {
-            okHttpClient.newCall(mainPageRequest).execute().use { response ->
-                response.body?.string() ?: ""
+        val html = okHttpClient.newCall(mainPageRequest).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("Failed to load soundcloud.com (HTTP ${response.code}) while looking for a client_id")
             }
-        }.getOrDefault("")
+            response.body?.string() ?: ""
+        }
 
         val scriptPattern = Pattern.compile("src=\"(https://a-v2\\.sndcdn\\.com/assets/[^\"]+\\.js)\"")
         val matcher = scriptPattern.matcher(html)
@@ -53,7 +66,7 @@ class SoundCloudClient(
         for (scriptUrl in scriptUrls.reversed()) {
             val scriptReq = Request.Builder()
                 .url(scriptUrl)
-                .header("User-Agent", "Mozilla/5.0 (Linux; Android 10)")
+                .header("User-Agent", USER_AGENT)
                 .build()
             val scriptContent = runCatching {
                 okHttpClient.newCall(scriptReq).execute().use { it.body?.string() ?: "" }
@@ -69,15 +82,17 @@ class SoundCloudClient(
             }
         }
 
-        val fallbackId = "iZ2A8L121980838080"
-        cachedClientId = fallbackId
-        return@withContext fallbackId
+        throw IOException(
+            "Couldn't find a client_id in any of soundcloud.com's ${scriptUrls.size} asset " +
+                "bundles - SoundCloud likely changed how it's embedded"
+        )
     }
 
     private fun buildRequest(url: String): Request {
         val builder = Request.Builder()
             .url(url)
-            .header("User-Agent", "Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36")
+            .header("User-Agent", USER_AGENT)
+            .header("Accept", "application/json")
 
         userAuthToken?.let { token ->
             builder.header("Authorization", if (token.startsWith("OAuth")) token else "OAuth $token")
@@ -86,16 +101,35 @@ class SoundCloudClient(
         return builder.build()
     }
 
-    suspend fun searchTracks(query: String, limit: Int = 20): List<TrackItem> = withContext(Dispatchers.IO) {
-        val clientId = getClientId()
-        val url = "https://api-v2.soundcloud.com/search/tracks?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit"
-        val request = buildRequest(url)
+    // client_id values rotate periodically; a cached one that used to work can
+    // start getting rejected. Executes the request, and on a 401/403 refreshes
+    // the client_id from scratch and retries exactly once before giving up.
+    private suspend fun executeWithClientId(
+        buildUrl: (clientId: String) -> String,
+    ): Pair<String, String> = withContext(Dispatchers.IO) {
+        var clientId = getClientId()
+        var response = executeRequest(buildUrl(clientId))
 
-        val jsonStr = runCatching {
-            okHttpClient.newCall(request).execute().use { response ->
-                response.body?.string() ?: ""
+        if (!response.isSuccessful && (response.code == 401 || response.code == 403)) {
+            response.close()
+            clientId = getClientId(forceRefresh = true)
+            response = executeRequest(buildUrl(clientId))
+        }
+
+        response.use {
+            if (!it.isSuccessful) {
+                throw IOException("SoundCloud returned HTTP ${it.code} for this request")
             }
-        }.getOrDefault("")
+            (it.body?.string() ?: "") to clientId
+        }
+    }
+
+    private fun executeRequest(url: String): Response = okHttpClient.newCall(buildRequest(url)).execute()
+
+    suspend fun searchTracks(query: String, limit: Int = 20): List<TrackItem> = withContext(Dispatchers.IO) {
+        val (jsonStr, clientId) = executeWithClientId { clientId ->
+            "https://api-v2.soundcloud.com/search/tracks?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit"
+        }
 
         val list = mutableListOf<TrackItem>()
         if (jsonStr.isBlank()) return@withContext list
@@ -112,15 +146,9 @@ class SoundCloudClient(
     }
 
     suspend fun searchPlaylists(query: String, limit: Int = 10): List<PlaylistItem> = withContext(Dispatchers.IO) {
-        val clientId = getClientId()
-        val url = "https://api-v2.soundcloud.com/search/playlists?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit"
-        val request = buildRequest(url)
-
-        val jsonStr = runCatching {
-            okHttpClient.newCall(request).execute().use { response ->
-                response.body?.string() ?: ""
-            }
-        }.getOrDefault("")
+        val (jsonStr, clientId) = executeWithClientId { clientId ->
+            "https://api-v2.soundcloud.com/search/playlists?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit"
+        }
 
         val list = mutableListOf<PlaylistItem>()
         if (jsonStr.isBlank()) return@withContext list
@@ -175,13 +203,11 @@ class SoundCloudClient(
 
         val targetUrl = progressiveUrl ?: hlsUrl ?: return@withContext null
         val fullReqUrl = if (targetUrl.contains("?")) "$targetUrl&client_id=$clientId" else "$targetUrl?client_id=$clientId"
-        val request = buildRequest(fullReqUrl)
 
-        val jsonStr = runCatching {
-            okHttpClient.newCall(request).execute().use { response ->
-                response.body?.string() ?: ""
-            }
-        }.getOrDefault("")
+        val jsonStr = executeRequest(fullReqUrl).use { response ->
+            if (!response.isSuccessful) return@withContext null
+            response.body?.string() ?: ""
+        }
 
         if (jsonStr.isBlank()) return@withContext null
         val root = JSONObject(jsonStr)
