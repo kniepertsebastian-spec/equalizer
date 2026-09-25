@@ -3,6 +3,7 @@ package com.hardbasseq.eq.ui.equalizer
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,7 +64,11 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
-import com.hardbasseq.eq.dsp.EqualizerInterpolator
+import com.hardbasseq.eq.correction.CorrectionProfile
+import com.hardbasseq.eq.dsp.CurveComposer
+import com.hardbasseq.eq.dsp.HeadroomCalculator
+import com.hardbasseq.eq.dsp.HeadroomWarningLevel
+import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
 import com.hardbasseq.eq.ui.theme.Spacing
@@ -80,11 +85,14 @@ fun EqualizerScreen(
     bands: List<EqualizerBandCapabilities>,
     activePreset: Preset,
     allPresets: List<Preset>,
+    activeCorrectionProfile: CorrectionProfile,
+    allCorrectionProfiles: List<CorrectionProfile>,
     isDirty: Boolean,
     onMasterToggled: (Boolean) -> Unit,
     onOpenSourcePicker: () -> Unit,
     onBypassToggled: (Boolean) -> Unit,
     onPresetSelected: (Preset) -> Unit,
+    onCorrectionProfileSelected: (CorrectionProfile) -> Unit,
     onResetToActivePreset: () -> Unit,
     onSaveAsNewRequest: () -> Unit,
     onDuplicatePreset: (Preset) -> Unit,
@@ -98,7 +106,18 @@ fun EqualizerScreen(
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
-    val headroom = EqualizerInterpolator.calculateHeadroom(settings.bandGainsDb)
+    // M3/M4: headroom from the combined correction+voicing curve, not just the
+    // highest of the discrete post-mapping band gains - see HeadroomCalculator.
+    // Mirrors MainViewModel.recalculateBandGains()'s own combination so the banner
+    // here always agrees with the inputGainDb the engine actually applied.
+    val combinedCurve = CurveComposer.combine(activeCorrectionProfile.curve, activePreset.targetCurve)
+    val headroom =
+        HeadroomCalculator.fromCombinedCurve(
+            combinedCurve = combinedCurve,
+            macroBassDb = settings.macroBassDb,
+            macroPunchDb = settings.macroPunchDb,
+            macroHaerteDb = settings.macroHaerteDb,
+        )
 
     Column(
         modifier =
@@ -241,6 +260,70 @@ fun EqualizerScreen(
             }
         }
 
+        // M4 "Angewandten Input-Gain permanent anzeigen" / "Limiter-Status und
+        // verwendeten Threshold anzeigen" / "Warnstufen definieren" / MBC-
+        // Transparenz. Always visible (unlike the clipping banner above), since M4
+        // explicitly asks for the applied input gain to be shown *permanently*,
+        // not just when there's a clipping risk.
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = CardShape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, HardBassCardBorder),
+        ) {
+            Column(modifier = Modifier.padding(spacing.medium)) {
+                Text(
+                    text = "Signal & Sicherheit",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(spacing.small))
+
+                Text(
+                    text = "Input-Gain: ${String.format("%+.1f", settings.inputGainDb)} dB",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text =
+                        if (settings.limiterEnabled) {
+                            "Limiter: aktiv, Threshold ${String.format("%.1f", settings.limiterThresholdDb)} dB"
+                        } else {
+                            "Limiter: deaktiviert"
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text =
+                        if (settings.mbcEnabled) {
+                            "Mehrband-Kompressor: aktiv (Wirkung geschätzt, nicht gemessen)"
+                        } else {
+                            "Mehrband-Kompressor: deaktiviert"
+                        },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(modifier = Modifier.height(spacing.extraSmall))
+
+                val warningLevel = HeadroomWarningLevelCalculator.fromHeadroom(headroom)
+                val (warningText, warningColor) =
+                    when (warningLevel) {
+                        HeadroomWarningLevel.SUFFICIENT ->
+                            "Ausreichend Headroom" to MaterialTheme.colorScheme.onSurfaceVariant
+                        HeadroomWarningLevel.OCCASIONAL_LIMITING ->
+                            "Limiter arbeitet voraussichtlich gelegentlich (geschätzt)" to MaterialTheme.colorScheme.tertiary
+                        HeadroomWarningLevel.HEAVY_LIMITING ->
+                            "Voraussichtlich dauerhaft starke Begrenzung (geschätzt)" to MaterialTheme.colorScheme.error
+                    }
+                Text(
+                    text = warningText,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = warningColor,
+                )
+            }
+        }
+
         // No-session guidance: AudioSessionForegroundService now listens for the
         // OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast in the background, independent
         // of whether this screen is open, so the "app wasn't running yet" case is
@@ -289,7 +372,31 @@ fun EqualizerScreen(
             }
         }
 
-        // Presets Selector Card
+        // M3 "Mein Kopfhörer" Card: which headphone/speaker correction curve is
+        // combined with the voicing preset below (Klangstil card).
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = CardShape,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, HardBassCardBorder),
+        ) {
+            Column(modifier = Modifier.padding(spacing.medium)) {
+                Text(
+                    text = "Mein Kopfhörer",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                Spacer(modifier = Modifier.height(spacing.small))
+                CorrectionProfileRow(
+                    profiles = allCorrectionProfiles,
+                    activeProfileId = activeCorrectionProfile.id,
+                    onProfileSelected = onCorrectionProfileSelected,
+                    spacing = spacing,
+                )
+            }
+        }
+
+        // Klangstil (Voicing) Selector Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = CardShape,
@@ -303,7 +410,7 @@ fun EqualizerScreen(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Presets",
+                        text = "Klangstil",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                     )
@@ -460,6 +567,55 @@ private fun PresetGrid(
                 }
                 repeat(3 - row.size) {
                     Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+// Horizontally scrollable row of selectable chips - simpler than PresetGrid's
+// icon cards since a correction profile is just a name + source label, no icon.
+// M5 (AutoEQ import) is what actually populates this beyond BuiltInCorrectionProfiles.None.
+@Composable
+private fun CorrectionProfileRow(
+    profiles: List<CorrectionProfile>,
+    activeProfileId: String,
+    onProfileSelected: (CorrectionProfile) -> Unit,
+    spacing: Spacing,
+) {
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(spacing.small),
+    ) {
+        profiles.forEach { profile ->
+            val selected = profile.id == activeProfileId
+            val borderColor = if (selected) MaterialTheme.colorScheme.primary else HardBassCardBorder
+            val containerColor =
+                if (selected) {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                }
+            val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+
+            Surface(
+                onClick = { onProfileSelected(profile) },
+                shape = RoundedCornerShape(14.dp),
+                color = containerColor,
+                border = BorderStroke(1.dp, borderColor),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = spacing.small, vertical = spacing.extraSmall)) {
+                    Text(
+                        text = profile.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentColor,
+                    )
+                    Text(
+                        text = profile.sourceLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = contentColor,
+                    )
                 }
             }
         }

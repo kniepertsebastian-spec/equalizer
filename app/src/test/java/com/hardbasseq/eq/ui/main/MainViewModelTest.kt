@@ -11,12 +11,16 @@ import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.correction.CorrectionProfile
+import com.hardbasseq.eq.correction.CorrectionProfileRepository
+import com.hardbasseq.eq.data.profile.DeviceProfileEntity
 import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetRepository
+import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
 import kotlinx.coroutines.Dispatchers
@@ -410,6 +414,8 @@ class MainViewModelTest {
                     playerBridge = FakePlayerBridge(),
                     presetRepository = presetRepository,
                     appSettingsRepository = FakeAppSettingsRepository(),
+                    correctionProfileRepository = FakeCorrectionProfileRepository(),
+                    deviceProfileRepository = FakeDeviceProfileRepository(),
                     backgroundDispatcher = dispatcher,
                 )
             dispatcher.scheduler.advanceUntilIdle()
@@ -552,6 +558,8 @@ class MainViewModelTest {
         playerBridge: PlayerBridge = FakePlayerBridge(),
         presetRepository: PresetRepository = FakePresetRepository(),
         appSettingsRepository: AppSettingsRepository = FakeAppSettingsRepository(),
+        correctionProfileRepository: CorrectionProfileRepository = FakeCorrectionProfileRepository(),
+        deviceProfileRepository: DeviceProfileRepository = FakeDeviceProfileRepository(),
     ): MainViewModel =
         MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
@@ -561,6 +569,8 @@ class MainViewModelTest {
             playerBridge = playerBridge,
             presetRepository = presetRepository,
             appSettingsRepository = appSettingsRepository,
+            correctionProfileRepository = correctionProfileRepository,
+            deviceProfileRepository = deviceProfileRepository,
             backgroundDispatcher = dispatcher,
         )
 
@@ -651,6 +661,56 @@ class MainViewModelTest {
         override suspend fun save(liveSettings: LiveSettings) {
             savedSettings.add(liveSettings)
             settings.value = liveSettings
+        }
+    }
+
+    private class FakeCorrectionProfileRepository(
+        initial: List<CorrectionProfile> = emptyList(),
+    ) : CorrectionProfileRepository {
+        private val profiles = MutableStateFlow(initial)
+        override val customProfiles: Flow<List<CorrectionProfile>> = profiles
+
+        val savedProfiles = mutableListOf<CorrectionProfile>()
+
+        override suspend fun save(profile: CorrectionProfile) {
+            savedProfiles.add(profile)
+            profiles.value = profiles.value.filterNot { it.id == profile.id } + profile
+        }
+
+        override suspend fun delete(id: String) {
+            profiles.value = profiles.value.filterNot { it.id == id }
+        }
+    }
+
+    private class FakeDeviceProfileRepository(
+        initial: Map<String, DeviceProfileEntity> = emptyMap(),
+    ) : DeviceProfileRepository {
+        private val byRoute = initial.toMutableMap()
+        private val allFlow = MutableStateFlow(initial.values.toList())
+        override val allProfiles: Flow<List<DeviceProfileEntity>> = allFlow
+
+        val savedBindings = mutableListOf<DeviceProfileEntity>()
+
+        override suspend fun getProfileForRoute(routeId: String): DeviceProfileEntity? = byRoute[routeId]
+
+        override suspend fun saveProfile(
+            routeId: String,
+            routeType: String,
+            displayName: String,
+            boundPresetId: String,
+            boundCorrectionProfileId: String,
+        ) {
+            val entity =
+                DeviceProfileEntity(
+                    routeId = routeId,
+                    routeType = routeType,
+                    displayName = displayName,
+                    boundPresetId = boundPresetId,
+                    boundCorrectionProfileId = boundCorrectionProfileId,
+                )
+            byRoute[routeId] = entity
+            savedBindings.add(entity)
+            allFlow.value = byRoute.values.toList()
         }
     }
 }

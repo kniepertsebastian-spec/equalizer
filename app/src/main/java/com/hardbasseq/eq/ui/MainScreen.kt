@@ -69,6 +69,8 @@ fun MainScreen(
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
     val allPresets by viewModel.allPresets.collectAsStateWithLifecycle()
+    val activeCorrectionProfile by viewModel.activeCorrectionProfile.collectAsStateWithLifecycle()
+    val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
     val pendingDeletePreset by viewModel.pendingDeletePreset.collectAsStateWithLifecycle()
     val showSourcePicker by viewModel.showSourcePicker.collectAsStateWithLifecycle()
@@ -146,11 +148,14 @@ fun MainScreen(
                 bands = capabilities.bands,
                 activePreset = activePreset,
                 allPresets = allPresets,
+                activeCorrectionProfile = activeCorrectionProfile,
+                allCorrectionProfiles = allCorrectionProfiles,
                 isDirty = isDirty,
                 onMasterToggled = { viewModel.setMasterEnabled(it) },
                 onOpenSourcePicker = { viewModel.openSourcePicker() },
                 onBypassToggled = { viewModel.setBypass(it) },
                 onPresetSelected = { viewModel.selectPreset(it) },
+                onCorrectionProfileSelected = { viewModel.selectCorrectionProfile(it) },
                 onResetToActivePreset = { viewModel.resetToActivePreset() },
                 onSaveAsNewRequest = { showSaveAsNewDialog = true },
                 onDuplicatePreset = { viewModel.duplicatePreset(it) },

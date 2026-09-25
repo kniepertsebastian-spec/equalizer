@@ -3,6 +3,7 @@ package com.hardbasseq.eq.di
 import android.content.Context
 import androidx.room.Room
 import com.hardbasseq.eq.data.db.AppDatabase
+import com.hardbasseq.eq.data.db.CorrectionProfileDao
 import com.hardbasseq.eq.data.db.DeviceProfileDao
 import com.hardbasseq.eq.data.db.PresetDao
 import dagger.Module
@@ -40,4 +41,7 @@ object DatabaseModule {
 
     @Provides
     fun provideDeviceProfileDao(db: AppDatabase): DeviceProfileDao = db.deviceProfileDao()
+
+    @Provides
+    fun provideCorrectionProfileDao(db: AppDatabase): CorrectionProfileDao = db.correctionProfileDao()
 }
