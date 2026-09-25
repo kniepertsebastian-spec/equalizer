@@ -127,6 +127,34 @@ Die Schätzungen sind Richtwerte für eine Person und setzen voraus, dass keine 
 
 M1 ist ein Stop-or-Go-Punkt. Wird auf wichtigen Playern keine verlässliche Fremd-Session-Anbindung erreicht, muss vor M3 entschieden werden, ob ein eigener Player Teil des Produkts wird. Ein parametrischer System-EQ darf vorher nicht versprochen werden.
 
+### Umsetzungsstand (siehe `roadmap.md` Session 19 für Details)
+
+- ✅ Zustandsautomat (`Detached`/`Listening`/`Attaching`/`Active`/`LostControl`/
+  `Retrying`/`Unsupported`/`Error`) gemäß `docs/STATE_MACHINE.md` umgesetzt in
+  `AudioEngineState.kt`/`AndroidAudioEngine.kt`.
+- ✅ Begrenztes Re-Attach mit Backoff (`MAX_RETRY_ATTEMPTS`, 2s–30s) sowie ein
+  manueller „Erneut versuchen"-Weg (`AudioEngine.retry()`) implementiert.
+  Session-Wechsel werden über einen Generationszähler atomar behandelt.
+- ✅ Eindeutiger UI-Status in `EqualizerScreen.kt` (Status-Chip für alle
+  Zustände oben).
+- ⏳ **Technische Produktentscheidung (A/B/C):** faktisch bereits Richtung
+  **C (Hybrid)** unterwegs – ein eigener Player (`:player`-Modul, ursprünglich
+  eigenständiges Repo, siehe `settings.gradle.kts`) wurde eingebunden und
+  spielt SoundCloud über die SoundCloud-API selbst ab, sodass HardBass EQ an
+  die eigene, garantiert vorhandene Session anhängt statt auf SoundClouds
+  fehlenden Broadcast zu warten (`PlayerBridge`/`AndroidPlayerBridge` in
+  `app/src/main/java/com/hardbasseq/eq/integration/`). Spotify läuft weiterhin
+  über den klassischen Session-Attach (Option A), da es den Broadcast sendet.
+  YouTube ist im Player als `PlayerSource.YOUTUBE` vorgesehen, aber laut
+  `roadmap.md` Session 19 noch nicht funktionsfähig ("und, später, YouTube").
+  **`docs/DECISIONS.md`s Entscheidungsvorlage ist damit inhaltlich überholt**
+  (dort steht noch "Noch nicht entschieden") – die formale Entscheidung
+  nachträglich dort festzuhalten ist offen, siehe dortige Notiz.
+- ⏳ Foreground-Service-Tests gegen Prozessneustart/fehlende Notification-
+  Berechtigung: noch nicht durchgeführt.
+- Nicht auf echter Hardware verifiziert (Re-Attach-Backoff-Verhalten); die
+  95-%-Attach-Abnahmekriterium-Messung über 50 Starts steht ebenfalls aus.
+
 ## M2 – Persistenz und Custom-Workflow
 
 **Zweck:** Nutzerentscheidungen bleiben erhalten und sind nachvollziehbar.
@@ -397,11 +425,12 @@ Jeder Release-Kandidat wird mindestens mit folgenden Abläufen geprüft:
 
 - ✅ Punkt 2 (Session-Ereignisprotokoll mit Zeitstempeln): `DiagnosticsRecorder` umgesetzt.
 - ✅ Punkt 5 (Sweep als zweites Testsignal): `LogarithmicSweepGenerator` in die M0-Spike-Werkzeuge eingebunden.
-- ✅ Punkt 1 (Testmatrix-Vorlage) und Punkt 6 (Entscheidungsvorlage): als ausfüllbare Vorlagen in `docs/TEST_MATRIX.md` bzw. `docs/DECISIONS.md` ergänzt – **die eigentlichen Gerätetests und die Entscheidung selbst sind nicht durch Code ersetzbar** und bleiben offen.
-- ✅ Punkt 3 (Zustandsautomat `LostControl`/`Retrying` spezifizieren): Spezifikation in `docs/STATE_MACHINE.md` – Ziel-Zustandsmenge (inkl. neuer `Listening`-/`Retrying`-Zustände, Wegfall des toten `Suspended`-Zustands), Übergangstabelle, Backoff-Policy (5 Versuche, 2s–30s) und UI-Status-Mapping. **Die eigentliche Umsetzung in `AudioEngineState.kt`/`AndroidAudioEngine.kt` ist M1-Arbeit und bleibt offen.**
-- ⏳ Punkt 4 (vier Startreihenfolgen auf echten Geräten testen): Schritt-für-Schritt-Ausführungsanleitung in `docs/TEST_MATRIX.md` ("Ausführungsanleitung für Punkt 4") ergänzt. Erste reale Rückmeldung (24. September 2026): Spotify wird erkannt, SoundCloud und YouTube nicht – erwartetes Verhalten des rein Broadcast-basierten Session-Mechanismus, siehe `docs/TEST_MATRIX.md` "Reale Rückmeldung". Ein Versuch, das über `AudioManager.AudioPlaybackCallback` broadcast-unabhängig zu lösen, **scheiterte am CI-Build** (die benötigten `AudioPlaybackConfiguration`-Member sind entgegen der Annahme kein Teil der öffentlichen Android-API) und wurde zurückgerollt. Es gibt aktuell keinen bekannten Code-Weg, der SoundCloud/YouTube für den Session-basierten Ansatz erreichbar macht – siehe `docs/DECISIONS.md` Release-Gate A, das damit näher an eine B/C-Entscheidung (eigener Player/Audio-Capture) rückt.
-- Punkt 7 (Re-Attach-Implementierung) bewusst **nicht** begonnen, wie im Sprint-Backlog selbst gefordert ("erst danach") – zusätzlich blockiert durch das noch offene Punkt 4.
-- **Damit ist Sprint 0 vollständig so weit umgesetzt, wie es ohne echte Geräte und ohne die Produktentscheidung (Punkt 6) aus Punkt 1 möglich ist.** Die verbleibenden Schritte erfordern zwingend menschliches Handeln (Gerätetests, Entscheidung), siehe `docs/TEST_MATRIX.md` und `docs/DECISIONS.md`.
+- ✅ Punkt 1 (Testmatrix-Vorlage): als ausfüllbare Vorlage in `docs/TEST_MATRIX.md` ergänzt und seither durch reale Tests befüllt (siehe Punkt 4 unten).
+- ✅ Punkt 3 (Zustandsautomat `LostControl`/`Retrying` spezifizieren): Spezifikation in `docs/STATE_MACHINE.md` – Ziel-Zustandsmenge (inkl. neuer `Listening`-/`Retrying`-Zustände, Wegfall des toten `Suspended`-Zustands), Übergangstabelle, Backoff-Policy (5 Versuche, 2s–30s) und UI-Status-Mapping. Umgesetzt in `AudioEngineState.kt`/`AndroidAudioEngine.kt` – siehe M1-Umsetzungsstand oben.
+- ✅ Punkt 4 (vier Startreihenfolgen auf echten Geräten testen, 25. September 2026): laut Rückmeldung durchgeführt und abgeschlossen. Frühere informelle Zwischenmeldung (Spotify erkannt, SoundCloud/YouTube nicht) blieb der letzte dokumentierte Einzelbefund, siehe `docs/TEST_MATRIX.md` "Reale Rückmeldung" – die formalen Tabellenzeilen dort sind weiterhin nicht ausgefüllt; falls es beim endgültigen Testlauf abweichende oder zusätzliche Ergebnisse gab, bitte kurz nachreichen, dann trage ich sie nach.
+- ✅ Punkt 7 (Re-Attach-Implementierung, 25. September 2026): begrenztes Re-Attach mit Backoff umgesetzt – siehe M1-Umsetzungsstand oben. Lief über einen parallel entstandenen PR (nicht PR #23 aus dieser Sandbox, der als überholt geschlossen wurde – siehe `roadmap.md` Session 19).
+- ⏳ Punkt 6 (Entscheidungsvorlage ausfüllen/Entscheidung treffen): faktisch Richtung Hybrid (Option C) unterwegs (eigener SoundCloud-Player ergänzt, Spotify bleibt Session-Attach), aber `docs/DECISIONS.md` hält das noch nicht als getroffene Entscheidung fest – siehe dortige Notiz und M1-Umsetzungsstand oben.
+- **Damit sind Punkt 1–5 und 7 des Sprint-0-Backlogs erledigt; Punkt 6 (die formale Entscheidung in `docs/DECISIONS.md` nachtragen) ist der einzige noch offene Punkt.**
 
 ## 9. Release-Kennzahlen
 

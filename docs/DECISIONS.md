@@ -74,6 +74,20 @@ Die Entscheidung bleibt offen, rückt aber näher an B/C. **Bewusst auf
 später verschoben** (24. September 2026) – blockiert Sprint 0 nicht mehr,
 siehe „Für später notiert" unten für die vollständige Einordnung.
 
+**Nachtrag (25. September 2026):** Faktisch bereits Richtung **Option C
+(Hybrid)** unterwegs, unabhängig von diesem Dokument entstanden: Ein eigener
+Player (`:player`-Modul, ursprünglich eigenständiges Repo, siehe
+`settings.gradle.kts` und `roadmap.md` Session 19) spielt SoundCloud über die
+SoundCloud-API selbst ab, wodurch HardBass EQ an die eigene, garantiert
+vorhandene Session anhängt (`PlayerBridge`/`AndroidPlayerBridge`) – SoundClouds
+fehlender `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-Broadcast spielt damit
+keine Rolle mehr. Spotify bleibt beim klassischen Session-Attach (Option A),
+da es den Broadcast sendet. YouTube ist im Player als Quelle vorgesehen, aber
+laut Session-19-Log noch nicht funktionsfähig. Diese Zeilen halten das nur
+nachträglich fest – **die Entscheidung selbst wurde nicht hier, sondern
+direkt im Code getroffen**; ob das rückwirkend so gewollt war/bleibt, ist
+noch nicht ausdrücklich bestätigt.
+
 ### Für später notiert: Root-Modus und Cross-Platform (Android/iOS/Web)
 
 Nicht Teil von Sprint 0 oder M1, aber als Kontext für die spätere B/C-
