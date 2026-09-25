@@ -25,9 +25,14 @@ class SoundCloudLoginActivity : AppCompatActivity() {
         // blocks ("This browser or app may not be secure"), since SoundCloud's
         // sign-in is Facebook/Google/Apple-only now (no email/password form).
         // A UA matching a real Chrome build sidesteps that block.
+        //
+        // Must be a DESKTOP UA: soundcloud.com 307-redirects any mobile-looking UA
+        // (including a mobile Chrome one) to m.soundcloud.com/signin instead, an
+        // unverified separate flow - stick to the desktop /signin page this was
+        // actually tested against.
         private const val CHROME_USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
         fun getSavedToken(context: Context): String? {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)

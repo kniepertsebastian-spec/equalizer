@@ -9,6 +9,9 @@ import android.os.IBinder
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
@@ -66,6 +69,22 @@ class PlayerActivity : AppCompatActivity() {
 
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Android 15+ (targetSdk 36 here, via :app) enforces edge-to-edge, so
+        // content draws under the status/nav bars by default unless something
+        // consumes those insets - equalizer's other (Compose) screens get this for
+        // free from Scaffold, this plain-View one doesn't.
+        val basePaddingPx = (16 * resources.displayMetrics.density).toInt()
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.updatePadding(
+                left = basePaddingPx + bars.left,
+                top = basePaddingPx + bars.top,
+                right = basePaddingPx + bars.right,
+                bottom = basePaddingPx + bars.bottom,
+            )
+            insets
+        }
 
         val serviceIntent = Intent(this, AudioPlayerService::class.java)
         bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)

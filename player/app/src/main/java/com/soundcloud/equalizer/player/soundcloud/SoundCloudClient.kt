@@ -22,9 +22,15 @@ class SoundCloudClient(
     companion object {
         // Matches SoundCloudLoginActivity's WebView UA - a generic OkHttp UA is an
         // easy anti-bot tell, this at least looks like the same browser that logged in.
+        //
+        // Must be a DESKTOP UA, not a mobile one: verified live that soundcloud.com
+        // 307-redirects any mobile-looking UA to m.soundcloud.com, a completely
+        // different (Next.js) site whose script bundles don't match the
+        // a-v2.sndcdn.com/assets/*.js pattern below at all, so client_id scraping
+        // silently found zero matches with a mobile UA.
         private const val USER_AGENT =
-            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 " +
-                "(KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36"
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     }
 
     @Volatile
