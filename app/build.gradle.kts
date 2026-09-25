@@ -58,6 +58,10 @@ ktlint {
 dependencies {
     // Shared preset/DSP domain logic - also used by the :desktop module.
     implementation(project(":core"))
+    // SC Equalizer Player: the companion source screen the master bar's source
+    // picker launches (see PlayerBridge). A library module now, merged into this
+    // single app's manifest/APK instead of its own separate app.
+    implementation(project(":player"))
 
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)

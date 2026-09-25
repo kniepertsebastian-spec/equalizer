@@ -17,7 +17,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import com.soundcloud.equalizer.player.MainActivity
+import com.soundcloud.equalizer.player.PlayerActivity
 
 class AudioPlayerService : Service() {
 
@@ -184,7 +184,7 @@ class AudioPlayerService : Service() {
     }
 
     private fun buildNotification(title: String, artist: String, isPlaying: Boolean): Notification {
-        val intent = Intent(this, MainActivity::class.java)
+        val intent = Intent(this, PlayerActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
             this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE

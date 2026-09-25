@@ -9,7 +9,8 @@ import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
 import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
-import com.hardbasseq.eq.integration.PlayerLauncher
+import com.hardbasseq.eq.integration.PlayerBridge
+import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInPresets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -137,60 +138,77 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `enabling master with no session and player installed launches the player`() =
+    fun `enabling master with no session shows the source picker`() =
         runTest {
-            val playerLauncher = FakePlayerLauncher(installed = true)
-            val viewModel = createViewModel(emptyList(), playerLauncher)
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
 
             viewModel.setMasterEnabled(true)
 
-            assertEquals(1, playerLauncher.launchCount)
+            assertTrue(viewModel.showSourcePicker.value)
+            assertEquals(0, playerBridge.launchCount)
         }
 
     @Test
-    fun `enabling master with an active session does not launch the player`() =
+    fun `enabling master with an active session does not show the source picker`() =
         runTest {
-            val playerLauncher = FakePlayerLauncher(installed = true)
-            val viewModel = createViewModel(emptyList(), playerLauncher)
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
             fakeEngine.attach(AudioSession(sessionId = 42))
 
             viewModel.setMasterEnabled(true)
 
-            assertEquals(0, playerLauncher.launchCount)
+            assertFalse(viewModel.showSourcePicker.value)
         }
 
     @Test
-    fun `enabling master without the player installed does not attempt to launch it`() =
+    fun `choosing a source launches the player and hides the picker`() =
         runTest {
-            val playerLauncher = FakePlayerLauncher(installed = false)
-            val viewModel = createViewModel(emptyList(), playerLauncher)
-
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
             viewModel.setMasterEnabled(true)
 
-            assertEquals(0, playerLauncher.launchCount)
+            viewModel.choosePlayerSource(PlayerSource.SOUNDCLOUD)
+
+            assertFalse(viewModel.showSourcePicker.value)
+            assertEquals(1, playerBridge.launchCount)
+            assertEquals(PlayerSource.SOUNDCLOUD, playerBridge.lastLaunchedSource)
         }
 
     @Test
-    fun `disabling master stops the player when installed`() =
+    fun `dismissing the source picker does not launch the player`() =
         runTest {
-            val playerLauncher = FakePlayerLauncher(installed = true)
-            val viewModel = createViewModel(emptyList(), playerLauncher)
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+            viewModel.setMasterEnabled(true)
+
+            viewModel.dismissSourcePicker()
+
+            assertFalse(viewModel.showSourcePicker.value)
+            assertEquals(0, playerBridge.launchCount)
+        }
+
+    @Test
+    fun `disabling master stops the player`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
 
             viewModel.setMasterEnabled(false)
 
-            assertEquals(1, playerLauncher.stopCount)
+            assertEquals(1, playerBridge.stopCount)
         }
 
     private fun createViewModel(
         descriptors: List<AudioEffectDescriptor>,
-        playerLauncher: PlayerLauncher = FakePlayerLauncher(),
+        playerBridge: PlayerBridge = FakePlayerBridge(),
     ): MainViewModel =
         MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
             audioEngine = fakeEngine,
             routeRepository = fakeRouteRepo,
             diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
-            playerLauncher = playerLauncher,
+            playerBridge = playerBridge,
             backgroundDispatcher = dispatcher,
         )
 
@@ -226,18 +244,17 @@ class MainViewModelTest {
         override fun stopMonitoring() {}
     }
 
-    private class FakePlayerLauncher(
-        private val installed: Boolean = true,
-    ) : PlayerLauncher {
+    private class FakePlayerBridge : PlayerBridge {
         var launchCount = 0
             private set
         var stopCount = 0
             private set
+        var lastLaunchedSource: PlayerSource? = null
+            private set
 
-        override fun isPlayerInstalled(): Boolean = installed
-
-        override fun launchPlayer() {
+        override fun launchPlayer(source: PlayerSource) {
             launchCount++
+            lastLaunchedSource = source
         }
 
         override fun stopPlayer() {

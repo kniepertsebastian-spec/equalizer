@@ -12,21 +12,28 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
-import com.soundcloud.equalizer.player.databinding.ActivityMainBinding
+import com.soundcloud.equalizer.player.databinding.ActivityPlayerBinding
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.service.AudioPlayerService
 import com.soundcloud.equalizer.player.soundcloud.SoundCloudClient
 import com.soundcloud.equalizer.player.ui.TrackAdapter
 import kotlinx.coroutines.launch
 
-class MainActivity : AppCompatActivity() {
+/**
+ * Started explicitly by HardBass EQ (via PlayerBridge) once the user switches the
+ * master bar on and picks a source - not a launcher entry point of its own. Only
+ * [SOURCE_SOUNDCLOUD] is implemented; [SOURCE_YOUTUBE] is a placeholder until that
+ * source gets its own extractor.
+ */
+class PlayerActivity : AppCompatActivity() {
 
     companion object {
-        // Matches PlayerLauncher.EXTRA_LAUNCHED_FROM_EQUALIZER in the HardBass EQ app.
-        const val EXTRA_LAUNCHED_FROM_EQUALIZER = "com.hardbasseq.eq.EXTRA_LAUNCHED_FROM_EQUALIZER"
+        const val EXTRA_SOURCE = "com.hardbasseq.eq.EXTRA_PLAYER_SOURCE"
+        const val SOURCE_SOUNDCLOUD = "soundcloud"
+        const val SOURCE_YOUTUBE = "youtube"
     }
 
-    private lateinit var binding: ActivityMainBinding
+    private lateinit var binding: ActivityPlayerBinding
     private val soundCloudClient = SoundCloudClient()
     private var audioService: AudioPlayerService? = null
     private var isBound = false
@@ -50,19 +57,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
+
+        if (intent?.getStringExtra(EXTRA_SOURCE) == SOURCE_YOUTUBE) {
+            Toast.makeText(this, "YouTube isn't supported yet - pick SoundCloud for now", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+
+        binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Bind Service
         val serviceIntent = Intent(this, AudioPlayerService::class.java)
         bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
         startService(serviceIntent)
 
-        // Setup RecyclerView
         binding.rvItems.layoutManager = LinearLayoutManager(this)
         binding.rvItems.adapter = trackAdapter
 
-        // Check login token
         val savedToken = SoundCloudLoginActivity.getSavedToken(this)
         if (savedToken != null) {
             soundCloudClient.setUserAuthToken(savedToken)
@@ -70,20 +81,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.btnLogin.setOnClickListener {
-            val intent = Intent(this, SoundCloudLoginActivity::class.java)
-            startActivity(intent)
+            startActivity(Intent(this, SoundCloudLoginActivity::class.java))
         }
 
-        // Equalizer Binding Switch Bar
-        binding.switchEqualizerBinding.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                onEqualizerBindingOn()
-            } else {
-                onEqualizerBindingOff()
-            }
-        }
-
-        // Search Button
         binding.btnSearch.setOnClickListener {
             val query = binding.etSearchQuery.text.toString().trim()
             if (query.isNotEmpty()) {
@@ -91,7 +91,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Play/Pause Button in Now Playing bar
         binding.btnPlayPause.setOnClickListener {
             audioService?.let { service ->
                 if (service.isPlaying()) {
@@ -104,42 +103,17 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (intent?.getBooleanExtra(EXTRA_LAUNCHED_FROM_EQUALIZER, false) == true) {
-            binding.switchEqualizerBinding.isChecked = true
-        }
+        performSearch("chill")
     }
 
     override fun onResume() {
         super.onResume()
+        if (!::binding.isInitialized) return
         val savedToken = SoundCloudLoginActivity.getSavedToken(this)
         if (savedToken != null) {
             soundCloudClient.setUserAuthToken(savedToken)
             binding.btnLogin.text = "Logged In (Go)"
         }
-    }
-
-    private fun onEqualizerBindingOn() {
-        binding.tvEqStatusHeader.text = "Equalizer Player Mode: ACTIVE"
-        binding.tvEqStatusSub.text = "ON - Equalizer bound to SoundCloud player session"
-        binding.layoutActivePlayerContent.visibility = View.VISIBLE
-        binding.layoutWaitingState.visibility = View.GONE
-
-        // Broadcast/Trigger open audio session on service
-        audioService?.openAudioSession()
-
-        // Fetch default trending/featured playlists and tracks
-        performSearch("chill")
-    }
-
-    private fun onEqualizerBindingOff() {
-        binding.tvEqStatusHeader.text = "Equalizer Player Mode: INACTIVE"
-        binding.tvEqStatusSub.text = "OFF - Resuming waiting for external audio..."
-        binding.layoutActivePlayerContent.visibility = View.GONE
-        binding.layoutWaitingState.visibility = View.VISIBLE
-
-        // Stop playback and release audio effect session
-        audioService?.stopPlayer()
-        binding.cardNowPlaying.visibility = View.GONE
     }
 
     private fun performSearch(query: String) {
@@ -149,10 +123,10 @@ class MainActivity : AppCompatActivity() {
                 if (tracks.isNotEmpty()) {
                     trackAdapter.submitList(tracks)
                 } else {
-                    Toast.makeText(this@MainActivity, "No tracks found", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@PlayerActivity, "No tracks found", Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@MainActivity, "Search error: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@PlayerActivity, "Search error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -176,10 +150,10 @@ class MainActivity : AppCompatActivity() {
                         binding.tvNowPlayingArtist.text = target.artist
                         binding.btnPlayPause.text = "Pause"
                     } else {
-                        Toast.makeText(this@MainActivity, "Unable to stream this track", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@PlayerActivity, "Unable to stream this track", Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
-                    Toast.makeText(this@MainActivity, "Playback error: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@PlayerActivity, "Playback error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
         }

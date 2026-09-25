@@ -11,10 +11,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
+import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.main.MainViewModel
 
@@ -47,7 +50,15 @@ fun MainScreen(
     val route by viewModel.currentRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
+    val showSourcePicker by viewModel.showSourcePicker.collectAsStateWithLifecycle()
     var showSpikeSection by remember { mutableStateOf(false) }
+
+    if (showSourcePicker) {
+        PlayerSourcePickerDialog(
+            onSourceChosen = { viewModel.choosePlayerSource(it) },
+            onDismiss = { viewModel.dismissSourcePicker() },
+        )
+    }
 
     Scaffold(containerColor = Color.Transparent) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
@@ -120,6 +131,28 @@ fun MainScreen(
             }
         }
     }
+}
+
+@Composable
+private fun PlayerSourcePickerDialog(
+    onSourceChosen: (PlayerSource) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Play from...") },
+        text = { Text("No audio session found yet. Start the player so HardBass EQ has something to process.") },
+        confirmButton = {
+            TextButton(onClick = { onSourceChosen(PlayerSource.SOUNDCLOUD) }) {
+                Text("SoundCloud")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onSourceChosen(PlayerSource.YOUTUBE) }) {
+                Text("YouTube")
+            }
+        },
+    )
 }
 
 @Composable

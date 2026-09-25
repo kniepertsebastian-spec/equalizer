@@ -13,7 +13,8 @@ import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.di.DefaultDispatcher
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
-import com.hardbasseq.eq.integration.PlayerLauncher
+import com.hardbasseq.eq.integration.PlayerBridge
+import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.Preset
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -42,11 +43,14 @@ class MainViewModel
         private val audioEngine: AudioEngine,
         private val routeRepository: AudioRouteRepository,
         private val diagnosticsRecorder: DiagnosticsRecorder,
-        private val playerLauncher: PlayerLauncher,
+        private val playerBridge: PlayerBridge,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
         val showDebugEffects: StateFlow<Boolean> = _showDebugEffects.asStateFlow()
+
+        private val _showSourcePicker = MutableStateFlow(false)
+        val showSourcePicker: StateFlow<Boolean> = _showSourcePicker.asStateFlow()
 
         private val _effectDescriptors = MutableStateFlow<List<AudioEffectDescriptor>>(emptyList())
         val effectDescriptors: StateFlow<List<AudioEffectDescriptor>> = _effectDescriptors.asStateFlow()
@@ -99,18 +103,27 @@ class MainViewModel
             val newSettings = _processingSettings.value.copy(masterEnabled = enabled)
             applySettings(newSettings)
 
-            if (!playerLauncher.isPlayerInstalled()) return
             if (enabled) {
-                // Only auto-start the companion player when nothing is attached yet -
-                // if some other app is already playing, flipping the master bar on
-                // should just enable processing for that session, not also launch
-                // an unrelated player on top of it.
+                // Only offer to start the player when nothing is attached yet - if
+                // some other app is already playing, flipping the master bar on
+                // should just enable processing for that session, not also prompt
+                // to launch an unrelated player on top of it.
                 if (engineState.value is AudioEngineState.Detached) {
-                    playerLauncher.launchPlayer()
+                    _showSourcePicker.value = true
                 }
             } else {
-                playerLauncher.stopPlayer()
+                _showSourcePicker.value = false
+                playerBridge.stopPlayer()
             }
+        }
+
+        fun choosePlayerSource(source: PlayerSource) {
+            _showSourcePicker.value = false
+            playerBridge.launchPlayer(source)
+        }
+
+        fun dismissSourcePicker() {
+            _showSourcePicker.value = false
         }
 
         fun setBypass(bypass: Boolean) {
