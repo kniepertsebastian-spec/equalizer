@@ -13,6 +13,8 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 
 class SoundCloudLoginActivity : AppCompatActivity() {
 
@@ -48,6 +50,19 @@ class SoundCloudLoginActivity : AppCompatActivity() {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             prefs.edit().remove(KEY_OAUTH_TOKEN).apply()
         }
+
+        // Android WebView attaches an "X-Requested-With: <package name>" header to
+        // every request by default, on top of whatever User-Agent is set. Google's
+        // sign-in explicitly checks for that header to detect it's being loaded
+        // inside an embedded WebView rather than a real browser and blocks the
+        // flow ("This browser or app may not be secure") regardless of UA
+        // spoofing - this is the actual mechanism behind that block, not the UA
+        // string. Clearing the allow-list removes the header for every origin.
+        private fun disableRequestedWithHeader(webView: WebView) {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())
+            }
+        }
     }
 
     private lateinit var webView: WebView
@@ -70,6 +85,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
         // silently swallows that call and nothing happens on click.
         webView.settings.setSupportMultipleWindows(true)
         webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        disableRequestedWithHeader(webView)
 
         val cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
@@ -106,6 +122,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                 popup.settings.javaScriptEnabled = true
                 popup.settings.domStorageEnabled = true
                 popup.settings.userAgentString = CHROME_USER_AGENT
+                disableRequestedWithHeader(popup)
                 cookieManager.setAcceptThirdPartyCookies(popup, true)
 
                 val dialog = Dialog(this@SoundCloudLoginActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
