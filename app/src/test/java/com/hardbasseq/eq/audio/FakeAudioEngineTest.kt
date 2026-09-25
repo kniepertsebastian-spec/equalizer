@@ -19,7 +19,7 @@ class FakeAudioEngineTest {
         }
 
     @Test
-    fun detach_transitionsToDetachedState() =
+    fun detach_transitionsToListeningState() =
         runTest {
             val engine = FakeAudioEngine()
             val session = AudioSession(sessionId = 42, packageName = "test.player")
@@ -27,7 +27,7 @@ class FakeAudioEngineTest {
 
             engine.detach()
 
-            assertEquals(AudioEngineState.Detached, engine.state.value)
+            assertEquals(AudioEngineState.Listening, engine.state.value)
         }
 
     @Test

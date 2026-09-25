@@ -23,7 +23,7 @@ class FakeAudioEngine(
     }
 
     override suspend fun detach() {
-        _state.value = AudioEngineState.Detached
+        _state.value = AudioEngineState.Listening
     }
 
     override suspend fun apply(settings: ProcessingSettings): Boolean {

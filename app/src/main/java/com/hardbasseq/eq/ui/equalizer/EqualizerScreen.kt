@@ -124,12 +124,14 @@ fun EqualizerScreen(
                 val (statusText, statusBg) =
                     when (state) {
                         is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to MaterialTheme.colorScheme.primaryContainer
+                        is AudioEngineState.Detached -> "Startet…" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.Listening -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
                         is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Detached -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.LostControl -> "Kontrollverlust" to MaterialTheme.colorScheme.errorContainer
+                        is AudioEngineState.LostControl ->
+                            "Verbindung verloren, versuche erneut…" to MaterialTheme.colorScheme.errorContainer
+                        is AudioEngineState.Retrying -> "Erneuter Versuch ${state.attempt}/5…" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.Unsupported -> "Nicht unterstützt: ${state.reason}" to MaterialTheme.colorScheme.errorContainer
                         is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
-                        is AudioEngineState.Suspended -> "Pausiert: ${state.reason}" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Unsupported -> "Nicht unterstützt" to MaterialTheme.colorScheme.errorContainer
                     }
 
                 Box(

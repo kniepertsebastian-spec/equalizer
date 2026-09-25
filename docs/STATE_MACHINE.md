@@ -174,8 +174,21 @@ nützliche feinere Unterscheidung auf Engine-Ebene zu verlieren (die z. B.
   `AndroidAudioEngine.kt` (M1-Umsetzung).
 - Die vier Start-Reihenfolge-Tests auf echten Geräten
   (`roadmap-2026.md` §8, Punkt 4) — benötigt reale Hardware.
-- Die eigentliche Re-Attach-Implementierung (`roadmap-2026.md` §8, Punkt 7)
-  — laut Backlog-Reihenfolge bewusst erst nach Punkt 4.
 - Die produkt-technische A/B/C-Entscheidung (Session-EQ vs. eigener Player,
   M1-Aufgabe „Technische Produktentscheidung dokumentieren") — das ist
   `docs/DECISIONS.md`, nicht dieses Dokument.
+
+## 7. Umsetzungsstand
+
+**25. September 2026:** Die in §2–§5 spezifizierte Zustandsmenge, Übergangs-
+tabelle und Backoff-Policy sind in `AudioEngineState.kt`/`AndroidAudioEngine.kt`
+umgesetzt (`Listening`/`Retrying` neu, `Suspended` entfernt, `LostControl`
+trägt jetzt `sessionId`, begrenztes Re-Attach mit 5 Versuchen/2s–30s über
+einen `CoroutineScope` + Generationszähler gegen verspätete/überholte
+Retries). `Unsupported` bleibt bewusst unausgelöst – siehe Code-Kommentar in
+`AndroidAudioEngine.kt`s `attachLocked()`-catch-Block: Es gibt keinen
+verlässlichen Weg, "Capability fehlt" von "transienter Fehler" anhand der
+generischen Exception zu unterscheiden; das bleibt für einen späteren,
+expliziten Capability-Vorab-Check reserviert. Nicht auf echter Hardware
+verifiziert (siehe Sprint-0-Punkt 4 oben) – CI (Build/Lint/Unit-Tests) ist
+hier die einzige verfügbare Prüfung.

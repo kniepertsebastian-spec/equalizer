@@ -4,9 +4,16 @@ import android.media.audiofx.DynamicsProcessing
 import android.media.audiofx.Equalizer
 import android.os.Build
 import android.util.Log
+import com.hardbasseq.eq.di.DefaultDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicBoolean
@@ -16,10 +23,16 @@ import javax.inject.Singleton
 private const val TAG = "AndroidAudioEngine"
 private const val MBC_BAND_COUNT = 3
 
+// Bounded exponential backoff for re-attach, per docs/STATE_MACHINE.md section 4: 5 attempts,
+// 2s-30s. No jitter needed - there's no shared service other client instances hammer.
+private val RETRY_DELAYS_MS = longArrayOf(2_000, 4_000, 8_000, 16_000, 30_000)
+
 @Singleton
 class AndroidAudioEngine
     @Inject
-    constructor() : AudioEngine {
+    constructor(
+        @DefaultDispatcher dispatcher: CoroutineDispatcher,
+    ) : AudioEngine {
         private val _capabilities = MutableStateFlow(AudioCapabilities())
         override val capabilities: StateFlow<AudioCapabilities> = _capabilities.asStateFlow()
 
@@ -31,7 +44,7 @@ class AndroidAudioEngine
 
         private var equalizer: Equalizer? = null
         private var dynamicsProcessing: DynamicsProcessing? = null
-        private var currentSessionId: Int? = null
+        private var currentSession: AudioSession? = null
 
         private val isAttached = AtomicBoolean(false)
 
@@ -41,8 +54,23 @@ class AndroidAudioEngine
         // state (roadmap.md M5: "Schutz vor Parameter-Sprüngen und Race Conditions").
         private val mutex = Mutex()
 
+        // Process-scoped like this Singleton itself; never cancelled during normal operation.
+        private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+
+        private var retryJob: Job? = null
+        private var retryAttempt = 0
+
+        // Bumped on every externally triggered attach()/detach() call. A scheduled retry
+        // captures the generation it was scheduled under and checks it before actually
+        // re-attaching, so a stale retry for an old/gone session can't clobber a newer one
+        // (docs/STATE_MACHINE.md transition table: session change or loss discards the
+        // running backoff).
+        private var currentGeneration = 0
+
         override suspend fun attach(session: AudioSession): Boolean =
             mutex.withLock {
+                currentGeneration++
+                retryAttempt = 0
                 attachLocked(session)
             }
 
@@ -50,7 +78,7 @@ class AndroidAudioEngine
             detachInternal()
 
             _state.value = AudioEngineState.Attaching(session.sessionId)
-            currentSessionId = session.sessionId
+            currentSession = session
 
             try {
                 val eq = Equalizer(0, session.sessionId)
@@ -111,21 +139,33 @@ class AndroidAudioEngine
                     )
 
                 isAttached.set(true)
+                retryJob?.cancel()
+                retryJob = null
+                retryAttempt = 0
                 _state.value = AudioEngineState.Active(session.sessionId)
                 applyInternal(_currentSettings.value)
                 return true
             } catch (e: Exception) {
+                // Unsupported (a genuine capability gap, not a transient failure) is
+                // deliberately never inferred from this generic exception - there's no
+                // reliable way to tell "device/session can't do this" apart from "transient,
+                // worth retrying" from the exception alone. It stays reserved for a future,
+                // explicit capability pre-check. Every attach failure is retried instead.
                 Log.e(TAG, "Failed to attach engine to session ${session.sessionId}", e)
                 detachInternal()
-                _state.value = AudioEngineState.Error("Failed to attach session ${session.sessionId}: ${e.localizedMessage}")
+                scheduleRetry(session)
                 return false
             }
         }
 
         override suspend fun detach() =
             mutex.withLock {
+                currentGeneration++
+                retryJob?.cancel()
+                retryJob = null
+                retryAttempt = 0
                 detachInternal()
-                _state.value = AudioEngineState.Detached
+                _state.value = AudioEngineState.Listening
             }
 
         private fun detachInternal() {
@@ -147,7 +187,43 @@ class AndroidAudioEngine
             } finally {
                 dynamicsProcessing = null
             }
-            currentSessionId = null
+            currentSession = null
+        }
+
+        // Schedules a bounded, backed-off re-attach attempt for `session`, or gives up with
+        // Error once RETRY_DELAYS_MS is exhausted. Callers must already hold `mutex` (this is
+        // only called from within attachLocked()/applyInternal()); it only launches a
+        // coroutine, it never awaits the lock itself, so it can't deadlock.
+        private fun scheduleRetry(session: AudioSession) {
+            retryJob?.cancel()
+            if (retryAttempt >= RETRY_DELAYS_MS.size) {
+                _state.value =
+                    AudioEngineState.Error(
+                        "Re-Attach nach ${RETRY_DELAYS_MS.size} Versuchen fehlgeschlagen (Session ${session.sessionId})",
+                    )
+                retryAttempt = 0
+                return
+            }
+            val delayMs = RETRY_DELAYS_MS[retryAttempt]
+            retryAttempt += 1
+            val generation = currentGeneration
+            _state.value =
+                AudioEngineState.Retrying(
+                    sessionId = session.sessionId,
+                    attempt = retryAttempt,
+                    nextRetryAtMillis = System.currentTimeMillis() + delayMs,
+                )
+            retryJob =
+                scope.launch {
+                    delay(delayMs)
+                    mutex.withLock {
+                        // A newer attach()/detach() call happened while we were waiting -
+                        // this retry is for a stale session/state, skip it.
+                        if (generation == currentGeneration) {
+                            attachLocked(session)
+                        }
+                    }
+                }
         }
 
         override suspend fun apply(settings: ProcessingSettings): Boolean =
@@ -253,7 +329,13 @@ class AndroidAudioEngine
                 return true
             } catch (e: Exception) {
                 Log.e(TAG, "Error applying settings to AudioEngine", e)
-                _state.value = AudioEngineState.LostControl("Error applying settings: ${e.localizedMessage}")
+                val session = currentSession
+                if (session != null) {
+                    _state.value = AudioEngineState.LostControl(session.sessionId, "Error applying settings: ${e.localizedMessage}")
+                    scheduleRetry(session)
+                } else {
+                    _state.value = AudioEngineState.Error("Error applying settings: ${e.localizedMessage}")
+                }
                 return false
             }
         }
