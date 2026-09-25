@@ -38,7 +38,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -52,7 +51,9 @@ import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.Preset
+import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
+import com.hardbasseq.eq.ui.equalizer.styleFor
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
 import com.hardbasseq.eq.ui.theme.spacing
@@ -211,7 +212,7 @@ fun MainScreen(
     }
 
     Scaffold(
-        containerColor = Color.Transparent,
+        containerColor = styleFor(PresetDesign.forPreset(activePreset)).background,
         bottomBar = {
             nowPlaying?.let { playing ->
                 NowPlayingBar(

@@ -2,6 +2,8 @@ package com.hardbasseq.eq.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +45,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -56,7 +59,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,12 +81,10 @@ import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
 import com.hardbasseq.eq.preset.Preset
-import com.hardbasseq.eq.ui.theme.HardBassCardBorder
+import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.ui.theme.Spacing
 import com.hardbasseq.eq.ui.theme.spacing
 import kotlinx.coroutines.delay
-
-private val CardShape = RoundedCornerShape(20.dp)
 
 @Composable
 fun EqualizerScreen(
@@ -109,6 +117,8 @@ fun EqualizerScreen(
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
+    val design = PresetDesign.forPreset(activePreset)
+    val style = styleFor(design)
     // M3/M4: headroom from the combined correction+voicing curve, not just the
     // highest of the discrete post-mapping band gains - see HeadroomCalculator.
     // Mirrors MainViewModel.recalculateBandGains()'s own combination so the banner
@@ -122,431 +132,484 @@ fun EqualizerScreen(
             macroHaerteDb = settings.macroHaerteDb,
         )
 
-    Column(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(spacing.medium),
-        verticalArrangement = Arrangement.spacedBy(spacing.medium),
-    ) {
-        // Top Header Card: Master Switch, Status, Active Route
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = CardShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, HardBassCardBorder),
+    MaterialTheme(colorScheme = style.colorScheme) {
+        Box(
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .background(Brush.verticalGradient(listOf(style.background, style.backgroundEnd))),
         ) {
-            Column(modifier = Modifier.padding(spacing.medium)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column {
-                        Text(
-                            text = "HardBass EQ",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        Text(
-                            text = "Route: ${route.name}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Independent of the master switch below - that one only
-                        // offers the source picker when flipped on with nothing
-                        // attached yet (see MainViewModel.setMasterEnabled), so
-                        // switching/reopening a source with the EQ already on, or
-                        // something else already attached, needed disabling and
-                        // re-enabling the master bar just to see the dialog again.
-                        IconButton(onClick = onOpenSourcePicker) {
-                            Icon(
-                                imageVector = Icons.Default.LibraryMusic,
-                                contentDescription = "Quelle wählen",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Switch(
-                            checked = settings.masterEnabled,
-                            onCheckedChange = onMasterToggled,
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(spacing.small))
-
-                // Engine Status Chip - docs/STATE_MACHINE.md §5 UI-status mapping.
-                // Detached/Listening/Attaching/LostControl/Retrying all share the
-                // "Wartet" category (surfaceVariant); Unsupported and Error get
-                // their own distinct categories so all 4 required statuses are
-                // visually distinguishable.
-                val (statusText, statusBg) =
-                    when (state) {
-                        is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to MaterialTheme.colorScheme.primaryContainer
-                        is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Detached -> "Startet…" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Listening -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.LostControl ->
-                            "Verbindung verloren, versuche erneut…" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Retrying -> retryingStatusText(state) to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Unsupported ->
-                            "Nicht unterstützt: ${state.reason}" to MaterialTheme.colorScheme.tertiaryContainer
-                        is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
-                    }
-
-                Box(
-                    modifier =
-                        Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(statusBg)
-                            .padding(horizontal = spacing.small, vertical = spacing.extraSmall),
-                ) {
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-
-                // "Fehler: konkrete nächste Handlung anbieten" (roadmap-2026.md M1) -
-                // resets the retry budget and re-attempts the last known session.
-                AnimatedVisibility(visible = state is AudioEngineState.Error) {
-                    OutlinedButton(
-                        onClick = onRetryAttach,
-                        modifier = Modifier.padding(top = spacing.extraSmall),
-                    ) {
-                        Text("Erneut versuchen")
-                    }
-                }
+            style.backgroundRes?.let { backgroundRes ->
+                Image(
+                    painter = painterResource(backgroundRes),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize(),
+                )
             }
-        }
-
-        // Headroom / Clipping Protection Warning Banner
-        AnimatedVisibility(visible = headroom.isClippingRisk && settings.masterEnabled) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = CardShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                border = BorderStroke(1.dp, HardBassCardBorder),
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(spacing.medium),
+                verticalArrangement = Arrangement.spacedBy(spacing.medium),
             ) {
-                Row(
-                    modifier = Modifier.padding(spacing.medium),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = "Clipping Warnung",
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                    Spacer(modifier = Modifier.width(spacing.small))
-                    Column {
-                        Text(
-                            text = "Clipping-Schutz aktiv",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                        Text(
-                            text = "Anhebung +${String.format(
-                                "%.1f",
-                                headroom.maxPositiveGainDb,
-                            )} dB. Empfohlene Absenkung: ${String.format("%.1f", headroom.recommendedInputGainDb)} dB.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                        )
-                    }
-                }
-            }
-        }
-
-        // M4 "Angewandten Input-Gain permanent anzeigen" / "Limiter-Status und
-        // verwendeten Threshold anzeigen" / "Warnstufen definieren" / MBC-
-        // Transparenz. Always visible (unlike the clipping banner above), since M4
-        // explicitly asks for the applied input gain to be shown *permanently*,
-        // not just when there's a clipping risk.
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = CardShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, HardBassCardBorder),
-        ) {
-            Column(modifier = Modifier.padding(spacing.medium)) {
-                Text(
-                    text = "Signal & Sicherheit",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(spacing.small))
-
-                Text(
-                    text = "Input-Gain: ${String.format("%+.1f", settings.inputGainDb)} dB",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text =
-                        if (settings.limiterEnabled) {
-                            "Limiter: aktiv, Threshold ${String.format("%.1f", settings.limiterThresholdDb)} dB"
-                        } else {
-                            "Limiter: deaktiviert"
-                        },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text =
-                        if (settings.mbcEnabled) {
-                            "Mehrband-Kompressor: aktiv (Wirkung geschätzt, nicht gemessen)"
-                        } else {
-                            "Mehrband-Kompressor: deaktiviert"
-                        },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(modifier = Modifier.height(spacing.extraSmall))
-
-                val warningLevel = HeadroomWarningLevelCalculator.fromHeadroom(headroom)
-                val (warningText, warningColor) =
-                    when (warningLevel) {
-                        HeadroomWarningLevel.SUFFICIENT ->
-                            "Ausreichend Headroom" to MaterialTheme.colorScheme.onSurfaceVariant
-                        HeadroomWarningLevel.OCCASIONAL_LIMITING ->
-                            "Limiter arbeitet voraussichtlich gelegentlich (geschätzt)" to MaterialTheme.colorScheme.tertiary
-                        HeadroomWarningLevel.HEAVY_LIMITING ->
-                            "Voraussichtlich dauerhaft starke Begrenzung (geschätzt)" to MaterialTheme.colorScheme.error
-                    }
-                Text(
-                    text = warningText,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = warningColor,
-                )
-            }
-        }
-
-        // No-session guidance: AudioSessionForegroundService now listens for the
-        // OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast in the background, independent
-        // of whether this screen is open, so the "app wasn't running yet" case is
-        // covered. But that broadcast only fires once per player session and still
-        // won't arrive at all for a session that was already open before the service
-        // started (e.g. right after install) or - per the M0 spike's unresolved
-        // finding (roadmap.md Session 4) - possibly not at all on some devices. Explain
-        // what to try instead of leaving the user staring at "Wartet auf Audio-Session".
-        // Detached and Listening both mean "no session" - see AudioEngineState.
-        AnimatedVisibility(visible = state is AudioEngineState.Detached || state is AudioEngineState.Listening) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = CardShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                border = BorderStroke(1.dp, HardBassCardBorder),
-            ) {
-                Row(
-                    modifier = Modifier.padding(spacing.medium),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = "Hinweis",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.width(spacing.small))
-                    Column {
-                        Text(
-                            text = "Keine Audio-Session gefunden",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text =
-                                "HardBass EQ lauscht jetzt auch im Hintergrund auf neue Sessions. " +
-                                    "Läuft ein Player wie Spotify oder SoundCloud aber schon seit vor der " +
-                                    "Installation bzw. dem letzten Neustart, hilft meist: Titel pausieren " +
-                                    "und erneut abspielen, zum nächsten Titel springen, oder die Player-App " +
-                                    "einmal schließen und neu starten.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        }
-
-        // M3 "Mein Kopfhörer" Card: which headphone/speaker correction curve is
-        // combined with the voicing preset below (Klangstil card).
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = CardShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, HardBassCardBorder),
-        ) {
-            Column(modifier = Modifier.padding(spacing.medium)) {
-                Row(
+                // Top Header Card: Master Switch, Status, Active Route
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    shape = RoundedCornerShape(style.cardCorner),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, style.border),
                 ) {
-                    Text(
-                        text = "Mein Kopfhörer",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    // M5 "Vorhandenen AutoEQ-Parser in einen vollständigen
-                    // Importflow integrieren" - opens the SAF file picker; the
-                    // actual parsing/preview happens back in MainViewModel once
-                    // the picked file's text is read (MainScreen owns the
-                    // ContentResolver access this needs).
-                    TextButton(onClick = onImportCorrectionProfileRequested) {
-                        Text("Importieren")
-                    }
-                }
-                Spacer(modifier = Modifier.height(spacing.small))
-                CorrectionProfileRow(
-                    profiles = allCorrectionProfiles,
-                    activeProfileId = activeCorrectionProfile.id,
-                    onProfileSelected = onCorrectionProfileSelected,
-                    onExportProfile = onExportCorrectionProfile,
-                    spacing = spacing,
-                )
-            }
-        }
-
-        // Klangstil (Voicing) Selector Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = CardShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, HardBassCardBorder),
-        ) {
-            Column(modifier = Modifier.padding(spacing.medium)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Klangstil",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    // M2: "manuelle Änderung eines Presets automatisch als Custom
-                    // markieren" - only shown once a band/macro edit has actually
-                    // moved away from what activePreset alone would produce.
-                    AnimatedVisibility(visible = isDirty) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = onResetToActivePreset) {
-                                Text("Zurücksetzen")
-                            }
-                            TextButton(onClick = onSaveAsNewRequest) {
-                                Text("Speichern")
-                            }
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(spacing.small))
-                PresetGrid(
-                    presets = allPresets,
-                    activePresetId = activePreset.id,
-                    onPresetSelected = onPresetSelected,
-                    onDuplicatePreset = onDuplicatePreset,
-                    onRenamePresetRequest = onRenamePresetRequest,
-                    onDeletePresetRequest = onDeletePresetRequest,
-                    spacing = spacing,
-                )
-            }
-        }
-
-        // Macro Controls Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = CardShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, HardBassCardBorder),
-        ) {
-            Column(modifier = Modifier.padding(spacing.medium)) {
-                Text(
-                    text = "Makro-Regler",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(modifier = Modifier.height(spacing.small))
-
-                // Bass Macro
-                Text(text = "Bass: ${String.format("%+.1f", settings.macroBassDb)} dB", style = MaterialTheme.typography.bodySmall)
-                Slider(
-                    value = settings.macroBassDb,
-                    onValueChange = onMacroBassChanged,
-                    valueRange = -6f..6f,
-                )
-
-                // Punch Macro
-                Text(text = "Punch: ${String.format("%+.1f", settings.macroPunchDb)} dB", style = MaterialTheme.typography.bodySmall)
-                Slider(
-                    value = settings.macroPunchDb,
-                    onValueChange = onMacroPunchChanged,
-                    valueRange = -6f..6f,
-                )
-
-                // Härte Macro
-                Text(text = "Härte: ${String.format("%+.1f", settings.macroHaerteDb)} dB", style = MaterialTheme.typography.bodySmall)
-                Slider(
-                    value = settings.macroHaerteDb,
-                    onValueChange = onMacroHaerteChanged,
-                    valueRange = -2f..2f,
-                )
-            }
-        }
-
-        // Dynamic Equalizer Bands Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = CardShape,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, HardBassCardBorder),
-        ) {
-            Column(modifier = Modifier.padding(spacing.medium)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "Grafischer EQ (${bands.size} Bänder)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = "Bypass", style = MaterialTheme.typography.bodySmall)
-                        Spacer(modifier = Modifier.width(spacing.extraSmall))
-                        Switch(
-                            checked = settings.bypass,
-                            onCheckedChange = onBypassToggled,
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(spacing.small))
-
-                bands.forEach { band ->
-                    val gainDb = settings.bandGainsDb[band.index] ?: 0f
-                    val freqLabel = formatFrequency(band.centerFreqHz)
-
-                    Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(text = freqLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
+                            Column {
+                                Text(
+                                    text = "HardBass EQ",
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    text = "Route: ${route.name}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = style.name,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = style.accent,
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Independent of the master switch below - that one only
+                                // offers the source picker when flipped on with nothing
+                                // attached yet (see MainViewModel.setMasterEnabled), so
+                                // switching/reopening a source with the EQ already on, or
+                                // something else already attached, needed disabling and
+                                // re-enabling the master bar just to see the dialog again.
+                                IconButton(onClick = onOpenSourcePicker) {
+                                    Icon(
+                                        imageVector = Icons.Default.LibraryMusic,
+                                        contentDescription = "Quelle wählen",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Switch(
+                                    checked = settings.masterEnabled,
+                                    onCheckedChange = onMasterToggled,
+                                )
+                            }
                         }
-                        Slider(
-                            value = gainDb,
-                            onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
-                            valueRange = band.minGainDb..band.maxGainDb,
+
+                        Spacer(modifier = Modifier.height(spacing.small))
+
+                        // Engine Status Chip - docs/STATE_MACHINE.md §5 UI-status mapping.
+                        // Detached/Listening/Attaching/LostControl/Retrying all share the
+                        // "Wartet" category (surfaceVariant); Unsupported and Error get
+                        // their own distinct categories so all 4 required statuses are
+                        // visually distinguishable.
+                        val statusColors = MaterialTheme.colorScheme
+                        val (statusText, statusBg) =
+                            when (state) {
+                                is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to statusColors.primaryContainer
+                                is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to statusColors.surfaceVariant
+                                is AudioEngineState.Detached -> "Startet…" to MaterialTheme.colorScheme.surfaceVariant
+                                is AudioEngineState.Listening -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
+                                is AudioEngineState.LostControl ->
+                                    "Verbindung verloren, versuche erneut…" to MaterialTheme.colorScheme.surfaceVariant
+                                is AudioEngineState.Retrying -> retryingStatusText(state) to MaterialTheme.colorScheme.surfaceVariant
+                                is AudioEngineState.Unsupported ->
+                                    "Nicht unterstützt: ${state.reason}" to MaterialTheme.colorScheme.tertiaryContainer
+                                is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
+                            }
+
+                        Box(
+                            modifier =
+                                Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(statusBg)
+                                    .padding(horizontal = spacing.small, vertical = spacing.extraSmall),
+                        ) {
+                            Text(
+                                text = statusText,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium,
+                            )
+                        }
+
+                        // "Fehler: konkrete nächste Handlung anbieten" (roadmap-2026.md M1) -
+                        // resets the retry budget and re-attempts the last known session.
+                        AnimatedVisibility(visible = state is AudioEngineState.Error) {
+                            OutlinedButton(
+                                onClick = onRetryAttach,
+                                modifier = Modifier.padding(top = spacing.extraSmall),
+                            ) {
+                                Text("Erneut versuchen")
+                            }
+                        }
+                    }
+                }
+
+                // M4 "Angewandten Input-Gain permanent anzeigen" / "Limiter-Status und
+                // verwendeten Threshold anzeigen" / "Warnstufen definieren" / MBC-
+                // Transparenz. Always visible (unlike the clipping banner above), since M4
+                // explicitly asks for the applied input gain to be shown *permanently*,
+                // not just when there's a clipping risk.
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(style.cardCorner),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, style.border),
+                ) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
+                        Text(
+                            text = "Signal & Sicherheit",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                         )
+                        Spacer(modifier = Modifier.height(spacing.small))
+
+                        Text(
+                            text = "Input-Gain: ${String.format("%+.1f", settings.inputGainDb)} dB",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text =
+                                if (settings.limiterEnabled) {
+                                    "Limiter: aktiv, Threshold ${String.format("%.1f", settings.limiterThresholdDb)} dB"
+                                } else {
+                                    "Limiter: deaktiviert"
+                                },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            text =
+                                if (settings.mbcEnabled) {
+                                    "Mehrband-Kompressor: aktiv (Wirkung geschätzt, nicht gemessen)"
+                                } else {
+                                    "Mehrband-Kompressor: deaktiviert"
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+
+                        Spacer(modifier = Modifier.height(spacing.extraSmall))
+
+                        val warningLevel = HeadroomWarningLevelCalculator.fromHeadroom(headroom)
+                        val (warningText, warningColor) =
+                            when (warningLevel) {
+                                HeadroomWarningLevel.SUFFICIENT ->
+                                    "Ausreichend Headroom" to MaterialTheme.colorScheme.onSurfaceVariant
+                                HeadroomWarningLevel.OCCASIONAL_LIMITING ->
+                                    "Limiter arbeitet voraussichtlich gelegentlich (geschätzt)" to MaterialTheme.colorScheme.tertiary
+                                HeadroomWarningLevel.HEAVY_LIMITING ->
+                                    "Voraussichtlich dauerhaft starke Begrenzung (geschätzt)" to MaterialTheme.colorScheme.error
+                            }
+                        Text(
+                            text = warningText,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = warningColor,
+                        )
+                    }
+                }
+
+                // No-session guidance: AudioSessionForegroundService now listens for the
+                // OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast in the background, independent
+                // of whether this screen is open, so the "app wasn't running yet" case is
+                // covered. But that broadcast only fires once per player session and still
+                // won't arrive at all for a session that was already open before the service
+                // started (e.g. right after install) or - per the M0 spike's unresolved
+                // finding (roadmap.md Session 4) - possibly not at all on some devices. Explain
+                // what to try instead of leaving the user staring at "Wartet auf Audio-Session".
+                // Detached and Listening both mean "no session" - see AudioEngineState.
+                AnimatedVisibility(visible = state is AudioEngineState.Detached || state is AudioEngineState.Listening) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(style.cardCorner),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                        border = BorderStroke(1.dp, style.border),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(spacing.medium),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Hinweis",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(modifier = Modifier.width(spacing.small))
+                            Column {
+                                Text(
+                                    text = "Keine Audio-Session gefunden",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text =
+                                        "HardBass EQ lauscht jetzt auch im Hintergrund auf neue Sessions. " +
+                                            "Läuft ein Player wie Spotify oder SoundCloud aber schon seit vor der " +
+                                            "Installation bzw. dem letzten Neustart, hilft meist: Titel pausieren " +
+                                            "und erneut abspielen, zum nächsten Titel springen, oder die Player-App " +
+                                            "einmal schließen und neu starten.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // M3 "Mein Kopfhörer" Card: which headphone/speaker correction curve is
+                // combined with the voicing preset below (Klangstil card).
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(style.cardCorner),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, style.border),
+                ) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Mein Kopfhörer",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            // M5 "Vorhandenen AutoEQ-Parser in einen vollständigen
+                            // Importflow integrieren" - opens the SAF file picker; the
+                            // actual parsing/preview happens back in MainViewModel once
+                            // the picked file's text is read (MainScreen owns the
+                            // ContentResolver access this needs).
+                            TextButton(onClick = onImportCorrectionProfileRequested) {
+                                Text("Importieren")
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(spacing.small))
+                        CorrectionProfileRow(
+                            profiles = allCorrectionProfiles,
+                            activeProfileId = activeCorrectionProfile.id,
+                            onProfileSelected = onCorrectionProfileSelected,
+                            onExportProfile = onExportCorrectionProfile,
+                            spacing = spacing,
+                            style = style,
+                        )
+                    }
+                }
+
+                // Klangstil (Voicing) Selector Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(style.cardCorner),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, style.border),
+                ) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Presets: ${style.name}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = style.accent,
+                            )
+                            // M2: "manuelle Änderung eines Presets automatisch als Custom
+                            // markieren" - only shown once a band/macro edit has actually
+                            // moved away from what activePreset alone would produce.
+                            AnimatedVisibility(visible = isDirty) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    TextButton(onClick = onResetToActivePreset) {
+                                        Text("Zurücksetzen")
+                                    }
+                                    TextButton(onClick = onSaveAsNewRequest) {
+                                        Text("Speichern")
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(spacing.small))
+                        PresetGrid(
+                            presets = allPresets,
+                            activePresetId = activePreset.id,
+                            onPresetSelected = onPresetSelected,
+                            onDuplicatePreset = onDuplicatePreset,
+                            onRenamePresetRequest = onRenamePresetRequest,
+                            onDeletePresetRequest = onDeletePresetRequest,
+                            spacing = spacing,
+                            style = style,
+                            design = design,
+                        )
+                    }
+                }
+
+                // Macro Controls Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(style.cardCorner),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, style.border),
+                ) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
+                        Text(
+                            text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else "Makro-Regler",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = style.accent,
+                        )
+                        Spacer(modifier = Modifier.height(spacing.small))
+
+                        // Bass Macro
+                        Text(text = "Bass: ${String.format("%+.1f", settings.macroBassDb)} dB", style = MaterialTheme.typography.bodySmall)
+                        Slider(
+                            value = settings.macroBassDb,
+                            onValueChange = onMacroBassChanged,
+                            valueRange = -6f..6f,
+                            colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                        )
+
+                        // Punch Macro
+                        Text(
+                            text = "Punch: ${String.format("%+.1f", settings.macroPunchDb)} dB",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Slider(
+                            value = settings.macroPunchDb,
+                            onValueChange = onMacroPunchChanged,
+                            valueRange = -6f..6f,
+                            colors = SliderDefaults.colors(thumbColor = style.secondaryAccent, activeTrackColor = style.secondaryAccent),
+                        )
+
+                        // Härte Macro
+                        Text(
+                            text = "Härte: ${String.format("%+.1f", settings.macroHaerteDb)} dB",
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Slider(
+                            value = settings.macroHaerteDb,
+                            onValueChange = onMacroHaerteChanged,
+                            valueRange = -2f..2f,
+                            colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                        )
+                    }
+                }
+
+                // Dynamic Equalizer Bands Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(style.cardCorner),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, style.border),
+                ) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Grafischer EQ (${bands.size} Bänder)",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = "Bypass", style = MaterialTheme.typography.bodySmall)
+                                Spacer(modifier = Modifier.width(spacing.extraSmall))
+                                Switch(
+                                    checked = settings.bypass,
+                                    onCheckedChange = onBypassToggled,
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(spacing.small))
+
+                        bands.forEach { band ->
+                            val gainDb = settings.bandGainsDb[band.index] ?: 0f
+                            val freqLabel = formatFrequency(band.centerFreqHz)
+
+                            Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(text = freqLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                    Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
+                                }
+                                val bandColor = style.bandColors[band.index % style.bandColors.size]
+                                Slider(
+                                    value = gainDb,
+                                    onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
+                                    valueRange = band.minGainDb..band.maxGainDb,
+                                    colors = SliderDefaults.colors(thumbColor = bandColor, activeTrackColor = bandColor),
+                                )
+                            }
+                        }
+                        EqualizerCurve(bands = bands, gains = settings.bandGainsDb, style = style)
+                    }
+                }
+                val clippingRisk = headroom.isClippingRisk && settings.masterEnabled
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(style.cardCorner),
+                    colors = CardDefaults.cardColors(containerColor = style.warningBackground),
+                    border = BorderStroke(1.dp, if (clippingRisk) style.accent else style.border),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(spacing.medium),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = if (clippingRisk) Icons.Default.Warning else Icons.Default.Info,
+                            contentDescription = null,
+                            tint = style.warningText,
+                        )
+                        Spacer(modifier = Modifier.width(spacing.small))
+                        Column {
+                            Text(
+                                text =
+                                    if (clippingRisk) {
+                                        when (design) {
+                                            PresetDesign.TERRORCORE -> "DANGER!"
+                                            PresetDesign.UPTEMPO_HARDCORE -> "WARNING! SYSTEM OVERLOAD!"
+                                            PresetDesign.HARD_DANCE -> "ATTENTION!"
+                                            else -> "WARNING!"
+                                        }
+                                    } else {
+                                        "SAFETY FIRST!"
+                                    },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                                color = style.warningText,
+                            )
+                            Text(
+                                text =
+                                    if (clippingRisk) {
+                                        "Clipping-Gefahr: +${String.format("%.1f", headroom.maxPositiveGainDb)} dB. " +
+                                            "Empfohlene Absenkung: ${String.format("%.1f", headroom.recommendedInputGainDb)} dB."
+                                    } else if (settings.limiterEnabled) {
+                                        "Clipping-Schutz bereit. Input-Gain: ${String.format("%+.1f", settings.inputGainDb)} dB."
+                                    } else {
+                                        "Limiter deaktiviert. Input-Gain: ${String.format("%+.1f", settings.inputGainDb)} dB."
+                                    },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = style.warningText,
+                            )
+                        }
                     }
                 }
             }
@@ -565,14 +628,16 @@ private fun PresetGrid(
     onRenamePresetRequest: (Preset) -> Unit,
     onDeletePresetRequest: (Preset) -> Unit,
     spacing: Spacing,
+    style: EqualizerDesignStyle,
+    design: PresetDesign,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-        presets.chunked(3).forEach { row ->
+        presets.chunked(3).forEachIndexed { rowIndex, row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(spacing.small),
             ) {
-                row.forEach { preset ->
+                row.forEachIndexed { columnIndex, preset ->
                     PresetCard(
                         preset = preset,
                         selected = preset.id == activePresetId,
@@ -581,6 +646,9 @@ private fun PresetGrid(
                         onRenameRequest = { onRenamePresetRequest(preset) },
                         onDeleteRequest = { onDeletePresetRequest(preset) },
                         modifier = Modifier.weight(1f),
+                        style = style,
+                        design = design,
+                        index = rowIndex * 3 + columnIndex,
                     )
                 }
                 repeat(3 - row.size) {
@@ -601,6 +669,7 @@ private fun CorrectionProfileRow(
     onProfileSelected: (CorrectionProfile) -> Unit,
     onExportProfile: (CorrectionProfile) -> Unit,
     spacing: Spacing,
+    style: EqualizerDesignStyle,
 ) {
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -608,7 +677,7 @@ private fun CorrectionProfileRow(
     ) {
         profiles.forEach { profile ->
             val selected = profile.id == activeProfileId
-            val borderColor = if (selected) MaterialTheme.colorScheme.primary else HardBassCardBorder
+            val borderColor = if (selected) MaterialTheme.colorScheme.primary else style.border
             val containerColor =
                 if (selected) {
                     MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
@@ -671,24 +740,31 @@ private fun PresetCard(
     onRenameRequest: () -> Unit,
     onDeleteRequest: () -> Unit,
     modifier: Modifier = Modifier,
+    style: EqualizerDesignStyle,
+    design: PresetDesign,
+    index: Int,
 ) {
     val spacing = MaterialTheme.spacing
-    val borderColor = if (selected) MaterialTheme.colorScheme.primary else HardBassCardBorder
+    val borderColor = if (selected) style.accent else style.border
     val containerColor =
-        if (selected) {
-            MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
+        when {
+            selected -> style.accent
+            design == PresetDesign.HARD_DANCE -> style.bandColors[index % style.bandColors.size]
+            else -> style.surfaceVariant
         }
-    val contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+    val contentColor =
+        when {
+            selected || design == PresetDesign.HARD_DANCE -> style.background
+            else -> style.mutedText
+        }
     var showMenu by remember { mutableStateOf(false) }
 
     Surface(
         onClick = onClick,
         modifier = modifier.height(76.dp),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(style.presetCorner),
         color = containerColor,
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, borderColor),
+        border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
     ) {
         Row(
             modifier =
@@ -711,7 +787,7 @@ private fun PresetCard(
                 text = preset.name,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = contentColor,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -772,6 +848,48 @@ private fun presetIcon(presetId: String): ImageVector =
         "builtin_final_smash" -> Icons.Filled.Whatshot
         else -> Icons.Filled.Equalizer
     }
+
+@Composable
+private fun EqualizerCurve(
+    bands: List<EqualizerBandCapabilities>,
+    gains: Map<Int, Float>,
+    style: EqualizerDesignStyle,
+) {
+    Canvas(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(88.dp)
+                .clip(RoundedCornerShape(style.presetCorner))
+                .background(style.surfaceVariant),
+    ) {
+        val middle = size.height / 2f
+        listOf(0.25f, 0.5f, 0.75f).forEach { fraction ->
+            drawLine(
+                color = style.border.copy(alpha = 0.55f),
+                start = Offset(0f, size.height * fraction),
+                end = Offset(size.width, size.height * fraction),
+                strokeWidth = 1.dp.toPx(),
+            )
+        }
+
+        val path = Path().apply { moveTo(0f, middle) }
+        val count = bands.size.coerceAtLeast(1)
+        bands.forEachIndexed { position, band ->
+            val maximum = maxOf(kotlin.math.abs(band.minGainDb), kotlin.math.abs(band.maxGainDb)).coerceAtLeast(1f)
+            val gain = gains[band.index] ?: 0f
+            val x = size.width * (position + 1) / (count + 1)
+            val y = middle - (gain / maximum).coerceIn(-1f, 1f) * size.height * 0.36f
+            path.lineTo(x, y)
+        }
+        path.lineTo(size.width, middle)
+        drawPath(
+            path = path,
+            brush = Brush.horizontalGradient(listOf(style.accent, style.secondaryAccent, style.accent)),
+            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
+        )
+    }
+}
 
 private fun formatFrequency(centerFreqHz: Int): String =
     if (centerFreqHz >= 1000) {
