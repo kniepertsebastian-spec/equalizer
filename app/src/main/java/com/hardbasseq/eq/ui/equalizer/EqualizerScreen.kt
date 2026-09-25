@@ -140,9 +140,11 @@ fun EqualizerScreen(
                         is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to MaterialTheme.colorScheme.surfaceVariant
                         is AudioEngineState.Detached -> "Startet…" to MaterialTheme.colorScheme.surfaceVariant
                         is AudioEngineState.Listening -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.LostControl -> "Verbindung verloren, versuche erneut…" to MaterialTheme.colorScheme.surfaceVariant
+                        is AudioEngineState.LostControl ->
+                            "Verbindung verloren, versuche erneut…" to MaterialTheme.colorScheme.surfaceVariant
                         is AudioEngineState.Retrying -> retryingStatusText(state) to MaterialTheme.colorScheme.surfaceVariant
-                        is AudioEngineState.Unsupported -> "Nicht unterstützt: ${state.reason}" to MaterialTheme.colorScheme.tertiaryContainer
+                        is AudioEngineState.Unsupported ->
+                            "Nicht unterstützt: ${state.reason}" to MaterialTheme.colorScheme.tertiaryContainer
                         is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
                     }
 
