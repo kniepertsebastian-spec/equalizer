@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.desktop.exporter.EasyEffectsExporter
 import com.hardbasseq.eq.desktop.exporter.EqualizerApoExporter
 import com.hardbasseq.eq.preset.BuiltInPresets
+import com.hardbasseq.eq.preset.PortableSoundProfile
+import com.hardbasseq.eq.preset.PortableSoundProfileJson
 import com.hardbasseq.eq.preset.Preset
 import java.io.File
 
@@ -38,12 +40,15 @@ fun App() {
     var macroHaerteDb by remember { mutableStateOf(activePreset.macroHaerteDb) }
     var targetPlatform by remember { mutableStateOf(detectedPlatform) }
     var statusMessage by remember { mutableStateOf("") }
+    var phoneProfile by remember { mutableStateOf<PortableSoundProfile?>(null) }
+    var phoneProfilePath by remember { mutableStateOf("") }
 
     var equalizerApoDir by remember { mutableStateOf(defaultEqualizerApoConfigDir()) }
     var easyEffectsDir by remember { mutableStateOf(EasyEffectsExporter.defaultPresetDir().absolutePath) }
 
     fun selectPreset(preset: Preset) {
         activePreset = preset
+        phoneProfile = null
         macroBassDb = preset.macroBassDb
         macroPunchDb = preset.macroPunchDb
         macroHaerteDb = preset.macroHaerteDb
@@ -82,6 +87,35 @@ fun App() {
                 MacroSlider("Bass", macroBassDb) { macroBassDb = it }
                 MacroSlider("Punch", macroPunchDb) { macroPunchDb = it }
                 MacroSlider("Härte", macroHaerteDb) { macroHaerteDb = it }
+
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Profil vom Handy übernehmen", style = MaterialTheme.typography.titleMedium)
+                        OutlinedTextField(
+                            value = phoneProfilePath,
+                            onValueChange = { phoneProfilePath = it },
+                            label = { Text("Pfad zu HardBassEQ-Desktop.json") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Button(
+                            onClick = {
+                                statusMessage =
+                                    runCatching {
+                                        val imported = PortableSoundProfileJson.import(File(phoneProfilePath).readText())
+                                        phoneProfile = imported
+                                        activePreset = imported.preset
+                                        macroBassDb = imported.macroBassDb
+                                        macroPunchDb = imported.macroPunchDb
+                                        macroHaerteDb = imported.macroHaerteDb
+                                        "Handy-Profil geladen: ${imported.preset.name}"
+                                    }.getOrElse { "Import fehlgeschlagen: ${it.message}" }
+                            },
+                        ) { Text("Datei laden") }
+                        if (phoneProfile != null) {
+                            Text("Aktive Handy-Einstellungen einschließlich Korrektur und Dynamik werden für EasyEffects exportiert.")
+                        }
+                    }
+                }
 
                 Text("Ziel-Plattform", style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -125,7 +159,15 @@ fun App() {
                                 statusMessage =
                                     runCatching {
                                         val file =
-                                            EasyEffectsExporter.installTo(
+                                            phoneProfile?.let {
+                                                EasyEffectsExporter.installTo(
+                                                    File(easyEffectsDir),
+                                                    it,
+                                                    macroBassDb,
+                                                    macroPunchDb,
+                                                    macroHaerteDb,
+                                                )
+                                            } ?: EasyEffectsExporter.installTo(
                                                 File(easyEffectsDir),
                                                 activePreset,
                                                 macroBassDb,
