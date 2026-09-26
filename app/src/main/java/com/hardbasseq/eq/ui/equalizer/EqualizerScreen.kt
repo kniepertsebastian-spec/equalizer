@@ -82,8 +82,10 @@ import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
+import com.hardbasseq.eq.preset.GenrePreset
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
+import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.ui.theme.Spacing
 import com.hardbasseq.eq.ui.theme.spacing
 import kotlinx.coroutines.delay
@@ -95,7 +97,10 @@ fun EqualizerScreen(
     settings: ProcessingSettings,
     bands: List<EqualizerBandCapabilities>,
     activePreset: Preset,
-    allPresets: List<Preset>,
+    customPresets: List<Preset>,
+    genrePresets: List<GenrePreset>,
+    intensities: List<PresetIntensity>,
+    selectedGenreIntensity: Pair<GenrePreset, PresetIntensity>?,
     activeCorrectionProfile: CorrectionProfile,
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
@@ -105,6 +110,7 @@ fun EqualizerScreen(
     onOpenSourcePicker: () -> Unit,
     onBypassToggled: (Boolean) -> Unit,
     onPresetSelected: (Preset) -> Unit,
+    onGenreIntensitySelected: (GenrePreset, PresetIntensity) -> Unit,
     onCorrectionProfileSelected: (CorrectionProfile) -> Unit,
     onImportCorrectionProfileRequested: () -> Unit,
     onExportCorrectionProfile: (CorrectionProfile) -> Unit,
@@ -529,17 +535,35 @@ fun EqualizerScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(spacing.small))
-                        PresetGrid(
-                            presets = allPresets,
-                            activePresetId = activePreset.id,
-                            onPresetSelected = onPresetSelected,
-                            onDuplicatePreset = onDuplicatePreset,
-                            onRenamePresetRequest = onRenamePresetRequest,
-                            onDeletePresetRequest = onDeletePresetRequest,
+                        GenreIntensitySelector(
+                            genres = genrePresets,
+                            intensities = intensities,
+                            selected = selectedGenreIntensity,
+                            onSelected = onGenreIntensitySelected,
                             spacing = spacing,
                             style = style,
-                            design = design,
                         )
+                        if (customPresets.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(spacing.medium))
+                            Text(
+                                text = "Eigene Presets",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = style.accent,
+                            )
+                            Spacer(modifier = Modifier.height(spacing.small))
+                            PresetGrid(
+                                presets = customPresets,
+                                activePresetId = activePreset.id,
+                                onPresetSelected = onPresetSelected,
+                                onDuplicatePreset = onDuplicatePreset,
+                                onRenamePresetRequest = onRenamePresetRequest,
+                                onDeletePresetRequest = onDeletePresetRequest,
+                                spacing = spacing,
+                                style = style,
+                                design = design,
+                            )
+                        }
                     }
                 }
 
@@ -696,6 +720,89 @@ fun EqualizerScreen(
                                 color = style.warningText,
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Chat feature: genre x intensity preset redesign. A dropdown for the genre
+// (8 entries, always visible) plus a fixed row of 5 intensity buttons below it
+// - Idee 1 from the chat request, chosen over the cascading-buttons
+// alternative (Idee 2) for being the simpler one to build and to reach any
+// genre from in a single tap. The intensity row stays visible but disabled for
+// a genre that doesn't use it (Flat) rather than hiding it, so the layout
+// doesn't jump around as the user browses genres.
+@Composable
+private fun GenreIntensitySelector(
+    genres: List<GenrePreset>,
+    intensities: List<PresetIntensity>,
+    selected: Pair<GenrePreset, PresetIntensity>?,
+    onSelected: (GenrePreset, PresetIntensity) -> Unit,
+    spacing: Spacing,
+    style: EqualizerDesignStyle,
+) {
+    var showGenreMenu by remember { mutableStateOf(false) }
+    val selectedGenre = selected?.first
+    val selectedIntensity = selected?.second
+
+    Column {
+        Box {
+            OutlinedButton(onClick = { showGenreMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = selectedGenre?.displayName ?: "Genre wählen",
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            DropdownMenu(expanded = showGenreMenu, onDismissRequest = { showGenreMenu = false }) {
+                genres.forEach { genre ->
+                    DropdownMenuItem(
+                        text = { Text(genre.displayName) },
+                        onClick = {
+                            showGenreMenu = false
+                            // Landing intensity when switching genre: keep the current
+                            // one if the new genre still has it, otherwise MODERATE -
+                            // picking "Terror" shouldn't silently reset an already
+                            // chosen "Aggressive" back to the middle for no reason.
+                            val intensity =
+                                selectedIntensity?.takeIf { genre.allowsIntensity } ?: PresetIntensity.MODERATE
+                            onSelected(genre, intensity)
+                        },
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(spacing.small))
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(spacing.extraSmall),
+        ) {
+            intensities.forEach { intensity ->
+                val isSelected = selectedGenre != null && intensity == selectedIntensity
+                val enabled = selectedGenre != null && selectedGenre.allowsIntensity
+                val containerColor =
+                    if (isSelected) style.accent.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant
+                val contentColor =
+                    when {
+                        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        isSelected -> style.accent
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = containerColor,
+                    border = BorderStroke(1.dp, if (isSelected) style.accent else style.border),
+                ) {
+                    TextButton(
+                        onClick = { selectedGenre?.let { onSelected(it, intensity) } },
+                        enabled = enabled,
+                    ) {
+                        Text(
+                            text = intensity.displayName,
+                            color = contentColor,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
                     }
                 }
             }

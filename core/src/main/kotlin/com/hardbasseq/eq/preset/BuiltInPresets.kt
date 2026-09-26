@@ -192,6 +192,12 @@ object BuiltInPresets {
             metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
         )
 
+    // Chat feature: genre x intensity redesign (BuiltInGenrePresets) is the new
+    // primary way to pick a built-in sound; its resolved combinations are folded
+    // in here too so findPresetById keeps resolving a device profile bound to one
+    // of them, without a DeviceProfileEntity schema change. The hand-authored
+    // presets above stay listed as-is for backward compatibility with any device
+    // profile already bound to one of their ids before this change.
     val all =
         listOf(
             CleanPunch,
@@ -203,5 +209,5 @@ object BuiltInPresets {
             FastAttack,
             MaximumDistortion,
             FinalSmash,
-        )
+        ) + BuiltInGenrePresets.allResolvedPresets
 }

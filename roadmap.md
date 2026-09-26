@@ -1860,3 +1860,117 @@ oben), aber durch Lesen von `EasyEffectsExporter.kt` bestätigt:
 `threshold` wird dort als reiner Pass-Through (`profile.limiter.thresholdDb
 .coerceIn(-48f, 0f).toDouble()`) gesetzt, `-0.3` bleibt vom `coerceIn`
 unberührt - der neue erwartete Wert ist exakt, keine Schätzung.
+
+### Session 25 (26. September 2026)
+
+Neue Nutzer-Idee für die Preset-Auswahl: statt einer flachen Liste von
+9 Presets ein zweiachsiges System - **Genre** (Terror, Uptempo, Gabber,
+Early, Frenchcore, Dance, Pop, Flat) **x Intensität** (Super Soft, Soft,
+Moderate, Aggressive, Very Aggressive). Zwei UI-Ideen zur Auswahl gestellt
+(Dropdown+feste Intensitäts-Buttons vs. kaskadierende Genre-Buttons) und
+zwei Architektur-Optionen (40 einzeln abgestimmte Presets vs. 8 Genre-
+Basiskurven + 5 Intensitäts-Makro-Stufen) - per `AskUserQuestion` geklärt:
+**Dropdown+Buttons (Idee 1)** und **Genre-Basis + Intensitäts-Makro**
+(empfohlen, da 13 statt 40 Dinge zu pflegen und Kombinationen automatisch
+konsistent bleiben).
+
+**Nutzer-Definition von "aggressiv"** (wichtig für die Makro-Wahl): "mehr
+Wumms, viel Bass, Lautstärke ändert sich hingegen kaum, Qualität steigend
+bei den Bässen" - explizit **nicht** über mehr Härte/Höhen definiert.
+
+**Neu in `:core`:**
+- `PresetIntensity` (Enum, 5 Stufen) - jede Stufe ist ein additives Delta
+  auf `macroBassDb`/`macroPunchDb` (nicht `macroHaerteDb` - siehe
+  Nutzer-Definition oben) plus ein Delta auf `mbcThresholdDb`/`mbcRatio`,
+  das den Bass-Kompressor bei höherer Intensität enger/bei niedrigerer
+  Intensität lockerer stellt - das ist die konkrete Umsetzung von "Qualität
+  steigend bei den Bässen" (mehr Bass wird straffer/kontrollierter
+  komprimiert statt nur roh lauter). Zusammen mit dem längst vorhandenen
+  Headroom-basierten Input-Gain-Cut (der bei größerem Peak-Boost ohnehin
+  automatisch stärker gegenhält) ergibt sich "Lautstärke ändert sich kaum"
+  als Nebeneffekt, ganz ohne neue Loudness-Matching-Logik.
+- `GenrePreset` (data class: id, displayName, `base`-Preset,
+  `allowsIntensity`) und `BuiltInGenrePresets` (die 8 Genre-Basen, jeweils
+  die "Moderate"-Abstimmung). Terror/Uptempo/Early/Frenchcore/Dance
+  übernehmen die längst abgestimmten Kurven von MaximumDistortion/
+  CleanPunch/RawPower/FastAttack/Balanced (die als eigenständige Presets in
+  `BuiltInPresets` unverändert bestehen bleiben, aus Kompatibilitätsgründen
+  mit allem, was schon auf ihre alten IDs gebunden ist). Gabber und Pop sind
+  neu entworfen (Gabber: Mitten-Bass-"Doorlussen"-Kick um 120 Hz statt
+  tiefem Sub-Bass, mit Scoop drüber; Pop: sanfte "Smile"-Kurve, niedrige
+  Makros, hoher MBC-Threshold). Flat setzt `allowsIntensity = false` - eine
+  "very aggressive" neutrale Referenzkurve wäre widersinnig.
+- `PresetIntensityResolver.resolve(genre, intensity): Preset` - erzeugt aus
+  Genre+Intensität ein konkretes `Preset` mit einer ID nach dem Schema
+  `"${genre.id}__${intensity.id}"`. Das war die Design-Entscheidung mit dem
+  größten Hebel: dadurch braucht `DeviceProfileEntity`/`boundPresetId`
+  **keine Schema-Änderung**, um sich Genre+Intensität pro Route zu merken -
+  die aufgelöste ID kodiert beides bereits, und `findPresetById` findet sie
+  unverändert wieder, weil `BuiltInPresets.all` jetzt zusätzlich
+  `BuiltInGenrePresets.allResolvedPresets` (alle 8x5 minus die 4 nicht
+  existenten Flat-Intensitäten = 36 Presets) enthält.
+  `PresetIntensityResolver.parse(id, genres)` macht das umgekehrt - zerlegt
+  eine aufgelöste ID wieder in (Genre, Intensität), damit die neue Auswahl-UI
+  ihren eigenen Zustand aus `activePreset` ableiten kann, ohne ihn ein
+  zweites Mal zu speichern.
+
+**Geändert:**
+- `BuiltInPresets.all` faltet `BuiltInGenrePresets.allResolvedPresets` mit
+  ein (Lookup-Kompatibilität), die ursprünglichen 9 Presets bleiben
+  unangetastet bestehen.
+- `MainViewModel`: neue `customPresetsOnly`-StateFlow (== `customPresetsState`,
+  öffentlich gemacht) und `selectedGenreIntensity`-StateFlow (aus
+  `activePreset` per `PresetIntensityResolver.parse` abgeleitet, `null` für
+  jedes Preset, das kein aufgelöster Genre-Kombo ist - z. B. ein Custom-
+  Preset oder eines der alten 9). Neue Funktion `selectGenreIntensity(genre,
+  intensity)` löst nur auf und ruft das längst bestehende `selectPreset()`
+  auf - keine zweite Persistenz-/Headroom-Pipeline zum Pflegen.
+- `EqualizerScreen`: neue `GenreIntensitySelector`-Komposable (Dropdown +
+  Zeile mit 5 Intensitäts-Buttons, Idee 1) ersetzt den alten `PresetGrid`-
+  Aufruf für die eingebauten Presets. `PresetGrid` bleibt bestehen, zeigt
+  aber jetzt nur noch **eigene** Presets (`customPresets`, vorher
+  fälschlich `allPresets` inklusive aller 45 Presets - wäre ein unbedienbar
+  großes Grid geworden). Der Intensitäts-Button-Reihe bleibt sichtbar, aber
+  deaktiviert, wenn das gewählte Genre `allowsIntensity = false` ist (Flat)
+  - kein Springen im Layout beim Genre-Wechsel.
+- `PresetDesign.forPreset` bekam keine Codeänderung, aber `genre_dance`
+  bekam bewusst `metadata.genre = "hard-dance"` (nicht `"dance"`), damit es
+  denselben visuellen Design-Bucket trifft wie `Balanced`, dessen Kurve es
+  übernimmt.
+
+**Tests:** `PresetIntensityResolverTest` (7 Fälle: Moderate=Basis-Werte
+unverändert, Aggressive addiert Bass/Punch, Härte bleibt unberührt, MBC wird
+bei höherer Intensität enger/bei niedrigerer lockerer, alle Kombinationen
+bleiben innerhalb der Engine-Sicherheitsgrenzen, Flat ignoriert Intensität,
+`parse`/`resolve` sind Round-Trip-konsistent, `parse` liefert `null` für
+Nicht-Kombo-IDs), `BuiltInGenrePresetsTest` (5 Fälle: genau 8 Genres, nur
+Flat ohne Intensität, 36 aufgelöste Presets mit eindeutigen IDs,
+`BuiltInPresets.all` enthält alle davon, keine ID-Kollision mit den alten 9),
+`PresetDesignTest` erweitert (alter Test auf die alten 9 IDs eingegrenzt statt
+strikt auf ganz `BuiltInPresets.all`, neuer Test prüft den Design-Bucket
+jedes Genres über alle Intensitäten hinweg), vier neue `MainViewModelTest`-
+Fälle (Auswahl wendet die aufgelösten Makro-/MBC-Werte an, `isDirty` bleibt
+`false`, `selectedGenreIntensity` spiegelt die Auswahl wider bzw. wird `null`
+bei einem Alt-Preset, Flat ignoriert Intensität End-to-End bis zu
+`bandGainsDb`).
+
+**Verifikation:** `:core`-Änderungen komplett grün im Standalone-Mini-
+Gradle-Projekt (alle neuen + alle bestehenden Tests). `:app`-Änderungen
+(MainViewModel/MainScreen/EqualizerScreen/MainViewModelTest) wie immer nur
+mit ktlint + manuellem Review geprüft, nicht kompiliert (Android Gradle
+Plugin weiterhin nicht auflösbar) - insbesondere die neue Compose-UI
+(`GenreIntensitySelector`) ist ungetestet auf echtem Compile/Layout-Verhalten
+und sollte vor dem Release einmal real im Emulator/Gerät angeschaut werden.
+
+**Bewusst offen gelassen:**
+- Die alten 9 Presets (`CleanPunch`, `DeepRumble`, `KickAttack`, `Balanced`,
+  `RawPower`, `FastAttack`, `MaximumDistortion`, `FinalSmash`, plus `Flat`)
+  bleiben im Code, sind aber aus der Haupt-Auswahl-UI komplett verschwunden -
+  fänden sich nur wieder, wenn ein Gerät schon vor diesem Update daran
+  gebunden war. Kein Migrationscode, der bestehende Bindungen auf die neuen
+  Genre-Kombos umhängt.
+- `desktop/App.kt`s Preset-Liste (eine Spalte von Buttons) zeigt jetzt alle
+  45 Presets statt 9 - nicht Teil dieser Anfrage (die drehte sich um die
+  Mobile-App-UI), bewusst nicht angefasst, aber inzwischen unhandlich lang.
+- Keine neuen AutoEQ-/Korrekturprofil-Anpassungen - dieses Feature betrifft
+  nur die Preset-(Voicing-)Seite, nicht Korrekturprofile.
