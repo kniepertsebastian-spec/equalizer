@@ -1779,13 +1779,27 @@ Kommentar-Referenzen auf "Compressor" in `Crossfeed.kt`/`LookaheadLimiter.kt`/
 ...") entsprechend bereinigt. `:core`-Tests weiterhin komplett grün im
 Standalone-Mini-Gradle-Projekt (39 Tests, keine Breakage durch die Löschung).
 
-Im gleichen Gespräch aufgeworfen, aber (noch) nicht umgesetzt: die
-Diskussion, ob die drei Sicherheits-Stufen der echten Dynamics-Kette
-(breitband `inputGainDb` = `-(peakBoost * INPUT_GAIN_SAFETY_RATIO)`; MBC-
-Makeup-Gain, der laut eigenem Kommentar bewusst nur die Hälfte der
-durchschnittlichen Gain Reduction zurückgibt, `coerceIn(0f, 4f)`-gedeckelt;
-und der finale Limiter) in Summe zu konservativ für das bass-/kick-lastige
-Zielgenre sind. Nutzer-Frage im Gespräch bestätigt, dass das spürbar ist,
-aber noch keine Entscheidung getroffen, ob/wie die Marge gelockert werden
-soll - das wäre eine bewusste Trade-off-Entscheidung (mehr Punch vs. mehr
-Clipping-Risiko auf schwächeren/lauteren Geräten), kein reiner Bugfix.
+Im gleichen Gespräch wurde außerdem diskutiert, ob die drei Sicherheits-
+Stufen der echten Dynamics-Kette (breitband `inputGainDb`; MBC-Makeup-Gain,
+der laut eigenem Kommentar bewusst nur einen Teil der durchschnittlichen
+Gain Reduction zurückgibt; und der finale Limiter) in Summe zu konservativ
+für das bass-/kick-lastige Zielgenre sind - explizit auf Nutzerwunsch
+("locker das mal") gelockert:
+- `INPUT_GAIN_SAFETY_RATIO` in `MainViewModel.kt`: 0.3 → 0.2 (nur noch 20 %
+  statt 30 % des Peak-Boosts werden breitband vorab weggenommen). Dritte
+  Senkung in Folge (1.0 → 0.5 → 0.3 → 0.2), immer aus demselben Grund
+  (Session 16/17/24): mehr von dem hörbar lassen, was der EQ eigentlich
+  anhebt.
+- MBC-Makeup-Gain-Formel in `AndroidAudioEngine.kt`: Rückgabe-Anteil der
+  durchschnittlichen Gain Reduction von 0,5 auf 0,7 erhöht, Deckelung von
+  4 dB auf 5 dB angehoben.
+- Der Limiter (10:1, hartes Threshold-Ceiling) blieb bewusst unangetastet -
+  er ist die tatsächliche letzte Instanz gegen Clipping; die beiden
+  gelockerten Werte liegen beide *vor* ihm in der Kette, sodass er weiterhin
+  vollständig greift, falls die zusätzliche Lautheit doch zu Overs führt.
+- Bewusster Trade-off, kein reiner Bugfix: mehr Punch/Lautheit auf Kosten
+  von etwas mehr Limiter-Aktivität (potenziell öfter hörbares Limiting) auf
+  ohnehin schon lauten Presets/Geräten. `MainViewModelTest`s
+  `expectedInputGainDb`/`-2.4f`-Erwartungen entsprechend auf den neuen
+  0,2-Faktor angepasst (30 % → 20 %, `-2.4f` → `-1.6f` im manuellen-Boost-
+  Test).

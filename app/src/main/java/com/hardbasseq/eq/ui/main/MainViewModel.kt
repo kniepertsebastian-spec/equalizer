@@ -64,8 +64,12 @@ import javax.inject.Inject
 // job, which made every preset sound indistinguishable from flat - see roadmap.md
 // Session 16. Lowered further to 0.3 in Session 17 at the user's explicit request for
 // more aggressive kicks/less pre-cancellation, after 0.5 still felt too subtle - the
-// Limiter is still unchanged and remains the actual clipping safety net.
-private const val INPUT_GAIN_SAFETY_RATIO = 0.3f
+// Limiter is still unchanged and remains the actual clipping safety net. Lowered again
+// to 0.2 in Session 24, alongside a matching loosening of the MBC makeup gain
+// (AndroidAudioEngine.applyInternal), at the user's request to give back more of the
+// punch these safety layers were taking out on kick-heavy material - same reasoning as
+// Session 17, the Limiter downstream is still the actual, unchanged clipping backstop.
+private const val INPUT_GAIN_SAFETY_RATIO = 0.2f
 
 // roadmap-2026.md M5: "Extreme Boosts werden nicht still angewandt, sondern
 // begrenzt oder bestätigt" - an imported correction curve peaking above this

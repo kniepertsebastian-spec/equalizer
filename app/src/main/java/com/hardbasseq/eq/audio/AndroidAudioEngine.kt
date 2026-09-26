@@ -269,15 +269,21 @@ class AndroidAudioEngine
                             val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
                             val mbcThresholdDb =
                                 if (settings.mbcEnabled) settings.mbcThresholdDb.coerceIn(-30f, 0f) else 0f
-                            // Standard compressor makeup-gain heuristic (half the average gain
-                            // reduction the ratio/threshold combination implies), capped
-                            // conservatively. Without this, every preset ends up net quieter
-                            // than flat instead of punchier: the Limiter below (unchanged, hard
-                            // 10:1 ceiling) still protects the final output, so this only
-                            // restores loudness the compression itself removed.
+                            // Standard compressor makeup-gain heuristic (a fraction of the average
+                            // gain reduction the ratio/threshold combination implies), capped.
+                            // Without this, every preset ends up net quieter than flat instead of
+                            // punchier: the Limiter below (unchanged, hard 10:1 ceiling) still
+                            // protects the final output, so this only restores loudness the
+                            // compression itself removed. Restore fraction raised 0.5->0.7 and the
+                            // cap 4dB->5dB in Session 24 (roadmap.md), alongside a matching
+                            // loosening of the broadband input-gain safety ratio in
+                            // MainViewModel, at the user's request to give back more of the punch
+                            // these safety layers were taking out on kick-heavy material - same
+                            // reasoning as the Session 17 input-gain change, the Limiter downstream
+                            // is still the actual, unchanged clipping backstop.
                             val mbcMakeupGainDb =
                                 if (mbcRatio > 1f) {
-                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.5f).coerceIn(0f, 4f)
+                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.7f).coerceIn(0f, 5f)
                                 } else {
                                     0f
                                 }
