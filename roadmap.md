@@ -1480,3 +1480,43 @@ Mini-Gradle-Projekt, ktlint sauber.
   `roadmap-2026.md` M1-Umsetzungsstand), da er ein anderer Codepfad ist als
   "YouTube Music direkt starten". Nutzer-Entscheidung: so lassen, keine
   Änderung nötig.
+
+**Nachtrag selbe Session - UI-Verdrahtung des Vorschlags:** Der oben als
+offen gelassene nächste Schritt wurde noch in dieser Session nachgeholt.
+
+- `MainViewModel`: neuer `StateFlow<AutoEqCatalogEntry?>`
+  (`suggestedCorrectionProfile`), gespeist von einem zweiten,
+  `hasRestoredState`-unabhängigen Collector auf `routeRepository.activeRoute`
+  (`updateSuggestedCorrectionProfile()`). Kein Vorschlag für
+  `WIRED_HEADPHONES`/`SPEAKER` (liefern nie einen echten Produktnamen), für
+  bereits per `DeviceProfileRepository` gebundene Routen oder für pro Route
+  einmal abgelehnte Vorschläge (`dismissedSuggestionRouteIds` - bewusst nur
+  In-Memory, nicht persistiert, siehe Code-Kommentar). `acceptSuggested-
+  CorrectionProfile()` speichert das Katalog-Profil zuerst in
+  `CorrectionProfileRepository` (genau wie ein AutoEQ-Datei-Import), bevor es
+  ausgewählt wird - sonst würde die von `saveDeviceProfileBinding()`
+  gespeicherte `boundCorrectionProfileId` beim nächsten Routenwechsel ins
+  Leere laufen.
+- `EqualizerScreen.kt`: neue Vorschlags-Karte in der "Mein Kopfhörer"-Card
+  (`AnimatedVisibility`, Gerätename + Quelle + "Übernehmen"/"Nicht jetzt").
+  Zwei neue Composable-Parameter, entsprechend in `MainScreen.kt` verdrahtet.
+- `MainViewModelTest.kt`: sechs neue Tests (kein Vorschlag für die
+  Standard-Speaker-Route, erkannter vs. unbekannter Bluetooth-Gerätename,
+  keine erneute Suggestion bei bereits gebundener Route, Annehmen speichert
+  und wählt aus, Ablehnen räumt nur die Suggestion ab ohne das aktive Profil
+  zu ändern) plus eine Katalog-Fixture-Guard-Assertion.
+- **Verifikation:** `:core`-Anteil wie gehabt (Standalone-Mini-Gradle-Projekt,
+  alle Tests grün). Der `:app`-Anteil (`MainViewModel`/`EqualizerScreen`/
+  `MainScreen`/`MainViewModelTest`) konnte in dieser Sandbox **nicht**
+  kompiliert oder getestet werden (Android Gradle Plugin nicht auflösbar,
+  wie in jeder vorherigen Session) - nur mit der eigenständigen ktlint-CLI
+  geprüft, plus manueller Zeilen-für-Zeilen-Review des Diffs (inkl.
+  Klammern-/Kompilierbarkeits-Handkontrolle). Verifiziert wird das erst
+  durch die reale CI in PR #30.
+- **Nebenbefund:** `EqualizerScreen.kt` hatte als einzige Datei im Repo
+  CRLF-Zeilenenden (vermutlich einmal unter Windows gespeichert) -
+  `ktlint --format` hat das beim Formatieren automatisch auf LF vereinheit-
+  licht (wie der Rest des Repos). Dadurch erscheint der Git-Diff dieser
+  Datei viel größer als der tatsächliche inhaltliche Unterschied (per
+  `diff` nach Zeilenenden-Normalisierung geprüft: ausschließlich die oben
+  beschriebenen Änderungen, sonst nichts).

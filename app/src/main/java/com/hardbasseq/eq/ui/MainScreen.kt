@@ -76,6 +76,7 @@ fun MainScreen(
     val allPresets by viewModel.allPresets.collectAsStateWithLifecycle()
     val activeCorrectionProfile by viewModel.activeCorrectionProfile.collectAsStateWithLifecycle()
     val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
+    val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
     val pendingImportPreview by viewModel.pendingImportPreview.collectAsStateWithLifecycle()
     val importError by viewModel.importError.collectAsStateWithLifecycle()
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
@@ -233,12 +234,15 @@ fun MainScreen(
                 allPresets = allPresets,
                 activeCorrectionProfile = activeCorrectionProfile,
                 allCorrectionProfiles = allCorrectionProfiles,
+                suggestedCorrectionProfile = suggestedCorrectionProfile,
                 isDirty = isDirty,
                 onMasterToggled = { viewModel.setMasterEnabled(it) },
                 onOpenSourcePicker = { viewModel.openSourcePicker() },
                 onBypassToggled = { viewModel.setBypass(it) },
                 onPresetSelected = { viewModel.selectPreset(it) },
                 onCorrectionProfileSelected = { viewModel.selectCorrectionProfile(it) },
+                onAcceptSuggestedCorrectionProfile = { viewModel.acceptSuggestedCorrectionProfile() },
+                onDismissSuggestedCorrectionProfile = { viewModel.dismissSuggestedCorrectionProfile() },
                 onImportCorrectionProfileRequested = {
                     // "*/*" rather than a specific text MIME type: AutoEQ files are
                     // typically .txt/.csv, but different file managers/providers

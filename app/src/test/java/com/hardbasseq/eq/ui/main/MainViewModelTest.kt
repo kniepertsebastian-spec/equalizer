@@ -1,6 +1,7 @@
 package com.hardbasseq.eq.ui.main
 
 import com.hardbasseq.eq.audio.AudioCapabilities
+import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
 import com.hardbasseq.eq.audio.AudioEngineState
@@ -11,6 +12,7 @@ import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalog
 import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
@@ -558,6 +560,108 @@ class MainViewModelTest {
             assertTrue(ids.contains(custom.id))
         }
 
+    // --- Chat feature (not a roadmap-2026.md milestone): "Mein Kopfhörer" auto-detection ---
+
+    @Test
+    fun `no suggestion for the default speaker route`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+        }
+
+    @Test
+    fun `a recognized bluetooth device name surfaces a suggestion`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Sony WH-1000XM4", id = "bt_xm4"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("sony_wh1000xm4", viewModel.suggestedCorrectionProfile.value?.id)
+        }
+
+    @Test
+    fun `an unrecognized bluetooth device name surfaces no suggestion`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Generic BT Speaker XR200", id = "bt_unknown"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+        }
+
+    @Test
+    fun `a route already bound to a device profile is never suggested to`() =
+        runTest {
+            val routeId = "bt_xm4"
+            val deviceProfileRepository =
+                FakeDeviceProfileRepository(
+                    initial =
+                        mapOf(
+                            routeId to
+                                DeviceProfileEntity(
+                                    routeId = routeId,
+                                    routeType = AudioDeviceType.BLUETOOTH.name,
+                                    displayName = "Sony WH-1000XM4",
+                                    boundPresetId = BuiltInPresets.CleanPunch.id,
+                                ),
+                        ),
+                )
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Sony WH-1000XM4", id = routeId))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+        }
+
+    @Test
+    fun `accepting a suggestion saves and selects the catalog profile`() =
+        runTest {
+            val correctionProfileRepository = FakeCorrectionProfileRepository()
+            val viewModel = createViewModel(emptyList(), correctionProfileRepository = correctionProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Sony WH-1000XM4", id = "bt_xm4"))
+            dispatcher.scheduler.advanceUntilIdle()
+            val suggestion = viewModel.suggestedCorrectionProfile.value
+            assertEquals("sony_wh1000xm4", suggestion?.id)
+
+            viewModel.acceptSuggestedCorrectionProfile()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+            assertEquals("sony_wh1000xm4", viewModel.activeCorrectionProfile.value.id)
+            assertTrue(correctionProfileRepository.savedProfiles.any { it.id == "sony_wh1000xm4" })
+        }
+
+    @Test
+    fun `dismissing a suggestion clears it without touching the active correction profile`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Sony WH-1000XM4", id = "bt_xm4"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("sony_wh1000xm4", viewModel.suggestedCorrectionProfile.value?.id)
+
+            viewModel.dismissSuggestedCorrectionProfile()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+            assertEquals(BuiltInCorrectionProfiles.None.id, viewModel.activeCorrectionProfile.value.id)
+        }
+
+    @Test
+    fun `builtInAutoEqCatalog actually contains the model used by these tests`() {
+        // Guards the fixture above against silently testing nothing if the
+        // catalog ever drops this entry.
+        assertTrue(BuiltInAutoEqCatalog.entries.any { it.id == "sony_wh1000xm4" })
+    }
+
     private fun customPreset(name: String): Preset =
         BuiltInPresets.CleanPunch.copy(
             id = UUID.randomUUID().toString(),
@@ -612,6 +716,10 @@ class MainViewModelTest {
     private class FakeAudioRouteRepository : AudioRouteRepository {
         private val _activeRoute = MutableStateFlow(AudioRoute())
         override val activeRoute: StateFlow<AudioRoute> = _activeRoute.asStateFlow()
+
+        fun setRoute(route: AudioRoute) {
+            _activeRoute.value = route
+        }
 
         override fun startMonitoring() {}
 
