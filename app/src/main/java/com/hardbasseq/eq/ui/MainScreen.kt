@@ -58,6 +58,7 @@ import com.hardbasseq.eq.ui.equalizer.styleFor
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
 import com.hardbasseq.eq.ui.theme.spacing
+import com.hardbasseq.eq.ui.update.ReleaseUpdateNotice
 import com.soundcloud.equalizer.player.playback.NowPlaying
 
 @Composable
@@ -241,6 +242,7 @@ fun MainScreen(
         },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            ReleaseUpdateNotice()
             EqualizerScreen(
                 state = engineState,
                 route = route,

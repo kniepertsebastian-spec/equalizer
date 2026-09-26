@@ -1,0 +1,65 @@
+name: Signed Android release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK with the persistent release key
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.HARDBASS_RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_PASSWORD: ${{ secrets.HARDBASS_RELEASE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "Unsupported release tag"; exit 1; }
+          [[ -n "$RELEASE_KEYSTORE_BASE64" && -n "$RELEASE_PASSWORD" ]] || { echo "Release signing secrets are missing"; exit 1; }
+          grep -q 'hardbasseq.releaseStoreFile' app/build.gradle.kts || { echo "Tag predates signed release support"; exit 1; }
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hardbasseq-release.jks"
+          VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
+          VERSION_NAME="${TAG#v}"
+          ./gradlew :app:assembleRelease \
+            -Phardbasseq.versionCode="$VERSION_CODE" \
+            -Phardbasseq.versionName="$VERSION_NAME" \
+            -Phardbasseq.releaseStoreFile="$RUNNER_TEMP/hardbasseq-release.jks" \
+            -Phardbasseq.releaseStorePassword="$RELEASE_PASSWORD" \
+            -Phardbasseq.releaseKeyAlias=hardbasseq \
+            -Phardbasseq.releaseKeyPassword="$RELEASE_PASSWORD"
+          APK_NAME="HardBassEQ-${TAG}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          export APK_NAME VERSION_CODE VERSION_NAME
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib
+          apk = pathlib.Path(os.environ['APK_NAME'])
+          manifest = {
+              'versionCode': int(os.environ['VERSION_CODE']),
+              'versionName': os.environ['VERSION_NAME'],
+              'packageName': 'com.hardbasseq.eq',
+              'apkAsset': apk.name,
+              'sha256': hashlib.sha256(apk.read_bytes()).hexdigest(),
+          }
+          pathlib.Path('update.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Attach signed APK and update metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "HardBassEQ-${TAG}.apk" update.json --clobber
