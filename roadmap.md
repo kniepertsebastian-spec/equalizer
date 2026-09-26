@@ -1691,3 +1691,80 @@ manuellem Review geprüft (Android Gradle Plugin weiterhin nicht auflösbar).
 - `Compressor`/`LookaheadLimiter` bleiben unverdrahtete `:core`-Referenz-
   implementierungen; `AndroidAudioEngine` deckt Kompression/Limiting für den
   echten Pfad bereits über `DynamicsProcessing` ab.
+
+### Session 24 (26. September 2026)
+
+Reale Rückmeldung nach Beta-3-Rollout (Session 23s "Kopfhörer-Modus wirkt auf
+echte EQ-Kurve"-Fix): der Effekt fühlt sich im Auto kaum an, und mit
+Kopfhörer-Modus aktiv wirkt der Bass sogar eher schwächer und die Musik
+"halliger"/verwaschener - beides das Gegenteil dessen, was der Schalter
+eigentlich tun soll.
+
+**Diagnose (per In-App-Diagnostics-Report, mehrfach vom Nutzer geteilt):**
+- Der Report-Header zeigt nur die *aktuelle* Route zum Export-Zeitpunkt, nicht
+  die Route während der geloggten Events - der einzige `Route changed`-Eintrag
+  stand am Ende, davor lief alles noch auf der vorherigen (Auto-)Route. Für
+  künftige Diagnosen wichtig: die Session-Events selbst nach `Route changed`-
+  Markern lesen, nicht den Header for bare münze nehmen.
+- Auffällig war ein wiederkehrendes Attach/Detach-Muster der Effekt-Session
+  (`Session detached` → `Listening` → erst 20-60s später wieder `attached`),
+  zweimal sogar 47s bzw. fast 2 Minuten Lücke, in denen *keinerlei* Effekt an
+  der Spotify-Session hängt. Ursprünglich als Bluetooth/Auto-spezifisches
+  Problem vermutet - ein zweiter Log-Ausschnitt nach Wechsel auf
+  `SPEAKER` zeigte aber dasselbe ~38s-Muster mit einer neuen Session-ID
+  (25457 statt 25105, d. h. Spotify öffnet bei Routenwechsel tatsächlich eine
+  neue Session). Das relativiert die Bluetooth-Theorie: das Attach/Detach-
+  Timing scheint eine allgemeine Spotify-Eigenheit zu sein, keine
+  auto-spezifische Störung - bewusst nicht weiterverfolgt, da es die
+  eigentliche Beschwerde (schwächer/halliger *mit* Kopfhörer-Modus, nicht nur
+  "wirkungslos") nicht erklärt.
+- Eigentliche Ursache: `HeadphoneComfortCurve` hebt den Bass um bis zu +2,5 dB
+  an, *bevor* das Signal durch Androids `DynamicsProcessing`-Mehrband-
+  Kompressor läuft (`AndroidAudioEngine.applyInternal` hängt EQ vor MBC/
+  Limiter). Das Bass-Band des MBC (bis 120 Hz) hatte mit 180 ms die längste
+  Release-Zeit der drei Bänder. Der zusätzliche Boost drückt Kick-Transienten
+  stärker in die Kompression (mehr Gain Reduction pro Treffer), und die 180 ms
+  lange Erholungsphase danach ist als hörbares "Pumping"/"Breathing" wahrnehm-
+  bar - ein Lautstärke-Nachschwingen, das sich wie Nachhall anfühlt, obwohl
+  keinerlei Hall-/Echo-Effekt im Code existiert (verifiziert: repo-weite Suche
+  nach "Reverb"/"Echo" findet nur einen Test-Fixture-Namen ohne Bezug zur
+  echten Signalkette). Derselbe Mechanismus erklärt beide Symptome zugleich:
+  der Boost wird teils weggedrückt (fühlt sich nach weniger Bass an) und die
+  Erholungsphase klingt nach Hall.
+- Die `bandGainsDb`-Mathematik selbst ist nicht betroffen/nicht der Fehler -
+  weiterhin testverifiziert, dass der Schalter Band 0 (60 Hz) tatsächlich
+  anhebt (`MainViewModelTest`).
+
+**Fix:** Release-Zeit des Bass-MBC-Bands in `AndroidAudioEngine.kt` von
+180 ms auf 100 ms verkürzt. Nicht weiter runter, weil eine Release-Zeit in
+der Größenordnung der Wellenperiode selbst (bei 60-120 Hz: ~8-16 ms) den
+Kompressor dazu bringen kann, innerhalb eines einzelnen Zyklus zu modulieren
+und damit selbst hörbare Verzerrung zu erzeugen - genau der Grund, warum
+dieses Band ursprünglich die längste Release-Zeit der drei MBC-Bänder hatte.
+100 ms bleibt mit gutem Abstand darüber, halbiert aber die hörbare
+Erholungsphase nach jedem Kick. Bewusst als generelle Kompressor-Tuning-
+Änderung umgesetzt (nicht an `effectiveHeadphoneAcoustics` gekoppelt), weil
+das Pumping-Verhalten grundsätzlich bei jedem stark angehobenen Bass-Preset
+auftreten kann, nicht nur mit aktivem Kopfhörer-Modus - der Kopfhörer-Modus
+hat es hier nur durch den zusätzlichen Boost sichtbar gemacht.
+
+**Verifikation:** `AndroidAudioEngine.kt` ist reiner `:app`-Code mit direkter
+`android.media.audiofx`-Abhängigkeit - wie bei allen bisherigen `:app`-
+Änderungen in dieser Sandbox nur mit dem Standalone-ktlint-Check und
+manuellem Review geprüft, nicht kompiliert oder instrumentiert getestet
+(Android Gradle Plugin weiterhin nicht auflösbar). Keine bestehenden Tests
+referenzieren die MBC-Band-Konstanten (sie sind Android-Framework-Objekte,
+außerhalb der `:core`-Testbarkeit).
+
+**Bewusst offen gelassen:**
+- Das Attach/Detach-Session-Churn (20-60s-Zyklen) bleibt unangetastet - wirkt
+  nach aktuellem Stand wie normales Spotify-Verhalten, nicht wie ein Bug in
+  `AndroidAudioEngine`/`AudioSessionRepository`. Falls es doch relevant wird,
+  bräuchte es einen längeren Speaker-only-Vergleichslog, um die Häufigkeit
+  wirklich mit der Auto/Bluetooth-Route zu vergleichen (bisher nur ein
+  einzelnes Speaker-Beispiel).
+- Kein Versuch, den MBC nur bei aktivem Kopfhörer-Modus anders zu
+  konfigurieren (z. B. separate Threshold/Ratio) - `ProcessingSettings`
+  kennt aktuell nur global (pro Preset) einheitliche MBC-Werte für alle drei
+  Bänder, das wäre ein größerer struktureller Umbau gewesen für einen
+  Nutzen, der sich nicht auf den Kopfhörer-Fall beschränkt.

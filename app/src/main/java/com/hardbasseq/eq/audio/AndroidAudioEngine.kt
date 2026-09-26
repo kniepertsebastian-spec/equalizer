@@ -281,9 +281,19 @@ class AndroidAudioEngine
                                 } else {
                                     0f
                                 }
+                            // Low band's 180ms->100ms: a real-device report described the mix
+                            // getting audibly "hallend"/pumpy with headphone mode on. Headphone
+                            // mode adds a bass shelf ahead of this compressor (see
+                            // HeadphoneComfortCurve/combinedCurve in MainViewModel), so the low
+                            // band now hits the threshold harder and its long recovery after each
+                            // kick was audible as a swelling tail. 100ms still comfortably clears
+                            // the ~8-16ms period of 60-120Hz content (avoiding the compressor
+                            // itself distorting the waveform, why this band's release was long
+                            // to begin with) while cutting the audible recovery time nearly in
+                            // half.
                             val mbcBands =
                                 listOf(
-                                    MbcBandSettings(120f, 15f, 180f),
+                                    MbcBandSettings(120f, 15f, 100f),
                                     MbcBandSettings(1500f, 8f, 120f),
                                     MbcBandSettings(20000f, 3f, 80f),
                                 )
