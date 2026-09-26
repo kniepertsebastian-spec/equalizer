@@ -1318,3 +1318,205 @@ Baseline zum Migrieren hat.
   JDK 21 gegen exakt die geänderten Dateien geprüft (0 Verstöße außerhalb
   von `:player`, das weiterhin keine ktlint-Anwendung hat). Kompilieren,
   Unit-Tests und Android Lint bleiben CI-only.
+
+### Session 20 (26. September 2026)
+
+Nutzer-Chat-Anfrage (kein roadmap-2026.md-Meilenstein): Vergleich mit
+Nothing's In-Ear-Kopfhörern und deren "Dirac Opteo"-EQ-Feature. Daraus zwei
+Erweiterungsideen konkret als neue `:core`-DSP-Bausteine umgesetzt, exakt auf
+demselben Reifegrad wie `BiquadFilterDesigner`: Referenzimplementierung, nur
+offline gegen synthetische Testsignale geprüft, bewusst **nicht** in
+`ProcessingSettings`/`Media3DspPipeline` oder einen echten Wiedergabepfad
+verdrahtet (siehe "Bewusst offen gelassen" unten).
+
+**Neu: `dsp/LoudnessCompensationCurve.kt`** – ISO-226/Fletcher-Munson-
+*inspirierte* (keine echte SPL-kalibrierte ISO-226-Tabelle)
+Lautstärkekompensation: Je weiter der aktuelle Pegel unter einer
+Referenzlautstärke liegt, desto stärker werden Bass und (schwächer) Höhen
+angehoben, geklemmt ab 40 dB Pegelabstand. Liefert eine normale
+`TargetPoint`-Liste, keine Sonderbehandlung im restlichen DSP-Pfad nötig.
+
+**`CurveComposer.combine()` erweitert** um eine n-äre Variante
+(`combine(curves: List<List<TargetPoint>>)`), damit Korrektur-, Voicing- und
+jetzt auch Loudness-Kurve gemeinsam summiert werden können, ohne die
+bestehende Zwei-Kurven-Signatur zu brechen (die jetzt nur noch darauf
+delegiert).
+
+**Neu: `dsp/BassExciter.kt`** – harmonische Bass-Erweiterung ("Bass
+Exciter", vgl. Waves MaxxBass/SRS TruBass – das Funktionsprinzip hinter
+Dirac Opteos "mehr Bass aus kleinen Treibern"): Tiefpass isoliert den
+Bassanteil, Vollweg-Gleichrichtung erzeugt daraus Obertöne (dominant eine
+Oktave höher), Hochpass entfernt den dabei entstehenden DC-Offset, das
+Ergebnis wird mit einstellbarem `mix` zum Original zugemischt statt es zu
+ersetzen. Anders als alles bisherige im `dsp`-Package ist das *nichtlinear*
+– kein reiner Gain-pro-Frequenz-Filter, sondern erzeugt tatsächlich neue
+Frequenzanteile, die ein kleiner Treiber im Original gar nicht abstrahlen
+könnte.
+
+**Neu: `BiquadFilterState`** (in `BiquadFilter.kt`) – `BiquadFilterDesigner`
+konnte bisher nur Koeffizienten designen und die Frequenzantwort analytisch
+auswerten, aber kein einziges Sample tatsächlich filtern. `BassExciter`
+braucht echtes zeitdiskretes IIR-Filtern mit Zustand zwischen aufeinander-
+folgenden `process()`-Aufrufen (Direct Form I) – das war die fehlende
+Voraussetzung dafür.
+
+**Tests:** `LoudnessCompensationCurveTest`, `CurveComposerTest`,
+`BassExciterTest` – letzterer u. a. mit einer Goertzel-Einzelfrequenz-
+Analyse, um nachzuweisen, dass ein reiner 55-Hz-Testton nach dem Exciter
+tatsächlich neue, klar messbare Energie bei 110 Hz hat, die im Bypass-Pfad
+nicht existiert, sowie ein Test, dass ein 5-kHz-Ton (weit außerhalb des
+Bass-Cutoffs) praktisch unverändert bleibt.
+
+**Verifikation:** `./gradlew` schlägt in dieser Sandbox weiterhin schon beim
+Root-Build fehl (AGP-Plugin nicht auflösbar). `:core` hat aber keine
+Android-Abhängigkeit – die neuen/geänderten Dateien wurden deshalb in einem
+eigenständigen Mini-Gradle-Projekt (nur `kotlin-jvm` + `kotlin-serialization`,
+spiegelt exakt `core/build.gradle.kts`) gegen dieselben Quelldateien laufen
+lassen: alle 30 Tests in `:core` (die neuen plus alle bereits vorhandenen)
+grün. Ktlint-Konformität mit einer lokal heruntergeladenen, eigenständigen
+ktlint-1.3.1-CLI geprüft (zwei kleine Autoformat-Korrekturen: Klassen-
+Signatur-Zeilenumbruch, Chain-Continuation) – dieselbe Methode wie in
+Session 19.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- Beide Bausteine sind – wie `BiquadFilterDesigner`/`CurveComposer`/
+  `HeadroomCalculator` selbst – **nicht** in `ProcessingSettings`/
+  `Media3DspPipeline` oder einen echten Wiedergabepfad verdrahtet. Laut
+  roadmap-2026.md M6 "Release-Gate B" ist das bewusst gesperrt, bis die drei
+  Ausführungspfade (Android `DynamicsProcessing`/Herstellereffekte vs.
+  eigener Media3-DSP vs. grafische Approximation) auf echter Hardware
+  verglichen wurden. `BassExciter` würde konkret den eigenen Media3-DSP-Pfad
+  brauchen – Vollweg-Gleichrichtung/harmonische Synthese ist mit
+  System-Effekten wie `Equalizer`/`DynamicsProcessing` nicht möglich.
+- Woher `LoudnessCompensationCurve.forLevel()` den "aktuellen Pegel" bekommt
+  (System-Media-Volume vs. gemessenes Signal-RMS) ist nicht
+  entschieden/implementiert – die Funktion nimmt bewusst nur eine bereits
+  berechnete dB-Differenz entgegen, keine Pegelmessung selbst.
+- Kein eigener ADR- oder Roadmap-Meilenstein-Eintrag für diese beiden
+  Features, da sie aus einem Chat mit dem Nutzer entstanden sind, nicht aus
+  einem bestehenden Meilenstein.
+
+### Session 21 (26. September 2026)
+
+Fortsetzung des Nothing/Dirac-Opteo-Chats: automatische Profilerkennung für
+"Mein Kopfhörer" (Punkt 8 aus dem Chat) - ein Vorschlag statt manuellem
+AutoEQ-Datei-Import, wenn das erkannte Bluetooth-Gerät zu einem bekannten
+Modell passt.
+
+**`AutoEqParser` von `:app` nach `:core` verschoben** (unverändert, nur
+Modul-Wechsel, plus die zugehörige `AutoEqParserTest`): reine Kotlin-Logik
+ohne Android-Abhängigkeit, die jetzt auch `BuiltInAutoEqCatalog` (`:core`)
+zum Parsen der eigenen Katalog-Daten braucht - `:core` kann nicht von `:app`
+abhängen, umgekehrt schon (`app/build.gradle.kts` hatte `project(":core")`
+schon). `:app` selbst (`MainViewModel.kt`s Import) brauchte keine Änderung,
+da Package und API gleich geblieben sind.
+
+**Neu: `dsp`-Nachbar `autoeq/AutoEqCatalogEntry.kt` + `BuiltInAutoEqCatalog.kt`
++ `AutoEqCatalogMatcher.kt`:**
+- `BuiltInAutoEqCatalog` bündelt 10 verbreitete Kopfhörer-/Earbud-Modelle
+  (Sony WH-1000XM4/XM5, WF-1000XM4/XM5, Apple AirPods Max, Bose QuietComfort
+  45, Sennheiser HD 599, Sennheiser Momentum 4 Wireless, Samsung Galaxy
+  Buds2 Pro, Beats Studio Buds) als fertige `CorrectionProfile`s. Datenquelle:
+  echte GraphicEQ-Messwerte aus dem AutoEQ-Projekt
+  (github.com/jaakkopasanen/AutoEq, MIT-lizenziert), Messungen von
+  oratory1990 - per `git show` einzelner `GraphicEQ.txt`-Dateien aus dem
+  öffentlichen Repo gezogen (kein Live-Netzwerkzugriff zur Laufzeit, nur zum
+  Beschaffen der Daten für diese Session). Bewusst nur 10 Modelle, nicht die
+  vollständige AutoEQ-Datenbank (tausende Modelle) - siehe "Bewusst offen
+  gelassen" unten.
+- `AutoEqCatalogMatcher` gleicht einen Gerätenamen-String (z. B.
+  `AudioRoute.name`, das `AndroidAudioRouteRepository` für Bluetooth/USB
+  schon aus `device.productName` befüllt) gegen den Katalog ab: exakte
+  Treffer, Enthaltensein (deckt "Sony WH-1000XM4 Stereo" oder nur
+  "WH-1000XM4" als Bluetooth-Advertising-Name ab) und als Fallback
+  Levenshtein-Ähnlichkeit für knapp daneben liegende Schreibweisen. Liefert
+  unterhalb einer Mindest-Konfidenz (0.6) bewusst `null` statt eines
+  unsicheren Vorschlags.
+
+**Tests:** `AutoEqCatalogMatcherTest`, `BuiltInAutoEqCatalogTest` (u. a. dass
+jeder Katalogeintrag eine nicht-leere, innerhalb der `AutoEqParser`-Grenzen
+liegende Kurve hat) sowie die mitgezogene `AutoEqParserTest`. Verifiziert wie
+in den vorherigen Sessions: alle 44 `:core`-Tests grün im eigenständigen
+Mini-Gradle-Projekt, ktlint sauber.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- **Keine Verdrahtung in `MainViewModel`/`EqualizerScreen`s "Mein
+  Kopfhörer"-Karte** - der Matcher ist fertig und getestet, aber noch nicht
+  an `AudioRouteRepository.activeRoute` angeschlossen und zeigt entsprechend
+  noch keinen Vorschlag in der UI an. Anders als bei `BassExciter`/
+  `LoudnessCompensationCurve` (Session 20) ist das hier *kein* Blocker durch
+  eine ungeklärte technische Richtung (M6) - reine Geräteerkennung/Vorschlag
+  ohne PCM-Processing -, sondern schlicht in dieser Session nicht mehr
+  gemacht. Nächster Schritt: `MainViewModel` bekommt einen
+  `StateFlow<AutoEqCatalogEntry?>`, der bei jedem `activeRoute`-Wechsel
+  `AutoEqCatalogMatcher.findBestMatch(route.name)` aufruft (nur sinnvoll für
+  `BLUETOOTH`/`USB` - `WIRED_HEADPHONES`/`SPEAKER` liefern laut
+  `AndroidAudioRouteRepository` nie einen echten Produktnamen), plus
+  Annehmen/Ablehnen-Aktionen und eine kleine Vorschlagskarte in
+  `EqualizerScreen.kt`.
+- **Kein vollständiger AutoEQ-Katalog** - 10 Modelle sind eine Kuratierung,
+  keine Datenbank-Anbindung. Eine vollständige Abdeckung bräuchte entweder
+  echten Netzwerkzugriff zur Laufzeit (Lizenz-/Attributionshinweis nötig,
+  AutoEQs README empfiehlt dafür ohnehin eher autoeq.app als die
+  `results/`-Dateien direkt) oder einen deutlich größeren mitgelieferten
+  Datensatz - beides eine bewusste Produktentscheidung, kein Teil dieser
+  Session.
+- **Kabelgebundene Kopfhörer bleiben unerreichbar für Auto-Erkennung** -
+  Android liefert dafür so gut wie nie einen Produktnamen (nur den
+  generischen `WIRED_HEADPHONES`-Typ), der manuelle Datei-Import bleibt für
+  diesen (vermutlich größeren) Nutzerkreis der einzige Weg.
+- **Punkt 7 aus dem Chat (YouTube in der Quellenauswahl) bewusst nicht
+  angefasst** - das eigentliche Hindernis ist rechtlich (YouTube bietet keine
+  offizielle Audio-Streaming-API für Drittanbieter-Player; ein inoffizieller
+  Extractor verstößt gegen die Nutzungsbedingungen), keine offene
+  Programmieraufgabe. Nutzer-Rückmeldung (echtes Gerät, außerhalb dieser
+  Sandbox): **YouTube Music funktioniert bereits** - vermutlich über den
+  normalen Session-Attach-Pfad (wie Spotify, Option A), der pfadunabhängig
+  für jede App greift, die den `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-
+  Broadcast sendet, ganz ohne eigenen Code dafür. Das ist unabhängig vom
+  weiterhin kaputten `PlayerSource.YOUTUBE`-Eintrag im eigenen
+  Player-Picker (SC Equalizer Player) - dieser bleibt bewusst unverändert
+  als geplantes, noch nicht funktionsfähiges Feature stehen (siehe
+  `roadmap-2026.md` M1-Umsetzungsstand), da er ein anderer Codepfad ist als
+  "YouTube Music direkt starten". Nutzer-Entscheidung: so lassen, keine
+  Änderung nötig.
+
+**Nachtrag selbe Session - UI-Verdrahtung des Vorschlags:** Der oben als
+offen gelassene nächste Schritt wurde noch in dieser Session nachgeholt.
+
+- `MainViewModel`: neuer `StateFlow<AutoEqCatalogEntry?>`
+  (`suggestedCorrectionProfile`), gespeist von einem zweiten,
+  `hasRestoredState`-unabhängigen Collector auf `routeRepository.activeRoute`
+  (`updateSuggestedCorrectionProfile()`). Kein Vorschlag für
+  `WIRED_HEADPHONES`/`SPEAKER` (liefern nie einen echten Produktnamen), für
+  bereits per `DeviceProfileRepository` gebundene Routen oder für pro Route
+  einmal abgelehnte Vorschläge (`dismissedSuggestionRouteIds` - bewusst nur
+  In-Memory, nicht persistiert, siehe Code-Kommentar). `acceptSuggested-
+  CorrectionProfile()` speichert das Katalog-Profil zuerst in
+  `CorrectionProfileRepository` (genau wie ein AutoEQ-Datei-Import), bevor es
+  ausgewählt wird - sonst würde die von `saveDeviceProfileBinding()`
+  gespeicherte `boundCorrectionProfileId` beim nächsten Routenwechsel ins
+  Leere laufen.
+- `EqualizerScreen.kt`: neue Vorschlags-Karte in der "Mein Kopfhörer"-Card
+  (`AnimatedVisibility`, Gerätename + Quelle + "Übernehmen"/"Nicht jetzt").
+  Zwei neue Composable-Parameter, entsprechend in `MainScreen.kt` verdrahtet.
+- `MainViewModelTest.kt`: sechs neue Tests (kein Vorschlag für die
+  Standard-Speaker-Route, erkannter vs. unbekannter Bluetooth-Gerätename,
+  keine erneute Suggestion bei bereits gebundener Route, Annehmen speichert
+  und wählt aus, Ablehnen räumt nur die Suggestion ab ohne das aktive Profil
+  zu ändern) plus eine Katalog-Fixture-Guard-Assertion.
+- **Verifikation:** `:core`-Anteil wie gehabt (Standalone-Mini-Gradle-Projekt,
+  alle Tests grün). Der `:app`-Anteil (`MainViewModel`/`EqualizerScreen`/
+  `MainScreen`/`MainViewModelTest`) konnte in dieser Sandbox **nicht**
+  kompiliert oder getestet werden (Android Gradle Plugin nicht auflösbar,
+  wie in jeder vorherigen Session) - nur mit der eigenständigen ktlint-CLI
+  geprüft, plus manueller Zeilen-für-Zeilen-Review des Diffs (inkl.
+  Klammern-/Kompilierbarkeits-Handkontrolle). Verifiziert wird das erst
+  durch die reale CI in PR #30.
+- **Nebenbefund:** `EqualizerScreen.kt` hatte als einzige Datei im Repo
+  CRLF-Zeilenenden (vermutlich einmal unter Windows gespeichert) -
+  `ktlint --format` hat das beim Formatieren automatisch auf LF vereinheit-
+  licht (wie der Rest des Repos). Dadurch erscheint der Git-Diff dieser
+  Datei viel größer als der tatsächliche inhaltliche Unterschied (per
+  `diff` nach Zeilenenden-Normalisierung geprüft: ausschließlich die oben
+  beschriebenen Änderungen, sonst nichts).

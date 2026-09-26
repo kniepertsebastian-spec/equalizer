@@ -18,19 +18,28 @@ object CurveComposer {
     fun combine(
         correctionCurve: List<TargetPoint>,
         voicingCurve: List<TargetPoint>,
-    ): List<TargetPoint> {
-        if (correctionCurve.isEmpty()) return voicingCurve.sortedBy { it.frequencyHz }
-        if (voicingCurve.isEmpty()) return correctionCurve.sortedBy { it.frequencyHz }
+    ): List<TargetPoint> = combine(listOf(correctionCurve, voicingCurve))
 
-        val sortedCorrection = correctionCurve.sortedBy { it.frequencyHz }
-        val sortedVoicing = voicingCurve.sortedBy { it.frequencyHz }
-        val frequencies =
-            (sortedCorrection.map { it.frequencyHz } + sortedVoicing.map { it.frequencyHz }).toSortedSet()
+    // N-ary variant, added alongside dsp/LoudnessCompensationCurve (a third
+    // curve source on top of correction + voicing). Same summing-at-the-union
+    // approach as the two-curve overload above, generalized to any number of
+    // curves rather than replacing it, so existing call sites keep working
+    // unchanged.
+    fun combine(curves: List<List<TargetPoint>>): List<TargetPoint> {
+        val nonEmptyCurves = curves.filter { it.isNotEmpty() }
+        if (nonEmptyCurves.isEmpty()) return emptyList()
+        if (nonEmptyCurves.size == 1) return nonEmptyCurves.first().sortedBy { it.frequencyHz }
+
+        val sortedCurves = nonEmptyCurves.map { curve -> curve.sortedBy { it.frequencyHz } }
+        val frequencies = sortedCurves.flatMap { curve -> curve.map { it.frequencyHz } }.toSortedSet()
 
         return frequencies.map { freqHz ->
-            val correctionGain = EqualizerInterpolator.interpolateFrequency(freqHz, sortedCorrection)
-            val voicingGain = EqualizerInterpolator.interpolateFrequency(freqHz, sortedVoicing)
-            TargetPoint(frequencyHz = freqHz, gainDb = correctionGain + voicingGain)
+            val totalGainDb =
+                sortedCurves
+                    .sumOf { curve ->
+                        EqualizerInterpolator.interpolateFrequency(freqHz, curve).toDouble()
+                    }.toFloat()
+            TargetPoint(frequencyHz = freqHz, gainDb = totalGainDb)
         }
     }
 }

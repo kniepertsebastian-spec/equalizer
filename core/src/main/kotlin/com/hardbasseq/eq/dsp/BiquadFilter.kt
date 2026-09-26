@@ -139,3 +139,40 @@ object BiquadFilterDesigner {
         return 10f * log10(magnitudeSq.coerceAtLeast(1e-12f))
     }
 }
+
+// Everything above only designs coefficients and evaluates the resulting
+// transfer function analytically - useful to check a filter design offline,
+// but nothing there actually runs a signal through a filter. A biquad is an
+// IIR filter: computing sample n needs the previous two input and output
+// samples, so applying it correctly across a stream of process() calls (one
+// call per sample, as BassExciter does) requires carrying that state between
+// calls - a fresh, state-free filter on every call would click/pop at every
+// buffer boundary. Direct Form I, per the same RBJ cookbook the coefficients
+// above come from.
+class BiquadFilterState {
+    private var x1 = 0f
+    private var x2 = 0f
+    private var y1 = 0f
+    private var y2 = 0f
+
+    fun process(
+        input: Float,
+        coefficients: BiquadCoefficients,
+    ): Float {
+        val output =
+            coefficients.b0 * input + coefficients.b1 * x1 + coefficients.b2 * x2 -
+                coefficients.a1 * y1 - coefficients.a2 * y2
+        x2 = x1
+        x1 = input
+        y2 = y1
+        y1 = output
+        return output
+    }
+
+    fun reset() {
+        x1 = 0f
+        x2 = 0f
+        y1 = 0f
+        y2 = 0f
+    }
+}

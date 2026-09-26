@@ -75,6 +75,7 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.HeadroomCalculator
@@ -96,6 +97,7 @@ fun EqualizerScreen(
     allPresets: List<Preset>,
     activeCorrectionProfile: CorrectionProfile,
     allCorrectionProfiles: List<CorrectionProfile>,
+    suggestedCorrectionProfile: AutoEqCatalogEntry?,
     isDirty: Boolean,
     onMasterToggled: (Boolean) -> Unit,
     onOpenSourcePicker: () -> Unit,
@@ -104,6 +106,8 @@ fun EqualizerScreen(
     onCorrectionProfileSelected: (CorrectionProfile) -> Unit,
     onImportCorrectionProfileRequested: () -> Unit,
     onExportCorrectionProfile: (CorrectionProfile) -> Unit,
+    onAcceptSuggestedCorrectionProfile: () -> Unit,
+    onDismissSuggestedCorrectionProfile: () -> Unit,
     onResetToActivePreset: () -> Unit,
     onSaveAsNewRequest: () -> Unit,
     onDuplicatePreset: (Preset) -> Unit,
@@ -398,6 +402,47 @@ fun EqualizerScreen(
                             }
                         }
                         Spacer(modifier = Modifier.height(spacing.small))
+
+                        // Chat feature (not a roadmap-2026.md milestone): a
+                        // suggestion only, never applied silently - see
+                        // MainViewModel.updateSuggestedCorrectionProfile()/
+                        // AutoEqCatalogMatcher for why (name matching is never
+                        // certain enough for a quiet auto-import).
+                        AnimatedVisibility(visible = suggestedCorrectionProfile != null) {
+                            if (suggestedCorrectionProfile != null) {
+                                Column(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(MaterialTheme.colorScheme.secondaryContainer)
+                                            .padding(spacing.small),
+                                ) {
+                                    Text(
+                                        text = "Erkanntes Gerät: ${suggestedCorrectionProfile.displayName}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                    Text(
+                                        text =
+                                            "Passendes AutoEQ-Korrekturprofil verfügbar " +
+                                                "(${suggestedCorrectionProfile.profile.sourceLabel}).",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                        TextButton(onClick = onDismissSuggestedCorrectionProfile) {
+                                            Text("Nicht jetzt")
+                                        }
+                                        TextButton(onClick = onAcceptSuggestedCorrectionProfile) {
+                                            Text("Übernehmen")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         CorrectionProfileRow(
                             profiles = allCorrectionProfiles,
                             activeProfileId = activeCorrectionProfile.id,

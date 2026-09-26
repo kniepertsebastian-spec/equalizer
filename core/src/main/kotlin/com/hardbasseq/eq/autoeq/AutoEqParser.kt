@@ -7,6 +7,11 @@ import com.hardbasseq.eq.preset.TargetPoint
 // curve ("Mein Kopfhörer", M3), meant to be combined with a separate voicing
 // preset ("Klangstil") via CurveComposer - not a Preset/VoicingPreset itself, so
 // this returns CorrectionProfile.
+//
+// Moved here from :app (session with BuiltInAutoEqCatalog/AutoEqCatalogMatcher):
+// pure Kotlin, no Android dependency, and now used by :core's own
+// BuiltInAutoEqCatalog to parse its bundled GraphicEQ data - :app still uses it
+// unchanged via the existing :core dependency (same package, same API).
 object AutoEqParser {
     fun parseAutoEqText(
         profileName: String,

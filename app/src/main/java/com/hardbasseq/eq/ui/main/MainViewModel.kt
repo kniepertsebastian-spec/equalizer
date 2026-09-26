@@ -2,6 +2,7 @@ package com.hardbasseq.eq.ui.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
 import com.hardbasseq.eq.audio.AudioEngine
@@ -10,6 +11,8 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
+import com.hardbasseq.eq.autoeq.AutoEqCatalogMatcher
 import com.hardbasseq.eq.autoeq.AutoEqParser
 import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
@@ -145,6 +148,20 @@ class MainViewModel
                 .map { custom -> BuiltInCorrectionProfiles.all + custom }
                 .stateIn(viewModelScope, SharingStarted.Eagerly, BuiltInCorrectionProfiles.all)
 
+        // "Mein Kopfhörer" auto-detection (chat feature, not a roadmap-2026.md
+        // milestone): a suggestion only, never a silent auto-import - see
+        // AutoEqCatalogMatcher's own doc comment for why. Cleared whenever the
+        // route already has an explicit DeviceProfileRepository binding (the user
+        // already chose something for it, suggested or not) or was dismissed for
+        // this route already - dismissedSuggestionRouteIds is intentionally only
+        // in-memory (this ViewModel's lifetime), not persisted: a fresh app start
+        // asking again after a dismissal is an acceptable tradeoff against the
+        // complexity of persisting a third kind of per-route state.
+        private val _suggestedCorrectionProfile = MutableStateFlow<AutoEqCatalogEntry?>(null)
+        val suggestedCorrectionProfile: StateFlow<AutoEqCatalogEntry?> = _suggestedCorrectionProfile.asStateFlow()
+
+        private val dismissedSuggestionRouteIds = mutableSetOf<String>()
+
         // M5 "Importvorschau ... anzeigen" / "Extreme Boosts werden nicht still
         // angewandt, sondern begrenzt oder bestätigt": set by
         // previewCorrectionProfileImport(), cleared by confirm/cancel. Nothing is
@@ -194,6 +211,16 @@ class MainViewModel
                     .collect { route ->
                         if (hasRestoredState) applyDeviceProfileForRoute(route)
                     }
+            }
+            // Independent of the restore race above: a suggestion is advisory,
+            // read-only UI state, not something that needs to wait for
+            // restoreSavedState() - it never mutates activePreset/
+            // activeCorrectionProfile itself (acceptSuggestedCorrectionProfile()
+            // does, but only once the user actually taps it).
+            viewModelScope.launch {
+                routeRepository.activeRoute.collect { route ->
+                    updateSuggestedCorrectionProfile(route)
+                }
             }
         }
 
@@ -335,6 +362,40 @@ class MainViewModel
             recalculateBandGains()
             persistLiveSettings()
             saveDeviceProfileBinding()
+        }
+
+        // Only WIRED_HEADPHONES/SPEAKER routes always carry a fixed, generic name
+        // (see AndroidAudioRouteRepository.detectCurrentRoute()) - matching those
+        // against the catalog would be meaningless, so only BLUETOOTH/USB routes
+        // (which carry the actual device.productName) are ever considered.
+        private suspend fun updateSuggestedCorrectionProfile(route: AudioRoute) {
+            val eligibleType = route.type == AudioDeviceType.BLUETOOTH || route.type == AudioDeviceType.USB
+            val alreadyBound = eligibleType && deviceProfileRepository.getProfileForRoute(route.id) != null
+            _suggestedCorrectionProfile.value =
+                if (!eligibleType || route.id in dismissedSuggestionRouteIds || alreadyBound) {
+                    null
+                } else {
+                    AutoEqCatalogMatcher.findBestMatch(route.name)
+                }
+        }
+
+        // Saves the suggested catalog profile the same way an AutoEQ file import
+        // gets saved (confirmCorrectionProfileImport above) - it needs to exist in
+        // CorrectionProfileRepository, not just be selected in memory, or the
+        // device-profile binding saveDeviceProfileBinding() writes next would point
+        // at an id findCorrectionProfileById() can never resolve again later.
+        fun acceptSuggestedCorrectionProfile() {
+            val entry = _suggestedCorrectionProfile.value ?: return
+            _suggestedCorrectionProfile.value = null
+            viewModelScope.launch {
+                correctionProfileRepository.save(entry.profile)
+            }
+            selectCorrectionProfile(entry.profile)
+        }
+
+        fun dismissSuggestedCorrectionProfile() {
+            dismissedSuggestionRouteIds.add(currentRoute.value.id)
+            _suggestedCorrectionProfile.value = null
         }
 
         // M5: parses `text` (a file the caller already read, e.g. via a SAF
