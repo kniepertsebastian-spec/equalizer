@@ -274,16 +274,17 @@ class AndroidAudioEngine
                             // Without this, every preset ends up net quieter than flat instead of
                             // punchier: the Limiter below (unchanged, hard 10:1 ceiling) still
                             // protects the final output, so this only restores loudness the
-                            // compression itself removed. Restore fraction raised 0.5->0.7 and the
-                            // cap 4dB->5dB in Session 24 (roadmap.md), alongside a matching
-                            // loosening of the broadband input-gain safety ratio in
-                            // MainViewModel, at the user's request to give back more of the punch
-                            // these safety layers were taking out on kick-heavy material - same
-                            // reasoning as the Session 17 input-gain change, the Limiter downstream
-                            // is still the actual, unchanged clipping backstop.
+                            // compression itself removed. Restore fraction raised 0.5->0.7->0.85 and
+                            // the cap 4dB->5dB->6dB, both in Session 24 (roadmap.md), alongside a
+                            // matching loosening of the broadband input-gain safety ratio in
+                            // MainViewModel, at the user's explicit request for more punch on
+                            // kick-heavy material ("soll ja knallen") - the Limiter downstream is
+                            // still the actual, unchanged clipping backstop, so this and the
+                            // input-gain ratio are the two places left to give back loudness; at
+                            // these values the Limiter is doing most of the remaining safety work.
                             val mbcMakeupGainDb =
                                 if (mbcRatio > 1f) {
-                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.7f).coerceIn(0f, 5f)
+                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.85f).coerceIn(0f, 6f)
                                 } else {
                                     0f
                                 }

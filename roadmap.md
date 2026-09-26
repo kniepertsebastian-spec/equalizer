@@ -1803,3 +1803,19 @@ für das bass-/kick-lastige Zielgenre sind - explizit auf Nutzerwunsch
   `expectedInputGainDb`/`-2.4f`-Erwartungen entsprechend auf den neuen
   0,2-Faktor angepasst (30 % → 20 %, `-2.4f` → `-1.6f` im manuellen-Boost-
   Test).
+
+**Noch weiter gelockert** (derselbe Sitzung, explizit "Gerne noch zusätzlich
+lockern, soll ja knallen"):
+- `INPUT_GAIN_SAFETY_RATIO`: 0,2 → 0,1 - vierte Senkung in Folge
+  (1,0 → 0,5 → 0,3 → 0,2 → 0,1). Bei 0,1 ist diese Stufe fast ein No-Op;
+  praktisch die gesamte verbleibende Sicherheitsarbeit gegen Clipping liegt
+  jetzt beim unveränderten, harten 10:1-Limiter.
+- MBC-Makeup-Gain: Rückgabe-Anteil 0,7 → 0,85, Deckelung 5 dB → 6 dB.
+- Bewusst nicht bis auf 0 bzw. 1,0 durchgezogen (kein völliger Verzicht auf
+  die Input-Gain-Vorstufe) - der Limiter fängt zwar in jedem Fall echtes
+  Clipping ab (harte Ceiling, unabhängig vom Pegel davor), aber je mehr
+  Arbeit er allein leisten muss, desto eher wird er selbst als Limiting
+  hörbar (statt nur gelegentliche Spitzen zu kappen). 0,1/0,85/6 dB ist die
+  aggressivste Einstellung, die noch etwas Vorstufen-Pufferung übrig lässt.
+  `MainViewModelTest` entsprechend erneut angepasst (20 % → 10 %,
+  `-1.6f` → `-0.8f`).
