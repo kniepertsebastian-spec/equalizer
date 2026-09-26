@@ -1318,3 +1318,80 @@ Baseline zum Migrieren hat.
   JDK 21 gegen exakt die geänderten Dateien geprüft (0 Verstöße außerhalb
   von `:player`, das weiterhin keine ktlint-Anwendung hat). Kompilieren,
   Unit-Tests und Android Lint bleiben CI-only.
+
+### Session 20 (26. September 2026)
+
+Nutzer-Chat-Anfrage (kein roadmap-2026.md-Meilenstein): Vergleich mit
+Nothing's In-Ear-Kopfhörern und deren "Dirac Opteo"-EQ-Feature. Daraus zwei
+Erweiterungsideen konkret als neue `:core`-DSP-Bausteine umgesetzt, exakt auf
+demselben Reifegrad wie `BiquadFilterDesigner`: Referenzimplementierung, nur
+offline gegen synthetische Testsignale geprüft, bewusst **nicht** in
+`ProcessingSettings`/`Media3DspPipeline` oder einen echten Wiedergabepfad
+verdrahtet (siehe "Bewusst offen gelassen" unten).
+
+**Neu: `dsp/LoudnessCompensationCurve.kt`** – ISO-226/Fletcher-Munson-
+*inspirierte* (keine echte SPL-kalibrierte ISO-226-Tabelle)
+Lautstärkekompensation: Je weiter der aktuelle Pegel unter einer
+Referenzlautstärke liegt, desto stärker werden Bass und (schwächer) Höhen
+angehoben, geklemmt ab 40 dB Pegelabstand. Liefert eine normale
+`TargetPoint`-Liste, keine Sonderbehandlung im restlichen DSP-Pfad nötig.
+
+**`CurveComposer.combine()` erweitert** um eine n-äre Variante
+(`combine(curves: List<List<TargetPoint>>)`), damit Korrektur-, Voicing- und
+jetzt auch Loudness-Kurve gemeinsam summiert werden können, ohne die
+bestehende Zwei-Kurven-Signatur zu brechen (die jetzt nur noch darauf
+delegiert).
+
+**Neu: `dsp/BassExciter.kt`** – harmonische Bass-Erweiterung ("Bass
+Exciter", vgl. Waves MaxxBass/SRS TruBass – das Funktionsprinzip hinter
+Dirac Opteos "mehr Bass aus kleinen Treibern"): Tiefpass isoliert den
+Bassanteil, Vollweg-Gleichrichtung erzeugt daraus Obertöne (dominant eine
+Oktave höher), Hochpass entfernt den dabei entstehenden DC-Offset, das
+Ergebnis wird mit einstellbarem `mix` zum Original zugemischt statt es zu
+ersetzen. Anders als alles bisherige im `dsp`-Package ist das *nichtlinear*
+– kein reiner Gain-pro-Frequenz-Filter, sondern erzeugt tatsächlich neue
+Frequenzanteile, die ein kleiner Treiber im Original gar nicht abstrahlen
+könnte.
+
+**Neu: `BiquadFilterState`** (in `BiquadFilter.kt`) – `BiquadFilterDesigner`
+konnte bisher nur Koeffizienten designen und die Frequenzantwort analytisch
+auswerten, aber kein einziges Sample tatsächlich filtern. `BassExciter`
+braucht echtes zeitdiskretes IIR-Filtern mit Zustand zwischen aufeinander-
+folgenden `process()`-Aufrufen (Direct Form I) – das war die fehlende
+Voraussetzung dafür.
+
+**Tests:** `LoudnessCompensationCurveTest`, `CurveComposerTest`,
+`BassExciterTest` – letzterer u. a. mit einer Goertzel-Einzelfrequenz-
+Analyse, um nachzuweisen, dass ein reiner 55-Hz-Testton nach dem Exciter
+tatsächlich neue, klar messbare Energie bei 110 Hz hat, die im Bypass-Pfad
+nicht existiert, sowie ein Test, dass ein 5-kHz-Ton (weit außerhalb des
+Bass-Cutoffs) praktisch unverändert bleibt.
+
+**Verifikation:** `./gradlew` schlägt in dieser Sandbox weiterhin schon beim
+Root-Build fehl (AGP-Plugin nicht auflösbar). `:core` hat aber keine
+Android-Abhängigkeit – die neuen/geänderten Dateien wurden deshalb in einem
+eigenständigen Mini-Gradle-Projekt (nur `kotlin-jvm` + `kotlin-serialization`,
+spiegelt exakt `core/build.gradle.kts`) gegen dieselben Quelldateien laufen
+lassen: alle 30 Tests in `:core` (die neuen plus alle bereits vorhandenen)
+grün. Ktlint-Konformität mit einer lokal heruntergeladenen, eigenständigen
+ktlint-1.3.1-CLI geprüft (zwei kleine Autoformat-Korrekturen: Klassen-
+Signatur-Zeilenumbruch, Chain-Continuation) – dieselbe Methode wie in
+Session 19.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- Beide Bausteine sind – wie `BiquadFilterDesigner`/`CurveComposer`/
+  `HeadroomCalculator` selbst – **nicht** in `ProcessingSettings`/
+  `Media3DspPipeline` oder einen echten Wiedergabepfad verdrahtet. Laut
+  roadmap-2026.md M6 "Release-Gate B" ist das bewusst gesperrt, bis die drei
+  Ausführungspfade (Android `DynamicsProcessing`/Herstellereffekte vs.
+  eigener Media3-DSP vs. grafische Approximation) auf echter Hardware
+  verglichen wurden. `BassExciter` würde konkret den eigenen Media3-DSP-Pfad
+  brauchen – Vollweg-Gleichrichtung/harmonische Synthese ist mit
+  System-Effekten wie `Equalizer`/`DynamicsProcessing` nicht möglich.
+- Woher `LoudnessCompensationCurve.forLevel()` den "aktuellen Pegel" bekommt
+  (System-Media-Volume vs. gemessenes Signal-RMS) ist nicht
+  entschieden/implementiert – die Funktion nimmt bewusst nur eine bereits
+  berechnete dB-Differenz entgegen, keine Pegelmessung selbst.
+- Kein eigener ADR- oder Roadmap-Meilenstein-Eintrag für diese beiden
+  Features, da sie aus einem Chat mit dem Nutzer entstanden sind, nicht aus
+  einem bestehenden Meilenstein.
