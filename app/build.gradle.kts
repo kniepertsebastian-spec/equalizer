@@ -1,12 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-val releaseStoreFile = providers.gradleProperty("hardbasseq.releaseStoreFile").orNull
-val releaseStorePassword = providers.gradleProperty("hardbasseq.releaseStorePassword").orNull
-val releaseKeyAlias = providers.gradleProperty("hardbasseq.releaseKeyAlias").orNull
-val releaseKeyPassword = providers.gradleProperty("hardbasseq.releaseKeyPassword").orNull
-val hasReleaseSigning =
-    listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,6 +9,13 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ktlint)
 }
+
+val releaseStoreFile = providers.gradleProperty("hardbasseq.releaseStoreFile").orNull
+val releaseStorePassword = providers.gradleProperty("hardbasseq.releaseStorePassword").orNull
+val releaseKeyAlias = providers.gradleProperty("hardbasseq.releaseKeyAlias").orNull
+val releaseKeyPassword = providers.gradleProperty("hardbasseq.releaseKeyPassword").orNull
+val hasReleaseSigning =
+    listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
 
 android {
     // Roadmap M1: single source of truth is gradle.properties, not this file.
