@@ -51,15 +51,32 @@ oder anpassen:
   das ist ein manueller Schritt, es gibt keinen dokumentierten, stabilen Weg,
   es von außen live zu erzwingen.
 
-## Was NICHT übernommen wird
+### Aktuellen Klang vom Android-Handy übernehmen
 
-Die Android-App nutzt zusätzlich einen Multiband-Kompressor und Limiter
-(siehe `roadmap.md`, Sessions 14–17) als Sicherheitsnetz gegen Clipping bei
-angehobenen Bässen. Beide Desktop-Engines sind hier nur als reine
-parametrische EQs angebunden – ohne Dynamikverarbeitung. Um trotzdem sicher
-vor Clipping zu sein, wird der Preamp/Output-Gain hier **vollständig**
-(nicht nur anteilig wie auf Android) um den positiven Spitzenpegel abgesenkt.
-Das ist konservativer, aber ohne Kompressor/Limiter die richtige Wahl.
+1. In der Android-App **Desktop-Profil exportieren** wählen und
+   `HardBassEQ-Desktop.json` speichern. Bei aktiver Wiedergabe enthält die
+   Datei auch die tatsächlich angewandten EQ-Bänder einschließlich manueller
+   Änderungen. Ohne aktive Audio-Session werden Preset, Korrektur und Makros
+   gespeichert; der Desktop berechnet daraus die Bänder.
+2. Die Datei auf den Ubuntu-PC übertragen. Im Desktop-Tool den Dateipfad
+   unter **Profil vom Handy übernehmen** eintragen und **Datei laden** wählen.
+3. **Linux / EasyEffects** auswählen und das Preset exportieren. Danach das
+   Preset in EasyEffects unter *Presets* aktivieren.
+
+Der Linux-Export enthält die EQ-Kurve, den angewandten Input-Gain, die
+Kopfhörerkorrektur und – sofern eingeschaltet – einen dreibändigen
+Multiband-Kompressor und Limiter. Makro-Regler können nach dem Import weiter
+angepasst werden; bei mitgelieferten Hardware-Bändern wird nur die Änderung
+gegenüber dem Handywert zusätzlich aufgetragen. Ein ausgeschalteter oder
+überbrückter Handy-EQ erzeugt eine leere Effektkette.
+
+Der Export ist auf das Presetformat von EasyEffects 7.1.6 (Ubuntu 24.04)
+ausgelegt. Die Android- und EasyEffects-DSP-Algorithmen sind verschieden;
+identische Parameter garantieren deshalb keinen bitgenau gleichen Klang.
+Der EasyEffects-Limiter erlaubt nur bis zu 20 ms Release; der Android-Wert
+von 50 ms wird daher auf 20 ms begrenzt. Die schmaleren Bassfilter reduzieren
+die Überlagerung benachbarter parametrischer Bänder.
+Equalizer APO unter Windows erhält weiterhin nur die EQ-Kurve.
 
 ## Installer selbst bauen
 

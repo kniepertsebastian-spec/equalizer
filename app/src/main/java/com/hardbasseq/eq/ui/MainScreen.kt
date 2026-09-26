@@ -1,6 +1,7 @@
 package com.hardbasseq.eq.ui
 
 import android.content.Intent
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -110,6 +111,20 @@ fun MainScreen(
             }
             val sourceName = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "Importiertes Profil"
             viewModel.previewCorrectionProfileImport(sourceName, text)
+        }
+
+    val exportDesktopProfileLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri != null) {
+                runCatching {
+                    val profileJson = viewModel.exportDesktopSoundProfileJson()
+                    context.contentResolver
+                        .openOutputStream(uri)
+                        ?.bufferedWriter()
+                        ?.use { it.write(profileJson) }
+                        ?: error("Datei konnte nicht geöffnet werden")
+                }.onFailure { Toast.makeText(context, "Export fehlgeschlagen: ${it.message}", Toast.LENGTH_LONG).show() }
+            }
         }
 
     if (showSourcePicker) {
@@ -288,6 +303,10 @@ fun MainScreen(
             ) {
                 OutlinedButton(onClick = onNavigateToDiagnostics) {
                     Text("Diagnose & Report")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                OutlinedButton(onClick = { exportDesktopProfileLauncher.launch("HardBassEQ-Desktop.json") }) {
+                    Text("Desktop-Profil exportieren")
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 OutlinedButton(onClick = { viewModel.toggleDebugEffects() }) {

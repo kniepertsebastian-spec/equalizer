@@ -28,6 +28,8 @@ import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.LimiterConfig
+import com.hardbasseq.eq.preset.PortableSoundProfile
+import com.hardbasseq.eq.preset.PortableSoundProfileJson
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetMetadata
 import com.hardbasseq.eq.preset.PresetRepository
@@ -494,6 +496,42 @@ class MainViewModel
         // previewCorrectionProfileImport()/CorrectionProfileRepository already use,
         // so re-importing an exported file round-trips losslessly.
         fun exportCorrectionProfileJson(profile: CorrectionProfile): String = CorrectionProfileJsonSerializer.exportToJson(profile)
+
+        /** Includes the live band levels, so manual edits survive the desktop transfer. */
+        fun exportDesktopSoundProfileJson(): String {
+            val settings = _processingSettings.value
+            val hasActiveSession = engineState.value is AudioEngineState.Active
+            val appliedCurve =
+                if (hasActiveSession) {
+                    capabilities.value.bands.mapNotNull { band ->
+                        settings.bandGainsDb[band.index]?.let { gain ->
+                            TargetPoint(band.centerFreqHz.toFloat(), gain)
+                        }
+                    }
+                } else {
+                    emptyList()
+                }
+            return PortableSoundProfileJson.export(
+                PortableSoundProfile(
+                    preset = _activePreset.value,
+                    correction = _activeCorrectionProfile.value,
+                    appliedEqCurve = appliedCurve,
+                    macroBassDb = settings.macroBassDb,
+                    macroPunchDb = settings.macroPunchDb,
+                    macroHaerteDb = settings.macroHaerteDb,
+                    inputGainDb = settings.inputGainDb,
+                    mbcEnabled = settings.mbcEnabled && (!hasActiveSession || capabilities.value.hasMbc),
+                    mbcThresholdDb = settings.mbcThresholdDb,
+                    mbcRatio = settings.mbcRatio,
+                    limiter =
+                        LimiterConfig(
+                            settings.limiterEnabled && (!hasActiveSession || capabilities.value.hasLimiter),
+                            settings.limiterThresholdDb,
+                        ),
+                    processingEnabled = settings.masterEnabled && !settings.bypass,
+                ),
+            )
+        }
 
         // Discards manual edits, re-applying activePreset fresh.
         fun resetToActivePreset() = selectPreset(_activePreset.value)
