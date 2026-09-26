@@ -1395,3 +1395,81 @@ Session 19.
 - Kein eigener ADR- oder Roadmap-Meilenstein-Eintrag für diese beiden
   Features, da sie aus einem Chat mit dem Nutzer entstanden sind, nicht aus
   einem bestehenden Meilenstein.
+
+### Session 21 (26. September 2026)
+
+Fortsetzung des Nothing/Dirac-Opteo-Chats: automatische Profilerkennung für
+"Mein Kopfhörer" (Punkt 8 aus dem Chat) - ein Vorschlag statt manuellem
+AutoEQ-Datei-Import, wenn das erkannte Bluetooth-Gerät zu einem bekannten
+Modell passt.
+
+**`AutoEqParser` von `:app` nach `:core` verschoben** (unverändert, nur
+Modul-Wechsel, plus die zugehörige `AutoEqParserTest`): reine Kotlin-Logik
+ohne Android-Abhängigkeit, die jetzt auch `BuiltInAutoEqCatalog` (`:core`)
+zum Parsen der eigenen Katalog-Daten braucht - `:core` kann nicht von `:app`
+abhängen, umgekehrt schon (`app/build.gradle.kts` hatte `project(":core")`
+schon). `:app` selbst (`MainViewModel.kt`s Import) brauchte keine Änderung,
+da Package und API gleich geblieben sind.
+
+**Neu: `dsp`-Nachbar `autoeq/AutoEqCatalogEntry.kt` + `BuiltInAutoEqCatalog.kt`
++ `AutoEqCatalogMatcher.kt`:**
+- `BuiltInAutoEqCatalog` bündelt 10 verbreitete Kopfhörer-/Earbud-Modelle
+  (Sony WH-1000XM4/XM5, WF-1000XM4/XM5, Apple AirPods Max, Bose QuietComfort
+  45, Sennheiser HD 599, Sennheiser Momentum 4 Wireless, Samsung Galaxy
+  Buds2 Pro, Beats Studio Buds) als fertige `CorrectionProfile`s. Datenquelle:
+  echte GraphicEQ-Messwerte aus dem AutoEQ-Projekt
+  (github.com/jaakkopasanen/AutoEq, MIT-lizenziert), Messungen von
+  oratory1990 - per `git show` einzelner `GraphicEQ.txt`-Dateien aus dem
+  öffentlichen Repo gezogen (kein Live-Netzwerkzugriff zur Laufzeit, nur zum
+  Beschaffen der Daten für diese Session). Bewusst nur 10 Modelle, nicht die
+  vollständige AutoEQ-Datenbank (tausende Modelle) - siehe "Bewusst offen
+  gelassen" unten.
+- `AutoEqCatalogMatcher` gleicht einen Gerätenamen-String (z. B.
+  `AudioRoute.name`, das `AndroidAudioRouteRepository` für Bluetooth/USB
+  schon aus `device.productName` befüllt) gegen den Katalog ab: exakte
+  Treffer, Enthaltensein (deckt "Sony WH-1000XM4 Stereo" oder nur
+  "WH-1000XM4" als Bluetooth-Advertising-Name ab) und als Fallback
+  Levenshtein-Ähnlichkeit für knapp daneben liegende Schreibweisen. Liefert
+  unterhalb einer Mindest-Konfidenz (0.6) bewusst `null` statt eines
+  unsicheren Vorschlags.
+
+**Tests:** `AutoEqCatalogMatcherTest`, `BuiltInAutoEqCatalogTest` (u. a. dass
+jeder Katalogeintrag eine nicht-leere, innerhalb der `AutoEqParser`-Grenzen
+liegende Kurve hat) sowie die mitgezogene `AutoEqParserTest`. Verifiziert wie
+in den vorherigen Sessions: alle 44 `:core`-Tests grün im eigenständigen
+Mini-Gradle-Projekt, ktlint sauber.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- **Keine Verdrahtung in `MainViewModel`/`EqualizerScreen`s "Mein
+  Kopfhörer"-Karte** - der Matcher ist fertig und getestet, aber noch nicht
+  an `AudioRouteRepository.activeRoute` angeschlossen und zeigt entsprechend
+  noch keinen Vorschlag in der UI an. Anders als bei `BassExciter`/
+  `LoudnessCompensationCurve` (Session 20) ist das hier *kein* Blocker durch
+  eine ungeklärte technische Richtung (M6) - reine Geräteerkennung/Vorschlag
+  ohne PCM-Processing -, sondern schlicht in dieser Session nicht mehr
+  gemacht. Nächster Schritt: `MainViewModel` bekommt einen
+  `StateFlow<AutoEqCatalogEntry?>`, der bei jedem `activeRoute`-Wechsel
+  `AutoEqCatalogMatcher.findBestMatch(route.name)` aufruft (nur sinnvoll für
+  `BLUETOOTH`/`USB` - `WIRED_HEADPHONES`/`SPEAKER` liefern laut
+  `AndroidAudioRouteRepository` nie einen echten Produktnamen), plus
+  Annehmen/Ablehnen-Aktionen und eine kleine Vorschlagskarte in
+  `EqualizerScreen.kt`.
+- **Kein vollständiger AutoEQ-Katalog** - 10 Modelle sind eine Kuratierung,
+  keine Datenbank-Anbindung. Eine vollständige Abdeckung bräuchte entweder
+  echten Netzwerkzugriff zur Laufzeit (Lizenz-/Attributionshinweis nötig,
+  AutoEQs README empfiehlt dafür ohnehin eher autoeq.app als die
+  `results/`-Dateien direkt) oder einen deutlich größeren mitgelieferten
+  Datensatz - beides eine bewusste Produktentscheidung, kein Teil dieser
+  Session.
+- **Kabelgebundene Kopfhörer bleiben unerreichbar für Auto-Erkennung** -
+  Android liefert dafür so gut wie nie einen Produktnamen (nur den
+  generischen `WIRED_HEADPHONES`-Typ), der manuelle Datei-Import bleibt für
+  diesen (vermutlich größeren) Nutzerkreis der einzige Weg.
+- **Punkt 7 aus dem Chat (YouTube in der Quellenauswahl) bewusst nicht
+  angefasst** - das eigentliche Hindernis ist rechtlich (YouTube bietet keine
+  offizielle Audio-Streaming-API für Drittanbieter-Player; ein inoffizieller
+  Extractor verstößt gegen die Nutzungsbedingungen), keine offene
+  Programmieraufgabe. Das ist eine Produktentscheidung, die dem Nutzer
+  vorgelegt wurde, statt sie einseitig zu treffen (`PlayerSource.YOUTUBE`
+  bleibt unverändert als geplantes, noch nicht funktionsfähiges Feature
+  stehen, siehe `roadmap-2026.md` M1-Umsetzungsstand).
