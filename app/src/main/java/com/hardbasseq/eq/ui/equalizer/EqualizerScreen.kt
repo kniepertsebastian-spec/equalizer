@@ -78,6 +78,7 @@ import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.dsp.CurveComposer
+import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
@@ -127,9 +128,12 @@ fun EqualizerScreen(
     val style = styleFor(design)
     // M3/M4: headroom from the combined correction+voicing curve, not just the
     // highest of the discrete post-mapping band gains - see HeadroomCalculator.
-    // Mirrors MainViewModel.recalculateBandGains()'s own combination so the banner
-    // here always agrees with the inputGainDb the engine actually applied.
-    val combinedCurve = CurveComposer.combine(activeCorrectionProfile.curve, activePreset.targetCurve)
+    // Mirrors MainViewModel.recalculateBandGains()'s own combination (including
+    // the HeadphoneComfortCurve fold-in while effectiveHeadphoneAcoustics is on)
+    // so the banner here always agrees with the inputGainDb the engine actually
+    // applied.
+    val headphoneCurve = if (effectiveHeadphoneAcoustics) HeadphoneComfortCurve.curve else emptyList()
+    val combinedCurve = CurveComposer.combine(listOf(activeCorrectionProfile.curve, activePreset.targetCurve, headphoneCurve))
     val headroom =
         HeadroomCalculator.fromCombinedCurve(
             combinedCurve = combinedCurve,
@@ -456,21 +460,33 @@ fun EqualizerScreen(
 
                         Spacer(modifier = Modifier.height(spacing.small))
 
-                        // Chat feature (item 1 of "setz alle Punkte um"): gates
-                        // headphone-only DSP (Crossfeed - item 5) that would
-                        // actively hurt a proper stereo speaker image if left on.
-                        // Defaults from the route type (MainViewModel.
-                        // effectiveHeadphoneAcoustics) until explicitly overridden
-                        // here.
+                        // Chat feature (item 1 of "setz alle Punkte um"): true
+                        // Crossfeed/Bass-Mono-Summing (items 2/5) can't run over
+                        // the currently working playback path (Android's system
+                        // Equalizer/DynamicsProcessing effects, session-attached to
+                        // Spotify/SoundCloud/etc. - no room for custom algorithms
+                        // there). This switch instead folds HeadphoneComfortCurve
+                        // into the real, already-applied band-EQ curve
+                        // (MainViewModel.combinedCurve()) - a fixed bass/presence
+                        // tilt, not a literal crossfeed simulation. Defaults from
+                        // the route type (MainViewModel.effectiveHeadphoneAcoustics)
+                        // until explicitly overridden here.
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(
-                                text = "Kopfhörer-Modus",
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
+                            Column {
+                                Text(
+                                    text = "Kopfhörer-Modus",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                                Text(
+                                    text = "Etwas mehr Bass, etwas weniger Schärfe in den Höhen",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                             Switch(
                                 checked = effectiveHeadphoneAcoustics,
                                 onCheckedChange = onHeadphoneAcousticsChanged,
