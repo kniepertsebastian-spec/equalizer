@@ -1469,7 +1469,14 @@ Mini-Gradle-Projekt, ktlint sauber.
   angefasst** - das eigentliche Hindernis ist rechtlich (YouTube bietet keine
   offizielle Audio-Streaming-API für Drittanbieter-Player; ein inoffizieller
   Extractor verstößt gegen die Nutzungsbedingungen), keine offene
-  Programmieraufgabe. Das ist eine Produktentscheidung, die dem Nutzer
-  vorgelegt wurde, statt sie einseitig zu treffen (`PlayerSource.YOUTUBE`
-  bleibt unverändert als geplantes, noch nicht funktionsfähiges Feature
-  stehen, siehe `roadmap-2026.md` M1-Umsetzungsstand).
+  Programmieraufgabe. Nutzer-Rückmeldung (echtes Gerät, außerhalb dieser
+  Sandbox): **YouTube Music funktioniert bereits** - vermutlich über den
+  normalen Session-Attach-Pfad (wie Spotify, Option A), der pfadunabhängig
+  für jede App greift, die den `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-
+  Broadcast sendet, ganz ohne eigenen Code dafür. Das ist unabhängig vom
+  weiterhin kaputten `PlayerSource.YOUTUBE`-Eintrag im eigenen
+  Player-Picker (SC Equalizer Player) - dieser bleibt bewusst unverändert
+  als geplantes, noch nicht funktionsfähiges Feature stehen (siehe
+  `roadmap-2026.md` M1-Umsetzungsstand), da er ein anderer Codepfad ist als
+  "YouTube Music direkt starten". Nutzer-Entscheidung: so lassen, keine
+  Änderung nötig.
