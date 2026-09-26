@@ -14,5 +14,6 @@ interface DeviceProfileRepository {
         displayName: String,
         boundPresetId: String,
         boundCorrectionProfileId: String,
+        headphoneAcousticsOverride: Boolean?,
     )
 }

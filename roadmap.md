@@ -1520,3 +1520,96 @@ offen gelassene nächste Schritt wurde noch in dieser Session nachgeholt.
   Datei viel größer als der tatsächliche inhaltliche Unterschied (per
   `diff` nach Zeilenenden-Normalisierung geprüft: ausschließlich die oben
   beschriebenen Änderungen, sonst nichts).
+
+### Session 22 (26. September 2026)
+
+Fortsetzung des Nothing/Dirac-Opteo-Chats: Nutzer bat darum, die zuvor
+priorisierte 6-Punkte-Liste komplett der Reihe nach umzusetzen. Alle sechs
+Punkte sind jetzt umgesetzt. PR #30 (Session 20/21) war bereits gemergt, der
+Branch wurde deshalb frisch von `main` neu aufgesetzt statt draufzustacken
+(siehe eigene Anweisung dazu: "restart the designated branch from main").
+
+**Punkt 1 - Kopfhörer-Modus-Flag:** `DeviceProfileEntity` bekommt ein neues
+`headphoneAcousticsOverride: Boolean?`-Feld (null = kein expliziter Wunsch,
+Fallback auf `AudioDeviceType.defaultHeadphoneAcoustics()` - neue Extension
+in `AudioRoute.kt`: `WIRED_HEADPHONES`/`BLUETOOTH`/`USB` → true,
+`SPEAKER`/`UNKNOWN` → false). Kein Schema-Versionsbump - dieselbe Begründung
+wie bei `boundCorrectionProfileId` in Session 19: die App hat noch kein
+Release, es gibt keine installierte Version, die das brechen könnte (siehe
+Entity-Kommentar). `MainViewModel.effectiveHeadphoneAcoustics` kombiniert
+`currentRoute` und den geladenen Override; `setHeadphoneAcousticsOverride()`
+schreibt über denselben `saveDeviceProfileBinding()`-Pfad wie Preset-/
+Korrektur-Wechsel (wichtig: `applyDeviceProfileForRoute()` musste dafür
+umgebaut werden, damit der Override *immer* aktualisiert wird, auch wenn für
+die Route noch gar kein vollständiges Binding existiert - sonst hätte ein
+Routenwechsel den Override der vorherigen Route "durchgeschleift"). Kleine
+Switch-UI in der "Mein Kopfhörer"-Karte. Sechs neue `MainViewModelTest`-Fälle,
+u. a. ein Regressionstest, dass ein unabhängiger Presetwechsel den Override
+nicht zurücksetzt (Room-`REPLACE` würde sonst die ganze Zeile überschreiben).
+
+**Punkte 2-6 - fünf neue `:core`-DSP-Bausteine**, alle im selben Reifegrad wie
+`BassExciter`/`LoudnessCompensationCurve` aus Session 20 (getestete
+Referenzimplementierung, nicht an `Media3DspPipeline` angeschlossen):
+
+- `BassMonoSummer` (Punkt 2): Tiefpass pro Kanal + Mittelung zu einem
+  gemeinsamen Mono-Bass, Hochpass entfernt den ursprünglichen Bassanteil pro
+  Kanal, Mono-Bass wird zu beiden Kanälen zurückgemischt.
+- `Compressor` (Punkt 3): nutzt endlich die seit Langem toten
+  `mbcEnabled`/`mbcThresholdDb`/`mbcRatio`-Felder - Feed-Forward-Kompressor,
+  log-Domain-Hüllkurve mit getrennten Attack-/Release-Zeitkonstanten (fix
+  verdrahtet, da im Datenmodell nie vorgesehen), Hard-Knee-Gain-Rechner.
+  "Multiband" im Feldnamen ist Zielbeschreibung, nicht Ist-Zustand - nur ein
+  Threshold/Ratio im gesamten Datenmodell, also Vollband-Kompressor.
+- `LookaheadLimiter` (Punkt 4): Delay-Line + gleitendes Minimum über die
+  gepufferten "benötigter Gain pro Sample"-Werte - dadurch faktisch
+  Attack-Zeit 0 (die Zukunft ist ja schon bekannt), nur die Freigabe danach
+  läuft geglättet. Zusätzlich eine einfache lineare Interpolation zwischen
+  benachbarten Samples als grobe Inter-Sample-Peak-Schätzung (kein echtes
+  4x-Oversampling nach ITU-R BS.1770 - bewusst außerhalb des Rahmens einer
+  Referenzimplementierung). Mathematisch nachweisbar (nicht nur getestet):
+  die Ausgabe kann den Schwellwert nie überschreiten, da die angewandte
+  Verstärkung immer ≤ der für das aktuelle Sample selbst nötigen ist.
+- `Crossfeed` (Punkt 5): tiefpassgefilterter Kreuz-Mix zwischen den Kanälen
+  (bs2b-artig, ~700 Hz Grenzfrequenz), mit Normalisierung, damit ein bereits
+  monofones Signal nicht lauter wird. Bewusst kein Ersatz für
+  `BassMonoSummer` - unterschiedlicher Frequenzbereich, unterschiedlicher
+  Zweck. Kennt `AudioRoute`/`effectiveHeadphoneAcoustics` (Punkt 1) nicht
+  selbst (würde eine Android-Abhängigkeit in `:core` ziehen) - die
+  Gating-Entscheidung ist Sache des Aufrufers.
+- `TransientShaper` (Punkt 6): zwei Hüllkurvenverfolger (schnell/langsam),
+  ihre positive Differenz erkennt echte Attack-Transienten unabhängig vom
+  Frequenzinhalt - ersetzt die schwache EQ-basierte `macroPunchDb`-Notlösung
+  (siehe deren eigener Kommentar in `EqualizerInterpolator.kt` zu Session 17:
+  die Frequenzfenster mussten schon einmal nachjustiert werden, weil es auf
+  echten Geräten kaum wirkte).
+
+**Tests:** 26 neue Fälle über die fünf neuen `:core`-Klassen plus die sechs
+neuen `MainViewModelTest`-Fälle. Zwei bemerkenswerte Stolperfallen beim
+Schreiben der Tests selbst (nicht in der Produktionslogik):
+- `CrossfeedTest`: ein Sample-für-Sample-Vergleich für "Mono bleibt Mono"
+  schlug fehl, weil der Tiefpass im Kreuz-Pfad eine Phasenverschiebung
+  einführt - die Wellenform ändert sich dadurch sichtbar, obwohl der
+  RMS-Pegel (die eigentlich relevante Eigenschaft) erhalten bleibt. Test auf
+  RMS-Vergleich umgestellt.
+- `TransientShaperTest`: mehrere Tests brauchten deutlich mehr
+  Einschwing-Samples als ursprünglich angenommen - die langsame Hüllkurve
+  hat eine Zeitkonstante von ~1440 Samples (30 ms bei 48 kHz), nicht wenige
+  Hundert; zu kurzes "Einschwingen" in den Tests täuschte einen anhaltenden
+  Boost vor, der tatsächlich nur unvollständige Konvergenz war.
+
+**Verifikation:** wie in Session 20/21 - alle 76 `:core`-Tests grün im
+eigenständigen Mini-Gradle-Projekt (mirrort `core/build.gradle.kts`), `:app`
+nur mit der eigenständigen ktlint-1.3.1-CLI und manueller Diff-Durchsicht
+geprüft (Android Gradle Plugin weiterhin in dieser Sandbox nicht auflösbar) -
+echte Verifikation über die CI im neuen PR.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- Keiner der fünf neuen DSP-Bausteine ist an `ProcessingSettings`/
+  `Media3DspPipeline` angeschlossen - gleiche M6-Release-Gate-B-Begründung
+  wie in Session 20.
+- `Compressor`/`LookaheadLimiter`/`TransientShaper` haben fix verdrahtete
+  Attack-/Release-Zeitkonstanten statt Settings-Feldern dafür - das
+  Datenmodell (`ProcessingSettings`/`Preset`/`LimiterConfig`) hatte nie
+  Felder dafür vorgesehen, das wäre eine eigene, größere Erweiterung.
+- Kein Multiband-Crossover für `Compressor` trotz "MBC" im Feldnamen - siehe
+  oben.

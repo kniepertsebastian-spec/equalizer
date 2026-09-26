@@ -98,6 +98,7 @@ fun EqualizerScreen(
     activeCorrectionProfile: CorrectionProfile,
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
+    effectiveHeadphoneAcoustics: Boolean,
     isDirty: Boolean,
     onMasterToggled: (Boolean) -> Unit,
     onOpenSourcePicker: () -> Unit,
@@ -108,6 +109,7 @@ fun EqualizerScreen(
     onExportCorrectionProfile: (CorrectionProfile) -> Unit,
     onAcceptSuggestedCorrectionProfile: () -> Unit,
     onDismissSuggestedCorrectionProfile: () -> Unit,
+    onHeadphoneAcousticsChanged: (Boolean) -> Unit,
     onResetToActivePreset: () -> Unit,
     onSaveAsNewRequest: () -> Unit,
     onDuplicatePreset: (Preset) -> Unit,
@@ -451,6 +453,29 @@ fun EqualizerScreen(
                             spacing = spacing,
                             style = style,
                         )
+
+                        Spacer(modifier = Modifier.height(spacing.small))
+
+                        // Chat feature (item 1 of "setz alle Punkte um"): gates
+                        // headphone-only DSP (Crossfeed - item 5) that would
+                        // actively hurt a proper stereo speaker image if left on.
+                        // Defaults from the route type (MainViewModel.
+                        // effectiveHeadphoneAcoustics) until explicitly overridden
+                        // here.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = "Kopfhörer-Modus",
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            Switch(
+                                checked = effectiveHeadphoneAcoustics,
+                                onCheckedChange = onHeadphoneAcousticsChanged,
+                            )
+                        }
                     }
                 }
 
