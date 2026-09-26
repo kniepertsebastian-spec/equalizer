@@ -1613,3 +1613,81 @@ echte Verifikation über die CI im neuen PR.
   Felder dafür vorgesehen, das wäre eine eigene, größere Erweiterung.
 - Kein Multiband-Crossover für `Compressor` trotz "MBC" im Feldnamen - siehe
   oben.
+
+### Session 23 (26. September 2026)
+
+Wichtiger Architektur-Fund, der Session 22 im Nachhinein korrigiert:
+Nutzer-Rückmeldung von einem echten Gerät ("mit ausgeschaltetem Kopfhörer-
+Modus klingt es viel kraftvoller") führte zu einer genaueren Untersuchung des
+tatsächlich laufenden Wiedergabepfads.
+
+**Der Fund:** Session 20-22 gingen implizit davon aus, dass `Media3DspPipeline`
+(oder ein ähnlicher eigener PCM-Pfad) irgendwann der produktive Wiedergabeweg
+werden würde - das ist aber **nicht**, was tatsächlich läuft. Die echte,
+funktionierende Produktions-Pipeline ist `AndroidAudioEngine`: Sie hängt sich
+mit Androids System-Audioeffekten (`android.media.audiofx.Equalizer` +
+`DynamicsProcessing`) an die Session einer fremden App (Spotify, SoundCloud
+über den eigenen Player, potenziell YouTube Music) - das ist Option A/Hybrid
+aus der roadmap-2026.md-Entscheidungsvorlage, nicht der in Session 20-22
+angenommene "eigene Media3-DSP-Pfad". `Media3DspPipeline.kt` ist und bleibt
+komplett unbenutzter, nirgends aufgerufener Code (verifiziert: kein anderer
+Ort im Repo referenziert ihn).
+
+**Konsequenz:** Androids `Equalizer`/`DynamicsProcessing`-Systemeffekte sind
+eine feste, geschlossene API - sie können nur ihre eigenen Parameter
+(Band-Gains, Kompressor/Limiter/MBC) einstellen, aber keinen eigenen
+Algorithmus ausführen. Damit sind **Crossfeed, BassMonoSummer,
+TransientShaper und BassExciter über diesen Pfad strukturell unmöglich**,
+unabhängig davon, wie viel Code dafür geschrieben wird - das ist eine
+Plattformgrenze, keine Fleißaufgabe. Echt hörbar würden sie nur, wenn Audio
+durch einen selbst kontrollierten Media3/ExoPlayer-Pfad liefe (ein echter
+`androidx.media3.common.audio.AudioProcessor`) - technisch nur für SoundCloud
+denkbar (`AudioPlayerService` nutzt bereits `ExoPlayer.Builder(this)` ohne
+eigene `RenderersFactory`/`AudioProcessor`), nicht für Spotify/YouTube Music
+(Session-Attach an eine fremde App kann keinen eigenen PCM-Code einschleusen).
+`Compressor`/`LookaheadLimiter` (Punkte 3/4) sind zudem faktisch redundant zu
+dem, was `DynamicsProcessing` über `AndroidAudioEngine` schon real leistet.
+
+**Nutzer-Entscheidung:** Statt den großen, auf echter Hardware ungetesteten
+Media3-AudioProcessor-Weg zu gehen, soll der "Kopfhörer-Modus"-Schalter
+stattdessen die bereits laufende Band-EQ-Kurve real beeinflussen.
+
+**Umsetzung:**
+- Neu: `dsp/HeadphoneComfortCurve.kt` (`:core`) - eine feste, einfache
+  Bass-Anhebung (+2,5 dB unter 150 Hz) plus leichte Präsenz-Beruhigung
+  (-1,5 dB um 4,5 kHz), begründet mit der üblichen Kopfhörer- vs.
+  Lautsprecher-Hörsituation (kein Raumgewinn für den Bass, mehr
+  Zischlaut-Ermüdung ohne Raumreflexionen). Kein Crossfeed-Nachbau, nur ein
+  sinnvoller fester Tilt - läuft über exakt den Pfad, der schon real
+  funktioniert.
+- `MainViewModel.combinedCurve()` faltet diese Kurve jetzt zusätzlich ein,
+  wenn `effectiveHeadphoneAcoustics` true ist - dieselbe
+  `CurveComposer.combine()`-Stelle wie Korrektur- und Voicing-Kurve. Ein
+  neuer `init`-Collector auf `effectiveHeadphoneAcoustics` ruft
+  `recalculateBandGains()` bei jeder Änderung auf (Schalter-Toggle *und*
+  automatischer Routenwechsel-Default), damit die Kurve auch dann neu
+  berechnet wird, wenn sich sonst nichts an Preset/Korrektur ändert.
+  `EqualizerScreen.kt`s eigene Headroom-Berechnung wurde spiegelbildlich
+  angepasst, sonst hätte die Headroom-Anzeige nicht mehr zur tatsächlich
+  angewandten `inputGainDb` gepasst.
+- UI: kleiner Untertitel unter "Kopfhörer-Modus" ("Etwas mehr Bass, etwas
+  weniger Schärfe in den Höhen"), damit klar ist, was der Schalter jetzt
+  tut - vorher war die Beschriftung für ein Feature geschrieben, das nie
+  hörbar wurde.
+- Neue Tests: `HeadphoneComfortCurveTest` (`:core`) sowie ein neuer
+  `MainViewModelTest`-Fall, der mit dem Flat-Preset (alle Bänder auf 0)
+  nachweist, dass der Schalter tatsächlich `bandGainsDb` verändert (60-Hz-
+  Band höher, 3600-Hz-Band niedriger) - nicht nur ein Datenbank-Flag.
+
+**Verifikation:** wie gehabt - alle `:core`-Tests grün im
+Standalone-Mini-Gradle-Projekt, `:app`-Änderungen nur mit ktlint und
+manuellem Review geprüft (Android Gradle Plugin weiterhin nicht auflösbar).
+
+**Bewusst offen gelassen:**
+- Der eigentliche Media3-AudioProcessor-Weg für SoundCloud (der einzige, der
+  echtes Crossfeed/Bass-Mono-Summing/TransientShaper/BassExciter hörbar
+  machen könnte) ist damit nicht vom Tisch, nur bewusst zurückgestellt -
+  eine explizite Nutzerentscheidung, kein technisches Aufgeben.
+- `Compressor`/`LookaheadLimiter` bleiben unverdrahtete `:core`-Referenz-
+  implementierungen; `AndroidAudioEngine` deckt Kompression/Limiting für den
+  echten Pfad bereits über `DynamicsProcessing` ab.

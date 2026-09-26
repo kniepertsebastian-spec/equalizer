@@ -23,6 +23,7 @@ import com.hardbasseq.eq.di.DefaultDispatcher
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
+import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
@@ -241,6 +242,17 @@ class MainViewModel
             viewModelScope.launch {
                 routeRepository.activeRoute.collect { route ->
                     updateSuggestedCorrectionProfile(route)
+                }
+            }
+            // Makes the "Kopfhörer-Modus" switch (and automatic route-based
+            // defaulting) actually change the applied EQ curve - combinedCurve()
+            // already reads effectiveHeadphoneAcoustics.value itself, but nothing
+            // re-triggers recalculateBandGains() when *only* this changes (e.g. a
+            // route switch that changes the default with no other route-profile
+            // fields differing) without this collector.
+            viewModelScope.launch {
+                effectiveHeadphoneAcoustics.collect {
+                    recalculateBandGains()
                 }
             }
         }
@@ -729,11 +741,23 @@ class MainViewModel
         // M3 "Zielkurven kombinieren": correction ("Mein Kopfhörer") and voicing
         // ("Klangstil") are combined into one curve before anything else - band
         // mapping, headroom - happens. EqualizerScreen recomputes this same
-        // combination from activeCorrectionProfile/activePreset (both already
-        // collected there) for its own headroom banner via the same CurveComposer
-        // call, rather than this ViewModel exposing the combined curve itself.
-        private fun combinedCurve(): List<TargetPoint> =
-            CurveComposer.combine(_activeCorrectionProfile.value.curve, _activePreset.value.targetCurve)
+        // combination from activeCorrectionProfile/activePreset/effective-
+        // HeadphoneAcoustics (all already collected there) for its own headroom
+        // banner via the same CurveComposer call, rather than this ViewModel
+        // exposing the combined curve itself.
+        //
+        // Chat feature: HeadphoneComfortCurve only gets folded in while
+        // effectiveHeadphoneAcoustics is true - this is what makes the
+        // "Kopfhörer-Modus" switch (item 1) actually audible through the real,
+        // already-working AndroidAudioEngine Equalizer path, since true
+        // Crossfeed/Bass-Mono-Summing can't run there (Android's system
+        // Equalizer/DynamicsProcessing effects have no such algorithm).
+        private fun combinedCurve(): List<TargetPoint> {
+            val headphoneCurve = if (effectiveHeadphoneAcoustics.value) HeadphoneComfortCurve.curve else emptyList()
+            return CurveComposer.combine(
+                listOf(_activeCorrectionProfile.value.curve, _activePreset.value.targetCurve, headphoneCurve),
+            )
+        }
 
         private fun recalculateBandGains(bands: List<EqualizerBandCapabilities> = audioEngine.capabilities.value.bands) {
             val curve = combinedCurve()

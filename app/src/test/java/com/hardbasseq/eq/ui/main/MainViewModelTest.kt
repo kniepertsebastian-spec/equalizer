@@ -662,6 +662,33 @@ class MainViewModelTest {
         assertTrue(BuiltInAutoEqCatalog.entries.any { it.id == "sony_wh1000xm4" })
     }
 
+    @Test
+    fun `headphone mode audibly boosts bass and reduces presence in the applied EQ`() =
+        runTest {
+            // True Crossfeed/Bass-Mono-Summing can't run over the actual playback
+            // path (Android's system Equalizer/DynamicsProcessing effects) - the
+            // "Kopfhörer-Modus" switch instead folds HeadphoneComfortCurve into
+            // the real band-EQ curve, so this must show up in the applied
+            // bandGainsDb, not just in a database flag.
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassOff = viewModel.processingSettings.value.bandGainsDb[0]!! // 60 Hz
+            val presenceOff = viewModel.processingSettings.value.bandGainsDb[3]!! // 3600 Hz
+
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassOn = viewModel.processingSettings.value.bandGainsDb[0]!!
+            val presenceOn = viewModel.processingSettings.value.bandGainsDb[3]!!
+
+            assertTrue("expected headphone mode to boost the 60 Hz band, off=$bassOff on=$bassOn", bassOn > bassOff)
+            assertTrue(
+                "expected headphone mode to reduce the 3600 Hz band, off=$presenceOff on=$presenceOn",
+                presenceOn < presenceOff,
+            )
+        }
+
     // --- Chat feature (item 1 of "setz alle Punkte um"): headphone-mode flag ---
 
     @Test
