@@ -1819,3 +1819,22 @@ lockern, soll ja knallen"):
   aggressivste Einstellung, die noch etwas Vorstufen-Pufferung übrig lässt.
   `MainViewModelTest` entsprechend erneut angepasst (20 % → 10 %,
   `-1.6f` → `-0.8f`).
+
+**Und noch der Limiter selbst** ("Kannst du nicht den Limiter bearbeiten,
+damit der mehr zulässt?"): der Limiter hat zwei Parameter mit sehr
+unterschiedlichem Risiko:
+- **Threshold** (`LimiterConfig.thresholdDb`, Default für alle Presets außer
+  "Flat"): −1,0 dB → −0,3 dB angehoben. Das ist die "Decke", ab der er
+  eingreift - üblicher Mastering-True-Peak-Wert, kein willkürlicher Wert.
+- **Ratio** (fest 10:1 in `AndroidAudioEngine.kt`): **bewusst unangetastet**
+  gelassen. Das ist der Teil, der unabhängig vom Eingangspegel tatsächlich
+  garantiert, dass die Decke nicht überschritten wird. Ihn aufzuweichen
+  (z. B. auf 6:1) hätte eine kategorisch andere Risikoklasse als alle
+  bisherigen Lockerungen dieser Sitzung: die vorherigen Änderungen
+  (Input-Gain-Ratio, MBC-Makeup-Gain) blieben immer vom unveränderten
+  Limiter abgesichert - eine weichere Ratio wäre das erste, echte Clipping-
+  Risiko in dieser Kette, kein reines "klingt komprimierter mehr".
+  Ausdrücklich im Chat kommuniziert, bevor umgesetzt wurde.
+- `:core`-Tests weiterhin komplett grün (Default-Threshold-Änderung betrifft
+  keine bestehende Test-Erwartung - `DynamicsProtectionTest` prüft nur
+  `<= 0f`, nicht den exakten Wert).
