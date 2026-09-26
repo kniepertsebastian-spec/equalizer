@@ -269,21 +269,38 @@ class AndroidAudioEngine
                             val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
                             val mbcThresholdDb =
                                 if (settings.mbcEnabled) settings.mbcThresholdDb.coerceIn(-30f, 0f) else 0f
-                            // Standard compressor makeup-gain heuristic (half the average gain
-                            // reduction the ratio/threshold combination implies), capped
-                            // conservatively. Without this, every preset ends up net quieter
-                            // than flat instead of punchier: the Limiter below (unchanged, hard
-                            // 10:1 ceiling) still protects the final output, so this only
-                            // restores loudness the compression itself removed.
+                            // Standard compressor makeup-gain heuristic (a fraction of the average
+                            // gain reduction the ratio/threshold combination implies), capped.
+                            // Without this, every preset ends up net quieter than flat instead of
+                            // punchier: the Limiter below (unchanged, hard 10:1 ceiling) still
+                            // protects the final output, so this only restores loudness the
+                            // compression itself removed. Restore fraction raised 0.5->0.7->0.85 and
+                            // the cap 4dB->5dB->6dB, both in Session 24 (roadmap.md), alongside a
+                            // matching loosening of the broadband input-gain safety ratio in
+                            // MainViewModel, at the user's explicit request for more punch on
+                            // kick-heavy material ("soll ja knallen") - the Limiter downstream is
+                            // still the actual, unchanged clipping backstop, so this and the
+                            // input-gain ratio are the two places left to give back loudness; at
+                            // these values the Limiter is doing most of the remaining safety work.
                             val mbcMakeupGainDb =
                                 if (mbcRatio > 1f) {
-                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.5f).coerceIn(0f, 4f)
+                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.85f).coerceIn(0f, 6f)
                                 } else {
                                     0f
                                 }
+                            // Low band's 180ms->100ms: a real-device report described the mix
+                            // getting audibly "hallend"/pumpy with headphone mode on. Headphone
+                            // mode adds a bass shelf ahead of this compressor (see
+                            // HeadphoneComfortCurve/combinedCurve in MainViewModel), so the low
+                            // band now hits the threshold harder and its long recovery after each
+                            // kick was audible as a swelling tail. 100ms still comfortably clears
+                            // the ~8-16ms period of 60-120Hz content (avoiding the compressor
+                            // itself distorting the waveform, why this band's release was long
+                            // to begin with) while cutting the audible recovery time nearly in
+                            // half.
                             val mbcBands =
                                 listOf(
-                                    MbcBandSettings(120f, 15f, 180f),
+                                    MbcBandSettings(120f, 15f, 100f),
                                     MbcBandSettings(1500f, 8f, 120f),
                                     MbcBandSettings(20000f, 3f, 80f),
                                 )

@@ -1691,3 +1691,172 @@ manuellem Review geprüft (Android Gradle Plugin weiterhin nicht auflösbar).
 - `Compressor`/`LookaheadLimiter` bleiben unverdrahtete `:core`-Referenz-
   implementierungen; `AndroidAudioEngine` deckt Kompression/Limiting für den
   echten Pfad bereits über `DynamicsProcessing` ab.
+
+### Session 24 (26. September 2026)
+
+Reale Rückmeldung nach Beta-3-Rollout (Session 23s "Kopfhörer-Modus wirkt auf
+echte EQ-Kurve"-Fix): der Effekt fühlt sich im Auto kaum an, und mit
+Kopfhörer-Modus aktiv wirkt der Bass sogar eher schwächer und die Musik
+"halliger"/verwaschener - beides das Gegenteil dessen, was der Schalter
+eigentlich tun soll.
+
+**Diagnose (per In-App-Diagnostics-Report, mehrfach vom Nutzer geteilt):**
+- Der Report-Header zeigt nur die *aktuelle* Route zum Export-Zeitpunkt, nicht
+  die Route während der geloggten Events - der einzige `Route changed`-Eintrag
+  stand am Ende, davor lief alles noch auf der vorherigen (Auto-)Route. Für
+  künftige Diagnosen wichtig: die Session-Events selbst nach `Route changed`-
+  Markern lesen, nicht den Header for bare münze nehmen.
+- Auffällig war ein wiederkehrendes Attach/Detach-Muster der Effekt-Session
+  (`Session detached` → `Listening` → erst 20-60s später wieder `attached`),
+  zweimal sogar 47s bzw. fast 2 Minuten Lücke, in denen *keinerlei* Effekt an
+  der Spotify-Session hängt. Ursprünglich als Bluetooth/Auto-spezifisches
+  Problem vermutet - ein zweiter Log-Ausschnitt nach Wechsel auf
+  `SPEAKER` zeigte aber dasselbe ~38s-Muster mit einer neuen Session-ID
+  (25457 statt 25105, d. h. Spotify öffnet bei Routenwechsel tatsächlich eine
+  neue Session). Das relativiert die Bluetooth-Theorie: das Attach/Detach-
+  Timing scheint eine allgemeine Spotify-Eigenheit zu sein, keine
+  auto-spezifische Störung - bewusst nicht weiterverfolgt, da es die
+  eigentliche Beschwerde (schwächer/halliger *mit* Kopfhörer-Modus, nicht nur
+  "wirkungslos") nicht erklärt.
+- Eigentliche Ursache: `HeadphoneComfortCurve` hebt den Bass um bis zu +2,5 dB
+  an, *bevor* das Signal durch Androids `DynamicsProcessing`-Mehrband-
+  Kompressor läuft (`AndroidAudioEngine.applyInternal` hängt EQ vor MBC/
+  Limiter). Das Bass-Band des MBC (bis 120 Hz) hatte mit 180 ms die längste
+  Release-Zeit der drei Bänder. Der zusätzliche Boost drückt Kick-Transienten
+  stärker in die Kompression (mehr Gain Reduction pro Treffer), und die 180 ms
+  lange Erholungsphase danach ist als hörbares "Pumping"/"Breathing" wahrnehm-
+  bar - ein Lautstärke-Nachschwingen, das sich wie Nachhall anfühlt, obwohl
+  keinerlei Hall-/Echo-Effekt im Code existiert (verifiziert: repo-weite Suche
+  nach "Reverb"/"Echo" findet nur einen Test-Fixture-Namen ohne Bezug zur
+  echten Signalkette). Derselbe Mechanismus erklärt beide Symptome zugleich:
+  der Boost wird teils weggedrückt (fühlt sich nach weniger Bass an) und die
+  Erholungsphase klingt nach Hall.
+- Die `bandGainsDb`-Mathematik selbst ist nicht betroffen/nicht der Fehler -
+  weiterhin testverifiziert, dass der Schalter Band 0 (60 Hz) tatsächlich
+  anhebt (`MainViewModelTest`).
+
+**Fix:** Release-Zeit des Bass-MBC-Bands in `AndroidAudioEngine.kt` von
+180 ms auf 100 ms verkürzt. Nicht weiter runter, weil eine Release-Zeit in
+der Größenordnung der Wellenperiode selbst (bei 60-120 Hz: ~8-16 ms) den
+Kompressor dazu bringen kann, innerhalb eines einzelnen Zyklus zu modulieren
+und damit selbst hörbare Verzerrung zu erzeugen - genau der Grund, warum
+dieses Band ursprünglich die längste Release-Zeit der drei MBC-Bänder hatte.
+100 ms bleibt mit gutem Abstand darüber, halbiert aber die hörbare
+Erholungsphase nach jedem Kick. Bewusst als generelle Kompressor-Tuning-
+Änderung umgesetzt (nicht an `effectiveHeadphoneAcoustics` gekoppelt), weil
+das Pumping-Verhalten grundsätzlich bei jedem stark angehobenen Bass-Preset
+auftreten kann, nicht nur mit aktivem Kopfhörer-Modus - der Kopfhörer-Modus
+hat es hier nur durch den zusätzlichen Boost sichtbar gemacht.
+
+**Verifikation:** `AndroidAudioEngine.kt` ist reiner `:app`-Code mit direkter
+`android.media.audiofx`-Abhängigkeit - wie bei allen bisherigen `:app`-
+Änderungen in dieser Sandbox nur mit dem Standalone-ktlint-Check und
+manuellem Review geprüft, nicht kompiliert oder instrumentiert getestet
+(Android Gradle Plugin weiterhin nicht auflösbar). Keine bestehenden Tests
+referenzieren die MBC-Band-Konstanten (sie sind Android-Framework-Objekte,
+außerhalb der `:core`-Testbarkeit).
+
+**Bewusst offen gelassen:**
+- Das Attach/Detach-Session-Churn (20-60s-Zyklen) bleibt unangetastet - wirkt
+  nach aktuellem Stand wie normales Spotify-Verhalten, nicht wie ein Bug in
+  `AndroidAudioEngine`/`AudioSessionRepository`. Falls es doch relevant wird,
+  bräuchte es einen längeren Speaker-only-Vergleichslog, um die Häufigkeit
+  wirklich mit der Auto/Bluetooth-Route zu vergleichen (bisher nur ein
+  einzelnes Speaker-Beispiel).
+- Kein Versuch, den MBC nur bei aktivem Kopfhörer-Modus anders zu
+  konfigurieren (z. B. separate Threshold/Ratio) - `ProcessingSettings`
+  kennt aktuell nur global (pro Preset) einheitliche MBC-Werte für alle drei
+  Bänder, das wäre ein größerer struktureller Umbau gewesen für einen
+  Nutzen, der sich nicht auf den Kopfhörer-Fall beschränkt.
+
+**Aufräumen:** Im selben Zug `core/dsp/Compressor.kt` (Punkt 3 der
+ursprünglichen "6 Punkte"-Liste) + `CompressorTest.kt` gelöscht - war seit
+seiner Einführung unverdrahteter Referenzcode (siehe oben: der echte Pfad
+läuft immer schon über `AndroidAudioEngine`/`DynamicsProcessing`), git-
+Historie hält den Stand fest, falls doch mal gebraucht. Verwaiste
+Kommentar-Referenzen auf "Compressor" in `Crossfeed.kt`/`LookaheadLimiter.kt`/
+`TransientShaper.kt` (jeweils "Wie X/Compressor eine Referenzimplementierung
+...") entsprechend bereinigt. `:core`-Tests weiterhin komplett grün im
+Standalone-Mini-Gradle-Projekt (39 Tests, keine Breakage durch die Löschung).
+
+Im gleichen Gespräch wurde außerdem diskutiert, ob die drei Sicherheits-
+Stufen der echten Dynamics-Kette (breitband `inputGainDb`; MBC-Makeup-Gain,
+der laut eigenem Kommentar bewusst nur einen Teil der durchschnittlichen
+Gain Reduction zurückgibt; und der finale Limiter) in Summe zu konservativ
+für das bass-/kick-lastige Zielgenre sind - explizit auf Nutzerwunsch
+("locker das mal") gelockert:
+- `INPUT_GAIN_SAFETY_RATIO` in `MainViewModel.kt`: 0.3 → 0.2 (nur noch 20 %
+  statt 30 % des Peak-Boosts werden breitband vorab weggenommen). Dritte
+  Senkung in Folge (1.0 → 0.5 → 0.3 → 0.2), immer aus demselben Grund
+  (Session 16/17/24): mehr von dem hörbar lassen, was der EQ eigentlich
+  anhebt.
+- MBC-Makeup-Gain-Formel in `AndroidAudioEngine.kt`: Rückgabe-Anteil der
+  durchschnittlichen Gain Reduction von 0,5 auf 0,7 erhöht, Deckelung von
+  4 dB auf 5 dB angehoben.
+- Der Limiter (10:1, hartes Threshold-Ceiling) blieb bewusst unangetastet -
+  er ist die tatsächliche letzte Instanz gegen Clipping; die beiden
+  gelockerten Werte liegen beide *vor* ihm in der Kette, sodass er weiterhin
+  vollständig greift, falls die zusätzliche Lautheit doch zu Overs führt.
+- Bewusster Trade-off, kein reiner Bugfix: mehr Punch/Lautheit auf Kosten
+  von etwas mehr Limiter-Aktivität (potenziell öfter hörbares Limiting) auf
+  ohnehin schon lauten Presets/Geräten. `MainViewModelTest`s
+  `expectedInputGainDb`/`-2.4f`-Erwartungen entsprechend auf den neuen
+  0,2-Faktor angepasst (30 % → 20 %, `-2.4f` → `-1.6f` im manuellen-Boost-
+  Test).
+
+**Noch weiter gelockert** (derselbe Sitzung, explizit "Gerne noch zusätzlich
+lockern, soll ja knallen"):
+- `INPUT_GAIN_SAFETY_RATIO`: 0,2 → 0,1 - vierte Senkung in Folge
+  (1,0 → 0,5 → 0,3 → 0,2 → 0,1). Bei 0,1 ist diese Stufe fast ein No-Op;
+  praktisch die gesamte verbleibende Sicherheitsarbeit gegen Clipping liegt
+  jetzt beim unveränderten, harten 10:1-Limiter.
+- MBC-Makeup-Gain: Rückgabe-Anteil 0,7 → 0,85, Deckelung 5 dB → 6 dB.
+- Bewusst nicht bis auf 0 bzw. 1,0 durchgezogen (kein völliger Verzicht auf
+  die Input-Gain-Vorstufe) - der Limiter fängt zwar in jedem Fall echtes
+  Clipping ab (harte Ceiling, unabhängig vom Pegel davor), aber je mehr
+  Arbeit er allein leisten muss, desto eher wird er selbst als Limiting
+  hörbar (statt nur gelegentliche Spitzen zu kappen). 0,1/0,85/6 dB ist die
+  aggressivste Einstellung, die noch etwas Vorstufen-Pufferung übrig lässt.
+  `MainViewModelTest` entsprechend erneut angepasst (20 % → 10 %,
+  `-1.6f` → `-0.8f`).
+
+**Und noch der Limiter selbst** ("Kannst du nicht den Limiter bearbeiten,
+damit der mehr zulässt?"): der Limiter hat zwei Parameter mit sehr
+unterschiedlichem Risiko:
+- **Threshold** (`LimiterConfig.thresholdDb`, Default für alle Presets außer
+  "Flat"): −1,0 dB → −0,3 dB angehoben. Das ist die "Decke", ab der er
+  eingreift - üblicher Mastering-True-Peak-Wert, kein willkürlicher Wert.
+- **Ratio** (fest 10:1 in `AndroidAudioEngine.kt`): **bewusst unangetastet**
+  gelassen. Das ist der Teil, der unabhängig vom Eingangspegel tatsächlich
+  garantiert, dass die Decke nicht überschritten wird. Ihn aufzuweichen
+  (z. B. auf 6:1) hätte eine kategorisch andere Risikoklasse als alle
+  bisherigen Lockerungen dieser Sitzung: die vorherigen Änderungen
+  (Input-Gain-Ratio, MBC-Makeup-Gain) blieben immer vom unveränderten
+  Limiter abgesichert - eine weichere Ratio wäre das erste, echte Clipping-
+  Risiko in dieser Kette, kein reines "klingt komprimierter mehr".
+  Ausdrücklich im Chat kommuniziert, bevor umgesetzt wurde.
+- `:core`-Tests weiterhin komplett grün (Default-Threshold-Änderung betrifft
+  keine bestehende Test-Erwartung - `DynamicsProtectionTest` prüft nur
+  `<= 0f`, nicht den exakten Wert).
+
+**CI-Fund (echte Regression, kein Flake):** Der Limiter-Threshold-Commit hat
+tatsächlich CI rot gemacht - `build-and-test` (`:desktop:test`) schlug fehl:
+`EasyEffectsExporterTest > enabled dynamics follow the equalizer in
+processing order` hatte den alten Default `-1.0` hart einprogrammiert
+(`assertEquals(-1.0, limiter["threshold"]!!...)`, Zeile 61, für
+`BuiltInPresets.CleanPunch`, das den Default nicht überschreibt). Wichtiger
+Fund nebenbei: **`:desktop:test` läuft in echter CI** (reines Kotlin/JVM-
+Modul, keine AGP-Abhängigkeit) - im Gegensatz zu `:app` also tatsächlich vom
+CI abgedeckt, nur eben nicht in dieser Sandbox lauffähig
+(`compose.desktop`/JetBrains-Compose-Plugin-Repos hinter dem Proxy nicht
+erreichbar, gleiches Problem wie bei AGP). Für künftige Sessions merken:
+Änderungen an `:core`-Defaults, die von `:desktop`-Exportern 1:1
+durchgereicht werden, können dort brechen, ohne dass die Standalone-
+`core-verify`-Tests das auffangen.
+
+Fix: Testerwartung auf `-0.3` korrigiert, mit Kommentar auf den neuen
+Default verwiesen. Nicht durch Ausführung verifiziert (Sandbox-Limit wie
+oben), aber durch Lesen von `EasyEffectsExporter.kt` bestätigt:
+`threshold` wird dort als reiner Pass-Through (`profile.limiter.thresholdDb
+.coerceIn(-48f, 0f).toDouble()`) gesetzt, `-0.3` bleibt vom `coerceIn`
+unberührt - der neue erwartete Wert ist exakt, keine Schätzung.

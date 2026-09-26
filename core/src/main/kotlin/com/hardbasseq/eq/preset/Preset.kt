@@ -11,7 +11,13 @@ data class TargetPoint(
 @Serializable
 data class LimiterConfig(
     val enabled: Boolean = true,
-    val thresholdDb: Float = -1.0f,
+    // Session 24: raised -1.0 -> -0.3dB at the user's explicit request for more
+    // headroom/punch, after already loosening the input-gain and MBC makeup-gain
+    // stages ahead of this in AndroidAudioEngine. -0.3dBFS is a standard mastering
+    // true-peak ceiling, not an arbitrary number - the actual clipping guarantee
+    // comes from the Limiter's ratio (10:1, unchanged, in AndroidAudioEngine), not
+    // this threshold, so this alone doesn't add real clipping risk.
+    val thresholdDb: Float = -0.3f,
 )
 
 @Serializable
