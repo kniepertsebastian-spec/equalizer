@@ -18,7 +18,7 @@ package com.hardbasseq.eq.dsp
 // Stereobild, ersetzt es nicht) - unterschiedliche Zwecke, beide unabhängig
 // voneinander nutzbar.
 //
-// Wie BassMonoSummer/Compressor eine Referenzimplementierung, nur gegen
+// Wie BassMonoSummer eine Referenzimplementierung, nur gegen
 // synthetische Testsignale offline geprüft (siehe CrossfeedTest), nicht auf
 // echter Hardware verifiziert. Sollte laut App-Logik nur aktiv sein, wenn
 // MainViewModel.effectiveHeadphoneAcoustics (Punkt 1) true ist - diese reine

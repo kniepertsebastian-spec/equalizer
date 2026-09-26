@@ -1768,3 +1768,24 @@ außerhalb der `:core`-Testbarkeit).
   kennt aktuell nur global (pro Preset) einheitliche MBC-Werte für alle drei
   Bänder, das wäre ein größerer struktureller Umbau gewesen für einen
   Nutzen, der sich nicht auf den Kopfhörer-Fall beschränkt.
+
+**Aufräumen:** Im selben Zug `core/dsp/Compressor.kt` (Punkt 3 der
+ursprünglichen "6 Punkte"-Liste) + `CompressorTest.kt` gelöscht - war seit
+seiner Einführung unverdrahteter Referenzcode (siehe oben: der echte Pfad
+läuft immer schon über `AndroidAudioEngine`/`DynamicsProcessing`), git-
+Historie hält den Stand fest, falls doch mal gebraucht. Verwaiste
+Kommentar-Referenzen auf "Compressor" in `Crossfeed.kt`/`LookaheadLimiter.kt`/
+`TransientShaper.kt` (jeweils "Wie X/Compressor eine Referenzimplementierung
+...") entsprechend bereinigt. `:core`-Tests weiterhin komplett grün im
+Standalone-Mini-Gradle-Projekt (39 Tests, keine Breakage durch die Löschung).
+
+Im gleichen Gespräch aufgeworfen, aber (noch) nicht umgesetzt: die
+Diskussion, ob die drei Sicherheits-Stufen der echten Dynamics-Kette
+(breitband `inputGainDb` = `-(peakBoost * INPUT_GAIN_SAFETY_RATIO)`; MBC-
+Makeup-Gain, der laut eigenem Kommentar bewusst nur die Hälfte der
+durchschnittlichen Gain Reduction zurückgibt, `coerceIn(0f, 4f)`-gedeckelt;
+und der finale Limiter) in Summe zu konservativ für das bass-/kick-lastige
+Zielgenre sind. Nutzer-Frage im Gespräch bestätigt, dass das spürbar ist,
+aber noch keine Entscheidung getroffen, ob/wie die Marge gelockert werden
+soll - das wäre eine bewusste Trade-off-Entscheidung (mehr Punch vs. mehr
+Clipping-Risiko auf schwächeren/lauteren Geräten), kein reiner Bugfix.

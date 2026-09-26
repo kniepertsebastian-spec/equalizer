@@ -26,7 +26,7 @@ import kotlin.math.roundToInt
 // bräuchte einen echten Polyphasen-Interpolationsfilter) - für eine
 // Referenzimplementierung bewusst außerhalb des Rahmens.
 //
-// Wie BassExciter/Compressor eine Referenzimplementierung, nur gegen
+// Wie BassExciter eine Referenzimplementierung, nur gegen
 // synthetische Testsignale offline geprüft (siehe LookaheadLimiterTest),
 // nicht auf echter Hardware verifiziert.
 data class LookaheadLimiterSettings(

@@ -23,7 +23,7 @@ import kotlin.math.pow
 // ansteigt, als die langsame Hüllkurve folgen kann: genau das ist ein
 // Transient. Dieser Differenzwert steuert die angewandte Verstärkung.
 //
-// Wie Compressor/Crossfeed eine Referenzimplementierung, nur gegen
+// Wie Crossfeed eine Referenzimplementierung, nur gegen
 // synthetische Testsignale offline geprüft (siehe TransientShaperTest), nicht
 // auf echter Hardware verifiziert.
 data class TransientShaperSettings(
