@@ -1,5 +1,12 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+val releaseStoreFile = providers.gradleProperty("hardbasseq.releaseStoreFile").orNull
+val releaseStorePassword = providers.gradleProperty("hardbasseq.releaseStorePassword").orNull
+val releaseKeyAlias = providers.gradleProperty("hardbasseq.releaseKeyAlias").orNull
+val releaseKeyPassword = providers.gradleProperty("hardbasseq.releaseKeyPassword").orNull
+val hasReleaseSigning =
+    listOf(releaseStoreFile, releaseStorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrBlank() }
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -19,15 +26,27 @@ android {
         applicationId = providers.gradleProperty("hardbasseq.applicationId").get()
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.2.0-m1"
+        versionCode = providers.gradleProperty("hardbasseq.versionCode").map(String::toInt).getOrElse(1)
+        versionName = providers.gradleProperty("hardbasseq.versionName").getOrElse("0.2.0-m1")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("hardbassRelease") {
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("hardbassRelease")
         }
     }
 
