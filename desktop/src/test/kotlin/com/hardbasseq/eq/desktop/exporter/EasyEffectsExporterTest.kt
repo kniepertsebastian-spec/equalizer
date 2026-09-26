@@ -58,7 +58,9 @@ class EasyEffectsExporterTest {
         val limiter = output["limiter#0"]!!.jsonObject
         assertFalse(disabledBand["enable-band"]!!.jsonPrimitive.content.toBoolean())
         assertFalse(limiter["gain-boost"]!!.jsonPrimitive.content.toBoolean())
-        assertEquals(-1.0, limiter["threshold"]!!.jsonPrimitive.double, 0.0001)
+        // LimiterConfig's default threshold (Preset.kt) is -0.3dB as of Session 24,
+        // raised from -1.0dB - BuiltInPresets.CleanPunch doesn't override it.
+        assertEquals(-0.3, limiter["threshold"]!!.jsonPrimitive.double, 0.0001)
     }
 
     @Test

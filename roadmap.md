@@ -1838,3 +1838,25 @@ unterschiedlichem Risiko:
 - `:core`-Tests weiterhin komplett grün (Default-Threshold-Änderung betrifft
   keine bestehende Test-Erwartung - `DynamicsProtectionTest` prüft nur
   `<= 0f`, nicht den exakten Wert).
+
+**CI-Fund (echte Regression, kein Flake):** Der Limiter-Threshold-Commit hat
+tatsächlich CI rot gemacht - `build-and-test` (`:desktop:test`) schlug fehl:
+`EasyEffectsExporterTest > enabled dynamics follow the equalizer in
+processing order` hatte den alten Default `-1.0` hart einprogrammiert
+(`assertEquals(-1.0, limiter["threshold"]!!...)`, Zeile 61, für
+`BuiltInPresets.CleanPunch`, das den Default nicht überschreibt). Wichtiger
+Fund nebenbei: **`:desktop:test` läuft in echter CI** (reines Kotlin/JVM-
+Modul, keine AGP-Abhängigkeit) - im Gegensatz zu `:app` also tatsächlich vom
+CI abgedeckt, nur eben nicht in dieser Sandbox lauffähig
+(`compose.desktop`/JetBrains-Compose-Plugin-Repos hinter dem Proxy nicht
+erreichbar, gleiches Problem wie bei AGP). Für künftige Sessions merken:
+Änderungen an `:core`-Defaults, die von `:desktop`-Exportern 1:1
+durchgereicht werden, können dort brechen, ohne dass die Standalone-
+`core-verify`-Tests das auffangen.
+
+Fix: Testerwartung auf `-0.3` korrigiert, mit Kommentar auf den neuen
+Default verwiesen. Nicht durch Ausführung verifiziert (Sandbox-Limit wie
+oben), aber durch Lesen von `EasyEffectsExporter.kt` bestätigt:
+`threshold` wird dort als reiner Pass-Through (`profile.limiter.thresholdDb
+.coerceIn(-48f, 0f).toDouble()`) gesetzt, `-0.3` bleibt vom `coerceIn`
+unberührt - der neue erwartete Wert ist exakt, keine Schätzung.
