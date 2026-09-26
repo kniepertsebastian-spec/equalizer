@@ -11,6 +11,7 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.audio.defaultHeadphoneAcoustics
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.autoeq.AutoEqCatalogMatcher
 import com.hardbasseq.eq.autoeq.AutoEqParser
@@ -42,6 +43,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -111,6 +113,23 @@ class MainViewModel
         val capabilities = audioEngine.capabilities
         val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
         val diagnosticsEvents = diagnosticsRecorder.events
+
+        // Chat feature (item 1 of "setz alle Punkte um", not a roadmap-2026.md
+        // milestone): null until applyDeviceProfileForRoute() loads whatever the
+        // current route's DeviceProfileEntity has saved (or confirms there's none
+        // yet) - see effectiveHeadphoneAcoustics for how null resolves to a
+        // per-route-type default instead of a hardcoded one.
+        private val headphoneAcousticsOverrideState = MutableStateFlow<Boolean?>(null)
+
+        val effectiveHeadphoneAcoustics: StateFlow<Boolean> =
+            combine(currentRoute, headphoneAcousticsOverrideState) { route, override ->
+                override ?: route.type.defaultHeadphoneAcoustics()
+            }.stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                routeRepository.activeRoute.value.type
+                    .defaultHeadphoneAcoustics(),
+            )
 
         private val _activePreset = MutableStateFlow<Preset>(BuiltInPresets.CleanPunch)
         val activePreset: StateFlow<Preset> = _activePreset.asStateFlow()
@@ -289,7 +308,13 @@ class MainViewModel
         // is the *only* place a route is allowed to change the active
         // preset/correction; selectPreset()/selectCorrectionProfile() never do.
         private suspend fun applyDeviceProfileForRoute(route: AudioRoute) {
-            val binding = deviceProfileRepository.getProfileForRoute(route.id) ?: return
+            val binding = deviceProfileRepository.getProfileForRoute(route.id)
+            // Independent of whether a full binding exists below - a route with no
+            // saved profile at all still needs its override reset to null (no
+            // explicit choice made for it), not left holding the previous route's
+            // value.
+            headphoneAcousticsOverrideState.value = binding?.headphoneAcousticsOverride
+            if (binding == null) return
             val preset = findPresetById(binding.boundPresetId, customPresetsState.value) ?: return
             val correction = findCorrectionProfileById(binding.boundCorrectionProfileId, customCorrectionProfilesState.value)
 
@@ -308,6 +333,7 @@ class MainViewModel
         // binding it just read).
         private fun saveDeviceProfileBinding() {
             val route = currentRoute.value
+            val headphoneAcousticsOverride = headphoneAcousticsOverrideState.value
             viewModelScope.launch {
                 deviceProfileRepository.saveProfile(
                     routeId = route.id,
@@ -315,8 +341,19 @@ class MainViewModel
                     displayName = route.name,
                     boundPresetId = _activePreset.value.id,
                     boundCorrectionProfileId = _activeCorrectionProfile.value.id,
+                    headphoneAcousticsOverride = headphoneAcousticsOverride,
                 )
             }
+        }
+
+        // Chat feature (item 1): explicit per-route override, e.g. for a USB DAC
+        // feeding studio monitors (defaultHeadphoneAcoustics() guesses "true" for
+        // any USB route, which is wrong there). Goes through the same
+        // saveDeviceProfileBinding() write path as preset/correction changes so
+        // the three stay merged into one row instead of racing each other.
+        fun setHeadphoneAcousticsOverride(override: Boolean) {
+            headphoneAcousticsOverrideState.value = override
+            saveDeviceProfileBinding()
         }
 
         private fun persistLiveSettings() {

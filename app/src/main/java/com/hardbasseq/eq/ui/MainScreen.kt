@@ -77,6 +77,7 @@ fun MainScreen(
     val activeCorrectionProfile by viewModel.activeCorrectionProfile.collectAsStateWithLifecycle()
     val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
     val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
+    val effectiveHeadphoneAcoustics by viewModel.effectiveHeadphoneAcoustics.collectAsStateWithLifecycle()
     val pendingImportPreview by viewModel.pendingImportPreview.collectAsStateWithLifecycle()
     val importError by viewModel.importError.collectAsStateWithLifecycle()
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
@@ -235,6 +236,7 @@ fun MainScreen(
                 activeCorrectionProfile = activeCorrectionProfile,
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
+                effectiveHeadphoneAcoustics = effectiveHeadphoneAcoustics,
                 isDirty = isDirty,
                 onMasterToggled = { viewModel.setMasterEnabled(it) },
                 onOpenSourcePicker = { viewModel.openSourcePicker() },
@@ -243,6 +245,7 @@ fun MainScreen(
                 onCorrectionProfileSelected = { viewModel.selectCorrectionProfile(it) },
                 onAcceptSuggestedCorrectionProfile = { viewModel.acceptSuggestedCorrectionProfile() },
                 onDismissSuggestedCorrectionProfile = { viewModel.dismissSuggestedCorrectionProfile() },
+                onHeadphoneAcousticsChanged = { viewModel.setHeadphoneAcousticsOverride(it) },
                 onImportCorrectionProfileRequested = {
                     // "*/*" rather than a specific text MIME type: AutoEQ files are
                     // typically .txt/.csv, but different file managers/providers

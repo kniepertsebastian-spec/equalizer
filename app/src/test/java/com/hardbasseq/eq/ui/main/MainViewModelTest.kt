@@ -662,6 +662,87 @@ class MainViewModelTest {
         assertTrue(BuiltInAutoEqCatalog.entries.any { it.id == "sony_wh1000xm4" })
     }
 
+    // --- Chat feature (item 1 of "setz alle Punkte um"): headphone-mode flag ---
+
+    @Test
+    fun `speaker route defaults headphone acoustics to false`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
+    @Test
+    fun `bluetooth route defaults headphone acoustics to true without an override`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Some Headset", id = "bt_1"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
+    @Test
+    fun `an explicit override wins over the route-type default`() =
+        runTest {
+            // A USB DAC feeding studio monitors - defaultHeadphoneAcoustics()
+            // guesses "true" for any USB route, which is wrong here.
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.USB, name = "Studio DAC", id = "usb_1"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.effectiveHeadphoneAcoustics.value)
+
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
+    @Test
+    fun `an override persists across an unrelated preset change on the same route`() =
+        runTest {
+            // Regression guard: saveDeviceProfileBinding() is also called by
+            // selectPreset()/selectCorrectionProfile() - Room's REPLACE strategy
+            // means writing a new row for the same routeId without carrying the
+            // override forward would silently reset it to null.
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Some Headset", id = "bt_1"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+            assertEquals(false, deviceProfileRepository.savedBindings.last().headphoneAcousticsOverride)
+        }
+
+    @Test
+    fun `switching to a route with no saved override resets it instead of leaking the previous route's value`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Headset A", id = "bt_a"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Headset B", id = "bt_b"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // Headset B never had an override saved - should fall back to
+            // BLUETOOTH's own default (true), not silently inherit Headset A's.
+            assertTrue(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
     private fun customPreset(name: String): Preset =
         BuiltInPresets.CleanPunch.copy(
             id = UUID.randomUUID().toString(),
@@ -819,6 +900,7 @@ class MainViewModelTest {
             displayName: String,
             boundPresetId: String,
             boundCorrectionProfileId: String,
+            headphoneAcousticsOverride: Boolean?,
         ) {
             val entity =
                 DeviceProfileEntity(
@@ -827,6 +909,7 @@ class MainViewModelTest {
                     displayName = displayName,
                     boundPresetId = boundPresetId,
                     boundCorrectionProfileId = boundCorrectionProfileId,
+                    headphoneAcousticsOverride = headphoneAcousticsOverride,
                 )
             byRoute[routeId] = entity
             savedBindings.add(entity)

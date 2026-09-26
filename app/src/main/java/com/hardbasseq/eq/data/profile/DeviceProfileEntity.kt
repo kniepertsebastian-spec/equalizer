@@ -11,6 +11,11 @@ import androidx.room.PrimaryKey
 // AudioDeviceInfo.getId() (documented as not persistent across sessions).
 // boundCorrectionProfileId added without a schema version bump: no reader/writer
 // existed for this table yet (same reasoning PresetEntity's own comment uses).
+// headphoneAcousticsOverride (chat feature, item 1 of "setz alle Punkte um"):
+// same reasoning applies - the app has no shipped release yet (pre-M7), so
+// there is no installed schema this could break. null means "no explicit
+// choice for this route yet, fall back to AudioDeviceType.defaultHeadphone-
+// Acoustics()" - see MainViewModel.effectiveHeadphoneAcoustics.
 @Entity(tableName = "device_profiles")
 data class DeviceProfileEntity(
     @PrimaryKey val routeId: String,
@@ -18,4 +23,5 @@ data class DeviceProfileEntity(
     val displayName: String,
     val boundPresetId: String,
     val boundCorrectionProfileId: String = "correction_none",
+    val headphoneAcousticsOverride: Boolean? = null,
 )

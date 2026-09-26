@@ -22,6 +22,7 @@ class RoomDeviceProfileRepository
             displayName: String,
             boundPresetId: String,
             boundCorrectionProfileId: String,
+            headphoneAcousticsOverride: Boolean?,
         ) {
             dao.saveProfile(
                 DeviceProfileEntity(
@@ -30,6 +31,7 @@ class RoomDeviceProfileRepository
                     displayName = displayName,
                     boundPresetId = boundPresetId,
                     boundCorrectionProfileId = boundCorrectionProfileId,
+                    headphoneAcousticsOverride = headphoneAcousticsOverride,
                 ),
             )
         }
