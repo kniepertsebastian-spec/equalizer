@@ -78,6 +78,54 @@ von 50 ms wird daher auf 20 ms begrenzt. Die schmaleren Bassfilter reduzieren
 die Überlagerung benachbarter parametrischer Bänder.
 Equalizer APO unter Windows erhält weiterhin nur die EQ-Kurve.
 
+## Experimentelle Windows-Dynamik (Mehrband-Kompressor/Limiter)
+
+Equalizer APO selbst bringt keinen Kompressor/Limiter mit, kann aber laut
+mehrfach bestätigten Nutzerberichten VST2-Plugins laden und deren Parameter
+über Textzeilen in der Config setzen. Im Windows-Panel der Desktop-App gibt
+es dafür eine Checkbox **"Experimentell: Kompressor/Limiter-Referenz
+(ReaComp-VST)"** (standardmäßig aus), die zusätzlich eine
+`HardBassEQ-Dynamics.txt` schreibt und separat per eigener `Include:`-Zeile
+einbindet - unabhängig von der normalen EQ-Kurven-Datei, damit sie sich
+jederzeit einzeln wieder rausnehmen lässt.
+
+**Wichtig: diese Datei ändert erstmal nichts an deinem Klang.** Jede
+`VST:`/`VSTPlugin:`-Zeile darin ist auskommentiert (`#`) - stattdessen stehen
+dort als Klartext-Kommentar die aus deinem aktuellen Preset berechneten
+Soll-Werte (Threshold/Ratio/Attack/Release für Kompressor und Limiter). Der
+Grund: die genaue Equalizer-APO-VST-Automatisierungssyntax und die exakten
+Parameter-Namen/Wertebereiche von [ReaComp](https://www.reaper.fm/reaplugs/)
+(kostenlos, Teil der ReaPlugs VST FX Suite, keine Installation nötig) sind
+für die jeweils installierte Version nicht offiziell dokumentiert - das
+wurde ohne Zugriff auf einen echten Windows-Rechner mit Equalizer APO/ReaComp
+erstellt und ist entsprechend unverifiziert. Eine falsche Zeile könnte
+Equalizer APO dazu bringen, config.txt gar nicht mehr zu parsen (stumme
+Systemaudioausgabe) - deshalb ist nichts davon von sich aus aktiv.
+
+**So verifizierst/aktivierst du es:**
+
+1. [ReaPlugs VST FX Suite](https://www.reaper.fm/reaplugs/) herunterladen,
+   `reacomp.dll` in den Equalizer-APO-config-Ordner kopieren (Dateiname
+   gegen die tatsächlich heruntergeladene Datei prüfen - Groß-/
+   Kleinschreibung kann abweichen).
+2. Equalizer APOs eigenen **Configuration Editor** öffnen, das Plugin dort
+   über die GUI einmal manuell hinzufügen und die in `HardBassEQ-Dynamics.txt`
+   als Kommentar angegebenen Werte (Threshold/Ratio/Attack/Release) von Hand
+   eintragen.
+3. Danach in der gespeicherten `config.txt` nachschauen, welche
+   `VSTPlugin:`-Zeile/Parameter-Namen/Wertebereiche der Configuration Editor
+   tatsächlich geschrieben hat.
+4. Erst wenn Schritt 3 zeigt, dass unsere generierte Zeile (Syntax,
+   Parameter-Namen, Wertskala) dazu passt, die entsprechende `#`-Zeile in
+   `HardBassEQ-Dynamics.txt` einkommentieren - sonst lieber die von Hand über
+   den Configuration Editor gefundene Syntax dauerhaft nutzen.
+
+ReaComp ist ein Einzelband-Kompressor; der App-eigene 3-Band-MBC wird deshalb
+nur als eine einzelne Breitband-Stufe angenähert (mit den Attack/Release-
+Werten des mittleren Bands aus `AndroidAudioEngine.kt` als Mittelweg). Für
+den Limiter gibt's in ReaComp keinen echten Brickwall-Modus - eine harte
+Ratio (20:1) nähert das an.
+
 ## Installer selbst bauen
 
 CI baut nur Kompilierung + Tests, keine fertigen Installer – `jpackage`

@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -20,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.desktop.exporter.EasyEffectsExporter
@@ -45,6 +47,9 @@ fun App() {
 
     var equalizerApoDir by remember { mutableStateOf(defaultEqualizerApoConfigDir()) }
     var easyEffectsDir by remember { mutableStateOf(EasyEffectsExporter.defaultPresetDir().absolutePath) }
+    // Chat feature: opt-in, off by default - see EqualizerApoExporter's class-level
+    // comment on why the generated dynamics file is reference-only/commented out.
+    var includeExperimentalDynamics by remember { mutableStateOf(false) }
 
     fun selectPreset(preset: Preset) {
         activePreset = preset
@@ -134,6 +139,8 @@ fun App() {
                         EqualizerApoPanel(
                             configDir = equalizerApoDir,
                             onConfigDirChange = { equalizerApoDir = it },
+                            includeExperimentalDynamics = includeExperimentalDynamics,
+                            onIncludeExperimentalDynamicsChange = { includeExperimentalDynamics = it },
                             onApply = {
                                 statusMessage =
                                     runCatching {
@@ -145,9 +152,19 @@ fun App() {
                                                 macroPunchDb,
                                                 macroHaerteDb,
                                             )
-                                        "Geschrieben nach ${file.absolutePath} " +
-                                            "(config.txt in diesem Ordner enthält jetzt " +
-                                            "automatisch die Include-Zeile)."
+                                        var message =
+                                            "Geschrieben nach ${file.absolutePath} " +
+                                                "(config.txt in diesem Ordner enthält jetzt " +
+                                                "automatisch die Include-Zeile)."
+                                        if (includeExperimentalDynamics) {
+                                            val dynamicsFile =
+                                                EqualizerApoExporter.installDynamicsTo(File(equalizerApoDir), activePreset)
+                                            message +=
+                                                " Experimentelle Dynamik-Referenz nach " +
+                                                "${dynamicsFile.absolutePath} geschrieben - " +
+                                                "alle VST-Zeilen darin sind auskommentiert, siehe README."
+                                        }
+                                        message
                                     }.getOrElse { "Fehler: ${it.message}" }
                             },
                         )
@@ -207,6 +224,8 @@ private fun MacroSlider(
 private fun EqualizerApoPanel(
     configDir: String,
     onConfigDirChange: (String) -> Unit,
+    includeExperimentalDynamics: Boolean,
+    onIncludeExperimentalDynamicsChange: (Boolean) -> Unit,
     onApply: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -216,6 +235,17 @@ private fun EqualizerApoPanel(
             label = { Text("Equalizer APO config-Ordner") },
             modifier = Modifier.fillMaxWidth(),
         )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Checkbox(checked = includeExperimentalDynamics, onCheckedChange = onIncludeExperimentalDynamicsChange)
+            Column {
+                Text("Experimentell: Kompressor/Limiter-Referenz (ReaComp-VST)")
+                Text(
+                    "Ungetestet - schreibt nur auskommentierte Referenzwerte, ändert deinen " +
+                        "Sound nicht automatisch. Siehe README vor dem Aktivieren der VST-Zeilen.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
         Button(onClick = onApply) { Text("Preset installieren") }
     }
 }

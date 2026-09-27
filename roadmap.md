@@ -2023,3 +2023,84 @@ manuellem Review geprüft, nicht kompiliert.
 **Bewusst offen gelassen:** Die anderen drei aus der Frage angebotenen
 Optionen (Korrekturprofil-Check, Loudness-Kompensation, echtes Crossfeed)
 sind damit nicht vom Tisch - nur diese eine wurde für diese Sitzung gewählt.
+
+### Session 27 (27. September 2026)
+
+Nutzerfrage: "wie nutze ich den EQ mit allen vollen funktionen auf win11?".
+Antwort ehrlich vorweg: Equalizer APO (Windows) bekommt vom `:desktop`-Modul
+bisher nur die reine EQ-Kurve, keinen Mehrband-Kompressor/Limiter (steht auch
+schon so im README) - Equalizer APO selbst hat dafür keine eingebaute
+Funktion. Auf Nachfrage ("kann man den MBC/Limiter auch für Windows nutzbar
+machen?") per Web-Recherche geprüft, was technisch möglich wäre, bevor
+irgendwas Halbgares umgesetzt wurde.
+
+**Rechercheergebnis:** Equalizer APO kann laut mehreren unabhängig
+bestätigten Nutzerberichten VST2-Plugins laden (`VST:`/`VSTPlugin:
+Library ...`-Direktiven) und deren Parameter sogar per Text in der Config
+setzen - keine reine GUI-Sache. **ReaComp** (Cockos, Teil der kostenlosen,
+frei weitergebbaren ReaPlugs VST FX Suite, keine Installation nötig) ist ein
+in der Praxis von anderen Nutzern erfolgreich mit Equalizer APO kombinierter
+Kompressor. Gefundene Beispiel-Configs zeigen aber **uneinheitliche
+Wertskalen** zwischen verschiedenen Quellen (mal wirken die Zahlen wie
+Rohwerte in ms/dB, mal wie normalisierte 0..1-Werte) - das ist offenbar nicht
+offiziell dokumentiert, sondern von Nutzern per Trial-and-Error (Regler in
+der Plugin-GUI stellen, gespeicherte config.txt auslesen) herausgefunden.
+
+**Entscheidung (per `AskUserQuestion`):** Code schreiben, User testet live -
+statt nur eine manuelle Anleitung ohne Automatisierung zu geben. Gegeben die
+reale Unsicherheit bei der genauen Syntax/Parameterskalierung (ein falscher
+Wert könnte Equalizer APO dazu bringen, `config.txt` gar nicht mehr zu
+parsen - stumme Systemaudioausgabe, ein kategorisch anderes Risiko als
+"kompiliert nicht") wurde das **sicher by design** umgesetzt: alles
+automatisch Generierte ist standardmäßig auskommentiert, keine aktiv
+wirksame Zeile ohne expliziten manuellen Schritt des Nutzers.
+
+**Neu in `EqualizerApoExporter.kt` (`:desktop`):**
+- `generateDynamicsConfig(preset)` erzeugt eine reine Referenz-/Kommentar-
+  Datei: die aus dem Preset berechneten Soll-Werte (Threshold/Ratio/Attack/
+  Release für Kompressor und Limiter) stehen als `#`-Kommentar drin, gefolgt
+  von der besten Vermutung für die tatsächliche `VST:`/`VSTPlugin:`-Zeile -
+  aber ebenfalls auskommentiert. ReaComp ist Einzelband; der echte 3-Band-MBC
+  wird nur als eine Breitband-Stufe angenähert (Attack/Release des mittleren
+  Bands aus `AndroidAudioEngine.kt` als Mittelweg). Für den Limiter gibt's
+  keinen echten Brickwall-Modus in ReaComp - feste Ratio 20:1 nähert das an.
+- `installDynamicsTo(configDir, preset)` schreibt das in eine **eigene**
+  Include-Datei (`HardBassEQ-Dynamics.txt`, eigene `Include:`-Zeile) statt in
+  `HardBassEQ.txt` mit reinzufalten - damit lässt sich das Experiment
+  jederzeit einzeln rausnehmen, ohne die längst bewährte EQ-Kurven-Datei
+  anzufassen. `ensureIncludeWired` dafür generalisiert (nimmt jetzt die
+  Include-Zeile als Parameter statt sie fest zu verdrahten), bestehendes
+  Verhalten/Signatur von `installTo`/`generateConfig` unverändert.
+- Desktop-UI (`App.kt`): neue, standardmäßig **deaktivierte** Checkbox
+  "Experimentell: Kompressor/Limiter-Referenz (ReaComp-VST)" im Windows-Panel;
+  nur wenn angehakt, wird `installDynamicsTo` zusätzlich zum normalen
+  `installTo`-Aufruf ausgeführt.
+- `desktop/README.md`: neuer Abschnitt "Experimentelle Windows-Dynamik" mit
+  dem konkreten Verifikationsweg (ReaPlugs installieren, Plugin einmal über
+  Equalizer APOs eigenen Configuration Editor per GUI hinzufügen, die von der
+  GUI tatsächlich geschriebene `config.txt`-Zeile mit unserer generierten
+  vergleichen, erst danach ggf. einkommentieren).
+
+**Tests:** 5 neue Fälle in `EqualizerApoExporterTest.kt` (Referenzwerte im
+Kommentar entsprechen den Preset-Werten; jede VST-Automatisierungszeile ist
+auskommentiert; Flat mit deaktiviertem MBC/Limiter erzeugt gar keine
+Automatisierungszeilen; eigene Include-Datei getrennt von der EQ-Kurven-
+Datei; wiederholte Aufrufe verdrahten die Include-Zeile nur einmal).
+
+**Verifikation - wichtiger Unterschied zu allen bisherigen `:app`-Änderungen
+dieser Sitzung:** `:desktop:test` läuft laut Session-24-Fund tatsächlich in
+echter CI (reines Kotlin/JVM-Modul). Diese Änderung wird also, anders als
+alle `:app`-Compose-Änderungen, tatsächlich vom nächsten CI-Lauf kompiliert
+und getestet - hier nur mit ktlint + manuellem Review vorab geprüft (gleiche
+Sandbox-Einschränkung wie immer bei `:desktop`/`:app`), aber CI deckt es
+danach wirklich ab.
+
+**Bewusst offen gelassen:**
+- Die eigentliche Automatisierung bleibt bis zur Nutzer-Verifikation
+  auskommentiert - ob die generierte `VSTPlugin:`-Syntax/Parameter-Namen
+  überhaupt zur tatsächlich installierten ReaComp-Version passen, ist
+  unbekannt, bis der Nutzer das auf seinem Windows-11-Rechner geprüft hat.
+- Keine echte Multiband-Näherung für Windows (nur eine Breitband-Stufe) -
+  eine dreifache ReaComp-Verkettung mit passenden Sidechain-Filtern wäre
+  möglich, aber deutlich mehr Risiko/Komplexität für eine ungetestete
+  Funktion, bewusst nicht in diesem ersten Schritt versucht.

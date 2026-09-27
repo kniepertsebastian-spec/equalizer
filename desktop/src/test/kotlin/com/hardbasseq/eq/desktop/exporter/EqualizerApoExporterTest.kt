@@ -6,6 +6,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
+import java.util.Locale
+
+private fun db(value: Float): String = String.format(Locale.ROOT, "%.2f", value)
 
 class EqualizerApoExporterTest {
     @Test
@@ -78,5 +81,59 @@ class EqualizerApoExporterTest {
         assertTrue(content.contains("# my own settings"))
         assertTrue(content.contains("Filter 1: ON HP Fc 20 Hz"))
         assertTrue(content.contains("Include: ${EqualizerApoExporter.INCLUDE_FILE_NAME}"))
+    }
+
+    // --- Chat feature: experimental Windows dynamics (ReaComp reference) ---
+
+    @Test
+    fun `dynamics config carries the preset's own mbc and limiter values`() {
+        val config = EqualizerApoExporter.generateDynamicsConfig(BuiltInPresets.CleanPunch)
+
+        assertTrue(config.contains("Threshold: ${db(BuiltInPresets.CleanPunch.mbcThresholdDb)} dB"))
+        assertTrue(config.contains("Ratio: ${db(BuiltInPresets.CleanPunch.mbcRatio)}:1"))
+        assertTrue(config.contains("Threshold: ${db(BuiltInPresets.CleanPunch.limiter.thresholdDb)} dB"))
+    }
+
+    @Test
+    fun `every VST automation line in the dynamics config is commented out`() {
+        val config = EqualizerApoExporter.generateDynamicsConfig(BuiltInPresets.CleanPunch)
+
+        val automationLines = config.lines().filter { it.contains("VST:") || it.contains("VSTPlugin:") }
+        assertTrue(automationLines.isNotEmpty())
+        assertTrue(automationLines.all { it.trim().startsWith("#") })
+    }
+
+    @Test
+    fun `flat preset (mbc and limiter disabled) produces no automation lines at all`() {
+        val config = EqualizerApoExporter.generateDynamicsConfig(BuiltInPresets.Flat)
+
+        assertTrue(config.lines().none { it.contains("VST:") || it.contains("VSTPlugin:") })
+    }
+
+    @Test
+    fun `installDynamicsTo writes a separate include file from the eq curve export`() {
+        val dir = Files.createTempDirectory("eqapo-dynamics-test").toFile()
+
+        EqualizerApoExporter.installTo(dir, BuiltInPresets.CleanPunch)
+        EqualizerApoExporter.installDynamicsTo(dir, BuiltInPresets.CleanPunch)
+
+        assertTrue(File(dir, EqualizerApoExporter.INCLUDE_FILE_NAME).exists())
+        assertTrue(File(dir, EqualizerApoExporter.INCLUDE_FILE_NAME_DYNAMICS).exists())
+
+        val configTxt = File(dir, "config.txt").readText()
+        assertTrue(configTxt.contains("Include: ${EqualizerApoExporter.INCLUDE_FILE_NAME}"))
+        assertTrue(configTxt.contains("Include: ${EqualizerApoExporter.INCLUDE_FILE_NAME_DYNAMICS}"))
+    }
+
+    @Test
+    fun `installDynamicsTo wires its include line exactly once across repeated calls`() {
+        val dir = Files.createTempDirectory("eqapo-dynamics-test-repeat").toFile()
+
+        EqualizerApoExporter.installDynamicsTo(dir, BuiltInPresets.CleanPunch)
+        EqualizerApoExporter.installDynamicsTo(dir, BuiltInPresets.DeepRumble)
+
+        val expectedLine = "Include: ${EqualizerApoExporter.INCLUDE_FILE_NAME_DYNAMICS}"
+        val includeLines = File(dir, "config.txt").readLines().filter { it.trim() == expectedLine }
+        assertEquals(1, includeLines.size)
     }
 }
