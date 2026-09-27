@@ -24,6 +24,7 @@ import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
+import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
@@ -829,10 +830,33 @@ class MainViewModel
                     macroPunchDb = macroPunchDb,
                     macroHaerteDb = macroHaerteDb,
                 )
+            // Chat feature: "quality changes for headphones" - gentler dynamics was
+            // the option picked over loudness compensation or real crossfeed.
+            // Recomputed from the canonical activePreset value (not the current
+            // processingSettings, which may already be headphone-eased from a
+            // previous call) every time this runs, including on every
+            // effectiveHeadphoneAcoustics change via the init collector - so
+            // toggling headphone mode without reselecting a preset still applies/
+            // removes the easing, and it never compounds across repeated calls.
+            val preset = _activePreset.value
+            val mbcThresholdDb =
+                if (effectiveHeadphoneAcoustics.value) {
+                    HeadphoneDynamicsEasing.easedThresholdDb(preset.mbcThresholdDb)
+                } else {
+                    preset.mbcThresholdDb
+                }
+            val mbcRatio =
+                if (effectiveHeadphoneAcoustics.value) {
+                    HeadphoneDynamicsEasing.easedRatio(preset.mbcRatio)
+                } else {
+                    preset.mbcRatio
+                }
             val newSettings =
                 _processingSettings.value.copy(
                     bandGainsDb = calculatedGains,
                     inputGainDb = safetyScaledInputGainDb(headroom.maxPositiveGainDb),
+                    mbcThresholdDb = mbcThresholdDb,
+                    mbcRatio = mbcRatio,
                 )
             applySettings(newSettings)
         }

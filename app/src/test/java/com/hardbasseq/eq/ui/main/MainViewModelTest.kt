@@ -693,6 +693,59 @@ class MainViewModelTest {
             )
         }
 
+    // --- Chat feature: quality changes for headphones (gentler dynamics) ---
+
+    @Test
+    fun `headphone mode eases the mbc threshold and ratio compared to the same preset without it`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Terror, PresetIntensity.VERY_AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val thresholdOff = viewModel.processingSettings.value.mbcThresholdDb
+            val ratioOff = viewModel.processingSettings.value.mbcRatio
+
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val thresholdOn = viewModel.processingSettings.value.mbcThresholdDb
+            val ratioOn = viewModel.processingSettings.value.mbcRatio
+
+            assertTrue("expected a higher (less negative) threshold with headphone mode on", thresholdOn > thresholdOff)
+            assertTrue("expected a lower (gentler) ratio with headphone mode on", ratioOn < ratioOff)
+
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // Toggling back off restores the preset's own values exactly - no
+            // drift from having eased and un-eased once already.
+            assertEquals(thresholdOff, viewModel.processingSettings.value.mbcThresholdDb)
+            assertEquals(ratioOff, viewModel.processingSettings.value.mbcRatio)
+        }
+
+    @Test
+    fun `toggling headphone mode on and off twice does not compound the easing`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Gabber, PresetIntensity.AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            val firstOnThreshold = viewModel.processingSettings.value.mbcThresholdDb
+            val firstOnRatio = viewModel.processingSettings.value.mbcRatio
+
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(firstOnThreshold, viewModel.processingSettings.value.mbcThresholdDb)
+            assertEquals(firstOnRatio, viewModel.processingSettings.value.mbcRatio)
+        }
+
     // --- Chat feature: genre x intensity preset redesign ---
 
     @Test

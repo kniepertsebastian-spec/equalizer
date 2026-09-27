@@ -1974,3 +1974,52 @@ und sollte vor dem Release einmal real im Emulator/Gerät angeschaut werden.
   Mobile-App-UI), bewusst nicht angefasst, aber inzwischen unhandlich lang.
 - Keine neuen AutoEQ-/Korrekturprofil-Anpassungen - dieses Feature betrifft
   nur die Preset-(Voicing-)Seite, nicht Korrekturprofile.
+
+### Session 26 (27. September 2026)
+
+Nutzerfrage: "kann man für den sound auf kopfhörern noch quality changes
+machen?" - vier Optionen zur Auswahl gestellt (Korrekturprofil-Check ohne
+Code, Dynamik für Kopfhörer sanfter, die unbenutzte LoudnessCompensationCurve
+für Kopfhörer-Modus verdrahten, oder doch den großen Media3-Crossfeed-Weg
+angehen). Per `AskUserQuestion` gewählt: **Dynamik für Kopfhörer sanfter**.
+
+**Begründung:** Kopfhörer sitzen direkt am Ohr; im Auto/über Lautsprecher
+maskiert Umgebungslärm einen Teil der hörbaren Kompressor-Arbeit, die über
+Kopfhörer eher als Pumping/Ermüdung auffällt (verwandtes Thema zu Session
+24s MBC-Pumping-Fund, nur diesmal als bewusste, generelle Milderung statt als
+Bugfix für einen Spezialfall).
+
+**Neu in `:core`:** `HeadphoneDynamicsEasing` - zwei reine Funktionen:
+- `easedThresholdDb(base)`: hebt den MBC-Threshold um pauschal +2 dB an
+  (Kompressor greift später ein), `coerceAtMost(0f)`.
+- `easedRatio(base)`: zieht die Ratio proportional Richtung 1 (transparent) -
+  `1 + (base - 1) * 0.75` statt einer festen Subtraktion, damit eine bereits
+  niedrige Ratio nicht instabil wird und eine hohe Ratio nicht unverhältnis-
+  mäßig weniger abbekommt als eine niedrige.
+- Der Limiter (Ratio 10:1 in `AndroidAudioEngine`, Threshold-Default aus
+  Session 24) bleibt **bewusst unangetastet** - der ist die tatsächliche
+  Clipping-Bremse, kein musikalischer/Charakter-Parameter, den Kopfhörer-Modus
+  aufweichen sollte.
+
+**Verdrahtet in `MainViewModel.recalculateBandGains()`:** `mbcThresholdDb`/
+`mbcRatio` werden bei jedem Aufruf frisch aus dem kanonischen
+`_activePreset.value` (das schon die Genre+Intensitäts-Auflösung trägt) plus
+Kopfhörer-Easing berechnet - nicht inkrementell aus dem aktuellen
+`processingSettings`-Wert, sonst hätte wiederholtes Ein-/Ausschalten des
+Kopfhörer-Modus sich aufschaukeln können. Da `recalculateBandGains()` schon
+über den bestehenden `effectiveHeadphoneAcoustics`-Collector bei jedem
+Schalter-Toggle *und* bei jedem Preset-/Makro-Wechsel läuft, greift die
+Milderung überall automatisch, ohne einen zweiten Auslöse-Pfad zu brauchen.
+
+**Tests:** `HeadphoneDynamicsEasingTest` (5 Fälle: Threshold-Anhebung,
+0-dBFS-Deckelung, proportionale Ratio-Annäherung, höhere Basis-Ratio bleibt
+nach Easing höher als eine niedrigere, Ratio 1 bleibt 1) - grün im
+Standalone-Mini-Gradle-Projekt. Zwei neue `MainViewModelTest`-Fälle (Easing
+ist beim Umschalten hörbar unterschiedlich und beim Zurückschalten exakt
+wieder der Ausgangswert; zweimaliges An/Aus-Umschalten schaukelt sich nicht
+auf) - wie bei allen `:app`-Änderungen dieser Sitzung nur mit ktlint +
+manuellem Review geprüft, nicht kompiliert.
+
+**Bewusst offen gelassen:** Die anderen drei aus der Frage angebotenen
+Optionen (Korrekturprofil-Check, Loudness-Kompensation, echtes Crossfeed)
+sind damit nicht vom Tisch - nur diese eine wurde für diese Sitzung gewählt.
