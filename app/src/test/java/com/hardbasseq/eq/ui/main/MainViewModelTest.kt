@@ -22,8 +22,11 @@ import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
+import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.Preset
+import com.hardbasseq.eq.preset.PresetIntensity
+import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
@@ -41,6 +44,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -686,6 +690,123 @@ class MainViewModelTest {
             assertTrue(
                 "expected headphone mode to reduce the 3600 Hz band, off=$presenceOff on=$presenceOn",
                 presenceOn < presenceOff,
+            )
+        }
+
+    // --- Chat feature: quality changes for headphones (gentler dynamics) ---
+
+    @Test
+    fun `headphone mode eases the mbc threshold and ratio compared to the same preset without it`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Terror, PresetIntensity.VERY_AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val thresholdOff = viewModel.processingSettings.value.mbcThresholdDb
+            val ratioOff = viewModel.processingSettings.value.mbcRatio
+
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val thresholdOn = viewModel.processingSettings.value.mbcThresholdDb
+            val ratioOn = viewModel.processingSettings.value.mbcRatio
+
+            assertTrue("expected a higher (less negative) threshold with headphone mode on", thresholdOn > thresholdOff)
+            assertTrue("expected a lower (gentler) ratio with headphone mode on", ratioOn < ratioOff)
+
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // Toggling back off restores the preset's own values exactly - no
+            // drift from having eased and un-eased once already.
+            assertEquals(thresholdOff, viewModel.processingSettings.value.mbcThresholdDb)
+            assertEquals(ratioOff, viewModel.processingSettings.value.mbcRatio)
+        }
+
+    @Test
+    fun `toggling headphone mode on and off twice does not compound the easing`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Gabber, PresetIntensity.AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            val firstOnThreshold = viewModel.processingSettings.value.mbcThresholdDb
+            val firstOnRatio = viewModel.processingSettings.value.mbcRatio
+
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(firstOnThreshold, viewModel.processingSettings.value.mbcThresholdDb)
+            assertEquals(firstOnRatio, viewModel.processingSettings.value.mbcRatio)
+        }
+
+    // --- Chat feature: genre x intensity preset redesign ---
+
+    @Test
+    fun `selecting a genre and intensity resolves and applies the combined preset`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Uptempo, PresetIntensity.AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val expected = PresetIntensityResolver.resolve(BuiltInGenrePresets.Uptempo, PresetIntensity.AGGRESSIVE)
+            assertEquals(expected.id, viewModel.activePreset.value.id)
+            assertEquals(expected.macroBassDb, viewModel.processingSettings.value.macroBassDb)
+            assertEquals(expected.macroPunchDb, viewModel.processingSettings.value.macroPunchDb)
+            assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `selectedGenreIntensity reflects the currently active genre and intensity`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Gabber, PresetIntensity.SUPER_SOFT)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val (genre, intensity) = requireNotNull(viewModel.selectedGenreIntensity.value)
+            assertEquals(BuiltInGenrePresets.Gabber.id, genre.id)
+            assertEquals(PresetIntensity.SUPER_SOFT, intensity)
+        }
+
+    @Test
+    fun `selectedGenreIntensity is null once a legacy built-in preset is active`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Terror, PresetIntensity.VERY_AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNotNull(viewModel.selectedGenreIntensity.value)
+
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.selectedGenreIntensity.value)
+        }
+
+    @Test
+    fun `flat genre ignores intensity - every button resolves to the same preset`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Flat, PresetIntensity.VERY_AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInGenrePresets.Flat.base.macroBassDb, viewModel.processingSettings.value.macroBassDb)
+            assertTrue(
+                viewModel.processingSettings.value.bandGainsDb.values
+                    .all { it == 0f },
             )
         }
 

@@ -24,14 +24,19 @@ import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
+import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
+import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.BuiltInPresets
+import com.hardbasseq.eq.preset.GenrePreset
 import com.hardbasseq.eq.preset.LimiterConfig
 import com.hardbasseq.eq.preset.PortableSoundProfile
 import com.hardbasseq.eq.preset.PortableSoundProfileJson
 import com.hardbasseq.eq.preset.Preset
+import com.hardbasseq.eq.preset.PresetIntensity
+import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetMetadata
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.TargetPoint
@@ -160,6 +165,29 @@ class MainViewModel
             customPresetsState
                 .map { custom -> BuiltInPresets.all + custom }
                 .stateIn(viewModelScope, SharingStarted.Eagerly, BuiltInPresets.all)
+
+        // Chat feature: genre x intensity preset redesign. The old preset grid
+        // (still used for user-duplicated custom presets, see EqualizerScreen) is
+        // no longer how the built-in sounds are picked - a genre dropdown plus 5
+        // intensity buttons is. customPresetsOnly feeds that grid instead of
+        // allPresets now that BuiltInPresets.all also carries every genre x
+        // intensity combination (35 of them, plus the original 9 hand-authored
+        // presets - far too many for a 3-per-row icon grid).
+        val customPresetsOnly: StateFlow<List<Preset>> = customPresetsState.asStateFlow()
+
+        // Mirrors activePreset, parsed back into which genre/intensity button
+        // combination it came from (null if the active preset isn't one of
+        // those - a legacy built-in or a custom preset). Drives which dropdown
+        // entry and which intensity button the new selector shows as active,
+        // without persisting that pair anywhere separately from boundPresetId.
+        val selectedGenreIntensity: StateFlow<Pair<GenrePreset, PresetIntensity>?> =
+            activePreset
+                .map { preset -> PresetIntensityResolver.parse(preset.id, BuiltInGenrePresets.all) }
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.Eagerly,
+                    PresetIntensityResolver.parse(_activePreset.value.id, BuiltInGenrePresets.all),
+                )
 
         private val _pendingDeletePreset = MutableStateFlow<Preset?>(null)
         val pendingDeletePreset: StateFlow<Preset?> = _pendingDeletePreset.asStateFlow()
@@ -411,6 +439,17 @@ class MainViewModel
             recalculateBandGains()
             persistLiveSettings()
             saveDeviceProfileBinding()
+        }
+
+        // Chat feature: genre x intensity preset redesign. Resolves the pair into
+        // a concrete Preset and routes through the existing selectPreset() -
+        // same persistence/headroom/dirty-flag pipeline as any other preset pick,
+        // no separate code path to keep in sync.
+        fun selectGenreIntensity(
+            genre: GenrePreset,
+            intensity: PresetIntensity,
+        ) {
+            selectPreset(PresetIntensityResolver.resolve(genre, intensity))
         }
 
         // M3 "Mein Kopfhörer": switches the active correction curve, independent of
@@ -791,10 +830,33 @@ class MainViewModel
                     macroPunchDb = macroPunchDb,
                     macroHaerteDb = macroHaerteDb,
                 )
+            // Chat feature: "quality changes for headphones" - gentler dynamics was
+            // the option picked over loudness compensation or real crossfeed.
+            // Recomputed from the canonical activePreset value (not the current
+            // processingSettings, which may already be headphone-eased from a
+            // previous call) every time this runs, including on every
+            // effectiveHeadphoneAcoustics change via the init collector - so
+            // toggling headphone mode without reselecting a preset still applies/
+            // removes the easing, and it never compounds across repeated calls.
+            val preset = _activePreset.value
+            val mbcThresholdDb =
+                if (effectiveHeadphoneAcoustics.value) {
+                    HeadphoneDynamicsEasing.easedThresholdDb(preset.mbcThresholdDb)
+                } else {
+                    preset.mbcThresholdDb
+                }
+            val mbcRatio =
+                if (effectiveHeadphoneAcoustics.value) {
+                    HeadphoneDynamicsEasing.easedRatio(preset.mbcRatio)
+                } else {
+                    preset.mbcRatio
+                }
             val newSettings =
                 _processingSettings.value.copy(
                     bandGainsDb = calculatedGains,
                     inputGainDb = safetyScaledInputGainDb(headroom.maxPositiveGainDb),
+                    mbcThresholdDb = mbcThresholdDb,
+                    mbcRatio = mbcRatio,
                 )
             applySettings(newSettings)
         }

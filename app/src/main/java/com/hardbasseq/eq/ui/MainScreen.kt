@@ -51,8 +51,10 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.integration.PlayerSource
+import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
+import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.equalizer.styleFor
 import com.hardbasseq.eq.ui.main.MainViewModel
@@ -75,7 +77,8 @@ fun MainScreen(
     val route by viewModel.currentRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
-    val allPresets by viewModel.allPresets.collectAsStateWithLifecycle()
+    val customPresetsOnly by viewModel.customPresetsOnly.collectAsStateWithLifecycle()
+    val selectedGenreIntensity by viewModel.selectedGenreIntensity.collectAsStateWithLifecycle()
     val activeCorrectionProfile by viewModel.activeCorrectionProfile.collectAsStateWithLifecycle()
     val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
     val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
@@ -249,7 +252,10 @@ fun MainScreen(
                 settings = settings,
                 bands = capabilities.bands,
                 activePreset = activePreset,
-                allPresets = allPresets,
+                customPresets = customPresetsOnly,
+                genrePresets = BuiltInGenrePresets.all,
+                intensities = PresetIntensity.entries,
+                selectedGenreIntensity = selectedGenreIntensity,
                 activeCorrectionProfile = activeCorrectionProfile,
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
@@ -259,6 +265,7 @@ fun MainScreen(
                 onOpenSourcePicker = { viewModel.openSourcePicker() },
                 onBypassToggled = { viewModel.setBypass(it) },
                 onPresetSelected = { viewModel.selectPreset(it) },
+                onGenreIntensitySelected = { genre, intensity -> viewModel.selectGenreIntensity(genre, intensity) },
                 onCorrectionProfileSelected = { viewModel.selectCorrectionProfile(it) },
                 onAcceptSuggestedCorrectionProfile = { viewModel.acceptSuggestedCorrectionProfile() },
                 onDismissSuggestedCorrectionProfile = { viewModel.dismissSuggestedCorrectionProfile() },
