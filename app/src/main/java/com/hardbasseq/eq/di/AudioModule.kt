@@ -4,10 +4,12 @@ import com.hardbasseq.eq.audio.AndroidAudioEffectRepository
 import com.hardbasseq.eq.audio.AndroidAudioEngine
 import com.hardbasseq.eq.audio.AndroidAudioRouteRepository
 import com.hardbasseq.eq.audio.AndroidAudioSessionRepository
+import com.hardbasseq.eq.audio.AndroidSystemVolumeRepository
 import com.hardbasseq.eq.audio.AudioEffectRepository
 import com.hardbasseq.eq.audio.AudioEngine
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSessionRepository
+import com.hardbasseq.eq.audio.SystemVolumeRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -32,4 +34,8 @@ abstract class AudioModule {
     @Binds
     @Singleton
     abstract fun bindAudioRouteRepository(impl: AndroidAudioRouteRepository): AudioRouteRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSystemVolumeRepository(impl: AndroidSystemVolumeRepository): SystemVolumeRepository
 }

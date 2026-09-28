@@ -2199,3 +2199,94 @@ nicht betroffen.
   zwischen z. B. Moderate und Very Aggressive an (war laut Nutzerdefinition
   ohnehin nicht das Ziel: "Lautstärke ändert sich hingegen kaum" ergibt sich
   bereits aus dem bestehenden additiven Makro-Modell plus diesem Preamp-Fix).
+
+### Session 29 (28. September 2026)
+
+Nutzerfrage: "was wäre der nächste schritt für einen guten EQ mit
+kopfhörern" - zwei Optionen angeboten: echtes Crossfeed (die `Crossfeed`-
+DSP-Klasse in `:core` liegt fertig getestet, aber unbenutzt herum) oder die
+ebenfalls schon vorhandene, aber unbenutzte `LoudnessCompensationCurve` für
+den Kopfhörer-Modus verdrahten. Nutzer wählte zunächst "definitiv
+Crossfeed".
+
+**Klarstellung vor der Umsetzung:** Wie in Session 23 bereits festgehalten,
+ist echtes Crossfeed über den tatsächlich laufenden Wiedergabepfad
+(`AndroidAudioEngine`: Androids System-Audioeffekte `Equalizer`/
+`DynamicsProcessing`, angehängt an fremde App-Sessions wie Spotify/YouTube
+Music) strukturell unmöglich - diese Systemeffekte können nur ihre eigenen
+Parameter setzen, keinen eigenen PCM-Algorithmus ausführen. Hörbar würde
+Crossfeed nur über einen selbst kontrollierten Media3/ExoPlayer-Pfad, was
+aktuell technisch nur beim eigenen SoundCloud-Player (`:player`-Modul,
+`AudioPlayerService`, nutzt bereits `ExoPlayer.Builder(this)` ohne eigene
+`RenderersFactory`/`AudioProcessor`) möglich wäre - nicht bei Spotify/
+YouTube Music. Per `AskUserQuestion` noch einmal explizit bestätigt statt
+stillschweigend umgesetzt, da das ein spürbarer Scope-Unterschied zum Rest
+des Kopfhörer-Feature-Sets ist (die anderen Kopfhörer-Verbesserungen wirken
+alle plattformweit, auch bei Spotify). **Nutzer-Entscheidung:** zu wenig
+Nutzen für den Aufwand - stattdessen `LoudnessCompensationCurve` verdrahten,
+die über den bereits funktionierenden Pfad läuft und damit auch bei Spotify
+wirkt.
+
+**Umsetzung** (gleiches Muster wie Session 23/24 - eine `:core`-Referenz-
+kurve wird real hörbar gemacht, indem sie über den echten `AndroidAudioEngine`-
+EQ-Pfad läuft, statt einen eigenen PCM-Pfad zu brauchen):
+- Neu: `audio/SystemVolumeRepository.kt` (`:app`) - liest
+  `AudioManager.STREAM_MUSIC`s aktuellen/maximalen Lautstärke-Index aus und
+  bildet das Verhältnis über `20*log10(fraction)` auf eine dB-artige Größe
+  ab (keine echte SPL-Kalibrierung, die diese App nicht hat - nur die
+  *relative* Distanz zur Referenzlautstärke, die `LoudnessCompensationCurve`
+  ohnehin braucht). Reagiert per registriertem `BroadcastReceiver` auf
+  `"android.media.VOLUME_CHANGED_ACTION"` (kein öffentliches SDK-Symbol,
+  aber ein geschützter Systembroadcast - inklusive Hardware-Lautstärketasten)
+  live auf Lautstärkeänderungen, gleiches `startMonitoring()`/
+  `stopMonitoring()`-Muster wie `AndroidAudioRouteRepository`.
+- `AudioSessionForegroundService` startet/stoppt das neue Repository jetzt
+  mit, damit es für die gesamte Prozesslaufzeit läuft statt nur solange die
+  UI offen ist (wie schon bei Route-Monitoring/Session-Listening).
+- `MainViewModel.combinedCurve()` faltet `LoudnessCompensationCurve.forLevel()`
+  jetzt zusätzlich ein, ausschließlich wenn `effectiveHeadphoneAcoustics`
+  true ist (genau wie schon `HeadphoneComfortCurve`) - ein neuer
+  `init`-Collector auf `volumeRepository.currentLevelDb` ruft
+  `recalculateBandGains()` bei jeder Lautstärkeänderung auf, aber nur
+  während Kopfhörer-Modus aktiv ist. `EqualizerScreen.kt`s eigene, separate
+  Headroom-Berechnung wurde spiegelbildlich um denselben Fold-in ergänzt
+  (neuer `currentLevelDb: Float`-Parameter, durchgereicht von
+  `MainScreen.kt`), aus demselben Grund wie in Session 23: sonst würde die
+  Headroom-Anzeige nicht mehr zur tatsächlich angewandten `inputGainDb`
+  passen.
+- `di/AudioModule.kt`: neue Hilt-Bindung `SystemVolumeRepository` ->
+  `AndroidSystemVolumeRepository`.
+
+**Tests:** `LoudnessCompensationCurve`s eigene Mathematik (Clamping,
+Bass/Höhen-Verhältnis, Referenzpegel) war schon vorher vollständig durch
+`LoudnessCompensationCurveTest` in `:core` abgedeckt (nur nie verdrahtet) -
+hier deshalb nur zwei neue `MainViewModelTest`-Fälle für die Verdrahtung
+selbst: mit dem Flat-Preset zeigt eine sinkende Lautstärke bei aktivem
+Kopfhörer-Modus einen wachsenden Bass-Boost (60-Hz-Band); bei
+ausgeschaltetem Kopfhörer-Modus bleibt der Boost unabhängig von der
+Lautstärke bei exakt 0. `AndroidSystemVolumeRepository` selbst bleibt wie
+`AndroidAudioRouteRepository` ungetestet - diese Sandbox hat kein
+Robolectric/Instrumentation-Setup für echte `AudioManager`/`Context`-
+Klassen, und dieses Repo hatte davor schon keinen Test für das strukturell
+identische Route-Repository.
+
+**Verifikation:** keine `:core`-Änderungen in dieser Sitzung, also kein
+`core-verify`-Lauf nötig. Alle geänderten `:app`-Dateien mit der
+eigenständigen ktlint-CLI geprüft (ein Import-Reihenfolge- und ein
+Kettenfortsetzungs-Fehler automatisch mit `ktlint --format` behoben, Diff
+danach manuell gegengelesen) - Android Gradle Plugin weiterhin nicht
+auflösbar, echte Kompilierprüfung über CI im PR.
+
+**Bewusst offen gelassen:**
+- Echtes Crossfeed bleibt eine fertige, getestete, aber unbenutzte
+  `:core`-Referenzimplementierung - technisch nur für den eigenen
+  SoundCloud-Player über einen echten Media3-`AudioProcessor` erreichbar,
+  bewusst zurückgestellt (Nutzerentscheidung, kein technisches Aufgeben,
+  wie schon in Session 23 für Crossfeed/BassMonoSummer/TransientShaper
+  festgehalten).
+- Kein Debouncing der Lautstärke-getriebenen Neuberechnung - jeder
+  Lautstärkeschritt (z. B. schnelles mehrfaches Drücken der Hardware-Taste)
+  löst sofort eine neue `recalculateBandGains()` aus. Bewusst nicht
+  gedrosselt, da das Muster (Slider-Drag, Routenwechsel) im Rest dieses
+  ViewModels genauso funktioniert und Android-Lautstärkestufen ohnehin grob
+  gerastert sind (typischerweise 15-25 Stufen).
