@@ -1,9 +1,12 @@
 package com.hardbasseq.eq.ui.player
 
 import com.hardbasseq.eq.integration.LinkImportResult
+import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
+import com.soundcloud.equalizer.player.model.LibraryOverview
+import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import kotlinx.coroutines.Dispatchers
@@ -237,6 +240,122 @@ class PlayerViewModelTest {
             assertEquals(listOf("signout", "signin"), controller.commands)
         }
 
+    private fun playlistItem(
+        id: Long,
+        title: String = "Playlist $id",
+    ) = PlaylistItem(id = id, title = title, trackCount = 3, artworkUrl = null)
+
+    @Test
+    fun `the library loads the own and liked playlists when signed in`() =
+        runTest {
+            controller.signedIn = true
+            controller.libraryResult = LoadResult.Ok(LibraryOverview(own = listOf(playlistItem(1)), liked = listOf(playlistItem(2))))
+            val vm = viewModel()
+
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val library = vm.libraryState.value.library
+            assertEquals(listOf(1L), library?.own?.map { it.id })
+            assertEquals(listOf(2L), library?.liked?.map { it.id })
+            assertFalse(vm.libraryState.value.isLoading)
+        }
+
+    @Test
+    fun `the library is not requested while signed out`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(0, controller.libraryLoads)
+            assertNull(vm.libraryState.value.library)
+        }
+
+    @Test
+    fun `a failed library load shows the message and keeps what was loaded before`() =
+        runTest {
+            controller.signedIn = true
+            controller.libraryResult = LoadResult.Ok(LibraryOverview(own = listOf(playlistItem(1)), liked = emptyList()))
+            val vm = viewModel()
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.libraryResult = LoadResult.Error("Nicht angemeldet")
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val state = vm.libraryState.value
+            assertTrue(state.isError)
+            assertEquals("Nicht angemeldet", state.message)
+            assertEquals(listOf(1L), state.library?.own?.map { it.id })
+        }
+
+    @Test
+    fun `signing out clears the library`() =
+        runTest {
+            controller.signedIn = true
+            controller.libraryResult = LoadResult.Ok(LibraryOverview(own = listOf(playlistItem(1)), liked = emptyList()))
+            val vm = viewModel()
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNotNull(vm.libraryState.value.library)
+
+            vm.signOut()
+
+            assertNull(vm.libraryState.value.library)
+        }
+
+    @Test
+    fun `opening a library playlist plays its tracks as the queue`() =
+        runTest {
+            controller.signedIn = true
+            controller.playlistTracksResult = LoadResult.Ok(listOf(track(1), track(2), track(3)))
+            val vm = viewModel()
+
+            vm.playLibraryPlaylist(playlistItem(42, "Hardcore"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf(42L), controller.loadedPlaylistIds)
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals(listOf(1L, 2L, 3L), tracks.map { it.id })
+            assertEquals(0, start)
+            assertFalse(vm.libraryState.value.isLoading)
+        }
+
+    @Test
+    fun `an empty or failing playlist plays nothing and says why`() =
+        runTest {
+            controller.signedIn = true
+            val vm = viewModel()
+
+            vm.playLibraryPlaylist(playlistItem(1, "Leer"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.libraryState.value.isError)
+            assertEquals("Leer ist leer", vm.libraryState.value.message)
+
+            controller.playlistTracksResult = LoadResult.Error("Netzwerkfehler")
+            vm.playLibraryPlaylist(playlistItem(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("Netzwerkfehler", vm.libraryState.value.message)
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `playing the likes queues the liked tracks`() =
+        runTest {
+            controller.signedIn = true
+            controller.likesResult = LoadResult.Ok(listOf(track(9), track(8)))
+            val vm = viewModel()
+
+            vm.playLikedTracks()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val (tracks, _) = controller.playedQueues.single()
+            assertEquals(listOf(9L, 8L), tracks.map { it.id })
+        }
+
     @Test
     fun `now playing is passed through from the player`() =
         runTest {
@@ -291,6 +410,23 @@ class PlayerViewModelTest {
         }
 
         var signedIn = false
+        var libraryResult: LoadResult<LibraryOverview> = LoadResult.Ok(LibraryOverview(emptyList(), emptyList()))
+        var likesResult: LoadResult<List<TrackItem>> = LoadResult.Ok(emptyList())
+        var playlistTracksResult: LoadResult<List<TrackItem>> = LoadResult.Ok(emptyList())
+        val loadedPlaylistIds = mutableListOf<Long>()
+        var libraryLoads = 0
+
+        override suspend fun loadLibrary(): LoadResult<LibraryOverview> {
+            libraryLoads++
+            return libraryResult
+        }
+
+        override suspend fun loadLikedTracks(): LoadResult<List<TrackItem>> = likesResult
+
+        override suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>> {
+            loadedPlaylistIds.add(playlistId)
+            return playlistTracksResult
+        }
 
         override fun isSoundCloudSignedIn(): Boolean = signedIn
 

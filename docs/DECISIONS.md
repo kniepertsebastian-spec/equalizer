@@ -284,3 +284,23 @@ Preset liegt:
 Player-Screen: helle Schrift (Titel helles Lila, Interpret Rosa, sonst helles
 Neutral) und Abstand zu Status-/Navigationsleiste – außerhalb einer Karte war
 die Standard-Textfarbe fast schwarz auf dunklem Grund.
+
+### SoundCloud-Bibliothek im Player (30. September 2026)
+
+Angemeldet zeigt der Player-Screen die Bibliothek des Kontos: „Likes“, eigene
+Playlists und gelikte Playlists. Antippen lädt die Titel und spielt sie als Queue
+(Stream-URLs werden wie immer erst beim Abspielen aufgelöst).
+
+- Endpunkte (inoffiziell, `api-v2`, Token im Header): `/me`,
+  `/users/{id}/playlists_without_albums`, `/users/{id}/playlist_likes`,
+  `/users/{id}/track_likes`, `/playlists/{id}`; Seiten über `next_href`, begrenzt
+  (6 Seiten Playlists, 10 Seiten Likes). `ApiUrl.withClientId` ersetzt dabei
+  immer die `client_id`.
+- **Nicht verifiziert:** Antwortformate und Verhalten der Endpunkte habe ich nur
+  nach Kenntnis der Web-API defensiv umgesetzt, ohne Konto/Netzwerk testen zu
+  können. Fehler erscheinen als Meldung in der Karte.
+- **Go-Downloads (Offline) werden nicht genutzt und nicht nachgebaut.** Die
+  Offline-Dateien der SoundCloud-App sind geschützt und nur dort abspielbar; ein
+  eigener Offline-Cache aus den Streams würde die Go-Bedingungen verletzen. Der
+  eigene Player braucht Netz. Denkbar (nicht umgesetzt): Download von Titeln, bei
+  denen der Künstler den Download ausdrücklich freigegeben hat.

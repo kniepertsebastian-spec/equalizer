@@ -1,8 +1,10 @@
 package com.soundcloud.equalizer.player.soundcloud
 
+import com.hardbasseq.eq.link.ApiUrl
 import com.hardbasseq.eq.link.ShareLink
 import com.hardbasseq.eq.link.StreamOption
 import com.hardbasseq.eq.link.StreamSelection
+import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.ResolvedLink
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -36,6 +38,8 @@ class SoundCloudClient(
         // a-v2.sndcdn.com/assets/*.js pattern below at all, so client_id scraping
         // silently found zero matches with a mobile UA.
         private const val MAX_IDS_PER_REQUEST = 50
+        private const val MAX_PAGES = 6
+        private const val MAX_LIKE_PAGES = 10
 
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -271,19 +275,7 @@ class SoundCloudClient(
             }
 
             "playlist" -> {
-                val raw = root.optJSONArray("tracks") ?: JSONArray()
-                // The resolve response only carries full data for the first few
-                // tracks; the rest are bare {id} stubs, hydrated in batches below.
-                val ordered = (0 until raw.length()).map { raw.getJSONObject(it) }
-                val stubIds = ordered.filter { !it.has("title") }.map { it.optLong("id", -1) }.filter { it > 0 }
-                val hydrated = getTracksByIds(stubIds).associateBy { it.id }
-                val tracks = ordered.mapNotNull { obj ->
-                    if (obj.has("title")) {
-                        runCatching { parseTrack(obj, clientId, resolveStream = false) }.getOrNull()
-                    } else {
-                        hydrated[obj.optLong("id", -1)]
-                    }
-                }
+                val tracks = hydrateTracks(arrayObjects(root.optJSONArray("tracks")), clientId)
                 if (tracks.isEmpty()) {
                     ResolvedLink.Unsupported("Die Playlist ist leer oder privat")
                 } else {
@@ -297,6 +289,91 @@ class SoundCloudClient(
 
             else -> ResolvedLink.Unsupported("Nur Titel- und Playlist-Links werden unterstützt")
         }
+    }
+
+    // Track objects as returned inside playlists: the first few are complete, the rest
+    // bare {id} stubs. Stubs are hydrated in batches; the playlist's order is kept.
+    private suspend fun hydrateTracks(objects: List<JSONObject>, clientId: String): List<TrackItem> {
+        val stubIds = objects.filter { !it.has("title") }.map { it.optLong("id", -1) }.filter { it > 0 }
+        val hydrated = getTracksByIds(stubIds).associateBy { it.id }
+        return objects.mapNotNull { obj ->
+            if (obj.has("title")) {
+                runCatching { parseTrack(obj, clientId, resolveStream = false) }.getOrNull()
+            } else {
+                hydrated[obj.optLong("id", -1)]
+            }
+        }
+    }
+
+    private fun arrayObjects(array: JSONArray?): List<JSONObject> =
+        if (array == null) emptyList() else (0 until array.length()).mapNotNull { array.optJSONObject(it) }
+
+    private fun requireSignedIn() {
+        if (userAuthToken.isNullOrBlank()) throw IOException("Nicht bei SoundCloud angemeldet")
+    }
+
+    // The signed-in user's id; needed for the per-user endpoints below.
+    private suspend fun getMyUserId(): Long {
+        requireSignedIn()
+        val (jsonStr, _) = executeWithClientId { clientId -> "https://api-v2.soundcloud.com/me?client_id=$clientId" }
+        val id = JSONObject(jsonStr).optLong("id", -1)
+        if (id <= 0) throw IOException("SoundCloud hat dein Konto nicht erkannt - bitte neu anmelden")
+        return id
+    }
+
+    // Follows `next_href` page by page (capped, so a huge library cannot run away).
+    private suspend fun fetchCollection(firstUrl: String, maxPages: Int): List<JSONObject> {
+        val items = mutableListOf<JSONObject>()
+        var nextUrl: String? = firstUrl
+        var page = 0
+        while (nextUrl != null && page < maxPages) {
+            val current: String = nextUrl
+            val (jsonStr, _) = executeWithClientId { clientId -> ApiUrl.withClientId(current, clientId) }
+            val root = JSONObject(jsonStr)
+            items.addAll(arrayObjects(root.optJSONArray("collection")))
+            nextUrl = if (root.isNull("next_href")) null else root.optString("next_href").takeIf { it.isNotBlank() }
+            page++
+        }
+        return items
+    }
+
+    private fun optStringOrNull(obj: JSONObject, key: String): String? =
+        if (obj.isNull(key)) null else obj.optString(key).takeIf { it.isNotBlank() }
+
+    private fun parsePlaylistSummary(obj: JSONObject): PlaylistItem? {
+        val id = obj.optLong("id", -1)
+        if (id <= 0) return null
+        val firstTrackArtwork = obj.optJSONArray("tracks")?.optJSONObject(0)?.let { optStringOrNull(it, "artwork_url") }
+        return PlaylistItem(
+            id = id,
+            title = optStringOrNull(obj, "title") ?: "Playlist",
+            trackCount = obj.optInt("track_count", 0),
+            artworkUrl = optStringOrNull(obj, "artwork_url") ?: firstTrackArtwork,
+        )
+    }
+
+    /** Playlists the signed-in user created and ones they liked. Needs a token. */
+    suspend fun getLibraryOverview(): LibraryOverview = withContext(Dispatchers.IO) {
+        val userId = getMyUserId()
+        val own = fetchCollection("https://api-v2.soundcloud.com/users/$userId/playlists_without_albums?limit=50", MAX_PAGES)
+            .mapNotNull { parsePlaylistSummary(it) }
+        val liked = fetchCollection("https://api-v2.soundcloud.com/users/$userId/playlist_likes?limit=50", MAX_PAGES)
+            .mapNotNull { item -> item.optJSONObject("playlist")?.let { parsePlaylistSummary(it) } }
+        LibraryOverview(own = own, liked = liked)
+    }
+
+    /** The tracks the signed-in user liked, newest first. Needs a token. */
+    suspend fun getMyLikedTracks(): List<TrackItem> = withContext(Dispatchers.IO) {
+        val userId = getMyUserId()
+        val objects = fetchCollection("https://api-v2.soundcloud.com/users/$userId/track_likes?limit=50", MAX_LIKE_PAGES)
+            .mapNotNull { it.optJSONObject("track") }
+        hydrateTracks(objects, getClientId())
+    }
+
+    /** All tracks of one playlist (the user's own, or one they can see). */
+    suspend fun getPlaylistTracks(playlistId: Long): List<TrackItem> = withContext(Dispatchers.IO) {
+        val (jsonStr, clientId) = executeWithClientId { clientId -> "https://api-v2.soundcloud.com/playlists/$playlistId?client_id=$clientId" }
+        hydrateTracks(arrayObjects(JSONObject(jsonStr).optJSONArray("tracks")), clientId)
     }
 
     /** One track with a freshly resolved stream URL, or null if it cannot be played. */

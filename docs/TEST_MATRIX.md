@@ -437,3 +437,12 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | M3 | App neu starten | Modus ist weiterhin so, wie zuletzt gesetzt |
 | M4 | Mit dem Auto verbinden, später trennen | Modus geht an und beim Trennen wieder aus (nur wenn automatisch eingeschaltet) |
 | M5 | Player-Screen: Lesbarkeit | Titel hell-lila, Interpret rosa, „Warteschlange“ hell; oberste Zeile nicht unter der Statusleiste |
+
+| # | Prüfung (SoundCloud-Bibliothek) | Erwartung |
+|---|---|---|
+| L1 | Angemeldet den Player-Screen öffnen | Karte „Meine SoundCloud-Bibliothek“ lädt; „Meine Playlists“ und „Gelikte Playlists“ erscheinen mit Titelanzahl |
+| L2 | „Likes“ antippen | Liked-Titel werden geladen und laufen als Queue |
+| L3 | Eine eigene Playlist antippen (>50 Titel) | alle Titel in der Queue, richtige Reihenfolge |
+| L4 | Private eigene Playlist | lädt (Token) und spielt |
+| L5 | Abmelden | Bibliothek verschwindet; Go-Titel wieder nur Vorschau |
+| L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
