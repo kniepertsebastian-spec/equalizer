@@ -258,3 +258,29 @@ Player spielt die Audiodatei des Titels direkt.
   bedingungen von SoundCloud sind dafür nicht eindeutig. Hohe Qualität (Go+
   AAC 256 über HLS) wird bewusst noch nicht bevorzugt, bis HLS am Gerät
   nachweislich läuft.
+
+### Kontext-Modus ist eine Ebene, kein Preset (30. September 2026, Nachtrag)
+
+Erste Fassung: „Auto“/„Bluetooth-Box“ waren Presets. Wer danach ein Genre-Preset
+(z. B. Uptempo) wählte, ersetzte sie damit – Subsonic, Loudness, Virtual Bass
+und Limiter gingen aus. Jetzt ist der Modus ein eigener, gespeicherter Zustand
+(`MainViewModel.activeContext`, `LiveSettings.activeContext`), der über **jedem**
+Preset liegt:
+
+- Zusätzlich zur Preset-Kurve wird die Kurve des Modus addiert; Subsonic,
+  Loudness und Virtual Bass gelten jeweils mit dem stärkeren Wert aus Preset und
+  Modus; der Limiter ist mindestens so eng wie vom Modus verlangt (an).
+  Makros, Kompressor und Headroom des Genres bleiben unberührt.
+- Der Modus bleibt beim Genre-Wechsel an und ist auch im Player-Screen
+  schaltbar (Karte „Klangmodus“). Er wirkt auf alles, was über den Equalizer
+  läuft, weil er Teil der Effekt-Einstellungen ist.
+- Routen-Erkennung schaltet ihn ein; beim Verlassen schaltet sie ihn nur aus,
+  wenn sie ihn eingeschaltet hat. Manuell gesetzt bleibt er, bis man ihn
+  ausschaltet. Das Genre-Preset wird nie angefasst.
+- Ein vor dieser Änderung gespeichertes Geräteprofil mit Kontext-Preset-ID
+  bedeutet jetzt „Modus an“ und lässt das Genre-Preset unverändert.
+- Kein Schema-Bump: neue `LiveSettings`-Felder haben Defaults.
+
+Player-Screen: helle Schrift (Titel helles Lila, Interpret Rosa, sonst helles
+Neutral) und Abstand zu Status-/Navigationsleiste – außerhalb einer Karte war
+die Standard-Textfarbe fast schwarz auf dunklem Grund.

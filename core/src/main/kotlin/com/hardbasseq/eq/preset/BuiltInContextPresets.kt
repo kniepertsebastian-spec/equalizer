@@ -2,8 +2,10 @@ package com.hardbasseq.eq.preset
 
 import com.hardbasseq.eq.context.SoundContext
 
-// Listening-context presets: tuned for where the sound is played rather than for
-// a genre. They are deliberately moderate - the car and small-speaker problems
+// Listening-context tunings: made for where the sound is played rather than for
+// a genre. Used as an overlay on whatever genre preset is active (see
+// MainViewModel's context mode) - and still listed as presets so a device profile
+// saved before that can be read. They are deliberately moderate - the car and small-speaker problems
 // they address are mostly about *not* wasting headroom on frequencies the
 // hardware cannot reproduce, so they lean on the context features (subsonic
 // high-pass, loudness compensation, virtual bass) more than on big EQ boosts.
@@ -74,11 +76,14 @@ object BuiltInContextPresets {
 
     val all = listOf(Car, BluetoothSpeaker)
 
-    // The preset a route of the given context starts on when the user has not
-    // chosen anything for that route yet.
+    // The tuning a listening-context mode layers on top of the active sound.
     fun defaultFor(context: SoundContext): Preset =
         when (context) {
             SoundContext.CAR -> Car
             SoundContext.BLUETOOTH_SPEAKER -> BluetoothSpeaker
         }
+
+    // Reverse of defaultFor: which context mode a context preset (e.g. one saved as
+    // a device profile's preset before context modes became an overlay) stands for.
+    fun contextOf(preset: Preset): SoundContext? = SoundContext.entries.firstOrNull { defaultFor(it).id == preset.id }
 }

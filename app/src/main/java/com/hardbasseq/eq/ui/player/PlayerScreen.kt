@@ -11,12 +11,15 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,12 +39,14 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -60,9 +65,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.playlist.SavedPlaylist
+import com.hardbasseq.eq.ui.equalizer.ContextModeChips
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
+import com.hardbasseq.eq.ui.theme.PlayerArtistColor
+import com.hardbasseq.eq.ui.theme.PlayerTextColor
+import com.hardbasseq.eq.ui.theme.PlayerTextMutedColor
+import com.hardbasseq.eq.ui.theme.PlayerTitleColor
 import com.hardbasseq.eq.ui.theme.spacing
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -74,6 +85,8 @@ import java.net.URL
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    activeContext: SoundContext?,
+    onContextModeChanged: (SoundContext?) -> Unit,
     onBack: () -> Unit,
     onOpenSearch: () -> Unit,
 ) {
@@ -88,237 +101,285 @@ fun PlayerScreen(
     // Coming back from the sign-in screen: pick up the new account state.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshAccount() }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(spacing.medium),
-        verticalArrangement = Arrangement.spacedBy(spacing.medium),
-    ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
-                }
-                Text(
-                    text = "Player",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onOpenSearch) {
-                    Icon(Icons.Default.Search, contentDescription = null)
-                    Spacer(modifier = Modifier.size(spacing.small))
-                    Text("Suchen")
-                }
-            }
-        }
-
-        item {
-            val playing = nowPlaying
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                ArtworkImage(
-                    url = PlayerFormat.largeArtwork(playing?.artworkUrl),
-                    modifier =
-                        Modifier
-                            .fillMaxWidth(0.7f)
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(16.dp)),
-                )
-                Spacer(modifier = Modifier.height(spacing.medium))
-                Text(
-                    text = playing?.title ?: "Nichts läuft",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = playing?.artist ?: "Füge unten einen SoundCloud-Link ein oder nutze „Suchen“",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (playing?.isPreview == true) {
+    // The screen draws edge to edge: keep its content clear of the status and
+    // navigation bars. And outside a Card the default text color is near-black, which
+    // is unreadable on the dark background - so the default is light here, with the
+    // song title and artist colored explicitly below.
+    val bars = WindowInsets.systemBars.asPaddingValues()
+    CompositionLocalProvider(LocalContentColor provides PlayerTextColor) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding =
+                PaddingValues(
+                    start = spacing.medium,
+                    end = spacing.medium,
+                    top = bars.calculateTopPadding() + spacing.medium,
+                    bottom = bars.calculateBottomPadding() + spacing.medium,
+                ),
+            verticalArrangement = Arrangement.spacedBy(spacing.medium),
+        ) {
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
+                    }
                     Text(
-                        text = "Nur 30-Sekunden-Vorschau",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.error,
+                        text = "Player",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
                     )
-                }
-                Spacer(modifier = Modifier.height(spacing.small))
-                SeekBar(
-                    positionMs = playing?.positionMs ?: 0L,
-                    durationMs = playing?.durationMs ?: 0L,
-                    enabled = playing != null && !playing.isLoading,
-                    onSeek = viewModel::seekTo,
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(spacing.medium),
-                ) {
-                    IconButton(onClick = viewModel::previous, enabled = playing != null) {
-                        Icon(Icons.Default.SkipPrevious, contentDescription = "Zurück", modifier = Modifier.size(36.dp))
-                    }
-                    IconButton(onClick = viewModel::togglePlayback, enabled = playing != null, modifier = Modifier.size(64.dp)) {
-                        if (playing?.isLoading == true) {
-                            CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                        } else {
-                            Icon(
-                                imageVector = if (playing?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (playing?.isPlaying == true) "Pause" else "Abspielen",
-                                modifier = Modifier.size(48.dp),
-                            )
-                        }
-                    }
-                    IconButton(onClick = viewModel::next, enabled = playing != null) {
-                        Icon(Icons.Default.SkipNext, contentDescription = "Weiter", modifier = Modifier.size(36.dp))
+                    TextButton(onClick = onOpenSearch) {
+                        Icon(Icons.Default.Search, contentDescription = null)
+                        Spacer(modifier = Modifier.size(spacing.small))
+                        Text("Suchen")
                     }
                 }
             }
-        }
 
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, HardBassCardBorder),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(spacing.medium),
-                    verticalAlignment = Alignment.CenterVertically,
+            item {
+                val playing = nowPlaying
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("SoundCloud-Konto", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    ArtworkImage(
+                        url = PlayerFormat.largeArtwork(playing?.artworkUrl),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth(0.7f)
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(16.dp)),
+                    )
+                    Spacer(modifier = Modifier.height(spacing.medium))
+                    Text(
+                        text = playing?.title ?: "Nichts läuft",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PlayerTitleColor,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = playing?.artist ?: "Füge unten einen SoundCloud-Link ein oder nutze „Suchen“",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (playing != null) PlayerArtistColor else PlayerTextMutedColor,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    if (playing?.isPreview == true) {
                         Text(
-                            text =
-                                if (signedIn) {
-                                    "Angemeldet. Mit einem Go-Abo laufen Titel in voller Länge."
-                                } else {
-                                    "Nicht angemeldet. Melde dich mit deinem Go-Konto an, damit Go-Titel in voller Länge laufen."
-                                },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = "Nur 30-Sekunden-Vorschau",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
                         )
                     }
-                    if (signedIn) {
-                        TextButton(onClick = viewModel::signOut) { Text("Abmelden") }
-                    } else {
-                        Button(onClick = viewModel::signIn) { Text("Anmelden") }
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, HardBassCardBorder),
-            ) {
-                Column(modifier = Modifier.padding(spacing.medium)) {
-                    Text("Playlists", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = "SoundCloud-Link zu einem Titel oder einer Playlist einfügen, oder aus der SoundCloud-App teilen.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
                     Spacer(modifier = Modifier.height(spacing.small))
-                    OutlinedTextField(
-                        value = linkText,
-                        onValueChange = { linkText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("https://soundcloud.com/…") },
-                        singleLine = true,
+                    SeekBar(
+                        positionMs = playing?.positionMs ?: 0L,
+                        durationMs = playing?.durationMs ?: 0L,
+                        enabled = playing != null && !playing.isLoading,
+                        onSeek = viewModel::seekTo,
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(spacing.medium),
                     ) {
-                        if (importState.isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        IconButton(onClick = viewModel::previous, enabled = playing != null) {
+                            Icon(Icons.Default.SkipPrevious, contentDescription = "Zurück", modifier = Modifier.size(36.dp))
                         }
-                        importState.message?.let { message ->
-                            Text(
-                                text = message,
-                                style = MaterialTheme.typography.bodySmall,
-                                color =
-                                    if (importState.isError) {
-                                        MaterialTheme.colorScheme.error
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    },
-                                modifier = Modifier.weight(1f).padding(horizontal = spacing.small),
-                            )
-                        } ?: Spacer(modifier = Modifier.weight(1f))
-                        Button(
-                            onClick = {
-                                viewModel.importFromText(linkText)
-                                linkText = ""
-                            },
-                            enabled = linkText.isNotBlank() && !importState.isLoading,
-                        ) {
-                            Text("Hinzufügen")
+                        IconButton(onClick = viewModel::togglePlayback, enabled = playing != null, modifier = Modifier.size(64.dp)) {
+                            if (playing?.isLoading == true) {
+                                CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                            } else {
+                                Icon(
+                                    imageVector = if (playing?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = if (playing?.isPlaying == true) "Pause" else "Abspielen",
+                                    modifier = Modifier.size(48.dp),
+                                )
+                            }
                         }
-                    }
-                    if (playlists.isNotEmpty()) {
-                        HorizontalDivider(modifier = Modifier.padding(vertical = spacing.small))
-                        playlists.forEach { playlist ->
-                            PlaylistRow(
-                                playlist = playlist,
-                                onPlay = { viewModel.playPlaylist(playlist) },
-                                onDelete = { viewModel.deletePlaylist(playlist) },
-                            )
+                        IconButton(onClick = viewModel::next, enabled = playing != null) {
+                            Icon(Icons.Default.SkipNext, contentDescription = "Weiter", modifier = Modifier.size(36.dp))
                         }
                     }
                 }
             }
-        }
 
-        if (queue.isNotEmpty()) {
             item {
-                Text("Warteschlange", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
-            itemsIndexed(queue, key = { index, track -> "${track.id}-$index" }) { index, track ->
-                val isCurrent = nowPlaying?.queueIndex == index
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
-                            .clickable { viewModel.playQueueIndex(index) }
-                            .padding(horizontal = spacing.small, vertical = spacing.small),
-                    verticalAlignment = Alignment.CenterVertically,
+                // The listening-context mode is an overlay on the EQ (subsonic, loudness,
+                // virtual bass, limiter), so it applies to everything playing here too.
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, HardBassCardBorder),
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
+                        Text("Klangmodus", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            text = track.title,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = track.artist,
+                            text = "Bleibt an, auch wenn du das Preset wechselst.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+                            color = PlayerTextMutedColor,
+                        )
+                        Spacer(modifier = Modifier.height(spacing.small))
+                        ContextModeChips(
+                            activeContext = activeContext,
+                            onContextModeChanged = onContextModeChanged,
+                            accent = PlayerTitleColor,
+                            border = HardBassCardBorder,
                         )
                     }
-                    if (track.durationMs > 0) {
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, HardBassCardBorder),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(spacing.medium),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("SoundCloud-Konto", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text(
+                                text =
+                                    if (signedIn) {
+                                        "Angemeldet. Mit einem Go-Abo laufen Titel in voller Länge."
+                                    } else {
+                                        "Nicht angemeldet. Melde dich mit deinem Go-Konto an, damit Go-Titel in voller Länge laufen."
+                                    },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = PlayerTextMutedColor,
+                            )
+                        }
+                        if (signedIn) {
+                            TextButton(onClick = viewModel::signOut) { Text("Abmelden") }
+                        } else {
+                            Button(onClick = viewModel::signIn) { Text("Anmelden") }
+                        }
+                    }
+                }
+            }
+
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, HardBassCardBorder),
+                ) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
+                        Text("Playlists", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            text = PlayerFormat.duration(track.durationMs),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            text = "SoundCloud-Link zu einem Titel oder einer Playlist einfügen, oder aus der SoundCloud-App teilen.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PlayerTextMutedColor,
                         )
+                        Spacer(modifier = Modifier.height(spacing.small))
+                        OutlinedTextField(
+                            value = linkText,
+                            onValueChange = { linkText = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("https://soundcloud.com/…") },
+                            singleLine = true,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            if (importState.isLoading) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            }
+                            importState.message?.let { message ->
+                                Text(
+                                    text = message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color =
+                                        if (importState.isError) {
+                                            MaterialTheme.colorScheme.error
+                                        } else {
+                                            PlayerTextMutedColor
+                                        },
+                                    modifier = Modifier.weight(1f).padding(horizontal = spacing.small),
+                                )
+                            } ?: Spacer(modifier = Modifier.weight(1f))
+                            Button(
+                                onClick = {
+                                    viewModel.importFromText(linkText)
+                                    linkText = ""
+                                },
+                                enabled = linkText.isNotBlank() && !importState.isLoading,
+                            ) {
+                                Text("Hinzufügen")
+                            }
+                        }
+                        if (playlists.isNotEmpty()) {
+                            HorizontalDivider(modifier = Modifier.padding(vertical = spacing.small))
+                            playlists.forEach { playlist ->
+                                PlaylistRow(
+                                    playlist = playlist,
+                                    onPlay = { viewModel.playPlaylist(playlist) },
+                                    onDelete = { viewModel.deletePlaylist(playlist) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (queue.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Warteschlange",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = PlayerTextColor,
+                    )
+                }
+                itemsIndexed(queue, key = { index, track -> "${track.id}-$index" }) { index, track ->
+                    val isCurrent = nowPlaying?.queueIndex == index
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(
+                                    if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
+                                ).clickable { viewModel.playQueueIndex(index) }
+                                .padding(horizontal = spacing.small, vertical = spacing.small),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = track.title,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                color = PlayerTitleColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = track.artist,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = PlayerArtistColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        if (track.durationMs > 0) {
+                            Text(
+                                text = PlayerFormat.duration(track.durationMs),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = PlayerTextMutedColor,
+                            )
+                        }
                     }
                 }
             }
@@ -369,13 +430,14 @@ private fun PlaylistRow(
                 text = playlist.title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
+                color = PlayerTitleColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = "${playlist.tracks.size} Titel",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = PlayerTextMutedColor,
             )
         }
         IconButton(onClick = onPlay) {

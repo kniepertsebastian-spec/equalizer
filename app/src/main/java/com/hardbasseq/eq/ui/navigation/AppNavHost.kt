@@ -51,8 +51,11 @@ fun AppNavHost(
             )
         }
         composable(ROUTE_PLAYER) {
+            val activeContext by viewModel.activeContext.collectAsStateWithLifecycle()
             PlayerScreen(
                 viewModel = playerViewModel,
+                activeContext = activeContext,
+                onContextModeChanged = { viewModel.setContextMode(it) },
                 onBack = { navController.popBackStack() },
                 onOpenSearch = { viewModel.choosePlayerSource(PlayerSource.SOUNDCLOUD) },
             )

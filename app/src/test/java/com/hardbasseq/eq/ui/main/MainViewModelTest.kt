@@ -14,6 +14,7 @@ import com.hardbasseq.eq.audio.KnownEffectTypeIds
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalog
+import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
@@ -946,27 +947,28 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `a car route without a saved profile starts on the car preset without saving a binding`() =
+    fun `a car route switches the car mode on without touching the genre preset or saving a binding`() =
         runTest {
             val deviceProfileRepository = FakeDeviceProfileRepository()
             val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
             dispatcher.scheduler.advanceUntilIdle()
+            val presetBefore = viewModel.activePreset.value.id
 
             fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
             dispatcher.scheduler.advanceUntilIdle()
 
-            assertEquals(BuiltInContextPresets.Car.id, viewModel.activePreset.value.id)
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertEquals(presetBefore, viewModel.activePreset.value.id)
             val settings = viewModel.processingSettings.value
             assertEquals(BuiltInContextPresets.Car.loudnessMaxBoostDb, settings.loudnessMaxBoostDb, 0f)
             assertEquals(BuiltInContextPresets.Car.subsonicCutoffHz, settings.subsonicCutoffHz, 0f)
             assertEquals(BuiltInContextPresets.Car.virtualBassMix, settings.virtualBassMix, 0f)
-            // Only a default - the user's own pick is what gets remembered.
             assertTrue(deviceProfileRepository.savedBindings.isEmpty())
             assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
         }
 
     @Test
-    fun `a bluetooth speaker route starts on the bluetooth speaker preset`() =
+    fun `a bluetooth speaker route switches the speaker mode on`() =
         runTest {
             val viewModel = createViewModel(emptyList())
             dispatcher.scheduler.advanceUntilIdle()
@@ -974,11 +976,108 @@ class MainViewModelTest {
             fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH_SPEAKER, name = "JBL Flip 6", id = "bt_flip"))
             dispatcher.scheduler.advanceUntilIdle()
 
-            assertEquals(BuiltInContextPresets.BluetoothSpeaker.id, viewModel.activePreset.value.id)
+            assertEquals(SoundContext.BLUETOOTH_SPEAKER, viewModel.activeContext.value)
+            // The speaker mode protects the driver harder than the car one.
+            val settings = viewModel.processingSettings.value
+            assertEquals(BuiltInContextPresets.BluetoothSpeaker.subsonicCutoffHz, settings.subsonicCutoffHz, 0f)
         }
 
     @Test
-    fun `a saved profile for a car route beats the automatic car default`() =
+    fun `switching to another genre preset keeps the car mode on`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Uptempo, PresetIntensity.MODERATE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertEquals("genre_uptempo__moderate", viewModel.activePreset.value.id)
+            val settings = viewModel.processingSettings.value
+            assertEquals(BuiltInContextPresets.Car.subsonicCutoffHz, settings.subsonicCutoffHz, 0f)
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, settings.virtualBassMix, 0f)
+            assertEquals(BuiltInContextPresets.Car.loudnessMaxBoostDb, settings.loudnessMaxBoostDb, 0f)
+        }
+
+    @Test
+    fun `the car mode adds its curve on top of the genre preset`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+            val presenceWithoutMode =
+                viewModel.processingSettings.value.bandGainsDb
+                    .getValue(3)
+
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // The car tuning lifts presence around 3 kHz.
+            val presenceWithMode =
+                viewModel.processingSettings.value.bandGainsDb
+                    .getValue(3)
+            assertTrue(presenceWithMode > presenceWithoutMode)
+        }
+
+    @Test
+    fun `a limiter is enabled and at least as tight as the mode asks`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.processingSettings.value.limiterEnabled)
+
+            viewModel.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val settings = viewModel.processingSettings.value
+            assertTrue(settings.limiterEnabled)
+            assertEquals(BuiltInContextPresets.BluetoothSpeaker.limiter.thresholdDb, settings.limiterThresholdDb, 0f)
+        }
+
+    @Test
+    fun `a mode the user chose stays on across route changes until they turn it off`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setContextMode(SoundContext.CAR)
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Other", id = "other_unbound"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+            assertEquals(0f, viewModel.processingSettings.value.subsonicCutoffHz, 0f)
+        }
+
+    @Test
+    fun `leaving a car route turns an automatically enabled mode off again`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Other", id = "other_unbound"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertEquals(0f, viewModel.processingSettings.value.subsonicCutoffHz, 0f)
+        }
+
+    @Test
+    fun `a saved genre profile for a car route applies together with the car mode`() =
         runTest {
             val routeId = "bt_car"
             val deviceProfileRepository =
@@ -1001,52 +1100,76 @@ class MainViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
         }
 
     @Test
-    fun `leaving a car route for a plain route restores the previous preset`() =
+    fun `a profile saved when context tunings were presets turns the mode on and keeps the genre preset`() =
+        runTest {
+            val routeId = "bt_car"
+            val deviceProfileRepository =
+                FakeDeviceProfileRepository(
+                    initial =
+                        mapOf(
+                            routeId to
+                                DeviceProfileEntity(
+                                    routeId = routeId,
+                                    routeType = AudioDeviceType.UNKNOWN.name,
+                                    displayName = "Some car",
+                                    boundPresetId = BuiltInContextPresets.Car.id,
+                                ),
+                        ),
+                )
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            val presetBefore = viewModel.activePreset.value.id
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Some car", id = routeId))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertEquals(presetBefore, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `selecting a context preset switches the mode on instead of replacing the sound`() =
         runTest {
             val viewModel = createViewModel(emptyList())
             dispatcher.scheduler.advanceUntilIdle()
             viewModel.selectPreset(BuiltInPresets.DeepRumble)
             dispatcher.scheduler.advanceUntilIdle()
 
-            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
-            dispatcher.scheduler.advanceUntilIdle()
-            assertEquals(BuiltInContextPresets.Car.id, viewModel.activePreset.value.id)
-
-            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Other", id = "other_unbound"))
+            viewModel.selectPreset(BuiltInContextPresets.Car)
             dispatcher.scheduler.advanceUntilIdle()
 
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
             assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
-            assertEquals(0f, viewModel.processingSettings.value.subsonicCutoffHz, 0f)
         }
 
     @Test
-    fun `a manual preset pick in the car is kept when leaving and is saved for that route`() =
+    fun `the mode survives a restart through the saved live settings`() =
         runTest {
-            val deviceProfileRepository = FakeDeviceProfileRepository()
-            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            val appSettings = FakeAppSettingsRepository()
+            val first = createViewModel(emptyList(), appSettingsRepository = appSettings)
             dispatcher.scheduler.advanceUntilIdle()
-            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            first.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+            val saved = appSettings.savedSettings.last()
+            assertEquals("BLUETOOTH_SPEAKER", saved.activeContext)
+            assertFalse(saved.activeContextAutomatic)
+
+            val restored = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(initial = saved))
             dispatcher.scheduler.advanceUntilIdle()
 
-            viewModel.selectPreset(BuiltInPresets.KickAttack)
-            dispatcher.scheduler.advanceUntilIdle()
-            assertEquals("bt_car", deviceProfileRepository.savedBindings.last().routeId)
-
-            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Other", id = "other_unbound"))
-            dispatcher.scheduler.advanceUntilIdle()
-
-            assertEquals(BuiltInPresets.KickAttack.id, viewModel.activePreset.value.id)
+            assertEquals(SoundContext.BLUETOOTH_SPEAKER, restored.activeContext.value)
         }
 
     @Test
-    fun `lower system volume raises the bass while loudness compensation is on`() =
+    fun `lower system volume raises the bass while the mode's loudness compensation is on`() =
         runTest {
             val viewModel = createViewModel(emptyList())
             dispatcher.scheduler.advanceUntilIdle()
-            viewModel.selectPreset(BuiltInContextPresets.Car)
+            viewModel.setContextMode(SoundContext.CAR)
             dispatcher.scheduler.advanceUntilIdle()
             val bassAtFullVolume =
                 viewModel.processingSettings.value.bandGainsDb
@@ -1084,8 +1207,9 @@ class MainViewModelTest {
         runTest {
             val viewModel = createViewModel(emptyList())
             dispatcher.scheduler.advanceUntilIdle()
-            viewModel.selectPreset(BuiltInContextPresets.Car)
+            viewModel.setContextMode(SoundContext.CAR)
             dispatcher.scheduler.advanceUntilIdle()
+            // Turning a mode on is not an edit of the preset.
             assertFalse(viewModel.isDirty.value)
 
             viewModel.setSubsonicFilterEnabled(false)
@@ -1125,7 +1249,12 @@ class MainViewModelTest {
             val viewModel = createViewModel(emptyList(), playerBridge = playerBridge)
             dispatcher.scheduler.advanceUntilIdle()
 
-            viewModel.selectPreset(BuiltInContextPresets.Car)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, playerBridge.lastVirtualBassMix)
+
+            // A genre change keeps it going.
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Terror, PresetIntensity.MODERATE)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(BuiltInContextPresets.Car.virtualBassMix, playerBridge.lastVirtualBassMix)
 
@@ -1137,18 +1266,18 @@ class MainViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(BuiltInContextPresets.Car.virtualBassMix, playerBridge.lastVirtualBassMix)
 
-            viewModel.setVirtualBassEnabled(false)
+            viewModel.setContextMode(null)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(0f, playerBridge.lastVirtualBassMix)
         }
 
     @Test
-    fun `saving an edited context sound keeps the context feature values`() =
+    fun `saving an edited sound keeps the context feature values`() =
         runTest {
             val presetRepository = FakePresetRepository()
             val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
             dispatcher.scheduler.advanceUntilIdle()
-            viewModel.selectPreset(BuiltInContextPresets.Car)
+            viewModel.setContextMode(SoundContext.CAR)
             dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.saveAsNewPreset("Mein Auto")

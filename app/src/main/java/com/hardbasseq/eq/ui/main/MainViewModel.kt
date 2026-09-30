@@ -17,6 +17,7 @@ import com.hardbasseq.eq.audio.soundContext
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.autoeq.AutoEqCatalogMatcher
 import com.hardbasseq.eq.autoeq.AutoEqParser
+import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
@@ -172,12 +173,16 @@ class MainViewModel
 
         private val customPresetsState = MutableStateFlow<List<Preset>>(emptyList())
 
-        // Set while a context preset was switched on automatically for a route
-        // without a saved profile (see applyContextDefaultForUnboundRoute): the
-        // preset that was active before, to go back to when that route goes away.
-        // In memory only - after a process restart the context default is simply
-        // re-derived from the current route.
-        private var presetBeforeContextSwitch: Preset? = null
+        // Listening-context mode ("Auto" / "Bluetooth-Box"): an overlay on whatever
+        // preset is active, not a preset of its own - so picking another genre keeps
+        // it on. It adds the context's curve, subsonic filter, volume loudness,
+        // virtual bass and (for small speakers) a tighter limiter. null = off.
+        private val _activeContext = MutableStateFlow<SoundContext?>(null)
+        val activeContext: StateFlow<SoundContext?> = _activeContext.asStateFlow()
+
+        // True when route detection switched the mode on, so it is switched off again
+        // when that route goes away; false once the user chose it themselves.
+        private var contextSetAutomatically = false
 
         // What the preset grid actually renders: built-ins (fixed, compile-time)
         // followed by whatever custom presets are currently saved.
@@ -343,6 +348,8 @@ class MainViewModel
                 }
                 _activeCorrectionProfile.value =
                     findCorrectionProfileById(saved.activeCorrectionProfileId, initialCorrectionProfiles)
+                _activeContext.value = saved.activeContext?.let { name -> SoundContext.entries.firstOrNull { it.name == name } }
+                contextSetAutomatically = saved.activeContextAutomatic
                 // A saved activePresetId/activeCorrectionProfileId that no longer
                 // resolves (its custom entry was deleted from another install, say)
                 // just keeps this ViewModel's own compiled-in default - not an
@@ -396,13 +403,19 @@ class MainViewModel
             // explicit choice made for it), not left holding the previous route's
             // value.
             headphoneAcousticsOverrideState.value = binding?.headphoneAcousticsOverride
-            if (binding == null) {
-                applyContextDefaultForUnboundRoute(route)
+            applyContextModeForRoute(route)
+            if (binding == null) return
+            val preset = findPresetById(binding.boundPresetId, customPresetsState.value) ?: return
+
+            // A profile saved while the context tunings were still presets of their own
+            // means "this route uses that context": keep the genre preset as it is and
+            // turn the mode on instead of replacing the sound with it.
+            val legacyContext = BuiltInContextPresets.contextOf(preset)
+            if (legacyContext != null) {
+                contextSetAutomatically = false
+                applyContextMode(legacyContext)
                 return
             }
-            // A saved choice for this route beats any automatic context default.
-            presetBeforeContextSwitch = null
-            val preset = findPresetById(binding.boundPresetId, customPresetsState.value) ?: return
             val correction = findCorrectionProfileById(binding.boundCorrectionProfileId, customCorrectionProfilesState.value)
 
             _activePreset.value = preset
@@ -413,34 +426,34 @@ class MainViewModel
             persistLiveSettings()
         }
 
-        // Car / Bluetooth-speaker mode: a route the user has not chosen a sound for
-        // yet starts on the built-in preset for its detected context (see
-        // SoundContextClassifier - a name heuristic). This is deliberately *not*
-        // saved as the route's device profile: it is only a default, so a later
-        // manual pick (selectPreset -> saveDeviceProfileBinding) is what makes the
-        // choice stick, and a better classifier later can still improve the default.
-        //
-        // Leaving such a route for one with no context and no saved profile (phone
-        // speaker after the car, say) restores whatever was active before the
-        // automatic switch, instead of leaving the car sound on the wrong hardware.
-        private fun applyContextDefaultForUnboundRoute(route: AudioRoute) {
-            val context = route.type.soundContext()
-            if (context != null) {
-                val preset = BuiltInContextPresets.defaultFor(context)
-                if (_activePreset.value.id == preset.id) return
-                if (presetBeforeContextSwitch == null) presetBeforeContextSwitch = _activePreset.value
-                activateWithoutBinding(preset)
-                return
+        // Car / Bluetooth-speaker mode follows the route: a route detected as a car or
+        // speaker (see SoundContextClassifier - a name heuristic) switches the mode on,
+        // and leaving it for a route with no context switches it off again - but only if
+        // detection, not the user, turned it on. The genre preset is never touched.
+        private fun applyContextModeForRoute(route: AudioRoute) {
+            val detected = route.type.soundContext()
+            when {
+                detected != null -> {
+                    contextSetAutomatically = true
+                    applyContextMode(detected)
+                }
+
+                contextSetAutomatically -> {
+                    contextSetAutomatically = false
+                    applyContextMode(null)
+                }
             }
-            val previous = presetBeforeContextSwitch ?: return
-            presetBeforeContextSwitch = null
-            activateWithoutBinding(findPresetById(previous.id, customPresetsState.value) ?: previous)
         }
 
-        private fun activateWithoutBinding(preset: Preset) {
-            _activePreset.value = preset
-            _isDirty.value = false
-            _processingSettings.value = _processingSettings.value.withPreset(preset)
+        /** The user's own choice of listening-context mode (null = off); kept until they change it. */
+        fun setContextMode(context: SoundContext?) {
+            contextSetAutomatically = false
+            applyContextMode(context)
+        }
+
+        private fun applyContextMode(context: SoundContext?) {
+            _activeContext.value = context
+            _processingSettings.value = _processingSettings.value.withContextFeatures(_activePreset.value)
             recalculateBandGains()
             persistLiveSettings()
         }
@@ -484,6 +497,8 @@ class MainViewModel
                         isDirty = _isDirty.value,
                         processingSettings = _processingSettings.value,
                         activeCorrectionProfileId = _activeCorrectionProfile.value.id,
+                        activeContext = _activeContext.value?.name,
+                        activeContextAutomatic = contextSetAutomatically,
                     ),
                 )
             }
@@ -503,7 +518,12 @@ class MainViewModel
         }
 
         fun selectPreset(preset: Preset) {
-            presetBeforeContextSwitch = null
+            // A context tuning is a mode, not a sound: selecting one (an older
+            // shortcut) switches the mode on and leaves the active preset alone.
+            BuiltInContextPresets.contextOf(preset)?.let { context ->
+                setContextMode(context)
+                return
+            }
             _activePreset.value = preset
             _isDirty.value = false
             _processingSettings.value = _processingSettings.value.withPreset(preset)
@@ -891,6 +911,7 @@ class MainViewModel
                     _activePreset.value.targetCurve,
                     headphoneCurve,
                     loudnessCurve,
+                    _activeContext.value?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
                     contextCurve(),
                 ),
             )
@@ -984,10 +1005,24 @@ class MainViewModel
                 mbcEnabled = preset.mbcEnabled,
                 mbcThresholdDb = preset.mbcThresholdDb,
                 mbcRatio = preset.mbcRatio,
-                loudnessMaxBoostDb = preset.loudnessMaxBoostDb,
-                subsonicCutoffHz = preset.subsonicCutoffHz,
-                virtualBassMix = preset.virtualBassMix,
+            ).withContextFeatures(preset)
+
+        // The preset's own context features, merged with what the active context mode
+        // adds (the stronger of the two each, and a limiter at least as tight). With
+        // the mode off this is just the preset's values - so switching it off restores
+        // them, and switching genres keeps the mode's protection.
+        private fun ProcessingSettings.withContextFeatures(basePreset: Preset): ProcessingSettings {
+            val context = _activeContext.value?.let { BuiltInContextPresets.defaultFor(it) }
+            val baseLimiterThresholdDb = if (basePreset.limiter.enabled) basePreset.limiter.thresholdDb else 0f
+            return copy(
+                limiterEnabled = basePreset.limiter.enabled || context != null,
+                limiterThresholdDb =
+                    if (context == null) basePreset.limiter.thresholdDb else minOf(baseLimiterThresholdDb, context.limiter.thresholdDb),
+                loudnessMaxBoostDb = maxOf(basePreset.loudnessMaxBoostDb, context?.loudnessMaxBoostDb ?: 0f),
+                subsonicCutoffHz = maxOf(basePreset.subsonicCutoffHz, context?.subsonicCutoffHz ?: 0f),
+                virtualBassMix = maxOf(basePreset.virtualBassMix, context?.virtualBassMix ?: 0f),
             )
+        }
 
         private fun automaticInputGainDb(bandGainsDb: Map<Int, Float>): Float {
             val peakBoostDb = bandGainsDb.values.maxOrNull()?.coerceAtLeast(0f) ?: 0f

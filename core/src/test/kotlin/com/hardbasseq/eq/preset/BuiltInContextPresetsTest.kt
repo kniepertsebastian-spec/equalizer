@@ -3,6 +3,7 @@ package com.hardbasseq.eq.preset
 import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.data.preset.PresetJsonSerializer
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,6 +16,14 @@ class BuiltInContextPresetsTest {
             assertTrue(preset.metadata.builtIn)
             assertTrue("${preset.id} missing from BuiltInPresets.all", BuiltInPresets.all.any { it.id == preset.id })
         }
+    }
+
+    @Test
+    fun `contextOf maps a context preset back to its mode and other presets to none`() {
+        SoundContext.entries.forEach { context ->
+            assertEquals(context, BuiltInContextPresets.contextOf(BuiltInContextPresets.defaultFor(context)))
+        }
+        assertNull(BuiltInContextPresets.contextOf(BuiltInPresets.CleanPunch))
     }
 
     @Test
