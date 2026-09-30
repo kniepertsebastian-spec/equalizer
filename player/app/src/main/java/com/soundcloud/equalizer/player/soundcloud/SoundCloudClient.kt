@@ -1,6 +1,8 @@
 package com.soundcloud.equalizer.player.soundcloud
 
+import com.hardbasseq.eq.link.ShareLink
 import com.soundcloud.equalizer.player.model.PlaylistItem
+import com.soundcloud.equalizer.player.model.ResolvedLink
 import com.soundcloud.equalizer.player.model.TrackItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -31,6 +33,8 @@ class SoundCloudClient(
         // different (Next.js) site whose script bundles don't match the
         // a-v2.sndcdn.com/assets/*.js pattern below at all, so client_id scraping
         // silently found zero matches with a mobile UA.
+        private const val MAX_IDS_PER_REQUEST = 50
+
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
@@ -240,7 +244,90 @@ class SoundCloudClient(
         return@withContext root.optString("url", null)
     }
 
-    private suspend fun parseTrack(obj: JSONObject, clientId: String): TrackItem? {
+    /**
+     * Resolves a pasted/shared SoundCloud link to the track or playlist behind it.
+     * Stream URLs are NOT resolved here (they are short-lived and only needed when
+     * a track actually plays - see [getTrack]), so importing a long playlist costs a
+     * handful of requests rather than one per track.
+     */
+    suspend fun resolveLink(url: String): ResolvedLink = withContext(Dispatchers.IO) {
+        val target = if (ShareLink.isSoundCloudShortLink(url)) expandShortLink(url) else url
+        val normalized = ShareLink.normalizeSoundCloud(target)
+
+        val (jsonStr, clientId) = executeWithClientId { clientId ->
+            "https://api-v2.soundcloud.com/resolve?url=${java.net.URLEncoder.encode(normalized, "UTF-8")}&client_id=$clientId"
+        }
+        if (jsonStr.isBlank()) return@withContext ResolvedLink.Unsupported("SoundCloud hat nichts zu diesem Link geliefert")
+
+        val root = JSONObject(jsonStr)
+        when (root.optString("kind")) {
+            "track" -> {
+                val track = parseTrack(root, clientId, resolveStream = false)
+                    ?: return@withContext ResolvedLink.Unsupported("Der Titel konnte nicht gelesen werden")
+                ResolvedLink.SingleTrack(track)
+            }
+
+            "playlist" -> {
+                val raw = root.optJSONArray("tracks") ?: JSONArray()
+                // The resolve response only carries full data for the first few
+                // tracks; the rest are bare {id} stubs, hydrated in batches below.
+                val ordered = (0 until raw.length()).map { raw.getJSONObject(it) }
+                val stubIds = ordered.filter { !it.has("title") }.map { it.optLong("id", -1) }.filter { it > 0 }
+                val hydrated = getTracksByIds(stubIds).associateBy { it.id }
+                val tracks = ordered.mapNotNull { obj ->
+                    if (obj.has("title")) {
+                        runCatching { parseTrack(obj, clientId, resolveStream = false) }.getOrNull()
+                    } else {
+                        hydrated[obj.optLong("id", -1)]
+                    }
+                }
+                if (tracks.isEmpty()) {
+                    ResolvedLink.Unsupported("Die Playlist ist leer oder privat")
+                } else {
+                    ResolvedLink.Playlist(
+                        title = root.optString("title", "Playlist").ifBlank { "Playlist" },
+                        sourceUrl = normalized,
+                        tracks = tracks,
+                    )
+                }
+            }
+
+            else -> ResolvedLink.Unsupported("Nur Titel- und Playlist-Links werden unterstützt")
+        }
+    }
+
+    /** One track with a freshly resolved stream URL, or null if it cannot be played. */
+    suspend fun getTrack(id: Long): TrackItem? = withContext(Dispatchers.IO) {
+        val (jsonStr, clientId) = executeWithClientId { clientId ->
+            "https://api-v2.soundcloud.com/tracks/$id?client_id=$clientId"
+        }
+        if (jsonStr.isBlank()) return@withContext null
+        parseTrack(JSONObject(jsonStr), clientId, resolveStream = true)
+    }
+
+    // Full metadata for bare track ids, in the order asked for where SoundCloud
+    // returned them. The endpoint takes a limited number of ids per call.
+    private suspend fun getTracksByIds(ids: List<Long>): List<TrackItem> = withContext(Dispatchers.IO) {
+        ids.chunked(MAX_IDS_PER_REQUEST).flatMap { chunk ->
+            runCatching {
+                val (jsonStr, clientId) = executeWithClientId { clientId ->
+                    "https://api-v2.soundcloud.com/tracks?ids=${chunk.joinToString(",")}&client_id=$clientId"
+                }
+                val array = JSONArray(jsonStr)
+                (0 until array.length()).mapNotNull { i ->
+                    runCatching { parseTrack(array.getJSONObject(i), clientId, resolveStream = false) }.getOrNull()
+                }
+            }.getOrDefault(emptyList())
+        }
+    }
+
+    // on.soundcloud.com/... links only redirect to the real page - OkHttp follows
+    // the redirect, the final URL is what the resolve API needs. The body is never
+    // read, so this costs one round trip, not a page download.
+    private fun expandShortLink(url: String): String =
+        executeRequest(url).use { response -> response.request.url.toString() }
+
+    private suspend fun parseTrack(obj: JSONObject, clientId: String, resolveStream: Boolean = true): TrackItem? {
         val id = obj.optLong("id", -1)
         if (id == -1L) return null
 
@@ -254,7 +341,7 @@ class SoundCloudClient(
         var streamUrl: String? = null
         val mediaObj = obj.optJSONObject("media")
         val transcodings = mediaObj?.optJSONArray("transcodings")
-        if (transcodings != null && transcodings.length() > 0) {
+        if (resolveStream && transcodings != null && transcodings.length() > 0) {
             streamUrl = resolveStreamUrl(transcodings, clientId)
         }
 

@@ -1,0 +1,145 @@
+package com.hardbasseq.eq.ui.player
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.hardbasseq.eq.integration.LinkImportResult
+import com.hardbasseq.eq.integration.PlayerController
+import com.hardbasseq.eq.link.LinkSource
+import com.hardbasseq.eq.link.ShareLink
+import com.hardbasseq.eq.playlist.PlaylistRepository
+import com.hardbasseq.eq.playlist.SavedPlaylist
+import com.hardbasseq.eq.playlist.SavedTrack
+import com.soundcloud.equalizer.player.model.TrackItem
+import com.soundcloud.equalizer.player.playback.NowPlaying
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+// Feedback line under the link field: what the last import did (or why it could not).
+data class ImportUiState(
+    val isLoading: Boolean = false,
+    val message: String? = null,
+    val isError: Boolean = false,
+)
+
+@HiltViewModel
+class PlayerViewModel
+    @Inject
+    constructor(
+        private val controller: PlayerController,
+        private val playlistRepository: PlaylistRepository,
+    ) : ViewModel() {
+        val nowPlaying: StateFlow<NowPlaying?> = controller.nowPlaying
+        val queue: StateFlow<List<TrackItem>> = controller.queue
+
+        // Newest first.
+        val playlists: StateFlow<List<SavedPlaylist>> =
+            playlistRepository.playlists
+                .map { list -> list.sortedByDescending { it.createdAtMs } }
+                .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+        private val _importState = MutableStateFlow(ImportUiState())
+        val importState: StateFlow<ImportUiState> = _importState.asStateFlow()
+
+        // Set when a link was shared into the app from elsewhere, so the UI can bring
+        // the player screen forward; cleared by consumeShowPlayerRequest().
+        private val _showPlayerRequest = MutableStateFlow(false)
+        val showPlayerRequest: StateFlow<Boolean> = _showPlayerRequest.asStateFlow()
+
+        fun consumeShowPlayerRequest() {
+            _showPlayerRequest.value = false
+        }
+
+        fun dismissImportMessage() {
+            _importState.value = ImportUiState()
+        }
+
+        /**
+         * Imports whatever text was pasted or shared: finds the link in it, and for a
+         * SoundCloud link plays a single track right away or saves a playlist. Other
+         * services are recognized only to explain why they cannot be played here.
+         */
+        fun importFromText(
+            text: String,
+            fromShare: Boolean = false,
+        ) {
+            if (fromShare) _showPlayerRequest.value = true
+
+            val url = ShareLink.extractUrl(text)
+            if (url == null) {
+                _importState.value = ImportUiState(message = "Kein Link gefunden", isError = true)
+                return
+            }
+            when (ShareLink.classify(url)) {
+                LinkSource.SOUNDCLOUD -> Unit
+                LinkSource.SPOTIFY -> return fail("Spotify-Titel lassen sich hier nicht abspielen (Kopierschutz). $SEARCH_HINT")
+                LinkSource.YOUTUBE -> return fail("YouTube-Links lassen sich hier nicht abspielen. $SEARCH_HINT")
+                LinkSource.OTHER -> return fail("Nur SoundCloud-Links werden unterstützt")
+            }
+
+            viewModelScope.launch {
+                _importState.value = ImportUiState(isLoading = true)
+                when (val result = controller.resolveLink(url)) {
+                    is LinkImportResult.Track -> {
+                        controller.playQueue(listOf(result.track), 0)
+                        _importState.value = ImportUiState(message = "Spielt: ${result.track.title}")
+                    }
+
+                    is LinkImportResult.Playlist -> {
+                        playlistRepository.save(
+                            SavedPlaylist(
+                                // The link is the identity: importing it again refreshes
+                                // the playlist instead of adding a duplicate.
+                                id = result.sourceUrl,
+                                title = result.title,
+                                sourceUrl = result.sourceUrl,
+                                tracks = result.tracks.map { it.toSaved() },
+                                createdAtMs = System.currentTimeMillis(),
+                            ),
+                        )
+                        _importState.value = ImportUiState(message = "Gespeichert: ${result.title} (${result.tracks.size} Titel)")
+                    }
+
+                    is LinkImportResult.Failed -> _importState.value = ImportUiState(message = result.message, isError = true)
+                }
+            }
+        }
+
+        fun playPlaylist(playlist: SavedPlaylist) {
+            controller.playQueue(playlist.tracks.map { it.toTrackItem() }, 0)
+        }
+
+        fun deletePlaylist(playlist: SavedPlaylist) {
+            viewModelScope.launch { playlistRepository.delete(playlist.id) }
+        }
+
+        fun playQueueIndex(index: Int) = controller.skipToIndex(index)
+
+        fun next() = controller.next()
+
+        fun previous() = controller.previous()
+
+        fun seekTo(positionMs: Long) = controller.seekTo(positionMs)
+
+        fun togglePlayback() = controller.togglePlayback()
+
+        private fun fail(message: String) {
+            _importState.value = ImportUiState(message = message, isError = true)
+        }
+
+        private fun TrackItem.toSaved() =
+            SavedTrack(id = id, title = title, artist = artist, artworkUrl = artworkUrl, durationMs = durationMs)
+
+        // No stream URL on purpose - the player resolves a fresh one by id when the
+        // track plays.
+        private fun SavedTrack.toTrackItem() =
+            TrackItem(id = id, title = title, artist = artist, artworkUrl = artworkUrl, streamUrl = null, durationMs = durationMs)
+    }
+
+private const val SEARCH_HINT = "Such die Titel stattdessen über „Suchen“ auf SoundCloud."

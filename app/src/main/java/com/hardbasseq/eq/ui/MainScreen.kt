@@ -26,6 +26,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -51,6 +52,7 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.integration.PlayerSource
+import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.preset.BuiltInContextPresets
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.Preset
@@ -69,6 +71,7 @@ fun MainScreen(
     viewModel: MainViewModel,
     spikeController: SessionAttachSpikeController,
     onNavigateToDiagnostics: () -> Unit = {},
+    onOpenFullPlayer: () -> Unit = {},
 ) {
     val showDebugEffects by viewModel.showDebugEffects.collectAsStateWithLifecycle()
     val descriptors by viewModel.effectDescriptors.collectAsStateWithLifecycle()
@@ -241,7 +244,7 @@ fun MainScreen(
                 NowPlayingBar(
                     nowPlaying = playing,
                     onTogglePlayback = { viewModel.toggleNowPlayingPlayback() },
-                    onOpenPlayer = { viewModel.reopenPlayer() },
+                    onOpenPlayer = onOpenFullPlayer,
                 )
             }
         },
@@ -317,6 +320,10 @@ fun MainScreen(
                         .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
+                OutlinedButton(onClick = onOpenFullPlayer) {
+                    Text("Player & Playlists")
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 OutlinedButton(onClick = onNavigateToDiagnostics) {
                     Text("Diagnose & Report")
                 }
@@ -448,31 +455,41 @@ private fun NowPlayingBar(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         border = BorderStroke(1.dp, HardBassCardBorder),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.medium, vertical = spacing.small),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = nowPlaying.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = nowPlaying.artist,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.medium, vertical = spacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = nowPlaying.title,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        text = nowPlaying.artist,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Spacer(modifier = Modifier.width(spacing.small))
+                IconButton(onClick = onTogglePlayback) {
+                    Icon(
+                        imageVector = if (nowPlaying.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (nowPlaying.isPlaying) "Pause" else "Abspielen",
+                    )
+                }
             }
-            Spacer(modifier = Modifier.width(spacing.small))
-            IconButton(onClick = onTogglePlayback) {
-                Icon(
-                    imageVector = if (nowPlaying.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (nowPlaying.isPlaying) "Pause" else "Abspielen",
+            // Tapping the bar opens the full player; the progress line is the hint
+            // that there is more to it than a title.
+            if (nowPlaying.durationMs > 0) {
+                LinearProgressIndicator(
+                    progress = { PlayerFormat.progress(nowPlaying.positionMs, nowPlaying.durationMs) },
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         }

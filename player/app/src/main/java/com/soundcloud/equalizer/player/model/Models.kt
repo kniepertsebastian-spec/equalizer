@@ -16,3 +16,18 @@ data class PlaylistItem(
     val artworkUrl: String?,
     val tracks: List<TrackItem> = emptyList()
 )
+
+// Outcome of resolving a pasted/shared SoundCloud link (see SoundCloudClient.resolveLink).
+sealed class ResolvedLink {
+    data class SingleTrack(val track: TrackItem) : ResolvedLink()
+
+    data class Playlist(
+        val title: String,
+        val sourceUrl: String,
+        val tracks: List<TrackItem>,
+    ) : ResolvedLink()
+
+    // Well-formed SoundCloud link that is not a track or playlist (a profile, a
+    // station, ...), or one the API does not know.
+    data class Unsupported(val reason: String) : ResolvedLink()
+}
