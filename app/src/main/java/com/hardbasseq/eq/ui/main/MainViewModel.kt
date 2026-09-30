@@ -11,6 +11,7 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.audio.defaultHeadphoneAcoustics
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.autoeq.AutoEqCatalogMatcher
@@ -26,6 +27,7 @@ import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
 import com.hardbasseq.eq.dsp.HeadroomCalculator
+import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
@@ -105,6 +107,7 @@ class MainViewModel
         private val repository: AudioEffectRepository,
         private val audioEngine: AudioEngine,
         private val routeRepository: AudioRouteRepository,
+        private val volumeRepository: SystemVolumeRepository,
         private val diagnosticsRecorder: DiagnosticsRecorder,
         private val playerBridge: PlayerBridge,
         private val presetRepository: PresetRepository,
@@ -128,6 +131,12 @@ class MainViewModel
         val capabilities = audioEngine.capabilities
         val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
         val diagnosticsEvents = diagnosticsRecorder.events
+
+        // Chat feature: "quality changes for headphones" - loudness compensation.
+        // Exposed so EqualizerScreen's own headroom preview can mirror exactly the
+        // same value combinedCurve() below just read, the same discipline already
+        // used for effectiveHeadphoneAcoustics/HeadphoneComfortCurve.
+        val currentLevelDb: StateFlow<Float> = volumeRepository.currentLevelDb
 
         // Chat feature (item 1 of "setz alle Punkte um", not a roadmap-2026.md
         // milestone): null until applyDeviceProfileForRoute() loads whatever the
@@ -288,6 +297,15 @@ class MainViewModel
             viewModelScope.launch {
                 effectiveHeadphoneAcoustics.collect {
                     recalculateBandGains()
+                }
+            }
+            // Chat feature: loudness compensation only matters while headphone mode
+            // is on (see combinedCurve()), but the volume can change at any time
+            // (hardware keys, another app) - without this collector the boost would
+            // only ever refresh on the next unrelated preset/route change.
+            viewModelScope.launch {
+                volumeRepository.currentLevelDb.collect {
+                    if (effectiveHeadphoneAcoustics.value) recalculateBandGains()
                 }
             }
         }
@@ -797,11 +815,22 @@ class MainViewModel
         // "Kopfhörer-Modus" switch (item 1) actually audible through the real,
         // already-working AndroidAudioEngine Equalizer path, since true
         // Crossfeed/Bass-Mono-Summing can't run there (Android's system
-        // Equalizer/DynamicsProcessing effects have no such algorithm).
+        // Equalizer/DynamicsProcessing effects have no such algorithm). Real
+        // Crossfeed was considered again later and rejected for the same reason -
+        // it would only ever be audible through the app's own SoundCloud player,
+        // not Spotify/YouTube Music, too narrow a win for the effort. Loudness
+        // compensation (also gated on headphone mode - quieter headphone listening
+        // is the case it's meant for) rides the same already-working path instead.
         private fun combinedCurve(): List<TargetPoint> {
             val headphoneCurve = if (effectiveHeadphoneAcoustics.value) HeadphoneComfortCurve.curve else emptyList()
+            val loudnessCurve =
+                if (effectiveHeadphoneAcoustics.value) {
+                    LoudnessCompensationCurve.forLevel(currentLevelDb = volumeRepository.currentLevelDb.value)
+                } else {
+                    emptyList()
+                }
             return CurveComposer.combine(
-                listOf(_activeCorrectionProfile.value.curve, _activePreset.value.targetCurve, headphoneCurve),
+                listOf(_activeCorrectionProfile.value.curve, _activePreset.value.targetCurve, headphoneCurve, loudnessCurve),
             )
         }
 

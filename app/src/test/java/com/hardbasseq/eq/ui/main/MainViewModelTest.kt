@@ -12,6 +12,7 @@ import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalog
 import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
@@ -56,6 +57,7 @@ class MainViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val fakeEngine = FakeAudioEngine()
     private val fakeRouteRepo = FakeAudioRouteRepository()
+    private val fakeVolumeRepo = FakeSystemVolumeRepository()
 
     @Before
     fun setUp() {
@@ -428,6 +430,7 @@ class MainViewModelTest {
                     repository = FakeAudioEffectRepository(emptyList()),
                     audioEngine = emptyCapsEngine,
                     routeRepository = fakeRouteRepo,
+                    volumeRepository = fakeVolumeRepo,
                     diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
                     playerBridge = FakePlayerBridge(),
                     presetRepository = presetRepository,
@@ -746,6 +749,56 @@ class MainViewModelTest {
             assertEquals(firstOnRatio, viewModel.processingSettings.value.mbcRatio)
         }
 
+    // --- Chat feature: quality changes for headphones (loudness compensation) ---
+
+    @Test
+    fun `loudness compensation boosts bass more the quieter the volume gets, while headphone mode is on`() =
+        runTest {
+            // LoudnessCompensationCurve's own math (max boost, clamping, treble-to-
+            // bass ratio) is already covered by LoudnessCompensationCurveTest in
+            // :core - this only proves the wiring: MainViewModel actually reacts to
+            // volume changes and folds the curve in while headphone mode is active.
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassAtFullVolume = viewModel.processingSettings.value.bandGainsDb[0]!! // 60 Hz
+
+            fakeVolumeRepo.setLevelDb(-20f)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassAtModeratelyQuiet = viewModel.processingSettings.value.bandGainsDb[0]!!
+
+            fakeVolumeRepo.setLevelDb(-40f)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassAtVeryQuiet = viewModel.processingSettings.value.bandGainsDb[0]!!
+
+            assertTrue(
+                "expected a bigger bass boost the quieter the volume gets: " +
+                    "full=$bassAtFullVolume moderate=$bassAtModeratelyQuiet very=$bassAtVeryQuiet",
+                bassAtVeryQuiet > bassAtModeratelyQuiet && bassAtModeratelyQuiet > bassAtFullVolume,
+            )
+        }
+
+    @Test
+    fun `loudness compensation never applies while headphone mode is off, regardless of volume`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+
+            fakeVolumeRepo.setLevelDb(-40f)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(
+                viewModel.processingSettings.value.bandGainsDb.values
+                    .all { it == 0f },
+            )
+        }
+
     // --- Chat feature: genre x intensity preset redesign ---
 
     @Test
@@ -910,6 +963,7 @@ class MainViewModelTest {
             repository = FakeAudioEffectRepository(descriptors),
             audioEngine = fakeEngine,
             routeRepository = fakeRouteRepo,
+            volumeRepository = fakeVolumeRepo,
             diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
             playerBridge = playerBridge,
             presetRepository = presetRepository,
@@ -948,6 +1002,19 @@ class MainViewModelTest {
 
         fun setRoute(route: AudioRoute) {
             _activeRoute.value = route
+        }
+
+        override fun startMonitoring() {}
+
+        override fun stopMonitoring() {}
+    }
+
+    private class FakeSystemVolumeRepository : SystemVolumeRepository {
+        private val _currentLevelDb = MutableStateFlow(0f)
+        override val currentLevelDb: StateFlow<Float> = _currentLevelDb.asStateFlow()
+
+        fun setLevelDb(levelDb: Float) {
+            _currentLevelDb.value = levelDb
         }
 
         override fun startMonitoring() {}
