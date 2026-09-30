@@ -44,6 +44,9 @@ class PlayerViewModel
                 .map { list -> list.sortedByDescending { it.createdAtMs } }
                 .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+        private val _signedIn = MutableStateFlow(controller.isSoundCloudSignedIn())
+        val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()
+
         private val _importState = MutableStateFlow(ImportUiState())
         val importState: StateFlow<ImportUiState> = _importState.asStateFlow()
 
@@ -51,6 +54,19 @@ class PlayerViewModel
         // the player screen forward; cleared by consumeShowPlayerRequest().
         private val _showPlayerRequest = MutableStateFlow(false)
         val showPlayerRequest: StateFlow<Boolean> = _showPlayerRequest.asStateFlow()
+
+        // The sign-in happens in its own activity, so the screen re-reads the state
+        // whenever it comes back to the foreground.
+        fun refreshAccount() {
+            _signedIn.value = controller.isSoundCloudSignedIn()
+        }
+
+        fun signIn() = controller.openSoundCloudSignIn()
+
+        fun signOut() {
+            controller.signOutSoundCloud()
+            refreshAccount()
+        }
 
         fun consumeShowPlayerRequest() {
             _showPlayerRequest.value = false

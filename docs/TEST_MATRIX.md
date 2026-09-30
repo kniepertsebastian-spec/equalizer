@@ -420,3 +420,12 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | P11 | Flugmodus während Playlist läuft | Titel wird übersprungen/Fehler, App stürzt nicht ab |
 | P12 | Lange Wiedergabe (30 min) mit Fortschrittsanzeige | Akku/CPU unauffällig |
 | P13 | SoundCloud-Suche (Button „Suchen“), Ergebnis antippen | spielt und liegt in der Queue; Vor/Zurück wandert durch die Ergebnisse |
+
+| # | Prüfung (SoundCloud Go) | Erwartung |
+|---|---|---|
+| G1 | Im Player-Screen „Anmelden“, Konto mit Go-Abo | danach „Angemeldet“ (auch nach App-Neustart) |
+| G2 | Go-only-Titel abspielen, angemeldet | volle Länge, kein „Nur 30-Sekunden-Vorschau“ |
+| G3 | Derselbe Titel, abgemeldet | „Nur 30-Sekunden-Vorschau“ + Hinweis zum Anmelden |
+| G4 | 10 Titel hintereinander | keine Audio-Werbung zwischen den Titeln |
+| G5 | Titel, bei dem nur HLS angeboten wird | spielt (HLS-Modul), Equalizer/Virtual Bass greifen |
+| G6 | „Abmelden“ | Token weg, Go-Titel wieder nur Vorschau |

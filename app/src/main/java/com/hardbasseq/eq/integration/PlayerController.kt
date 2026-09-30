@@ -2,6 +2,7 @@ package com.hardbasseq.eq.integration
 
 import android.content.Context
 import android.content.Intent
+import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
 import com.soundcloud.equalizer.player.model.ResolvedLink
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.LinkResolver
@@ -54,6 +55,15 @@ interface PlayerController {
     fun togglePlayback()
 
     suspend fun resolveLink(url: String): LinkImportResult
+
+    // The SoundCloud account the player streams with. Signed in, SoundCloud serves
+    // a Go subscription's full-length tracks (and no ads); signed out, Go tracks
+    // are only previews.
+    fun isSoundCloudSignedIn(): Boolean
+
+    fun openSoundCloudSignIn()
+
+    fun signOutSoundCloud()
 }
 
 @Singleton
@@ -102,6 +112,18 @@ class AndroidPlayerController
             } catch (e: Exception) {
                 LinkImportResult.Failed("Link konnte nicht geladen werden: ${e.message ?: "unbekannter Fehler"}")
             }
+
+        override fun isSoundCloudSignedIn(): Boolean = SoundCloudLoginActivity.getSavedToken(context) != null
+
+        override fun openSoundCloudSignIn() {
+            val intent =
+                Intent(context, SoundCloudLoginActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            context.startActivity(intent)
+        }
+
+        override fun signOutSoundCloud() = SoundCloudLoginActivity.clearToken(context)
 
         private fun send(
             action: String,

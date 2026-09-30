@@ -77,6 +77,7 @@ class AudioPlayerService : Service() {
     // -1 = not playing from PlaybackQueueState.queue (a single track started with playTrack).
     private var queueIndex = -1
     private var isLoadingTrack = false
+    private var isPreviewStream = false
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -200,6 +201,7 @@ class AudioPlayerService : Service() {
         currentTitle = title
         currentArtist = artist
         currentArtworkUrl = null
+        isPreviewStream = false
         startStream(streamUrl)
         startForeground(NOTIFICATION_ID, buildNotification(title, artist, true))
     }
@@ -219,6 +221,7 @@ class AudioPlayerService : Service() {
         currentArtist = track.artist
         currentArtworkUrl = track.artworkUrl
         isLoadingTrack = true
+        isPreviewStream = false
         exoPlayer?.pause()
         startProgressTicker()
         publishNowPlaying()
@@ -226,8 +229,19 @@ class AudioPlayerService : Service() {
 
         loadJob?.cancel()
         loadJob = serviceScope.launch {
-            SoundCloudLoginActivity.getSavedToken(this@AudioPlayerService)?.let { soundCloudClient.setUserAuthToken(it) }
-            val url = runCatching { soundCloudClient.getTrack(track.id)?.streamUrl }.getOrNull() ?: track.streamUrl
+            val token = SoundCloudLoginActivity.getSavedToken(this@AudioPlayerService)
+            soundCloudClient.setUserAuthToken(token)
+            val resolved = runCatching { soundCloudClient.getTrack(track.id) }.getOrNull()
+            val url = resolved?.streamUrl ?: track.streamUrl
+            isPreviewStream = resolved?.isPreview == true
+            if (isPreviewStream) {
+                val hint = if (token == null) {
+                    "Nur Vorschau - melde dich im Player mit deinem SoundCloud-Go-Konto an"
+                } else {
+                    "Nur Vorschau - SoundCloud liefert für diesen Titel mit deinem Konto keine volle Länge"
+                }
+                Toast.makeText(this@AudioPlayerService, hint, Toast.LENGTH_LONG).show()
+            }
             if (url.isNullOrEmpty()) {
                 onTrackUnplayable()
             } else {
@@ -296,6 +310,7 @@ class AudioPlayerService : Service() {
                 positionMs = if (isLoadingTrack) 0L else (player?.currentPosition ?: 0L).coerceAtLeast(0L),
                 queueIndex = queueIndex,
                 isLoading = isLoadingTrack,
+                isPreview = isPreviewStream,
             )
         )
     }
@@ -319,6 +334,7 @@ class AudioPlayerService : Service() {
         currentArtworkUrl = null
         queueIndex = -1
         isLoadingTrack = false
+        isPreviewStream = false
         NowPlayingState.update(null)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)

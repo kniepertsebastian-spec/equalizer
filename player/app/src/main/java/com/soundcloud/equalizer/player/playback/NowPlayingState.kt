@@ -17,6 +17,8 @@ data class NowPlaying(
     val queueIndex: Int = -1,
     // True from the moment a track is chosen until its stream is ready to play.
     val isLoading: Boolean = false,
+    // The stream being played is only a ~30 second preview, not the full track.
+    val isPreview: Boolean = false,
 )
 
 // AudioPlayerService isn't Hilt-managed (predates the merge into :app, see

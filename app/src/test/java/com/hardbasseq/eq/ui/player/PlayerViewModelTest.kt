@@ -217,6 +217,27 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `account state follows the player and refreshes on demand`() =
+        runTest {
+            val vm = viewModel()
+            assertFalse(vm.signedIn.value)
+
+            // The sign-in screen is a separate activity: the state only changes once the
+            // screen asks again after coming back.
+            controller.signedIn = true
+            assertFalse(vm.signedIn.value)
+            vm.refreshAccount()
+            assertTrue(vm.signedIn.value)
+
+            vm.signOut()
+            assertFalse(vm.signedIn.value)
+            assertEquals(listOf("signout"), controller.commands)
+
+            vm.signIn()
+            assertEquals(listOf("signout", "signin"), controller.commands)
+        }
+
+    @Test
     fun `now playing is passed through from the player`() =
         runTest {
             val vm = viewModel()
@@ -267,6 +288,19 @@ class PlayerViewModelTest {
         override suspend fun resolveLink(url: String): LinkImportResult {
             resolvedUrls.add(url)
             return nextResult
+        }
+
+        var signedIn = false
+
+        override fun isSoundCloudSignedIn(): Boolean = signedIn
+
+        override fun openSoundCloudSignIn() {
+            commands.add("signin")
+        }
+
+        override fun signOutSoundCloud() {
+            signedIn = false
+            commands.add("signout")
         }
     }
 

@@ -6,7 +6,10 @@ data class TrackItem(
     val artist: String,
     val artworkUrl: String?,
     val streamUrl: String?,
-    val durationMs: Long
+    val durationMs: Long,
+    // True when the resolved stream is only SoundCloud's ~30 second preview of a
+    // Go track (see StreamSelection). Only known once a stream was resolved.
+    val isPreview: Boolean = false
 )
 
 data class PlaylistItem(

@@ -57,6 +57,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.playlist.SavedPlaylist
@@ -80,7 +82,11 @@ fun PlayerScreen(
     val queue by viewModel.queue.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val importState by viewModel.importState.collectAsStateWithLifecycle()
+    val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     var linkText by remember { mutableStateOf("") }
+
+    // Coming back from the sign-in screen: pick up the new account state.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshAccount() }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -137,6 +143,13 @@ fun PlayerScreen(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                if (playing?.isPreview == true) {
+                    Text(
+                        text = "Nur 30-Sekunden-Vorschau",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 Spacer(modifier = Modifier.height(spacing.small))
                 SeekBar(
                     positionMs = playing?.positionMs ?: 0L,
@@ -164,6 +177,39 @@ fun PlayerScreen(
                     }
                     IconButton(onClick = viewModel::next, enabled = playing != null) {
                         Icon(Icons.Default.SkipNext, contentDescription = "Weiter", modifier = Modifier.size(36.dp))
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = BorderStroke(1.dp, HardBassCardBorder),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(spacing.medium),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("SoundCloud-Konto", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            text =
+                                if (signedIn) {
+                                    "Angemeldet. Mit einem Go-Abo laufen Titel in voller Länge."
+                                } else {
+                                    "Nicht angemeldet. Melde dich mit deinem Go-Konto an, damit Go-Titel in voller Länge laufen."
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (signedIn) {
+                        TextButton(onClick = viewModel::signOut) { Text("Abmelden") }
+                    } else {
+                        Button(onClick = viewModel::signIn) { Text("Anmelden") }
                     }
                 }
             }

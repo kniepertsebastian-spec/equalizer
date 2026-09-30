@@ -238,3 +238,23 @@ Bildbibliothek geladen (ein Bild, kein Cache). Keine Sperrbildschirm-/
 Benachrichtigungssteuerung (Media3-Session) und kein Zufall/Wiederholen.
 Spotify-/YouTube-Playlists per Titelabgleich auf SoundCloud zu importieren ist
 ein möglicher Folgeschritt (Spotify-Web-API-Zugang vorher klären).
+
+### SoundCloud Go im eigenen Player (30. September 2026)
+
+Der Player nutzt das gespeicherte Konto-Token des Nutzers (Login im Player-Screen,
+WebView oder manuelles Token) für jede Anfrage. Mit einem aktiven Go-Abo liefert
+SoundCloud die vollen Streams; Werbung blendet nur der offizielle Client ein, der
+Player spielt die Audiodatei des Titels direkt.
+
+- `StreamSelection`: volle Länge vor 30-Sekunden-Vorschau (`snipped`), bei
+  Gleichstand Progressive vor HLS. Wird nur eine Vorschau angeboten, erscheint
+  „Nur 30-Sekunden-Vorschau“ im Player und ein Hinweis (mit dem Zusatz, sich
+  anzumelden, falls kein Token da ist).
+- `media3-exoplayer-hls` ergänzt: einige volle Streams gibt es nur als HLS.
+- **Nicht verifiziert:** dass ein Go-Token in dieser inoffiziellen Nutzung
+  tatsächlich volle Längen freischaltet (Netzwerk/Konto, nicht testbar ohne
+  Gerät), und ob SoundCloud den Zugriff über die Webseiten-`client_id` anders
+  behandelt. Ein inoffizieller Client kann jederzeit brechen; die Nutzungs-
+  bedingungen von SoundCloud sind dafür nicht eindeutig. Hohe Qualität (Go+
+  AAC 256 über HLS) wird bewusst noch nicht bevorzugt, bis HLS am Gerät
+  nachweislich läuft.

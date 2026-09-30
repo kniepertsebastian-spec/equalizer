@@ -1,6 +1,8 @@
 package com.soundcloud.equalizer.player.soundcloud
 
 import com.hardbasseq.eq.link.ShareLink
+import com.hardbasseq.eq.link.StreamOption
+import com.hardbasseq.eq.link.StreamSelection
 import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.ResolvedLink
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -208,41 +210,42 @@ class SoundCloudClient(
         }
     }
 
-    suspend fun resolveStreamUrl(transcodingsJsonArray: JSONArray, clientId: String): String? = withContext(Dispatchers.IO) {
-        var hlsUrl: String? = null
-        var progressiveUrl: String? = null
+    suspend fun resolveStreamUrl(transcodingsJsonArray: JSONArray, clientId: String): String? =
+        resolveStream(transcodingsJsonArray, clientId)?.url
 
-        for (i in 0 until transcodingsJsonArray.length()) {
-            val tc = transcodingsJsonArray.getJSONObject(i)
-            val format = tc.optJSONObject("format")
-            val protocol = format?.optString("protocol")
-            val url = tc.optString("url")
+    private class ResolvedStream(val url: String, val isPreview: Boolean)
 
-            if (protocol == "progressive" && progressiveUrl == null) {
-                progressiveUrl = url
-            } else if (protocol == "hls" && hlsUrl == null) {
-                hlsUrl = url
+    // Picks the best stream SoundCloud offers for a track - full length before a
+    // ~30 s preview (StreamSelection) - and resolves it to a playable URL. Requests
+    // carry the signed-in user's token when there is one, which is what makes a
+    // SoundCloud Go subscription's full-length streams appear in the list at all.
+    private suspend fun resolveStream(transcodingsJsonArray: JSONArray, clientId: String): ResolvedStream? =
+        withContext(Dispatchers.IO) {
+            val options = (0 until transcodingsJsonArray.length()).mapNotNull { i ->
+                val tc = transcodingsJsonArray.getJSONObject(i)
+                val protocol = tc.optJSONObject("format")?.optString("protocol") ?: return@mapNotNull null
+                val url = tc.optString("url")
+                if (url.isBlank()) null else StreamOption(protocol, tc.optBoolean("snipped", false), url)
             }
+            val chosen = StreamSelection.pick(options) ?: return@withContext null
+            val targetUrl = chosen.url
+            val fullReqUrl = if (targetUrl.contains("?")) "$targetUrl&client_id=$clientId" else "$targetUrl?client_id=$clientId"
+
+            // A single track's stream-URL lookup failing outright (timeout, dropped
+            // connection) must not take down the whole search result - one bad track
+            // is worth showing as unplayable, not worth losing every other result
+            // over. Callers already treat a null streamUrl as "resolve on tap".
+            val jsonStr = runCatching {
+                executeRequest(fullReqUrl).use { response ->
+                    if (!response.isSuccessful) return@withContext null
+                    response.body?.string() ?: ""
+                }
+            }.getOrNull() ?: return@withContext null
+
+            if (jsonStr.isBlank()) return@withContext null
+            val streamUrl = JSONObject(jsonStr).optString("url", null) ?: return@withContext null
+            ResolvedStream(streamUrl, chosen.snipped)
         }
-
-        val targetUrl = progressiveUrl ?: hlsUrl ?: return@withContext null
-        val fullReqUrl = if (targetUrl.contains("?")) "$targetUrl&client_id=$clientId" else "$targetUrl?client_id=$clientId"
-
-        // A single track's stream-URL lookup failing outright (timeout, dropped
-        // connection) must not take down the whole search result - one bad track
-        // is worth showing as unplayable, not worth losing every other result
-        // over. Callers already treat a null streamUrl as "resolve on tap".
-        val jsonStr = runCatching {
-            executeRequest(fullReqUrl).use { response ->
-                if (!response.isSuccessful) return@withContext null
-                response.body?.string() ?: ""
-            }
-        }.getOrNull() ?: return@withContext null
-
-        if (jsonStr.isBlank()) return@withContext null
-        val root = JSONObject(jsonStr)
-        return@withContext root.optString("url", null)
-    }
 
     /**
      * Resolves a pasted/shared SoundCloud link to the track or playlist behind it.
@@ -339,10 +342,13 @@ class SoundCloudClient(
         val artist = userObj?.optString("username", "Unknown Artist") ?: "Unknown Artist"
 
         var streamUrl: String? = null
+        var isPreview = false
         val mediaObj = obj.optJSONObject("media")
         val transcodings = mediaObj?.optJSONArray("transcodings")
         if (resolveStream && transcodings != null && transcodings.length() > 0) {
-            streamUrl = resolveStreamUrl(transcodings, clientId)
+            val stream = resolveStream(transcodings, clientId)
+            streamUrl = stream?.url
+            isPreview = stream?.isPreview == true
         }
 
         return TrackItem(
@@ -351,7 +357,8 @@ class SoundCloudClient(
             artist = artist,
             artworkUrl = artworkUrl,
             streamUrl = streamUrl,
-            durationMs = duration
+            durationMs = duration,
+            isPreview = isPreview
         )
     }
 }
