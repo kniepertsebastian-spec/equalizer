@@ -77,6 +77,7 @@ import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
+import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
@@ -86,6 +87,7 @@ import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
+import com.hardbasseq.eq.preset.BuiltInContextPresets
 import com.hardbasseq.eq.preset.GenrePreset
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
@@ -109,7 +111,7 @@ fun EqualizerScreen(
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
-    contextPresets: List<Preset>,
+    activeContext: SoundContext?,
     currentLevelDb: Float,
     isDirty: Boolean,
     onMasterToggled: (Boolean) -> Unit,
@@ -123,6 +125,7 @@ fun EqualizerScreen(
     onAcceptSuggestedCorrectionProfile: () -> Unit,
     onDismissSuggestedCorrectionProfile: () -> Unit,
     onHeadphoneAcousticsChanged: (Boolean) -> Unit,
+    onContextModeChanged: (SoundContext?) -> Unit,
     onLoudnessCompensationChanged: (Boolean) -> Unit,
     onSubsonicFilterChanged: (Boolean) -> Unit,
     onVirtualBassChanged: (Boolean) -> Unit,
@@ -164,7 +167,14 @@ fun EqualizerScreen(
         )
     val combinedCurve =
         CurveComposer.combine(
-            listOf(activeCorrectionProfile.curve, activePreset.targetCurve, headphoneCurve, loudnessCurve, contextCurve),
+            listOf(
+                activeCorrectionProfile.curve,
+                activePreset.targetCurve,
+                headphoneCurve,
+                loudnessCurve,
+                activeContext?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
+                contextCurve,
+            ),
         )
     val headroom =
         HeadroomCalculator.fromCombinedCurve(
@@ -527,11 +537,11 @@ fun EqualizerScreen(
                     }
                 }
 
-                // Listening-context card (car / Bluetooth speaker): context presets plus
-                // individual switches for the three features they use. The presets are
-                // picked automatically for a detected car/speaker route that has no
-                // saved profile yet (MainViewModel.applyContextDefaultForUnboundRoute);
-                // picking one here saves it for the current route like any preset.
+                // Listening-context card (car / Bluetooth speaker): the mode switches plus
+                // individual switches for the three features the modes use. A mode is an
+                // overlay on the active genre preset (MainViewModel.activeContext), so it
+                // stays on when the genre changes; a detected car/speaker route turns it
+                // on by itself.
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(style.cardCorner),
@@ -555,28 +565,12 @@ fun EqualizerScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(spacing.small))
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(spacing.extraSmall),
-                        ) {
-                            contextPresets.forEach { preset ->
-                                val isSelected = preset.id == activePreset.id
-                                Surface(
-                                    shape = RoundedCornerShape(50),
-                                    color =
-                                        if (isSelected) style.accent.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant,
-                                    border = BorderStroke(1.dp, if (isSelected) style.accent else style.border),
-                                ) {
-                                    TextButton(onClick = { onPresetSelected(preset) }) {
-                                        Text(
-                                            text = preset.name,
-                                            color = if (isSelected) style.accent else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            style = MaterialTheme.typography.labelMedium,
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        ContextModeChips(
+                            activeContext = activeContext,
+                            onContextModeChanged = onContextModeChanged,
+                            accent = style.accent,
+                            border = style.border,
+                        )
                         Spacer(modifier = Modifier.height(spacing.small))
                         ContextFeatureSwitch(
                             title = "Lautstärke-Loudness",

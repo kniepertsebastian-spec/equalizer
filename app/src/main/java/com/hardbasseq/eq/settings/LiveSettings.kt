@@ -21,4 +21,11 @@ data class LiveSettings(
     // field) still decodes - kotlinx.serialization applies the default for a
     // field absent from the source JSON.
     val activeCorrectionProfileId: String = "correction_none",
+    // Listening-context mode ("Auto" / "Bluetooth-Box", SoundContext.name) layered
+    // over the active preset, null = off. Defaulted so settings saved before it
+    // existed still decode.
+    val activeContext: String? = null,
+    // True when route detection switched the mode on (so it switches off again when
+    // that route goes away), false when the user chose it.
+    val activeContextAutomatic: Boolean = false,
 )

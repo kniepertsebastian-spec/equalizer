@@ -16,5 +16,14 @@ val HardBassSubtext = Color(0xFFA0A0B0)
 
 // Card outline and background-texture accents for the industrial/hardcore look.
 val HardBassCardBorder = Color(0x26FFFFFF)
+
+// Player text: the screen sits on the dark industrial background, where the default
+// content color outside a Card is near-black. Light lilac for the song title, a
+// soft pink (same hue family, distinct at a glance) for the artist, and a light
+// neutral for everything else.
+val PlayerTitleColor = Color(0xFFD9C8FF)
+val PlayerArtistColor = Color(0xFFF2A9D2)
+val PlayerTextColor = Color(0xFFF1EEFA)
+val PlayerTextMutedColor = Color(0xFFB9B3D1)
 val HardBassBackgroundStreak = Color(0x09FFFFFF)
 val HardBassBackgroundAccent = Color(0x1FFF5722)

@@ -429,3 +429,11 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | G4 | 10 Titel hintereinander | keine Audio-Werbung zwischen den Titeln |
 | G5 | Titel, bei dem nur HLS angeboten wird | spielt (HLS-Modul), Equalizer/Virtual Bass greifen |
 | G6 | „Abmelden“ | Token weg, Go-Titel wieder nur Vorschau |
+
+| # | Prüfung (Kontext-Modus als Ebene) | Erwartung |
+|---|---|---|
+| M1 | „Auto“ einschalten, dann Genre auf Uptempo wechseln | „Auto“ bleibt markiert, Subsonic/Loudness/Virtual Bass bleiben an |
+| M2 | „Auto“ im Player-Screen ein-/ausschalten | wirkt sofort, Zustand stimmt mit dem Hauptscreen überein |
+| M3 | App neu starten | Modus ist weiterhin so, wie zuletzt gesetzt |
+| M4 | Mit dem Auto verbinden, später trennen | Modus geht an und beim Trennen wieder aus (nur wenn automatisch eingeschaltet) |
+| M5 | Player-Screen: Lesbarkeit | Titel hell-lila, Interpret rosa, „Warteschlange“ hell; oberste Zeile nicht unter der Statusleiste |

@@ -53,7 +53,6 @@ import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.playlist.PlayerFormat
-import com.hardbasseq.eq.preset.BuiltInContextPresets
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
@@ -62,6 +61,8 @@ import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.equalizer.styleFor
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
+import com.hardbasseq.eq.ui.theme.PlayerArtistColor
+import com.hardbasseq.eq.ui.theme.PlayerTitleColor
 import com.hardbasseq.eq.ui.theme.spacing
 import com.hardbasseq.eq.ui.update.ReleaseUpdateNotice
 import com.soundcloud.equalizer.player.playback.NowPlaying
@@ -88,6 +89,7 @@ fun MainScreen(
     val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
     val effectiveHeadphoneAcoustics by viewModel.effectiveHeadphoneAcoustics.collectAsStateWithLifecycle()
     val currentLevelDb by viewModel.currentLevelDb.collectAsStateWithLifecycle()
+    val activeContext by viewModel.activeContext.collectAsStateWithLifecycle()
     val pendingImportPreview by viewModel.pendingImportPreview.collectAsStateWithLifecycle()
     val importError by viewModel.importError.collectAsStateWithLifecycle()
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
@@ -265,7 +267,7 @@ fun MainScreen(
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
                 effectiveHeadphoneAcoustics = effectiveHeadphoneAcoustics,
-                contextPresets = BuiltInContextPresets.all,
+                activeContext = activeContext,
                 currentLevelDb = currentLevelDb,
                 isDirty = isDirty,
                 onMasterToggled = { viewModel.setMasterEnabled(it) },
@@ -277,6 +279,7 @@ fun MainScreen(
                 onAcceptSuggestedCorrectionProfile = { viewModel.acceptSuggestedCorrectionProfile() },
                 onDismissSuggestedCorrectionProfile = { viewModel.dismissSuggestedCorrectionProfile() },
                 onHeadphoneAcousticsChanged = { viewModel.setHeadphoneAcousticsOverride(it) },
+                onContextModeChanged = { viewModel.setContextMode(it) },
                 onLoudnessCompensationChanged = { viewModel.setLoudnessCompensationEnabled(it) },
                 onSubsonicFilterChanged = { viewModel.setSubsonicFilterEnabled(it) },
                 onVirtualBassChanged = { viewModel.setVirtualBassEnabled(it) },
@@ -465,13 +468,14 @@ private fun NowPlayingBar(
                         text = nowPlaying.title,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
+                        color = PlayerTitleColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = nowPlaying.artist,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = PlayerArtistColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
