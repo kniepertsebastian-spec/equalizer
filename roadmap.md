@@ -2104,3 +2104,189 @@ danach wirklich ab.
   eine dreifache ReaComp-Verkettung mit passenden Sidechain-Filtern wäre
   möglich, aber deutlich mehr Risiko/Komplexität für eine ungetestete
   Funktion, bewusst nicht in diesem ersten Schritt versucht.
+
+### Session 28 (28. September 2026)
+
+**Vorfall: PR #36 war nach dem Merge unvollständig.** Beim Live-Test der
+Session-27-Funktion auf dem echten Windows-11-Rechner des Nutzers fehlte die
+neue Checkbox trotz korrekt aussehendem `git log`/`git status`. Nach
+mehreren falschen Fährten (Gradle-Cache, Git-Skip-Worktree-Flags) zeigte ein
+direkter Abgleich mit GitHub selbst (`get_file_contents`/`list_commits`/
+`list_pull_requests` auf den tatsächlichen Merge-Commit) die wahre Ursache:
+PR #36 hatte durch eine Race Condition beim Mergen nur den vorletzten Commit
+(`f288a22`) übernommen, nicht den zuletzt gepushten (`c7b91e1`) - **mein
+eigener Fehler**, weil ich "gemergt" vorher nur an einem grünen CI-Lauf
+festgemacht hatte, statt den tatsächlichen Dateiinhalt zu prüfen (CI beweist
+nur, dass das, was gemerged wurde, kompiliert - nicht, dass alles Beabsichtigte
+auch drin ist). Behoben mit PR #37 (genau der fehlende Commit), die ich
+diesmal selbst gemergt habe, um den Nutzer nicht noch länger im Kreis
+debuggen zu lassen. Der Nutzer konnte die Checkbox danach sehen und hat die
+ReaComp-Verifikation aus Session 27 erfolgreich durchgeführt (2 VST-Instanzen
+über Equalizer APOs eigenen Configuration Editor angelegt, per Analysepanel
+bestätigt); ein Screenshot zeigte dabei eine versehentlich doppelte
+`Include: HardBassEQ.txt`-Zeile und zwei deaktivierte Plugin-Zeilen, beides
+vor Ort behoben (die doppelte Einbindung hätte die komplette EQ-Kurve
+verdoppelt, da sich kaskadierte Filter-dB-Werte addieren).
+
+**Nutzer-Feedback zu "Uptempo – Aggressive":** Bass "schon was stark" -
+Wechsel auf "Uptempo – Moderate" hat gereicht. Erwartet: macroBassDb ist
+additiv (Uptempo-Basis +1,5 dB + Aggressive-Delta +2,5 dB = +4,0 dB
+gesamt), kein Bug.
+
+**Eigentliche Aufgabe dieser Sitzung:** "kann man die presets für aggressive
+und very aggressive jeweils so anpassen, dass man sie auch noch gut nutzen
+kann und nicht übersteuert?" Diagnose: `automaticPreampDb()` in
+`desktop/PresetCurve.kt` hat den Preamp bisher nur so weit abgesenkt, dass
+der höchste **einzelne** Bandgain (naive `max()` über die 15 diskreten
+Bänder) auf 0 dB fällt. Das übersieht, dass Equalizer APO echte kaskadierte
+Peaking-Biquad-Filter (Q=1,4) anwendet, deren dB-Antworten sich **addieren**:
+bei den dicht gepackten, stark angehobenen Bassbändern (31/45/63/90/125/
+175 Hz), wie sie Aggressive/Very-Aggressive-Intensitäten erzeugen, kann der
+tatsächliche kombinierte Peak spürbar über dem höchsten Einzelbandgain
+liegen - der Preamp hat dann zu wenig abgesenkt, und Windows hat (anders als
+Android mit seinem Limiter) keinen Sicherheitsnetz-Limiter dahinter. Genau
+das war die Ursache des "Übersteuerns".
+
+**Fix - neue Funktion `HeadroomCalculator.fromCascadedPeakingFilters()`
+(`:core`):** entwirft für jedes Band mit Gain ≠ 0 einen echten
+`BiquadFilterDesigner`-PEAK-Filter (RBJ-Cookbook, exakt dieselbe Formel wie
+die App selbst verwendet) und summiert an 120 logarithmisch verteilten
+Punkten (20 Hz - 20 kHz) die analytischen `magnitudeResponseDb()`-Werte aller
+Filter (kaskadierte Filter addieren sich in dB) - dieselbe Sample-Auflösung
+wie die bereits bestehende `fromCombinedCurve()`. Liefert den numerisch
+korrekten, tatsächlichen kombinierten Peak statt einer Schätzung.
+`automaticPreampDb()` in `desktop/PresetCurve.kt` nutzt das jetzt statt der
+naiven `max()`-Berechnung; Signatur unverändert, alle Aufrufer
+(`EqualizerApoExporter.generateConfig()`) unverändert.
+
+`EasyEffectsExporter.kt` (Linux) wurde geprüft und braucht diesen Fix nicht:
+dort läuft `HeadroomCalculator.fromCombinedCurve()` bereits auf der glatten
+Zielkurve statt auf diskretisierten Bändern, die Band-Q wird pro Band
+dynamisch so gewählt, dass benachbarte Bässe sich nicht stark stapeln
+(`bandQ()`, "Keep adjacent bass bells from stacking far above the requested
+curve"), und ein echter Limiter fängt dahinter zusätzlich ab (der Preamp
+zieht dort bewusst nur `-0.3 * peak` ab, nicht den vollen Peak) - Windows
+hatte beide dieser Absicherungen nicht.
+
+**Tests:**
+- `HeadroomCalculatorTest.kt` (neu, `:core`): Einzelband-Peak entspricht
+  exakt dem eigenen Gain an der Mittenfrequenz (Eigenschaft der RBJ-Formel,
+  unabhängig von Q); weit auseinanderliegende Bänder überlappen kaum;
+  eng benachbarte Bässe (90/125 Hz) kombinieren nachweisbar zu einem Peak
+  über dem Einzelbandgain; nur negative Gains oder fehlende Bänder in der
+  Gain-Map lösen keinen Headroom-Abzug aus.
+- `EqualizerApoExporterTest.kt`: bestehender Test auf naiven Max-Vergleich
+  umgestellt auf den echten kaskadierten Peak; neuer Test beweist, dass
+  Uptempo/Very-Aggressive tatsächlich einen kombinierten Peak über dem
+  höchsten Einzelbandgain erzeugt (der Bug, den dieser Fix behebt); neuer
+  Test bestätigt, dass der volle (Preamp + Peak) für Aggressive/Very
+  Aggressive exakt 0 dB ergibt (kein Clipping-Risiko mehr).
+
+**Verifikation:** `:core`-Tests inkl. der neuen Fälle über das
+Standalone-`core-verify`-Miniprojekt gelaufen (alle grün), ktlint auf alle
+geänderten Dateien sauber. `:desktop:test` läuft laut Session-24-Fund
+tatsächlich in echter CI und deckt die dortige Änderung ab; `:app` ist davon
+nicht betroffen.
+
+**Bewusst offen gelassen:**
+- Die tatsächliche Sample-Rate von Equalizer APO wird nicht ausgelesen -
+  `fromCascadedPeakingFilters()` nimmt einen festen Default von 48 kHz an.
+  Bei anderen Sample-Raten (44,1 kHz etc.) verschiebt sich die genaue
+  Biquad-Antwort geringfügig; für die hier relevante Bass-Region (< 200 Hz)
+  ist der Unterschied vernachlässigbar.
+- Keine Loudness-Angleichung über Intensitätsstufen hinweg - der Preamp
+  verhindert nur Clipping, gleicht aber nicht die gefühlte Lautstärke
+  zwischen z. B. Moderate und Very Aggressive an (war laut Nutzerdefinition
+  ohnehin nicht das Ziel: "Lautstärke ändert sich hingegen kaum" ergibt sich
+  bereits aus dem bestehenden additiven Makro-Modell plus diesem Preamp-Fix).
+
+### Session 29 (28. September 2026)
+
+Nutzerfrage: "was wäre der nächste schritt für einen guten EQ mit
+kopfhörern" - zwei Optionen angeboten: echtes Crossfeed (die `Crossfeed`-
+DSP-Klasse in `:core` liegt fertig getestet, aber unbenutzt herum) oder die
+ebenfalls schon vorhandene, aber unbenutzte `LoudnessCompensationCurve` für
+den Kopfhörer-Modus verdrahten. Nutzer wählte zunächst "definitiv
+Crossfeed".
+
+**Klarstellung vor der Umsetzung:** Wie in Session 23 bereits festgehalten,
+ist echtes Crossfeed über den tatsächlich laufenden Wiedergabepfad
+(`AndroidAudioEngine`: Androids System-Audioeffekte `Equalizer`/
+`DynamicsProcessing`, angehängt an fremde App-Sessions wie Spotify/YouTube
+Music) strukturell unmöglich - diese Systemeffekte können nur ihre eigenen
+Parameter setzen, keinen eigenen PCM-Algorithmus ausführen. Hörbar würde
+Crossfeed nur über einen selbst kontrollierten Media3/ExoPlayer-Pfad, was
+aktuell technisch nur beim eigenen SoundCloud-Player (`:player`-Modul,
+`AudioPlayerService`, nutzt bereits `ExoPlayer.Builder(this)` ohne eigene
+`RenderersFactory`/`AudioProcessor`) möglich wäre - nicht bei Spotify/
+YouTube Music. Per `AskUserQuestion` noch einmal explizit bestätigt statt
+stillschweigend umgesetzt, da das ein spürbarer Scope-Unterschied zum Rest
+des Kopfhörer-Feature-Sets ist (die anderen Kopfhörer-Verbesserungen wirken
+alle plattformweit, auch bei Spotify). **Nutzer-Entscheidung:** zu wenig
+Nutzen für den Aufwand - stattdessen `LoudnessCompensationCurve` verdrahten,
+die über den bereits funktionierenden Pfad läuft und damit auch bei Spotify
+wirkt.
+
+**Umsetzung** (gleiches Muster wie Session 23/24 - eine `:core`-Referenz-
+kurve wird real hörbar gemacht, indem sie über den echten `AndroidAudioEngine`-
+EQ-Pfad läuft, statt einen eigenen PCM-Pfad zu brauchen):
+- Neu: `audio/SystemVolumeRepository.kt` (`:app`) - liest
+  `AudioManager.STREAM_MUSIC`s aktuellen/maximalen Lautstärke-Index aus und
+  bildet das Verhältnis über `20*log10(fraction)` auf eine dB-artige Größe
+  ab (keine echte SPL-Kalibrierung, die diese App nicht hat - nur die
+  *relative* Distanz zur Referenzlautstärke, die `LoudnessCompensationCurve`
+  ohnehin braucht). Reagiert per registriertem `BroadcastReceiver` auf
+  `"android.media.VOLUME_CHANGED_ACTION"` (kein öffentliches SDK-Symbol,
+  aber ein geschützter Systembroadcast - inklusive Hardware-Lautstärketasten)
+  live auf Lautstärkeänderungen, gleiches `startMonitoring()`/
+  `stopMonitoring()`-Muster wie `AndroidAudioRouteRepository`.
+- `AudioSessionForegroundService` startet/stoppt das neue Repository jetzt
+  mit, damit es für die gesamte Prozesslaufzeit läuft statt nur solange die
+  UI offen ist (wie schon bei Route-Monitoring/Session-Listening).
+- `MainViewModel.combinedCurve()` faltet `LoudnessCompensationCurve.forLevel()`
+  jetzt zusätzlich ein, ausschließlich wenn `effectiveHeadphoneAcoustics`
+  true ist (genau wie schon `HeadphoneComfortCurve`) - ein neuer
+  `init`-Collector auf `volumeRepository.currentLevelDb` ruft
+  `recalculateBandGains()` bei jeder Lautstärkeänderung auf, aber nur
+  während Kopfhörer-Modus aktiv ist. `EqualizerScreen.kt`s eigene, separate
+  Headroom-Berechnung wurde spiegelbildlich um denselben Fold-in ergänzt
+  (neuer `currentLevelDb: Float`-Parameter, durchgereicht von
+  `MainScreen.kt`), aus demselben Grund wie in Session 23: sonst würde die
+  Headroom-Anzeige nicht mehr zur tatsächlich angewandten `inputGainDb`
+  passen.
+- `di/AudioModule.kt`: neue Hilt-Bindung `SystemVolumeRepository` ->
+  `AndroidSystemVolumeRepository`.
+
+**Tests:** `LoudnessCompensationCurve`s eigene Mathematik (Clamping,
+Bass/Höhen-Verhältnis, Referenzpegel) war schon vorher vollständig durch
+`LoudnessCompensationCurveTest` in `:core` abgedeckt (nur nie verdrahtet) -
+hier deshalb nur zwei neue `MainViewModelTest`-Fälle für die Verdrahtung
+selbst: mit dem Flat-Preset zeigt eine sinkende Lautstärke bei aktivem
+Kopfhörer-Modus einen wachsenden Bass-Boost (60-Hz-Band); bei
+ausgeschaltetem Kopfhörer-Modus bleibt der Boost unabhängig von der
+Lautstärke bei exakt 0. `AndroidSystemVolumeRepository` selbst bleibt wie
+`AndroidAudioRouteRepository` ungetestet - diese Sandbox hat kein
+Robolectric/Instrumentation-Setup für echte `AudioManager`/`Context`-
+Klassen, und dieses Repo hatte davor schon keinen Test für das strukturell
+identische Route-Repository.
+
+**Verifikation:** keine `:core`-Änderungen in dieser Sitzung, also kein
+`core-verify`-Lauf nötig. Alle geänderten `:app`-Dateien mit der
+eigenständigen ktlint-CLI geprüft (ein Import-Reihenfolge- und ein
+Kettenfortsetzungs-Fehler automatisch mit `ktlint --format` behoben, Diff
+danach manuell gegengelesen) - Android Gradle Plugin weiterhin nicht
+auflösbar, echte Kompilierprüfung über CI im PR.
+
+**Bewusst offen gelassen:**
+- Echtes Crossfeed bleibt eine fertige, getestete, aber unbenutzte
+  `:core`-Referenzimplementierung - technisch nur für den eigenen
+  SoundCloud-Player über einen echten Media3-`AudioProcessor` erreichbar,
+  bewusst zurückgestellt (Nutzerentscheidung, kein technisches Aufgeben,
+  wie schon in Session 23 für Crossfeed/BassMonoSummer/TransientShaper
+  festgehalten).
+- Kein Debouncing der Lautstärke-getriebenen Neuberechnung - jeder
+  Lautstärkeschritt (z. B. schnelles mehrfaches Drücken der Hardware-Taste)
+  löst sofort eine neue `recalculateBandGains()` aus. Bewusst nicht
+  gedrosselt, da das Muster (Slider-Drag, Routenwechsel) im Rest dieses
+  ViewModels genauso funktioniert und Android-Lautstärkestufen ohnehin grob
+  gerastert sind (typischerweise 15-25 Stufen).

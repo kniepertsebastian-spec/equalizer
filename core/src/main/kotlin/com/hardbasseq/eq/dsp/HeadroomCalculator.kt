@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.dsp
 
+import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.preset.TargetPoint
 import kotlin.math.exp
 import kotlin.math.ln
@@ -39,6 +40,60 @@ object HeadroomCalculator {
         }
 
         val maxPositiveGainDb = maxGainDb.coerceAtLeast(0f)
+        return HeadroomInfo(
+            maxPositiveGainDb = maxPositiveGainDb,
+            recommendedInputGainDb = -maxPositiveGainDb,
+            isClippingRisk = maxPositiveGainDb > 0f,
+        )
+    }
+
+    // Chat feature ("Presets für Aggressive/Very Aggressive nicht übersteuern
+    // lassen"): a plain parametric EQ (Equalizer APO, no downstream limiter)
+    // cascades real peaking biquads, and cascaded filters' dB responses ADD -
+    // several closely-spaced, heavily-boosted bass bands (e.g. 31/45/63/90/
+    // 125/175 Hz at Q=1.4) can combine to a true peak well above any single
+    // band's own gain. fromCombinedCurve()/automaticPreampDb()'s naive
+    // max-of-discrete-bands undercounts exactly that case, under-compensating
+    // the Preamp. This designs the actual per-band PEAK biquads and sums their
+    // analytic magnitude responses (dB) across the same log-spaced sweep,
+    // so the resulting recommendedInputGainDb reflects the real filter cascade.
+    fun fromCascadedPeakingFilters(
+        bandGainsDb: Map<Int, Float>,
+        bands: List<EqualizerBandCapabilities>,
+        q: Float,
+        sampleRateHz: Float = 48000f,
+    ): HeadroomInfo {
+        val filterCoefficients =
+            bands.mapNotNull { band ->
+                val gainDb = bandGainsDb[band.index] ?: 0f
+                if (gainDb == 0f) {
+                    null
+                } else {
+                    BiquadFilterDesigner.design(
+                        ParametricFilter(ParametricFilterType.PEAK, band.centerFreqHz.toFloat(), gainDb, q),
+                        sampleRateHz,
+                    )
+                }
+            }
+        if (filterCoefficients.isEmpty()) {
+            return HeadroomInfo(maxPositiveGainDb = 0f, recommendedInputGainDb = 0f, isClippingRisk = false)
+        }
+
+        val logMin = ln(MIN_FREQ_HZ)
+        val logMax = ln(MAX_FREQ_HZ)
+        val logStep = (logMax - logMin) / (SAMPLE_COUNT - 1)
+
+        var maxCombinedDb = Float.NEGATIVE_INFINITY
+        for (i in 0 until SAMPLE_COUNT) {
+            val freqHz = exp(logMin + logStep * i)
+            var combinedDb = 0f
+            for (coefficients in filterCoefficients) {
+                combinedDb += BiquadFilterDesigner.magnitudeResponseDb(coefficients, freqHz, sampleRateHz)
+            }
+            if (combinedDb > maxCombinedDb) maxCombinedDb = combinedDb
+        }
+
+        val maxPositiveGainDb = maxCombinedDb.coerceAtLeast(0f)
         return HeadroomInfo(
             maxPositiveGainDb = maxPositiveGainDb,
             recommendedInputGainDb = -maxPositiveGainDb,

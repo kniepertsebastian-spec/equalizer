@@ -83,6 +83,7 @@ import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
+import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.preset.GenrePreset
@@ -109,7 +110,7 @@ fun EqualizerScreen(
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
     contextPresets: List<Preset>,
-    volumeFraction: Float,
+    currentLevelDb: Float,
     isDirty: Boolean,
     onMasterToggled: (Boolean) -> Unit,
     onOpenSourcePicker: () -> Unit,
@@ -143,20 +144,28 @@ fun EqualizerScreen(
     // M3/M4: headroom from the combined correction+voicing curve, not just the
     // highest of the discrete post-mapping band gains - see HeadroomCalculator.
     // Mirrors MainViewModel.recalculateBandGains()'s own combination (including
-    // the HeadphoneComfortCurve fold-in while effectiveHeadphoneAcoustics is on)
-    // so the banner here always agrees with the inputGainDb the engine actually
-    // applied.
+    // the HeadphoneComfortCurve and LoudnessCompensationCurve fold-ins while
+    // effectiveHeadphoneAcoustics is on) so the banner here always agrees with
+    // the inputGainDb the engine actually applied.
     val headphoneCurve = if (effectiveHeadphoneAcoustics) HeadphoneComfortCurve.curve else emptyList()
-    // Subsonic high-pass + loudness compensation, same as MainViewModel.contextCurve().
+    val loudnessCurve =
+        if (effectiveHeadphoneAcoustics) LoudnessCompensationCurve.forLevel(currentLevelDb = currentLevelDb) else emptyList()
+    // Subsonic high-pass + preset loudness compensation, same as MainViewModel.contextCurve().
     val contextCurve =
         CurveComposer.combine(
             listOf(
                 SubsonicFilterCurve.forCutoff(settings.subsonicCutoffHz),
-                VolumeLevelMapper.compensationCurve(volumeFraction, settings.loudnessMaxBoostDb),
+                if (effectiveHeadphoneAcoustics) {
+                    emptyList()
+                } else {
+                    VolumeLevelMapper.compensationCurve(currentLevelDb, settings.loudnessMaxBoostDb)
+                },
             ),
         )
     val combinedCurve =
-        CurveComposer.combine(listOf(activeCorrectionProfile.curve, activePreset.targetCurve, headphoneCurve, contextCurve))
+        CurveComposer.combine(
+            listOf(activeCorrectionProfile.curve, activePreset.targetCurve, headphoneCurve, loudnessCurve, contextCurve),
+        )
     val headroom =
         HeadroomCalculator.fromCombinedCurve(
             combinedCurve = combinedCurve,

@@ -11,7 +11,7 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
-import com.hardbasseq.eq.audio.VolumeRepository
+import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.audio.defaultHeadphoneAcoustics
 import com.hardbasseq.eq.audio.soundContext
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
@@ -28,6 +28,7 @@ import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
 import com.hardbasseq.eq.dsp.HeadroomCalculator
+import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.integration.PlayerBridge
@@ -110,13 +111,13 @@ class MainViewModel
         private val repository: AudioEffectRepository,
         private val audioEngine: AudioEngine,
         private val routeRepository: AudioRouteRepository,
+        private val volumeRepository: SystemVolumeRepository,
         private val diagnosticsRecorder: DiagnosticsRecorder,
         private val playerBridge: PlayerBridge,
         private val presetRepository: PresetRepository,
         private val appSettingsRepository: AppSettingsRepository,
         private val correctionProfileRepository: CorrectionProfileRepository,
         private val deviceProfileRepository: DeviceProfileRepository,
-        private val volumeRepository: VolumeRepository,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -127,10 +128,6 @@ class MainViewModel
 
         val nowPlaying: StateFlow<NowPlaying?> = NowPlayingState.current
 
-        // The system media volume (0..1) the loudness compensation follows; exposed so
-        // the screen's headroom banner can include the same compensation curve.
-        val volumeFraction: StateFlow<Float> = volumeRepository.volumeFraction
-
         private val _effectDescriptors = MutableStateFlow<List<AudioEffectDescriptor>>(emptyList())
         val effectDescriptors: StateFlow<List<AudioEffectDescriptor>> = _effectDescriptors.asStateFlow()
 
@@ -138,6 +135,12 @@ class MainViewModel
         val capabilities = audioEngine.capabilities
         val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
         val diagnosticsEvents = diagnosticsRecorder.events
+
+        // Chat feature: "quality changes for headphones" - loudness compensation.
+        // Exposed so EqualizerScreen's own headroom preview can mirror exactly the
+        // same value combinedCurve() below just read, the same discipline already
+        // used for effectiveHeadphoneAcoustics/HeadphoneComfortCurve.
+        val currentLevelDb: StateFlow<Float> = volumeRepository.currentLevelDb
 
         // Chat feature (item 1 of "setz alle Punkte um", not a roadmap-2026.md
         // milestone): null until applyDeviceProfileForRoute() loads whatever the
@@ -307,13 +310,14 @@ class MainViewModel
                     recalculateBandGains()
                 }
             }
-            // Volume-dependent loudness compensation: the curve follows the system
-            // media volume, so a volume change has to re-run the band mapping - but
-            // only while the active sound actually uses it, otherwise every volume
-            // key press would needlessly re-apply unchanged settings to the engine.
+            // Loudness compensation follows the system volume, which can change at any
+            // time (hardware keys, another app): re-run the band mapping, but only while
+            // something actually uses it - headphone mode's loudness curve or the active
+            // sound's own loudnessMaxBoostDb - so volume key presses do not needlessly
+            // re-apply unchanged settings to the engine.
             viewModelScope.launch {
-                volumeRepository.volumeFraction.collect {
-                    if (hasRestoredState && _processingSettings.value.loudnessMaxBoostDb > 0f) {
+                volumeRepository.currentLevelDb.collect {
+                    if (hasRestoredState && (effectiveHeadphoneAcoustics.value || _processingSettings.value.loudnessMaxBoostDb > 0f)) {
                         recalculateBandGains()
                     }
                 }
@@ -867,23 +871,48 @@ class MainViewModel
         // "Kopfhörer-Modus" switch (item 1) actually audible through the real,
         // already-working AndroidAudioEngine Equalizer path, since true
         // Crossfeed/Bass-Mono-Summing can't run there (Android's system
-        // Equalizer/DynamicsProcessing effects have no such algorithm).
+        // Equalizer/DynamicsProcessing effects have no such algorithm). Real
+        // Crossfeed was considered again later and rejected for the same reason -
+        // it would only ever be audible through the app's own SoundCloud player,
+        // not Spotify/YouTube Music, too narrow a win for the effort. Loudness
+        // compensation (also gated on headphone mode - quieter headphone listening
+        // is the case it's meant for) rides the same already-working path instead.
         private fun combinedCurve(): List<TargetPoint> {
             val headphoneCurve = if (effectiveHeadphoneAcoustics.value) HeadphoneComfortCurve.curve else emptyList()
+            val loudnessCurve =
+                if (effectiveHeadphoneAcoustics.value) {
+                    LoudnessCompensationCurve.forLevel(currentLevelDb = volumeRepository.currentLevelDb.value)
+                } else {
+                    emptyList()
+                }
             return CurveComposer.combine(
-                listOf(_activeCorrectionProfile.value.curve, _activePreset.value.targetCurve, headphoneCurve, contextCurve()),
+                listOf(
+                    _activeCorrectionProfile.value.curve,
+                    _activePreset.value.targetCurve,
+                    headphoneCurve,
+                    loudnessCurve,
+                    contextCurve(),
+                ),
             )
         }
 
-        // Subsonic high-pass + volume-dependent loudness compensation, from the
-        // live processing settings (so the on/off switches below take effect) and
-        // the current system volume. Empty while both are off.
+        // Subsonic high-pass + the active sound's own volume-dependent loudness
+        // compensation, from the live processing settings (so the on/off switches
+        // below take effect). Headphone mode already has its own loudness curve
+        // (loudnessCurve in combinedCurve), so the preset's one is skipped there
+        // rather than stacking two boosts. Empty while both are off.
         private fun contextCurve(): List<TargetPoint> {
             val settings = _processingSettings.value
+            val presetLoudness =
+                if (effectiveHeadphoneAcoustics.value) {
+                    emptyList()
+                } else {
+                    VolumeLevelMapper.compensationCurve(volumeRepository.currentLevelDb.value, settings.loudnessMaxBoostDb)
+                }
             return CurveComposer.combine(
                 listOf(
                     SubsonicFilterCurve.forCutoff(settings.subsonicCutoffHz),
-                    VolumeLevelMapper.compensationCurve(volumeRepository.volumeFraction.value, settings.loudnessMaxBoostDb),
+                    presetLoudness,
                 ),
             )
         }

@@ -15,7 +15,7 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEngine
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSessionRepository
-import com.hardbasseq.eq.audio.VolumeRepository
+import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -38,7 +38,7 @@ class AudioSessionForegroundService : LifecycleService() {
     lateinit var routeRepository: AudioRouteRepository
 
     @Inject
-    lateinit var volumeRepository: VolumeRepository
+    lateinit var volumeRepository: SystemVolumeRepository
 
     @Inject
     lateinit var audioEngine: AudioEngine

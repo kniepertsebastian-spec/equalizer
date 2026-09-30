@@ -1,6 +1,14 @@
 package com.hardbasseq.eq.desktop.exporter
 
+import com.hardbasseq.eq.desktop.DESKTOP_FILTER_Q
+import com.hardbasseq.eq.desktop.VirtualBands
+import com.hardbasseq.eq.desktop.automaticPreampDb
+import com.hardbasseq.eq.desktop.resolveBandGains
+import com.hardbasseq.eq.dsp.HeadroomCalculator
+import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.BuiltInPresets
+import com.hardbasseq.eq.preset.PresetIntensity
+import com.hardbasseq.eq.preset.PresetIntensityResolver
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -30,7 +38,7 @@ class EqualizerApoExporterTest {
     }
 
     @Test
-    fun `preamp fully cancels the peak positive band gain`() {
+    fun `preamp fully cancels the true cascaded-filter peak, not just the highest single band`() {
         val config = EqualizerApoExporter.generateConfig(BuiltInPresets.CleanPunch)
 
         val preampDb =
@@ -41,14 +49,49 @@ class EqualizerApoExporterTest {
                 .substringBefore("dB")
                 .trim()
                 .toFloat()
-        val maxGainDb =
-            config
-                .lines()
-                .filter { it.startsWith("Filter") }
-                .map { line -> line.substringAfter("Gain ").substringBefore(" dB").toFloat() }
-                .max()
 
-        assertEquals(-maxGainDb, preampDb, 0.01f)
+        val bandGains = resolveBandGains(BuiltInPresets.CleanPunch)
+        val expectedPreampDb =
+            HeadroomCalculator.fromCascadedPeakingFilters(bandGains, VirtualBands.bands, DESKTOP_FILTER_Q).recommendedInputGainDb
+
+        assertEquals(expectedPreampDb, preampDb, 0.01f)
+    }
+
+    // Chat feature ("Presets für Aggressive/Very Aggressive nicht übersteuern
+    // lassen"): proves the bug this fixes - several closely-spaced, heavily
+    // boosted bass bands combine (cascaded filters add in dB) to a REAL peak
+    // above any single band's own gain, which the old naive max-of-bands
+    // preamp calculation missed.
+    @Test
+    fun `very aggressive intensity's true combined peak exceeds its highest single band gain`() {
+        val preset = PresetIntensityResolver.resolve(BuiltInGenrePresets.Uptempo, PresetIntensity.VERY_AGGRESSIVE)
+        val bandGains = resolveBandGains(preset)
+
+        val naiveMaxDb = bandGains.values.max()
+        val trueCombinedPeakDb =
+            HeadroomCalculator.fromCascadedPeakingFilters(bandGains, VirtualBands.bands, DESKTOP_FILTER_Q).maxPositiveGainDb
+
+        assertTrue(
+            "expected the cascaded peak ($trueCombinedPeakDb dB) to exceed the naive per-band max ($naiveMaxDb dB)",
+            trueCombinedPeakDb > naiveMaxDb,
+        )
+    }
+
+    @Test
+    fun `automaticPreampDb, applied as a flat broadband gain, brings the true combined peak down to exactly zero`() {
+        listOf(PresetIntensity.AGGRESSIVE, PresetIntensity.VERY_AGGRESSIVE).forEach { intensity ->
+            val preset = PresetIntensityResolver.resolve(BuiltInGenrePresets.Uptempo, intensity)
+            val bandGains = resolveBandGains(preset)
+            val preampDb = automaticPreampDb(bandGains)
+            val trueCombinedPeakDb =
+                HeadroomCalculator.fromCascadedPeakingFilters(bandGains, VirtualBands.bands, DESKTOP_FILTER_Q).maxPositiveGainDb
+
+            // Preamp is a single flat gain applied ahead of every band filter, so it
+            // shifts the whole combined response (and thus its peak) by the same
+            // amount at every frequency - unlike a per-band gain change, which would
+            // reshape each filter's own response.
+            assertEquals(0f, trueCombinedPeakDb + preampDb, 0.01f)
+        }
     }
 
     @Test

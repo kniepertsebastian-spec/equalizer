@@ -1,6 +1,7 @@
 package com.hardbasseq.eq.desktop
 
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
+import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.preset.Preset
 
 /** Q factor used for every generated parametric band. Wide enough that 15
@@ -30,9 +31,14 @@ fun resolveBandGains(
  * Desktop exporters have no compressor/limiter downstream by default (unlike
  * the Android engine's MBC+Limiter chain), so instead of the partial,
  * limiter-assisted pre-cancellation used there, this fully cancels the peak
- * positive band gain - the conservative choice for a plain parametric EQ.
+ * positive gain of the actual cascaded parametric filters - not just the
+ * highest single band's own gain. Equalizer APO stacks real peaking biquads,
+ * and cascaded filters' dB responses ADD, so closely-spaced boosted bands
+ * (e.g. the dense bass region on Aggressive/Very Aggressive intensities) can
+ * combine to a true peak above any individual band's gain; using only the
+ * naive per-band max would under-compensate the Preamp and risk clipping.
  */
-fun automaticPreampDb(bandGainsDb: Map<Int, Float>): Float {
-    val peakBoostDb = bandGainsDb.values.maxOrNull()?.coerceAtLeast(0f) ?: 0f
-    return if (peakBoostDb == 0f) 0f else -peakBoostDb
-}
+fun automaticPreampDb(bandGainsDb: Map<Int, Float>): Float =
+    HeadroomCalculator
+        .fromCascadedPeakingFilters(bandGainsDb, VirtualBands.bands, DESKTOP_FILTER_Q)
+        .recommendedInputGainDb

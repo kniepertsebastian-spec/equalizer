@@ -1,31 +1,24 @@
 package com.hardbasseq.eq.dsp
 
 import com.hardbasseq.eq.preset.TargetPoint
-import kotlin.math.log10
 
-// Bridges a system media-volume position (0..1, e.g. AudioManager index/max) to
-// LoudnessCompensationCurve's relative-dB scale. The volume steps are treated as
-// linear amplitude, i.e. 20*log10(fraction): half volume is about -6 dB, a tenth
-// about -20 dB. Real devices map steps to gain differently, but the curve only
-// needs a monotonic "how far below the reference listening level" measure (see
-// LoudnessCompensationCurve), not absolute SPL.
+// Turns the system media volume level (relative dB on the 20*log10(volume
+// fraction) scale SystemVolumeRepository reports: half volume is about -6 dB, a
+// tenth about -20 dB) into a loudness-compensation curve for a context preset.
+// Unlike headphone mode's own compensation (reference = full volume), context
+// sounds are tuned to sound balanced at about half volume, so nothing is added
+// at or above that point and the boost only grows below it.
 object VolumeLevelMapper {
-    // Below this the log mapping would run off to -infinity.
-    private const val MIN_FRACTION = 0.01f
-
-    // At or above this volume (about -6 dB, half scale) no compensation is added:
-    // that is where the tuned curves are assumed to sound balanced.
-    const val REFERENCE_FRACTION = 0.5f
-
-    fun fractionToRelativeDb(fraction: Float): Float = 20f * log10(fraction.coerceIn(MIN_FRACTION, 1f))
+    // -6.02 dB = half scale.
+    const val REFERENCE_LEVEL_DB = -6.02f
 
     fun compensationCurve(
-        volumeFraction: Float,
+        currentLevelDb: Float,
         maxBoostDb: Float,
     ): List<TargetPoint> =
         LoudnessCompensationCurve.forLevel(
-            currentLevelDb = fractionToRelativeDb(volumeFraction),
-            referenceLevelDb = fractionToRelativeDb(REFERENCE_FRACTION),
+            currentLevelDb = currentLevelDb,
+            referenceLevelDb = REFERENCE_LEVEL_DB,
             maxBoostDb = maxBoostDb,
         )
 }
