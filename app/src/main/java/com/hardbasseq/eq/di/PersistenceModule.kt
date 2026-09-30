@@ -2,6 +2,8 @@ package com.hardbasseq.eq.di
 
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
 import com.hardbasseq.eq.correction.RoomCorrectionProfileRepository
+import com.hardbasseq.eq.playlist.DataStorePlaylistRepository
+import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.RoomPresetRepository
 import com.hardbasseq.eq.profile.DeviceProfileRepository
@@ -32,4 +34,8 @@ abstract class PersistenceModule {
     @Binds
     @Singleton
     abstract fun bindDeviceProfileRepository(impl: RoomDeviceProfileRepository): DeviceProfileRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPlaylistRepository(impl: DataStorePlaylistRepository): PlaylistRepository
 }

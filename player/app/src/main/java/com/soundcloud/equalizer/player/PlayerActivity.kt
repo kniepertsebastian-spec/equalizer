@@ -17,6 +17,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
 import com.soundcloud.equalizer.player.databinding.ActivityPlayerBinding
 import com.soundcloud.equalizer.player.model.TrackItem
+import com.soundcloud.equalizer.player.playback.PlaybackQueueState
 import com.soundcloud.equalizer.player.service.AudioPlayerService
 import com.soundcloud.equalizer.player.soundcloud.SoundCloudClient
 import com.soundcloud.equalizer.player.ui.TrackAdapter
@@ -150,32 +151,20 @@ class PlayerActivity : AppCompatActivity() {
         }
     }
 
+    // Tapping a result plays it as part of the whole result list, so next/previous
+    // and auto-advance in the full player step through the search results. The
+    // service resolves a fresh stream URL by track id, so a result whose stream URL
+    // was not resolved at search time still plays.
     private fun onTrackSelected(track: TrackItem) {
-        if (!track.streamUrl.isNullOrEmpty()) {
-            audioService?.playTrack(track.streamUrl, track.title, track.artist)
-            binding.cardNowPlaying.visibility = View.VISIBLE
-            binding.tvNowPlayingTitle.text = track.title
-            binding.tvNowPlayingArtist.text = track.artist
-            binding.btnPlayPause.text = "Pause"
-        } else {
-            lifecycleScope.launch {
-                try {
-                    val refreshed = soundCloudClient.searchTracks(track.title, limit = 1)
-                    val target = refreshed.firstOrNull()
-                    if (target?.streamUrl != null) {
-                        audioService?.playTrack(target.streamUrl, target.title, target.artist)
-                        binding.cardNowPlaying.visibility = View.VISIBLE
-                        binding.tvNowPlayingTitle.text = target.title
-                        binding.tvNowPlayingArtist.text = target.artist
-                        binding.btnPlayPause.text = "Pause"
-                    } else {
-                        Toast.makeText(this@PlayerActivity, "Unable to stream this track", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: Exception) {
-                    Toast.makeText(this@PlayerActivity, "Playback error: ${e.message}", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+        val list = trackAdapter.currentList()
+        val index = list.indexOfFirst { it.id == track.id }
+        if (index < 0) return
+        PlaybackQueueState.setQueue(list)
+        audioService?.playIndex(index)
+        binding.cardNowPlaying.visibility = View.VISIBLE
+        binding.tvNowPlayingTitle.text = track.title
+        binding.tvNowPlayingArtist.text = track.artist
+        binding.btnPlayPause.text = "Pause"
     }
 
     override fun onDestroy() {

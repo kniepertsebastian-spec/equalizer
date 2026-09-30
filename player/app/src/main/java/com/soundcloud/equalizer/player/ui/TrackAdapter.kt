@@ -21,6 +21,8 @@ class TrackAdapter(
         notifyDataSetChanged()
     }
 
+    fun currentList(): List<TrackItem> = items.toList()
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_track_playlist, parent, false)
         return ViewHolder(view)

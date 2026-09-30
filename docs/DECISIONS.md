@@ -197,3 +197,64 @@ Entscheidungen und Grenzen:
 - Wie bei den übrigen DSP-Bausteinen gilt: Filter und Kurven sind gegen
   synthetische Signale offline getestet, **nicht** am Gerät gehört. Siehe
   `docs/TEST_MATRIX.md`, Abschnitt „Kontext-Modi“.
+
+## Großer Player und SoundCloud-Playlists (30. September 2026)
+
+Die Mini-Leiste unten öffnet jetzt einen vollwertigen Player (Route `player`):
+Cover, Fortschrittsbalken mit Spulen, Vor/Zurück, Warteschlange, gespeicherte
+Playlists und ein Feld zum Einfügen von Links. Die Leiste selbst zeigt einen
+Fortschrittsstreifen; zusätzlich gibt es den Button „Player & Playlists“.
+
+**Was direkt abgespielt wird – und was bewusst nicht:**
+
+| Quelle | Verhalten |
+|---|---|
+| SoundCloud-Titel-/Playlist-Link (auch `on.soundcloud.com`, Mobil-Links, mit Tracking-Parametern) | wird aufgelöst, Titel spielt sofort, Playlist wird gespeichert |
+| Teilen aus der SoundCloud-App an diese App | `ACTION_SEND text/plain` auf `MainActivity`, öffnet den Player und importiert |
+| Spotify-/YouTube-(Music-)Links | werden erkannt und mit Erklärung abgelehnt |
+| Spotify/YouTube Music direkt über den eigenen Player | **nicht umgesetzt und nicht geplant**: die Streams sind DRM-geschützt, die Nutzungsbedingungen verbieten das Herauslösen des Audios; Stream-Extraktoren für YouTube verstoßen gegen deren Bedingungen und Play-Store-Richtlinien |
+
+**Technik:**
+
+- `ShareLink`/`SavedPlaylist`/`QueueNavigation`/`PlayerFormat` liegen in `:core`
+  (plattformfrei, dort getestet). Link-Auflösung (`SoundCloudClient.resolveLink`),
+  Queue und Fortschritt im `AudioPlayerService`; die App spricht ihn über
+  `PlayerController` an (Intents + geteilte Zustands-Singletons, wie bei
+  `NowPlayingState`).
+- Gespeicherte Tracks enthalten **keine Stream-URL**: SoundCloud-URLs laufen ab,
+  deshalb löst der Service beim Abspielen per Track-ID eine frische auf. Ein
+  nicht abspielbarer Titel wird übersprungen.
+- Playlists liegen in einem eigenen DataStore (JSON), nicht in Room – kein
+  Schema-Bump, keine Migration. Identität einer Playlist ist ihr Link; erneutes
+  Importieren aktualisiert sie.
+- `MainActivity` ist jetzt `singleTask`, damit ein geteilter Link die laufende
+  Instanz (und deren ViewModels) erreicht statt eine zweite zu starten.
+- Virtual Bass, Limiter-Einstellungen usw. greifen bei allem, was hier läuft,
+  weil der eigene Audiopfad genutzt wird.
+
+**Bekannte Grenzen:** Der SoundCloud-Client holt seine `client_id` per
+Webseiten-Scraping (inoffiziell, kann jederzeit brechen). Cover werden ohne
+Bildbibliothek geladen (ein Bild, kein Cache). Keine Sperrbildschirm-/
+Benachrichtigungssteuerung (Media3-Session) und kein Zufall/Wiederholen.
+Spotify-/YouTube-Playlists per Titelabgleich auf SoundCloud zu importieren ist
+ein möglicher Folgeschritt (Spotify-Web-API-Zugang vorher klären).
+
+### SoundCloud Go im eigenen Player (30. September 2026)
+
+Der Player nutzt das gespeicherte Konto-Token des Nutzers (Login im Player-Screen,
+WebView oder manuelles Token) für jede Anfrage. Mit einem aktiven Go-Abo liefert
+SoundCloud die vollen Streams; Werbung blendet nur der offizielle Client ein, der
+Player spielt die Audiodatei des Titels direkt.
+
+- `StreamSelection`: volle Länge vor 30-Sekunden-Vorschau (`snipped`), bei
+  Gleichstand Progressive vor HLS. Wird nur eine Vorschau angeboten, erscheint
+  „Nur 30-Sekunden-Vorschau“ im Player und ein Hinweis (mit dem Zusatz, sich
+  anzumelden, falls kein Token da ist).
+- `media3-exoplayer-hls` ergänzt: einige volle Streams gibt es nur als HLS.
+- **Nicht verifiziert:** dass ein Go-Token in dieser inoffiziellen Nutzung
+  tatsächlich volle Längen freischaltet (Netzwerk/Konto, nicht testbar ohne
+  Gerät), und ob SoundCloud den Zugriff über die Webseiten-`client_id` anders
+  behandelt. Ein inoffizieller Client kann jederzeit brechen; die Nutzungs-
+  bedingungen von SoundCloud sind dafür nicht eindeutig. Hohe Qualität (Go+
+  AAC 256 über HLS) wird bewusst noch nicht bevorzugt, bis HLS am Gerät
+  nachweislich läuft.

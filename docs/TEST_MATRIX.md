@@ -398,3 +398,34 @@ Wiederherstellung und Lautstärkefolge. **Nicht** automatisiert prüfbar:
 | K8 | Virtual Bass bei Spotify | Schalter hat dort keine Wirkung (erwartet, steht in der UI) |
 | K9 | CPU/Akku bei 30 Minuten Wiedergabe mit Virtual Bass | unauffällig gegenüber ausgeschaltet |
 | K10 | Android Auto (kabelgebunden/drahtlos) | dokumentieren, ob eine Session erkannt wird und ein Effekt greift |
+
+## Großer Player und Playlist-Import: Was jetzt am Gerät getestet werden muss (30. September 2026)
+
+Automatisiert (CI): Link-Erkennung/-Bereinigung, Playlist-JSON, Queue-Logik,
+Zeit-/Cover-Formatierung, ViewModel-Logik für den Import. **Nicht** automatisiert
+prüfbar (Netzwerk, Audio, Systemdialoge):
+
+| # | Prüfung | Erwartung |
+|---|---|---|
+| P1 | Mini-Leiste antippen | großer Player öffnet; Fortschrittsstreifen in der Leiste läuft mit |
+| P2 | Balken ziehen und loslassen | spult erst beim Loslassen, Zeit-Labels folgen |
+| P3 | Vor/Zurück; Zurück nach >3 s | Vor/Zurück wechselt den Titel; Zurück nach >3 s startet den Titel neu |
+| P4 | Titel läuft zu Ende | nächster Titel startet automatisch; am Ende der Queue bleibt Pause |
+| P5 | SoundCloud-Playlist-Link einfügen (öffentlich, >50 Titel) | „Gespeichert: … (n Titel)“, n stimmt, Reihenfolge stimmt |
+| P6 | Playlist abspielen | erster Titel spielt, Cover/Titel stimmen, Queue zeigt alle Titel |
+| P7 | Einzeltitel-Link; `on.soundcloud.com`-Kurzlink; Link mit `?si=…` | spielt sofort |
+| P8 | In der SoundCloud-App „Teilen“ → HardBass EQ | App öffnet den Player und importiert; bei laufender App keine zweite Instanz |
+| P9 | Spotify-/YouTube-Link einfügen | verständliche Ablehnung, nichts wird abgespielt |
+| P10 | Private oder leere Playlist; Profil-Link | verständliche Fehlermeldung |
+| P11 | Flugmodus während Playlist läuft | Titel wird übersprungen/Fehler, App stürzt nicht ab |
+| P12 | Lange Wiedergabe (30 min) mit Fortschrittsanzeige | Akku/CPU unauffällig |
+| P13 | SoundCloud-Suche (Button „Suchen“), Ergebnis antippen | spielt und liegt in der Queue; Vor/Zurück wandert durch die Ergebnisse |
+
+| # | Prüfung (SoundCloud Go) | Erwartung |
+|---|---|---|
+| G1 | Im Player-Screen „Anmelden“, Konto mit Go-Abo | danach „Angemeldet“ (auch nach App-Neustart) |
+| G2 | Go-only-Titel abspielen, angemeldet | volle Länge, kein „Nur 30-Sekunden-Vorschau“ |
+| G3 | Derselbe Titel, abgemeldet | „Nur 30-Sekunden-Vorschau“ + Hinweis zum Anmelden |
+| G4 | 10 Titel hintereinander | keine Audio-Werbung zwischen den Titeln |
+| G5 | Titel, bei dem nur HLS angeboten wird | spielt (HLS-Modul), Equalizer/Virtual Bass greifen |
+| G6 | „Abmelden“ | Token weg, Go-Titel wieder nur Vorschau |

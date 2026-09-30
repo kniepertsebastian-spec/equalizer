@@ -10,22 +10,36 @@ import android.content.Intent
 import android.media.audiofx.AudioEffect
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import com.hardbasseq.eq.playlist.QueueNavigation
 import com.soundcloud.equalizer.player.PlayerActivity
+import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
 import com.soundcloud.equalizer.player.playback.BassExciterAudioProcessor
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
+import com.soundcloud.equalizer.player.playback.PlaybackQueueState
+import com.soundcloud.equalizer.player.soundcloud.SoundCloudClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class AudioPlayerService : Service() {
 
@@ -37,10 +51,19 @@ class AudioPlayerService : Service() {
         const val ACTION_PAUSE = "com.soundcloud.equalizer.player.PAUSE"
         const val ACTION_STOP = "com.soundcloud.equalizer.player.STOP"
         const val ACTION_TOGGLE_PLAYBACK = "com.soundcloud.equalizer.player.TOGGLE_PLAYBACK"
+        // Queue control: PlaybackQueueState.queue holds the list, these move within it.
+        const val ACTION_PLAY_INDEX = "com.soundcloud.equalizer.player.PLAY_INDEX"
+        const val ACTION_NEXT = "com.soundcloud.equalizer.player.NEXT"
+        const val ACTION_PREVIOUS = "com.soundcloud.equalizer.player.PREVIOUS"
+        const val ACTION_SEEK_TO = "com.soundcloud.equalizer.player.SEEK_TO"
         const val EXTRA_STREAM_URL = "extra_stream_url"
         const val EXTRA_TRACK_TITLE = "extra_track_title"
         const val EXTRA_ARTIST_NAME = "extra_artist_name"
+        const val EXTRA_QUEUE_INDEX = "extra_queue_index"
+        const val EXTRA_POSITION_MS = "extra_position_ms"
 
+        // How often playback position is published for the progress bar.
+        private const val PROGRESS_INTERVAL_MS = 500L
     }
 
     private val binder = LocalBinder()
@@ -49,6 +72,24 @@ class AudioPlayerService : Service() {
     private var isAudioSessionActive = false
     private var currentTitle: String = ""
     private var currentArtist: String = ""
+    private var currentArtworkUrl: String? = null
+
+    // -1 = not playing from PlaybackQueueState.queue (a single track started with playTrack).
+    private var queueIndex = -1
+    private var isLoadingTrack = false
+    private var isPreviewStream = false
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val soundCloudClient = SoundCloudClient()
+    private var loadJob: Job? = null
+
+    private val progressTicker = object : Runnable {
+        override fun run() {
+            publishNowPlaying()
+            mainHandler.postDelayed(this, PROGRESS_INTERVAL_MS)
+        }
+    }
 
     inner class LocalBinder : Binder() {
         fun getService(): AudioPlayerService = this@AudioPlayerService
@@ -91,6 +132,12 @@ class AudioPlayerService : Service() {
                         if (playbackState == Player.STATE_READY && isPlaying) {
                             openAudioSession()
                         }
+                        // A finished track moves on through the queue; with no queue
+                        // (or at its end) the bar just shows the paused, finished state.
+                        if (playbackState == Player.STATE_ENDED) {
+                            playNext()
+                        }
+                        publishNowPlaying()
                     }
 
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -102,9 +149,13 @@ class AudioPlayerService : Service() {
                         // own play/pause controls - audio focus loss, headphones
                         // unplugged, playback reaching the end - so the mini-player
                         // bar HardBass EQ's main screen shows never goes stale.
-                        if (currentTitle.isNotEmpty()) {
-                            NowPlayingState.update(NowPlaying(currentTitle, currentArtist, isPlaying))
-                        }
+                        publishNowPlaying()
+                    }
+
+                    // A stream that fails mid-queue (expired URL, network loss) should not
+                    // strand the whole queue: skip to the next track.
+                    override fun onPlayerError(error: PlaybackException) {
+                        onTrackUnplayable()
                     }
                 })
             }
@@ -143,19 +194,125 @@ class AudioPlayerService : Service() {
         }
     }
 
+    // A single track outside any queue (kept for ACTION_PLAY and older callers).
     fun playTrack(streamUrl: String, title: String, artist: String) {
-        val player = exoPlayer ?: return
-        val mediaItem = MediaItem.fromUri(streamUrl)
-        player.setMediaItem(mediaItem)
-        player.prepare()
-        player.play()
-
+        loadJob?.cancel()
+        queueIndex = -1
         currentTitle = title
         currentArtist = artist
-        NowPlayingState.update(NowPlaying(title, artist, isPlaying = true))
-
+        currentArtworkUrl = null
+        isPreviewStream = false
+        startStream(streamUrl)
         startForeground(NOTIFICATION_ID, buildNotification(title, artist, true))
+    }
+
+    /**
+     * Plays PlaybackQueueState.queue[index]. The stream URL is resolved fresh here,
+     * by track id, rather than taken from the list: SoundCloud stream URLs are
+     * short-lived, and tracks from a saved playlist never had one.
+     */
+    fun playIndex(index: Int) {
+        val queue = PlaybackQueueState.queue.value
+        if (!QueueNavigation.isValid(index, queue.size)) return
+        val track = queue[index]
+
+        queueIndex = index
+        currentTitle = track.title
+        currentArtist = track.artist
+        currentArtworkUrl = track.artworkUrl
+        isLoadingTrack = true
+        isPreviewStream = false
+        exoPlayer?.pause()
+        startProgressTicker()
+        publishNowPlaying()
+        startForeground(NOTIFICATION_ID, buildNotification(track.title, track.artist, true))
+
+        loadJob?.cancel()
+        loadJob = serviceScope.launch {
+            val token = SoundCloudLoginActivity.getSavedToken(this@AudioPlayerService)
+            soundCloudClient.setUserAuthToken(token)
+            val resolved = runCatching { soundCloudClient.getTrack(track.id) }.getOrNull()
+            val url = resolved?.streamUrl ?: track.streamUrl
+            isPreviewStream = resolved?.isPreview == true
+            if (isPreviewStream) {
+                val hint = if (token == null) {
+                    "Nur Vorschau - melde dich im Player mit deinem SoundCloud-Go-Konto an"
+                } else {
+                    "Nur Vorschau - SoundCloud liefert für diesen Titel mit deinem Konto keine volle Länge"
+                }
+                Toast.makeText(this@AudioPlayerService, hint, Toast.LENGTH_LONG).show()
+            }
+            if (url.isNullOrEmpty()) {
+                onTrackUnplayable()
+            } else {
+                startStream(url)
+            }
+        }
+    }
+
+    fun playNext() {
+        // queueIndex -1 = a single track outside any queue: nothing follows it.
+        if (queueIndex < 0) return
+        val next = QueueNavigation.next(queueIndex, PlaybackQueueState.queue.value.size)
+        if (next != null) playIndex(next)
+    }
+
+    fun playPrevious() {
+        val previous = if (queueIndex < 0) null else QueueNavigation.previous(queueIndex, exoPlayer?.currentPosition ?: 0L)
+        if (previous != null) playIndex(previous) else seekTo(0L)
+    }
+
+    fun seekTo(positionMs: Long) {
+        exoPlayer?.seekTo(positionMs.coerceAtLeast(0L))
+        publishNowPlaying()
+    }
+
+    private fun startStream(streamUrl: String) {
+        val player = exoPlayer ?: return
+        isLoadingTrack = false
+        player.setMediaItem(MediaItem.fromUri(streamUrl))
+        player.prepare()
+        player.play()
+        startProgressTicker()
+        publishNowPlaying()
         openAudioSession()
+    }
+
+    // The current track cannot be played (no stream, stream error): say so and
+    // carry on with the queue instead of hanging on it.
+    private fun onTrackUnplayable() {
+        isLoadingTrack = false
+        if (currentTitle.isNotEmpty()) {
+            Toast.makeText(this, "Nicht abspielbar: $currentTitle", Toast.LENGTH_SHORT).show()
+        }
+        val next = if (queueIndex < 0) null else QueueNavigation.next(queueIndex, PlaybackQueueState.queue.value.size)
+        if (next != null) playIndex(next) else publishNowPlaying()
+    }
+
+    private fun startProgressTicker() {
+        mainHandler.removeCallbacks(progressTicker)
+        mainHandler.postDelayed(progressTicker, PROGRESS_INTERVAL_MS)
+    }
+
+    private fun publishNowPlaying() {
+        if (currentTitle.isEmpty()) return
+        val player = exoPlayer
+        val playing = isLoadingTrack || player != null &&
+            (player.isPlaying || (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING))
+        val duration = player?.duration?.takeIf { it != C.TIME_UNSET && it > 0 && !isLoadingTrack } ?: 0L
+        NowPlayingState.update(
+            NowPlaying(
+                title = currentTitle,
+                artist = currentArtist,
+                isPlaying = playing,
+                artworkUrl = currentArtworkUrl,
+                durationMs = duration,
+                positionMs = if (isLoadingTrack) 0L else (player?.currentPosition ?: 0L).coerceAtLeast(0L),
+                queueIndex = queueIndex,
+                isLoading = isLoadingTrack,
+                isPreview = isPreviewStream,
+            )
+        )
     }
 
     fun pauseTrack() {
@@ -168,10 +325,16 @@ class AudioPlayerService : Service() {
     }
 
     fun stopPlayer() {
+        loadJob?.cancel()
+        mainHandler.removeCallbacks(progressTicker)
         exoPlayer?.stop()
         closeAudioSession()
         currentTitle = ""
         currentArtist = ""
+        currentArtworkUrl = null
+        queueIndex = -1
+        isLoadingTrack = false
+        isPreviewStream = false
         NowPlayingState.update(null)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -203,6 +366,10 @@ class AudioPlayerService : Service() {
                     playTrack(url, title, artist)
                 }
             }
+            ACTION_PLAY_INDEX -> playIndex(intent.getIntExtra(EXTRA_QUEUE_INDEX, -1))
+            ACTION_NEXT -> playNext()
+            ACTION_PREVIOUS -> playPrevious()
+            ACTION_SEEK_TO -> seekTo(intent.getLongExtra(EXTRA_POSITION_MS, 0L))
             ACTION_PAUSE -> pauseTrack()
             ACTION_STOP -> stopPlayer()
             ACTION_TOGGLE_PLAYBACK -> togglePlayback()
@@ -213,6 +380,8 @@ class AudioPlayerService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(progressTicker)
+        serviceScope.cancel()
         closeAudioSession()
         NowPlayingState.update(null)
         exoPlayer?.release()
