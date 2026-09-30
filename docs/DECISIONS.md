@@ -304,3 +304,26 @@ Playlists und gelikte Playlists. Antippen lädt die Titel und spielt sie als Que
   eigener Offline-Cache aus den Streams würde die Go-Bedingungen verletzen. Der
   eigene Player braucht Netz. Denkbar (nicht umgesetzt): Download von Titeln, bei
   denen der Künstler den Download ausdrücklich freigegeben hat.
+
+### YouTube-/Spotify-Link → Titel auf SoundCloud (30. September 2026)
+
+Ein einzelner YouTube-, YouTube-Music- oder Spotify-Titel-Link wird erkannt; der
+Titel selbst wird **nicht** von dort abgespielt. Stattdessen:
+
+1. Titel und Kanal über die öffentliche oEmbed-Vorschau des Anbieters lesen
+   (dieselben Daten wie eine Link-Vorschau im Messenger). Spotify liefert keinen
+   Künstler, YouTube den Kanalnamen.
+2. `TrackQueryBuilder` bereinigt den Titel („(Official Video)“, „[HD]“ …;
+   Remix-/Edit-Hinweise bleiben) und trennt Künstler/Titel.
+3. SoundCloud-Suche (ohne Stream-Auflösung); ohne Treffer zweiter Versuch nur mit
+   dem Titel. `TrackMatcher` bewertet jeden Treffer nach Wortüberdeckung
+   (Titel 65 %, Künstler 35 %, Abzug für fremde Zusatzwörter; der Künstler darf
+   auch im Uploader-Namen stecken).
+4. Bester Treffer ≥ 0,8 **mit bekanntem Künstler** startet von selbst; sonst
+   (immer bei Spotify) zeigt die Karte „Auf SoundCloud gefunden“ die besten
+   Treffer mit Trefferquote zur Auswahl.
+
+Ausdrücklich nicht unterstützt: Playlists, Alben, Kanäle, DJ-Sets/Mixe (keine
+einzelne Nummer), Spotify-Kurzlinks. Nicht einbettbare oder private Videos liefern
+keine Angaben → verständliche Meldung. Die Trefferqualität hängt davon ab, ob der
+Titel auf SoundCloud liegt; bei Mainstream oft nicht.

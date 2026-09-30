@@ -7,6 +7,8 @@ import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
+import com.hardbasseq.eq.link.TrackMatcher
+import com.hardbasseq.eq.link.TrackQueryBuilder
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
 import com.hardbasseq.eq.playlist.SavedTrack
@@ -29,6 +31,21 @@ data class ImportUiState(
     val isLoading: Boolean = false,
     val message: String? = null,
     val isError: Boolean = false,
+)
+
+// One SoundCloud search result for a song shared from YouTube / Spotify, with how well
+// it fits (0..1, see TrackMatcher).
+data class BridgeMatch(
+    val track: TrackItem,
+    val score: Double,
+)
+
+// What was found on SoundCloud for a shared YouTube / Spotify song. `startedAutomatically`
+// is true when the best match was sure enough to start playing by itself.
+data class BridgeUiState(
+    val label: String,
+    val matches: List<BridgeMatch>,
+    val startedAutomatically: Boolean,
 )
 
 // The signed-in user's SoundCloud library as shown in the player screen.
@@ -60,6 +77,9 @@ class PlayerViewModel
 
         private val _libraryState = MutableStateFlow(LibraryUiState())
         val libraryState: StateFlow<LibraryUiState> = _libraryState.asStateFlow()
+
+        private val _bridgeState = MutableStateFlow<BridgeUiState?>(null)
+        val bridgeState: StateFlow<BridgeUiState?> = _bridgeState.asStateFlow()
 
         private val _importState = MutableStateFlow(ImportUiState())
         val importState: StateFlow<ImportUiState> = _importState.asStateFlow()
@@ -144,6 +164,7 @@ class PlayerViewModel
             fromShare: Boolean = false,
         ) {
             if (fromShare) _showPlayerRequest.value = true
+            _bridgeState.value = null
 
             val url = ShareLink.extractUrl(text)
             if (url == null) {
@@ -152,8 +173,16 @@ class PlayerViewModel
             }
             when (ShareLink.classify(url)) {
                 LinkSource.SOUNDCLOUD -> Unit
-                LinkSource.SPOTIFY -> return fail("Spotify-Titel lassen sich hier nicht abspielen (Kopierschutz). $SEARCH_HINT")
-                LinkSource.YOUTUBE -> return fail("YouTube-Links lassen sich hier nicht abspielen. $SEARCH_HINT")
+                LinkSource.SPOTIFY -> {
+                    val trackId = ShareLink.spotifyTrackId(url)
+                    return bridgeExternalSong(trackId?.let { ShareLink.canonicalSpotifyTrackUrl(it) }, isYouTube = false)
+                }
+
+                LinkSource.YOUTUBE -> {
+                    val videoId = ShareLink.youtubeVideoId(url)
+                    return bridgeExternalSong(videoId?.let { ShareLink.canonicalYouTubeUrl(it) }, isYouTube = true)
+                }
+
                 LinkSource.OTHER -> return fail("Nur SoundCloud-Links werden unterstützt")
             }
 
@@ -183,6 +212,77 @@ class PlayerViewModel
                     is LinkImportResult.Failed -> _importState.value = ImportUiState(message = result.message, isError = true)
                 }
             }
+        }
+
+        // A song shared from YouTube / Spotify cannot be played from there (protected
+        // streams), but what it is can be read from the link's public preview data and
+        // looked up on SoundCloud. Only single songs: playlists, albums, channels and
+        // long mixes have no single song to look for. `canonicalUrl` is null for those.
+        private fun bridgeExternalSong(
+            canonicalUrl: String?,
+            isYouTube: Boolean,
+        ) {
+            if (canonicalUrl == null) {
+                val service = if (isYouTube) "YouTube" else "Spotify"
+                fail("Nur einzelne $service-Titel werden unterstützt - keine Playlists, Alben, Kanäle oder Kurzlinks")
+                return
+            }
+            viewModelScope.launch {
+                _importState.value = ImportUiState(isLoading = true, message = "Lese den Titel …")
+                val info =
+                    when (val result = controller.describeExternalLink(canonicalUrl)) {
+                        is LoadResult.Ok -> result.value
+                        is LoadResult.Error -> return@launch fail(result.message)
+                    }
+                val query =
+                    if (isYouTube) TrackQueryBuilder.fromYouTube(info.title, info.author) else TrackQueryBuilder.fromTitleOnly(info.title)
+                _importState.value = ImportUiState(isLoading = true, message = "Suche „${query.label}“ auf SoundCloud …")
+
+                var candidates = searchSoundCloud(query.searchText) ?: return@launch
+                // Artist plus title can be too strict (the uploader names it differently):
+                // fall back to the title alone, the ranking still uses the artist.
+                if (candidates.isEmpty() && query.artist != null) candidates = searchSoundCloud(query.title) ?: return@launch
+
+                val matches =
+                    TrackMatcher
+                        .rank(query, candidates.distinctBy { it.id }, { it.title }, { it.artist })
+                        .filter { it.second >= MIN_SHOWN_SCORE }
+                        .take(MAX_SHOWN_MATCHES)
+                        .map { BridgeMatch(track = it.first, score = it.second) }
+                if (matches.isEmpty()) {
+                    fail("Nichts Passendes auf SoundCloud gefunden für „${query.label}“")
+                    return@launch
+                }
+
+                val sure = TrackMatcher.isConfident(query, matches.first().score)
+                if (sure) controller.playQueue(listOf(matches.first().track), 0)
+                _bridgeState.value = BridgeUiState(label = query.label, matches = matches, startedAutomatically = sure)
+                val message =
+                    if (sure) {
+                        "Gefunden und gestartet: ${matches.first().track.title}"
+                    } else {
+                        "Kein sicherer Treffer - wähle einen aus der Liste"
+                    }
+                _importState.value = ImportUiState(message = message)
+            }
+        }
+
+        // null when the search failed (the error is already shown).
+        private suspend fun searchSoundCloud(text: String): List<TrackItem>? =
+            when (val result = controller.searchSoundCloud(text, CANDIDATE_LIMIT)) {
+                is LoadResult.Ok -> result.value
+                is LoadResult.Error -> {
+                    fail(result.message)
+                    null
+                }
+            }
+
+        fun playBridgeMatch(match: BridgeMatch) {
+            controller.playQueue(listOf(match.track), 0)
+        }
+
+        fun dismissBridge() {
+            _bridgeState.value = null
         }
 
         fun playPlaylist(playlist: SavedPlaylist) {
@@ -216,4 +316,8 @@ class PlayerViewModel
             TrackItem(id = id, title = title, artist = artist, artworkUrl = artworkUrl, streamUrl = null, durationMs = durationMs)
     }
 
-private const val SEARCH_HINT = "Such die Titel stattdessen über „Suchen“ auf SoundCloud."
+private const val CANDIDATE_LIMIT = 10
+private const val MAX_SHOWN_MATCHES = 5
+
+// Results scoring below this are noise, not candidates worth showing.
+private const val MIN_SHOWN_SCORE = 0.3

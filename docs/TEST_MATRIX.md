@@ -446,3 +446,13 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | L4 | Private eigene Playlist | lädt (Token) und spielt |
 | L5 | Abmelden | Bibliothek verschwindet; Go-Titel wieder nur Vorschau |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
+
+| # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |
+|---|---|---|
+| B1 | YouTube-Link eines Hardcore-Tracks teilen, der auf SoundCloud liegt | Treffer erscheint, bei „Artist - Titel“ startet er von selbst |
+| B2 | Dasselbe mit YouTube Music (`music.youtube.com`) | wie B1 |
+| B3 | Spotify-Titel-Link | Trefferliste ohne Auto-Start (kein Künstler bekannt) |
+| B4 | Titel, der nicht auf SoundCloud liegt (Mainstream) | „Nichts Passendes …“ oder nur niedrige Trefferquoten |
+| B5 | Link mit Zusätzen („(Official Video)“, „ft.“, Remix) | richtiger Titel bzw. Remix wird gefunden |
+| B6 | Playlist-/Album-/Kanal-Link | verständliche Ablehnung, kein Netzwerkzugriff |
+| B7 | Privates/gesperrtes Video | Meldung „keine Angaben“ |

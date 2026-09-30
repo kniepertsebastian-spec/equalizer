@@ -5,6 +5,7 @@ import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
+import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -240,6 +241,140 @@ class PlayerViewModelTest {
             assertEquals(listOf("signout", "signin"), controller.commands)
         }
 
+    private fun candidate(
+        id: Long,
+        title: String,
+        uploader: String,
+    ) = TrackItem(id = id, title = title, artist = uploader, artworkUrl = null, streamUrl = null, durationMs = 200_000L)
+
+    @Test
+    fun `a youtube song is looked up on soundcloud and a sure match starts playing`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Katy Perry - Roar (Official Video)", "KatyPerryVEVO"))
+            val cover = candidate(1, "Roar cover by someone", "Cover Guy")
+            val original = candidate(2, "Katy Perry - Roar", "KatyPerryVEVO")
+            controller.searchResults["Katy Perry Roar"] = LoadResult.Ok(listOf(cover, original))
+            val vm = viewModel()
+
+            vm.importFromText("https://youtu.be/dQw4w9WgXcQ?si=abc")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), controller.describedUrls)
+            val bridge = vm.bridgeState.value
+            assertEquals("Katy Perry - Roar", bridge?.label)
+            assertEquals(2L, vm.bridgeTrackIds().first())
+            assertTrue(bridge?.startedAutomatically == true)
+            val (tracks, _) = controller.playedQueues.single()
+            assertEquals(listOf(2L), tracks.map { it.id })
+            assertFalse(vm.importState.value.isError)
+            assertTrue(vm.importMessage().startsWith("Gefunden und gestartet"))
+        }
+
+    @Test
+    fun `a spotify song has no artist so the matches are shown and nothing starts by itself`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Roar", null))
+            val withArtist = candidate(1, "Katy Perry - Roar", "Katy")
+            val titleOnly = candidate(2, "Roar", "Other")
+            controller.searchResults["Roar"] = LoadResult.Ok(listOf(withArtist, titleOnly))
+            val vm = viewModel()
+
+            vm.importFromText("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT?si=x")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"), controller.describedUrls)
+            assertTrue(controller.playedQueues.isEmpty())
+            assertEquals(2, vm.bridgeTrackIds().size)
+            assertEquals(false, vm.bridgeState.value?.startedAutomatically)
+            assertTrue(vm.importMessage().startsWith("Kein sicherer Treffer"))
+        }
+
+    @Test
+    fun `when artist plus title finds nothing the title alone is tried`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Angerfist - Criminally Insane", null))
+            controller.searchResults["Criminally Insane"] = LoadResult.Ok(listOf(candidate(5, "Criminally Insane", "Angerfist")))
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("Angerfist Criminally Insane", "Criminally Insane"), controller.searchedQueries)
+            assertEquals(5L, vm.bridgeTrackIds().first())
+        }
+
+    @Test
+    fun `nothing relevant on soundcloud says so and plays nothing`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Katy Perry - Roar", null))
+            controller.searchResults["Katy Perry Roar"] = LoadResult.Ok(listOf(candidate(9, "Completely unrelated", "Nobody")))
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertTrue(vm.importMessage().startsWith("Nichts Passendes"))
+            assertNull(vm.bridgeState.value)
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `a link the provider gives no details for shows its message`() =
+        runTest {
+            controller.describeResult = LoadResult.Error("Zu diesem Link gibt es keine Angaben")
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertEquals("Zu diesem Link gibt es keine Angaben", vm.importState.value.message)
+            assertTrue(controller.searchedQueries.isEmpty())
+        }
+
+    @Test
+    fun `playlists albums and channels are refused without any lookup`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/playlist?list=PL123")
+            assertTrue(vm.importState.value.isError)
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            assertTrue(vm.importState.value.isError)
+            vm.importFromText("https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT")
+            assertTrue(vm.importState.value.isError)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(controller.describedUrls.isEmpty())
+        }
+
+    @Test
+    fun `picking another match plays it and closing hides the list`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Roar", null))
+            controller.searchResults["Roar"] = LoadResult.Ok(listOf(candidate(1, "Roar", "A"), candidate(2, "Roar (Remix)", "B")))
+            val vm = viewModel()
+            vm.importFromText("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val bridge = vm.bridgeState.value
+            val second = bridge?.matches?.first { it.track.id == 2L }
+            vm.playBridgeMatch(second ?: return@runTest)
+            val (played, _) = controller.playedQueues.single()
+            assertEquals(listOf(2L), played.map { it.id })
+
+            vm.dismissBridge()
+            assertNull(vm.bridgeState.value)
+        }
+
+    private fun PlayerViewModel.importMessage(): String = importState.value.message.orEmpty()
+
+    private fun PlayerViewModel.bridgeTrackIds(): List<Long> {
+        val matches = bridgeState.value?.matches.orEmpty()
+        return matches.map { it.track.id }
+    }
+
     private fun playlistItem(
         id: Long,
         title: String = "Playlist $id",
@@ -410,11 +545,28 @@ class PlayerViewModelTest {
         }
 
         var signedIn = false
+        var describeResult: LoadResult<ExternalTrackInfo> = LoadResult.Error("not configured")
+        val describedUrls = mutableListOf<String>()
+        val searchResults = mutableMapOf<String, LoadResult<List<TrackItem>>>()
+        val searchedQueries = mutableListOf<String>()
         var libraryResult: LoadResult<LibraryOverview> = LoadResult.Ok(LibraryOverview(emptyList(), emptyList()))
         var likesResult: LoadResult<List<TrackItem>> = LoadResult.Ok(emptyList())
         var playlistTracksResult: LoadResult<List<TrackItem>> = LoadResult.Ok(emptyList())
         val loadedPlaylistIds = mutableListOf<Long>()
         var libraryLoads = 0
+
+        override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> {
+            describedUrls.add(url)
+            return describeResult
+        }
+
+        override suspend fun searchSoundCloud(
+            query: String,
+            limit: Int,
+        ): LoadResult<List<TrackItem>> {
+            searchedQueries.add(query)
+            return searchResults[query] ?: LoadResult.Ok(emptyList())
+        }
 
         override suspend fun loadLibrary(): LoadResult<LibraryOverview> {
             libraryLoads++

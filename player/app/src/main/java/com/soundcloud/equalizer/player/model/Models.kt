@@ -20,6 +20,13 @@ data class PlaylistItem(
     val tracks: List<TrackItem> = emptyList()
 )
 
+// What a YouTube / Spotify link says about its song, from the service's public
+// oEmbed preview data. `author` is the channel name for YouTube; Spotify gives none.
+data class ExternalTrackInfo(
+    val title: String,
+    val author: String?,
+)
+
 // The signed-in user's playlists: ones they created and ones they liked. `tracks` of
 // each PlaylistItem is empty here - the tracks are loaded when one is opened.
 data class LibraryOverview(

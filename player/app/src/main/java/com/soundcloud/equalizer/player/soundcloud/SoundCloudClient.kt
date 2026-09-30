@@ -145,7 +145,7 @@ class SoundCloudClient(
 
     private fun executeRequest(url: String): Response = okHttpClient.newCall(buildRequest(url)).execute()
 
-    suspend fun searchTracks(query: String, limit: Int = 20): List<TrackItem> = withContext(Dispatchers.IO) {
+    suspend fun searchTracks(query: String, limit: Int = 20, resolveStreams: Boolean = true): List<TrackItem> = withContext(Dispatchers.IO) {
         val (jsonStr, clientId) = executeWithClientId { clientId ->
             "https://api-v2.soundcloud.com/search/tracks?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit"
         }
@@ -163,7 +163,7 @@ class SoundCloudClient(
         // track failing no longer takes the rest down with it.
         return@withContext coroutineScope {
             (0 until collection.length())
-                .map { i -> async { runCatching { parseTrack(collection.getJSONObject(i), clientId) }.getOrNull() } }
+                .map { i -> async { runCatching { parseTrack(collection.getJSONObject(i), clientId, resolveStreams) }.getOrNull() } }
                 .awaitAll()
                 .filterNotNull()
         }
