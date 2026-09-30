@@ -3,6 +3,7 @@ package com.hardbasseq.eq.integration
 import android.content.Context
 import android.content.Intent
 import com.soundcloud.equalizer.player.PlayerActivity
+import com.soundcloud.equalizer.player.playback.VirtualBassState
 import com.soundcloud.equalizer.player.service.AudioPlayerService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -40,5 +41,9 @@ class AndroidPlayerBridge
                     action = AudioPlayerService.ACTION_TOGGLE_PLAYBACK
                 }
             context.startService(toggleIntent)
+        }
+
+        override fun setVirtualBassMix(mix: Float) {
+            VirtualBassState.mix = mix.coerceIn(0f, 1f)
         }
     }

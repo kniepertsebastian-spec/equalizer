@@ -51,6 +51,7 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.integration.PlayerSource
+import com.hardbasseq.eq.preset.BuiltInContextPresets
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
@@ -83,6 +84,7 @@ fun MainScreen(
     val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
     val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
     val effectiveHeadphoneAcoustics by viewModel.effectiveHeadphoneAcoustics.collectAsStateWithLifecycle()
+    val volumeFraction by viewModel.volumeFraction.collectAsStateWithLifecycle()
     val pendingImportPreview by viewModel.pendingImportPreview.collectAsStateWithLifecycle()
     val importError by viewModel.importError.collectAsStateWithLifecycle()
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
@@ -260,6 +262,8 @@ fun MainScreen(
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
                 effectiveHeadphoneAcoustics = effectiveHeadphoneAcoustics,
+                contextPresets = BuiltInContextPresets.all,
+                volumeFraction = volumeFraction,
                 isDirty = isDirty,
                 onMasterToggled = { viewModel.setMasterEnabled(it) },
                 onOpenSourcePicker = { viewModel.openSourcePicker() },
@@ -270,6 +274,9 @@ fun MainScreen(
                 onAcceptSuggestedCorrectionProfile = { viewModel.acceptSuggestedCorrectionProfile() },
                 onDismissSuggestedCorrectionProfile = { viewModel.dismissSuggestedCorrectionProfile() },
                 onHeadphoneAcousticsChanged = { viewModel.setHeadphoneAcousticsOverride(it) },
+                onLoudnessCompensationChanged = { viewModel.setLoudnessCompensationEnabled(it) },
+                onSubsonicFilterChanged = { viewModel.setSubsonicFilterEnabled(it) },
+                onVirtualBassChanged = { viewModel.setVirtualBassEnabled(it) },
                 onImportCorrectionProfileRequested = {
                     // "*/*" rather than a specific text MIME type: AutoEQ files are
                     // typically .txt/.csv, but different file managers/providers

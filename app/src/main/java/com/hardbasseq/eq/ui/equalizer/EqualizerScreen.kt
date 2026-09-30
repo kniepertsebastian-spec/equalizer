@@ -70,6 +70,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
@@ -82,6 +83,8 @@ import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
+import com.hardbasseq.eq.dsp.SubsonicFilterCurve
+import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.preset.GenrePreset
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
@@ -105,6 +108,8 @@ fun EqualizerScreen(
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
+    contextPresets: List<Preset>,
+    volumeFraction: Float,
     isDirty: Boolean,
     onMasterToggled: (Boolean) -> Unit,
     onOpenSourcePicker: () -> Unit,
@@ -117,6 +122,9 @@ fun EqualizerScreen(
     onAcceptSuggestedCorrectionProfile: () -> Unit,
     onDismissSuggestedCorrectionProfile: () -> Unit,
     onHeadphoneAcousticsChanged: (Boolean) -> Unit,
+    onLoudnessCompensationChanged: (Boolean) -> Unit,
+    onSubsonicFilterChanged: (Boolean) -> Unit,
+    onVirtualBassChanged: (Boolean) -> Unit,
     onResetToActivePreset: () -> Unit,
     onSaveAsNewRequest: () -> Unit,
     onDuplicatePreset: (Preset) -> Unit,
@@ -139,7 +147,16 @@ fun EqualizerScreen(
     // so the banner here always agrees with the inputGainDb the engine actually
     // applied.
     val headphoneCurve = if (effectiveHeadphoneAcoustics) HeadphoneComfortCurve.curve else emptyList()
-    val combinedCurve = CurveComposer.combine(listOf(activeCorrectionProfile.curve, activePreset.targetCurve, headphoneCurve))
+    // Subsonic high-pass + loudness compensation, same as MainViewModel.contextCurve().
+    val contextCurve =
+        CurveComposer.combine(
+            listOf(
+                SubsonicFilterCurve.forCutoff(settings.subsonicCutoffHz),
+                VolumeLevelMapper.compensationCurve(volumeFraction, settings.loudnessMaxBoostDb),
+            ),
+        )
+    val combinedCurve =
+        CurveComposer.combine(listOf(activeCorrectionProfile.curve, activePreset.targetCurve, headphoneCurve, contextCurve))
     val headroom =
         HeadroomCalculator.fromCombinedCurve(
             combinedCurve = combinedCurve,
@@ -501,6 +518,83 @@ fun EqualizerScreen(
                     }
                 }
 
+                // Listening-context card (car / Bluetooth speaker): context presets plus
+                // individual switches for the three features they use. The presets are
+                // picked automatically for a detected car/speaker route that has no
+                // saved profile yet (MainViewModel.applyContextDefaultForUnboundRoute);
+                // picking one here saves it for the current route like any preset.
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(style.cardCorner),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    border = BorderStroke(1.dp, style.border),
+                ) {
+                    Column(modifier = Modifier.padding(spacing.medium)) {
+                        Text(
+                            text = "Auto & Bluetooth-Box",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text =
+                                when (route.type) {
+                                    AudioDeviceType.CAR -> "Auto erkannt: ${route.name}"
+                                    AudioDeviceType.BLUETOOTH_SPEAKER -> "Bluetooth-Box erkannt: ${route.name}"
+                                    else -> "Für Auto oder Bluetooth-Box optimierte Sounds"
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(modifier = Modifier.height(spacing.small))
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(spacing.extraSmall),
+                        ) {
+                            contextPresets.forEach { preset ->
+                                val isSelected = preset.id == activePreset.id
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color =
+                                        if (isSelected) style.accent.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant,
+                                    border = BorderStroke(1.dp, if (isSelected) style.accent else style.border),
+                                ) {
+                                    TextButton(onClick = { onPresetSelected(preset) }) {
+                                        Text(
+                                            text = preset.name,
+                                            color = if (isSelected) style.accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(spacing.small))
+                        ContextFeatureSwitch(
+                            title = "Lautstärke-Loudness",
+                            subtitle = "Hebt Bass und Höhen an, wenn du leise hörst",
+                            checked = settings.loudnessMaxBoostDb > 0f,
+                            onCheckedChange = onLoudnessCompensationChanged,
+                        )
+                        ContextFeatureSwitch(
+                            title = "Subsonic-Filter",
+                            subtitle =
+                                if (settings.subsonicCutoffHz > 0f) {
+                                    "Schneidet Tiefbass unter ca. ${settings.subsonicCutoffHz.toInt()} Hz ab - mehr Headroom"
+                                } else {
+                                    "Schneidet Tiefbass ab, den kleine Lautsprecher nicht wiedergeben"
+                                },
+                            checked = settings.subsonicCutoffHz > 0f,
+                            onCheckedChange = onSubsonicFilterChanged,
+                        )
+                        ContextFeatureSwitch(
+                            title = "Virtual Bass",
+                            subtitle = "Erzeugt Bass-Obertöne für kleine Lautsprecher - nur im eingebauten Player, nicht in Spotify & Co.",
+                            checked = settings.virtualBassMix > 0f,
+                            onCheckedChange = onVirtualBassChanged,
+                        )
+                    }
+                }
+
                 // Klangstil (Voicing) Selector Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -807,6 +901,31 @@ private fun GenreIntensitySelector(
                 }
             }
         }
+    }
+}
+
+// One labelled on/off row inside the context card.
+@Composable
+private fun ContextFeatureSwitch(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+            Text(text = title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

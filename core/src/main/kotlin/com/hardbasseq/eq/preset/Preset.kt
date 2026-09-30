@@ -41,4 +41,12 @@ data class Preset(
     val mbcRatio: Float = 2.5f,
     val limiter: LimiterConfig = LimiterConfig(),
     val metadata: PresetMetadata = PresetMetadata(),
+    // Context-mode features (car / Bluetooth speaker). All default to "off", so
+    // every preset and every JSON saved before these existed decodes unchanged.
+    // Max boost (dB) of the volume-dependent loudness compensation, 0 = off.
+    val loudnessMaxBoostDb: Float = 0f,
+    // Subsonic high-pass corner in Hz, 0 = off (see SubsonicFilterCurve).
+    val subsonicCutoffHz: Float = 0f,
+    // 0..1 amount of synthesized bass harmonics, 0 = off (see BassExciter).
+    val virtualBassMix: Float = 0f,
 )

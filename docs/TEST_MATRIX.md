@@ -379,3 +379,22 @@ bestätigt stattdessen mit einem eigenständig heruntergeladenen
 Endgültige Bestätigung mit dem echten Gradle-Plugin (inkl. Zusammenspiel mit
 AGP/Hilt/KSP) steht noch aus und folgt über den nächsten CI-Lauf. detekt bleibt
 zurückgestellt, siehe `docs/adr/0003-ktlint-detekt-deferred.md`.
+
+## Kontext-Modi: Was jetzt am Gerät getestet werden muss (30. September 2026)
+
+Automatisiert (CI): Preset-Werte, Namensklassifikation, Subsonic-/Loudness-
+Kurven, PCM16-Exciter gegen synthetische Töne, ViewModel-Logik für Umschaltung,
+Wiederherstellung und Lautstärkefolge. **Nicht** automatisiert prüfbar:
+
+| # | Prüfung | Erwartung |
+|---|---|---|
+| K1 | Telefon mit dem Auto per Bluetooth verbinden, Gerät hat noch kein Profil | Preset „Auto“ wird aktiv, „Route: <Fahrzeugname>“ zeigt „Auto erkannt“ |
+| K2 | Dasselbe mit einer Bluetooth-Box (Name mit „Speaker“/„Flip“/„Boom“ …) | Preset „Bluetooth-Box“ wird aktiv |
+| K3 | Gerät hat einen Namen ohne Stichwort (z. B. Kürzel im Auto) | Kein Automatikwechsel; manuelle Wahl von „Auto“ merkt sich die Route |
+| K4 | Verbindung trennen (Route ohne Profil) | vorheriges Preset kommt zurück |
+| K5 | Medienlautstärke im Auto von laut nach leise | Bass/Höhen werden hörbar voller, beim Hochregeln wieder neutral; kein Knacken |
+| K6 | Subsonic-Schalter A/B bei einem basslastigen Track | weniger Pumpen/Verzerren der Box, Bass straffer; Hörbarkeit hängt vom untersten Systemband ab |
+| K7 | Virtual Bass A/B im eingebauten Player (SoundCloud) auf kleiner Box/Telefonlautsprecher | Bass wirkt tiefer/präsenter, keine hörbaren Artefakte, kein Knacken bei Seek/Trackwechsel |
+| K8 | Virtual Bass bei Spotify | Schalter hat dort keine Wirkung (erwartet, steht in der UI) |
+| K9 | CPU/Akku bei 30 Minuten Wiedergabe mit Virtual Bass | unauffällig gegenüber ausgeschaltet |
+| K10 | Android Auto (kabelgebunden/drahtlos) | dokumentieren, ob eine Session erkannt wird und ein Effekt greift |

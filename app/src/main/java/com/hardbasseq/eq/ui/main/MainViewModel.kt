@@ -11,7 +11,9 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.audio.VolumeRepository
 import com.hardbasseq.eq.audio.defaultHeadphoneAcoustics
+import com.hardbasseq.eq.audio.soundContext
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.autoeq.AutoEqCatalogMatcher
 import com.hardbasseq.eq.autoeq.AutoEqParser
@@ -26,8 +28,11 @@ import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
 import com.hardbasseq.eq.dsp.HeadroomCalculator
+import com.hardbasseq.eq.dsp.SubsonicFilterCurve
+import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
+import com.hardbasseq.eq.preset.BuiltInContextPresets
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.GenrePreset
@@ -111,6 +116,7 @@ class MainViewModel
         private val appSettingsRepository: AppSettingsRepository,
         private val correctionProfileRepository: CorrectionProfileRepository,
         private val deviceProfileRepository: DeviceProfileRepository,
+        private val volumeRepository: VolumeRepository,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -120,6 +126,10 @@ class MainViewModel
         val showSourcePicker: StateFlow<Boolean> = _showSourcePicker.asStateFlow()
 
         val nowPlaying: StateFlow<NowPlaying?> = NowPlayingState.current
+
+        // The system media volume (0..1) the loudness compensation follows; exposed so
+        // the screen's headroom banner can include the same compensation curve.
+        val volumeFraction: StateFlow<Float> = volumeRepository.volumeFraction
 
         private val _effectDescriptors = MutableStateFlow<List<AudioEffectDescriptor>>(emptyList())
         val effectDescriptors: StateFlow<List<AudioEffectDescriptor>> = _effectDescriptors.asStateFlow()
@@ -158,6 +168,13 @@ class MainViewModel
         val isDirty: StateFlow<Boolean> = _isDirty.asStateFlow()
 
         private val customPresetsState = MutableStateFlow<List<Preset>>(emptyList())
+
+        // Set while a context preset was switched on automatically for a route
+        // without a saved profile (see applyContextDefaultForUnboundRoute): the
+        // preset that was active before, to go back to when that route goes away.
+        // In memory only - after a process restart the context default is simply
+        // re-derived from the current route.
+        private var presetBeforeContextSwitch: Preset? = null
 
         // What the preset grid actually renders: built-ins (fixed, compile-time)
         // followed by whatever custom presets are currently saved.
@@ -290,6 +307,17 @@ class MainViewModel
                     recalculateBandGains()
                 }
             }
+            // Volume-dependent loudness compensation: the curve follows the system
+            // media volume, so a volume change has to re-run the band mapping - but
+            // only while the active sound actually uses it, otherwise every volume
+            // key press would needlessly re-apply unchanged settings to the engine.
+            viewModelScope.launch {
+                volumeRepository.volumeFraction.collect {
+                    if (hasRestoredState && _processingSettings.value.loudnessMaxBoostDb > 0f) {
+                        recalculateBandGains()
+                    }
+                }
+            }
         }
 
         private suspend fun restoreSavedState() {
@@ -307,6 +335,7 @@ class MainViewModel
                     _isDirty.value = saved.isDirty
                     _processingSettings.value = saved.processingSettings
                     audioEngine.apply(saved.processingSettings)
+                    pushVirtualBass(saved.processingSettings)
                 }
                 _activeCorrectionProfile.value =
                     findCorrectionProfileById(saved.activeCorrectionProfileId, initialCorrectionProfiles)
@@ -363,12 +392,49 @@ class MainViewModel
             // explicit choice made for it), not left holding the previous route's
             // value.
             headphoneAcousticsOverrideState.value = binding?.headphoneAcousticsOverride
-            if (binding == null) return
+            if (binding == null) {
+                applyContextDefaultForUnboundRoute(route)
+                return
+            }
+            // A saved choice for this route beats any automatic context default.
+            presetBeforeContextSwitch = null
             val preset = findPresetById(binding.boundPresetId, customPresetsState.value) ?: return
             val correction = findCorrectionProfileById(binding.boundCorrectionProfileId, customCorrectionProfilesState.value)
 
             _activePreset.value = preset
             _activeCorrectionProfile.value = correction
+            _isDirty.value = false
+            _processingSettings.value = _processingSettings.value.withPreset(preset)
+            recalculateBandGains()
+            persistLiveSettings()
+        }
+
+        // Car / Bluetooth-speaker mode: a route the user has not chosen a sound for
+        // yet starts on the built-in preset for its detected context (see
+        // SoundContextClassifier - a name heuristic). This is deliberately *not*
+        // saved as the route's device profile: it is only a default, so a later
+        // manual pick (selectPreset -> saveDeviceProfileBinding) is what makes the
+        // choice stick, and a better classifier later can still improve the default.
+        //
+        // Leaving such a route for one with no context and no saved profile (phone
+        // speaker after the car, say) restores whatever was active before the
+        // automatic switch, instead of leaving the car sound on the wrong hardware.
+        private fun applyContextDefaultForUnboundRoute(route: AudioRoute) {
+            val context = route.type.soundContext()
+            if (context != null) {
+                val preset = BuiltInContextPresets.defaultFor(context)
+                if (_activePreset.value.id == preset.id) return
+                if (presetBeforeContextSwitch == null) presetBeforeContextSwitch = _activePreset.value
+                activateWithoutBinding(preset)
+                return
+            }
+            val previous = presetBeforeContextSwitch ?: return
+            presetBeforeContextSwitch = null
+            activateWithoutBinding(findPresetById(previous.id, customPresetsState.value) ?: previous)
+        }
+
+        private fun activateWithoutBinding(preset: Preset) {
+            _activePreset.value = preset
             _isDirty.value = false
             _processingSettings.value = _processingSettings.value.withPreset(preset)
             recalculateBandGains()
@@ -433,6 +499,7 @@ class MainViewModel
         }
 
         fun selectPreset(preset: Preset) {
+            presetBeforeContextSwitch = null
             _activePreset.value = preset
             _isDirty.value = false
             _processingSettings.value = _processingSettings.value.withPreset(preset)
@@ -684,6 +751,9 @@ class MainViewModel
                 mbcRatio = settings.mbcRatio,
                 limiter = LimiterConfig(enabled = settings.limiterEnabled, thresholdDb = settings.limiterThresholdDb),
                 metadata = PresetMetadata(genre = _activePreset.value.metadata.genre, builtIn = false),
+                loudnessMaxBoostDb = settings.loudnessMaxBoostDb,
+                subsonicCutoffHz = settings.subsonicCutoffHz,
+                virtualBassMix = settings.virtualBassMix,
             )
         }
 
@@ -801,7 +871,20 @@ class MainViewModel
         private fun combinedCurve(): List<TargetPoint> {
             val headphoneCurve = if (effectiveHeadphoneAcoustics.value) HeadphoneComfortCurve.curve else emptyList()
             return CurveComposer.combine(
-                listOf(_activeCorrectionProfile.value.curve, _activePreset.value.targetCurve, headphoneCurve),
+                listOf(_activeCorrectionProfile.value.curve, _activePreset.value.targetCurve, headphoneCurve, contextCurve()),
+            )
+        }
+
+        // Subsonic high-pass + volume-dependent loudness compensation, from the
+        // live processing settings (so the on/off switches below take effect) and
+        // the current system volume. Empty while both are off.
+        private fun contextCurve(): List<TargetPoint> {
+            val settings = _processingSettings.value
+            return CurveComposer.combine(
+                listOf(
+                    SubsonicFilterCurve.forCutoff(settings.subsonicCutoffHz),
+                    VolumeLevelMapper.compensationCurve(volumeRepository.volumeFraction.value, settings.loudnessMaxBoostDb),
+                ),
             )
         }
 
@@ -872,6 +955,9 @@ class MainViewModel
                 mbcEnabled = preset.mbcEnabled,
                 mbcThresholdDb = preset.mbcThresholdDb,
                 mbcRatio = preset.mbcRatio,
+                loudnessMaxBoostDb = preset.loudnessMaxBoostDb,
+                subsonicCutoffHz = preset.subsonicCutoffHz,
+                virtualBassMix = preset.virtualBassMix,
             )
 
         private fun automaticInputGainDb(bandGainsDb: Map<Int, Float>): Float {
@@ -892,6 +978,39 @@ class MainViewModel
             viewModelScope.launch {
                 audioEngine.apply(settings)
             }
+            pushVirtualBass(settings)
             persistLiveSettings()
+        }
+
+        // Virtual bass is not part of the system effect chain (AudioEngine) - it runs
+        // in the built-in player's own audio pipeline, so it goes through the player
+        // bridge instead. Follows master/bypass like the rest of the processing.
+        private fun pushVirtualBass(settings: ProcessingSettings) {
+            playerBridge.setVirtualBassMix(if (settings.masterEnabled && !settings.bypass) settings.virtualBassMix else 0f)
+        }
+
+        // Individual switches for the three context features, for A/B listening
+        // and for enabling them on a preset that does not use them. Switching on
+        // restores the active preset's own value, or the car preset's as a sane
+        // default if that preset has none. Counts as a manual edit (isDirty).
+        fun setLoudnessCompensationEnabled(enabled: Boolean) {
+            val onValue = _activePreset.value.loudnessMaxBoostDb.takeIf { it > 0f } ?: BuiltInContextPresets.Car.loudnessMaxBoostDb
+            updateContextFeature { it.copy(loudnessMaxBoostDb = if (enabled) onValue else 0f) }
+        }
+
+        fun setSubsonicFilterEnabled(enabled: Boolean) {
+            val onValue = _activePreset.value.subsonicCutoffHz.takeIf { it > 0f } ?: BuiltInContextPresets.Car.subsonicCutoffHz
+            updateContextFeature { it.copy(subsonicCutoffHz = if (enabled) onValue else 0f) }
+        }
+
+        fun setVirtualBassEnabled(enabled: Boolean) {
+            val onValue = _activePreset.value.virtualBassMix.takeIf { it > 0f } ?: BuiltInContextPresets.Car.virtualBassMix
+            updateContextFeature { it.copy(virtualBassMix = if (enabled) onValue else 0f) }
+        }
+
+        private fun updateContextFeature(transform: (ProcessingSettings) -> ProcessingSettings) {
+            _processingSettings.value = transform(_processingSettings.value)
+            _isDirty.value = true
+            recalculateBandGains()
         }
     }

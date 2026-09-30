@@ -158,3 +158,42 @@ Ein erfolgreicher JVM-Build ersetzt keine Audio-Laufzeitprüfung am Gerät –
 das gilt jetzt auch explizit für PR #9: der M0-Spike hat den von
 `AudioSessionRepository` genutzten Broadcast-Mechanismus bereits als auf dem
 Testgerät unzuverlässig dokumentiert, ohne dass PR #9 das erneut getestet hat.
+
+## Kontext-Modi: Auto und Bluetooth-Box (30. September 2026)
+
+Ein Profi-Equalizer hebt den Klang im Auto und an kleinen Bluetooth-Boxen nicht
+nur über die EQ-Kurve, sondern über vier weitere Bausteine. Alle vier sind jetzt
+umgesetzt, mit unterschiedlicher Reichweite:
+
+| Baustein | Umsetzung | Reichweite |
+|---|---|---|
+| Kontext-Presets „Auto“ und „Bluetooth-Box“ | `BuiltInContextPresets` (Kurve, Makros, MBC, Limiter), in `BuiltInPresets.all` | alle Apps (Systemeffekt-Pfad) |
+| Automatische Umschaltung | `AudioDeviceType.CAR`/`BLUETOOTH_SPEAKER`, Erkennung über Produktnamen (`SoundContextClassifier`) bzw. `TYPE_BUS`; Default nur für Routen ohne gespeichertes Profil | alle Apps |
+| Lautstärke-Loudness | `VolumeLevelMapper` + vorhandene `LoudnessCompensationCurve`, folgt der System-Medienlautstärke (`VolumeRepository`) | alle Apps |
+| Subsonic-Filter | `SubsonicFilterCurve` (Butterworth-Highpass als `TargetPoint`-Kurve) | alle Apps, aber nur so steil wie das unterste Band des Systemequalizers es zulässt |
+| Virtual Bass | vorhandener `BassExciter` über `BassExciterPcm16` in einem Media3-`AudioProcessor` | **nur eingebauter Player** |
+
+Entscheidungen und Grenzen:
+
+- **Virtual Bass läuft nicht bei Spotify & Co.** Der Systemeffekt-Pfad
+  (Equalizer/DynamicsProcessing auf der Session der fremden App) kennt keine
+  Hooks für eigene Sample-Verarbeitung. Echte Harmonische gibt es nur dort, wo
+  die App den Audiopfad selbst besitzt: im eingebauten ExoPlayer. Die UI sagt
+  das beim Schalter ausdrücklich.
+- **Erkennung ist eine Heuristik.** Android nennt ohne die Berechtigung
+  `BLUETOOTH_CONNECT` keine Geräteklasse, nur den Produktnamen. Der Treffer ist
+  deshalb nur ein Startwert für Routen ohne gespeichertes Profil; eine manuelle
+  Presetwahl wird wie gewohnt als Geräteprofil gespeichert und gewinnt immer.
+  Der Startwert selbst wird bewusst nicht gespeichert. Beim Verlassen einer
+  automatisch umgeschalteten Route ohne Profil wird das vorherige Preset
+  wiederhergestellt (nur im Speicher, nicht über einen Prozessneustart hinweg).
+- **Kein Schema-Bump.** `DeviceProfileEntity.routeType` ist rein informativ
+  (Schlüssel ist `routeId`), die neuen Preset-/`ProcessingSettings`-Felder haben
+  Defaults „aus“, altes JSON dekodiert unverändert.
+- **Android Auto / CarPlay:** dabei läuft die Wiedergabe typischerweise über den
+  Projektionskanal des Head Units, nicht über eine vom Telefon ansteuerbare
+  Audio-Session. Ob dort überhaupt ein Effekt greift, ist ungeprüft und hängt
+  vom Fahrzeug ab. Der Modus zielt auf klassisches Bluetooth-Audio (A2DP) im Auto.
+- Wie bei den übrigen DSP-Bausteinen gilt: Filter und Kurven sind gegen
+  synthetische Signale offline getestet, **nicht** am Gerät gehört. Siehe
+  `docs/TEST_MATRIX.md`, Abschnitt „Kontext-Modi“.

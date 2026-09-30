@@ -15,6 +15,7 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEngine
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSessionRepository
+import com.hardbasseq.eq.audio.VolumeRepository
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -37,6 +38,9 @@ class AudioSessionForegroundService : LifecycleService() {
     lateinit var routeRepository: AudioRouteRepository
 
     @Inject
+    lateinit var volumeRepository: VolumeRepository
+
+    @Inject
     lateinit var audioEngine: AudioEngine
 
     @Inject
@@ -48,6 +52,7 @@ class AudioSessionForegroundService : LifecycleService() {
 
         sessionRepository.startListening()
         routeRepository.startMonitoring()
+        volumeRepository.startMonitoring()
 
         lifecycleScope.launch {
             sessionRepository.activeSession.collect { session ->
@@ -86,6 +91,7 @@ class AudioSessionForegroundService : LifecycleService() {
     override fun onDestroy() {
         sessionRepository.stopListening()
         routeRepository.stopMonitoring()
+        volumeRepository.stopMonitoring()
         audioEngine.markDetached()
         super.onDestroy()
     }
