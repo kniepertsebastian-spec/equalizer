@@ -11,13 +11,19 @@ import android.media.audiofx.AudioEffect
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import com.soundcloud.equalizer.player.PlayerActivity
+import com.soundcloud.equalizer.player.playback.BassExciterAudioProcessor
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
 
@@ -54,13 +60,28 @@ class AudioPlayerService : Service() {
         initExoPlayer()
     }
 
+    // Same sink DefaultRenderersFactory would build, plus the virtual-bass
+    // processor in its audio chain (see BassExciterAudioProcessor).
+    @OptIn(UnstableApi::class)
+    private fun buildRenderersFactory() = object : DefaultRenderersFactory(this) {
+        override fun buildAudioSink(
+            context: Context,
+            enableFloatOutput: Boolean,
+            enableAudioTrackPlaybackParams: Boolean,
+        ): AudioSink = DefaultAudioSink.Builder(context)
+            .setEnableFloatOutput(enableFloatOutput)
+            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+            .setAudioProcessors(arrayOf(BassExciterAudioProcessor()))
+            .build()
+    }
+
     private fun initExoPlayer() {
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
-        exoPlayer = ExoPlayer.Builder(this)
+        exoPlayer = ExoPlayer.Builder(this, buildRenderersFactory())
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
             .build().apply {

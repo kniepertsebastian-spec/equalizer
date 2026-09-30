@@ -17,4 +17,11 @@ interface PlayerBridge {
 
     /** Play/pause the currently loaded track without bringing the player screen forward. */
     fun togglePlayback()
+
+    /**
+     * Amount (0..1, 0 = off) of synthesized bass harmonics the player's own audio
+     * chain adds. Only affects playback through the built-in player - other apps'
+     * audio is reachable only through the system effect path, which cannot do it.
+     */
+    fun setVirtualBassMix(mix: Float)
 }

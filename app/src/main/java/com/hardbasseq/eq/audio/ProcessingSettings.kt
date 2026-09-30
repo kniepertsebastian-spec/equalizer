@@ -16,4 +16,8 @@ data class ProcessingSettings(
     val mbcEnabled: Boolean = false,
     val mbcThresholdDb: Float = -6.0f,
     val mbcRatio: Float = 2.0f,
+    // Context-mode features (see Preset for the same three). 0 = off.
+    val loudnessMaxBoostDb: Float = 0f,
+    val subsonicCutoffHz: Float = 0f,
+    val virtualBassMix: Float = 0f,
 )

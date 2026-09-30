@@ -5,6 +5,8 @@ import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.util.Log
+import com.hardbasseq.eq.context.SoundContext
+import com.hardbasseq.eq.context.SoundContextClassifier
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -75,10 +77,29 @@ class AndroidAudioRouteRepository
                     AudioDeviceInfo.TYPE_HEARING_AID,
                     -> {
                         val name = device.productName?.toString()?.ifBlank { null } ?: "Bluetooth Device"
+                        val type =
+                            when (SoundContextClassifier.classifyBluetoothName(name)) {
+                                SoundContext.CAR -> AudioDeviceType.CAR
+                                SoundContext.BLUETOOTH_SPEAKER -> AudioDeviceType.BLUETOOTH_SPEAKER
+                                null -> AudioDeviceType.BLUETOOTH
+                            }
+                        // The id stays "bt_<hash of name>" whatever the detected type,
+                        // so a profile saved for this device keeps matching even if
+                        // the classifier's keyword list changes later.
                         return AudioRoute(
-                            type = AudioDeviceType.BLUETOOTH,
+                            type = type,
                             name = name,
                             id = stableRouteFingerprint("bt", name),
+                        )
+                    }
+
+                    // Android Automotive's own output bus: a built-in car audio system
+                    // rather than a phone connected to one.
+                    AudioDeviceInfo.TYPE_BUS -> {
+                        return AudioRoute(
+                            type = AudioDeviceType.CAR,
+                            name = device.productName?.toString()?.ifBlank { null } ?: "Car Audio",
+                            id = "car_bus",
                         )
                     }
 
