@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -47,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -96,7 +99,11 @@ fun PlayerScreen(
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val importState by viewModel.importState.collectAsStateWithLifecycle()
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
+    val libraryState by viewModel.libraryState.collectAsStateWithLifecycle()
     var linkText by remember { mutableStateOf("") }
+
+    // Signed in (also right after coming back from the sign-in screen): show the library.
+    LaunchedEffect(signedIn) { if (signedIn) viewModel.loadLibrary() }
 
     // Coming back from the sign-in screen: pick up the new account state.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshAccount() }
@@ -268,6 +275,69 @@ fun PlayerScreen(
                 }
             }
 
+            if (signedIn) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, HardBassCardBorder),
+                    ) {
+                        Column(modifier = Modifier.padding(spacing.medium)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Meine SoundCloud-Bibliothek",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (libraryState.isLoading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                } else {
+                                    IconButton(onClick = viewModel::loadLibrary) {
+                                        Icon(Icons.Default.Refresh, contentDescription = "Bibliothek neu laden")
+                                    }
+                                }
+                            }
+                            libraryState.message?.let { message ->
+                                Text(
+                                    text = message,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (libraryState.isError) MaterialTheme.colorScheme.error else PlayerTextMutedColor,
+                                )
+                            }
+                            LibraryRow(
+                                title = "Likes",
+                                subtitle = "Alle Titel, die du geliked hast",
+                                onPlay = viewModel::playLikedTracks,
+                            )
+                        }
+                    }
+                }
+                libraryState.library?.let { library ->
+                    if (library.own.isNotEmpty()) {
+                        item { Text("Meine Playlists", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                        items(library.own, key = { "own-${it.id}" }) { playlist ->
+                            LibraryRow(
+                                title = playlist.title,
+                                subtitle = "${playlist.trackCount} Titel",
+                                onPlay = { viewModel.playLibraryPlaylist(playlist) },
+                            )
+                        }
+                    }
+                    if (library.liked.isNotEmpty()) {
+                        item { Text("Gelikte Playlists", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                        items(library.liked, key = { "liked-${it.id}" }) { playlist ->
+                            LibraryRow(
+                                title = playlist.title,
+                                subtitle = "${playlist.trackCount} Titel",
+                                onPlay = { viewModel.playLibraryPlaylist(playlist) },
+                            )
+                        }
+                    }
+                }
+            }
+
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -414,6 +484,40 @@ private fun SeekBar(
                 style = MaterialTheme.typography.labelSmall,
             )
             Text(text = PlayerFormat.duration(durationMs), style = MaterialTheme.typography.labelSmall)
+        }
+    }
+}
+
+// One tappable entry of the SoundCloud library: tap anywhere (or the play button) to
+// load its tracks and play them as the queue.
+@Composable
+private fun LibraryRow(
+    title: String,
+    subtitle: String,
+    onPlay: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onPlay)
+                .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = PlayerTitleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = PlayerTextMutedColor)
+        }
+        IconButton(onClick = onPlay) {
+            Icon(Icons.Default.PlayArrow, contentDescription = "Abspielen")
         }
     }
 }

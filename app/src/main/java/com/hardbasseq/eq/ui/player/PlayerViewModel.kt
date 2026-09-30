@@ -3,12 +3,15 @@ package com.hardbasseq.eq.ui.player
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hardbasseq.eq.integration.LinkImportResult
+import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
 import com.hardbasseq.eq.playlist.SavedTrack
+import com.soundcloud.equalizer.player.model.LibraryOverview
+import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -24,6 +27,14 @@ import javax.inject.Inject
 // Feedback line under the link field: what the last import did (or why it could not).
 data class ImportUiState(
     val isLoading: Boolean = false,
+    val message: String? = null,
+    val isError: Boolean = false,
+)
+
+// The signed-in user's SoundCloud library as shown in the player screen.
+data class LibraryUiState(
+    val isLoading: Boolean = false,
+    val library: LibraryOverview? = null,
     val message: String? = null,
     val isError: Boolean = false,
 )
@@ -47,6 +58,9 @@ class PlayerViewModel
         private val _signedIn = MutableStateFlow(controller.isSoundCloudSignedIn())
         val signedIn: StateFlow<Boolean> = _signedIn.asStateFlow()
 
+        private val _libraryState = MutableStateFlow(LibraryUiState())
+        val libraryState: StateFlow<LibraryUiState> = _libraryState.asStateFlow()
+
         private val _importState = MutableStateFlow(ImportUiState())
         val importState: StateFlow<ImportUiState> = _importState.asStateFlow()
 
@@ -59,6 +73,50 @@ class PlayerViewModel
         // whenever it comes back to the foreground.
         fun refreshAccount() {
             _signedIn.value = controller.isSoundCloudSignedIn()
+            if (!_signedIn.value) _libraryState.value = LibraryUiState()
+        }
+
+        /** Loads (or reloads) the signed-in user's playlists; does nothing while signed out or already loading. */
+        fun loadLibrary() {
+            if (!controller.isSoundCloudSignedIn() || _libraryState.value.isLoading) return
+            viewModelScope.launch {
+                _libraryState.value = _libraryState.value.copy(isLoading = true, message = null, isError = false)
+                _libraryState.value =
+                    when (val result = controller.loadLibrary()) {
+                        is LoadResult.Ok -> LibraryUiState(library = result.value)
+                        is LoadResult.Error ->
+                            _libraryState.value.copy(isLoading = false, message = result.message, isError = true)
+                    }
+            }
+        }
+
+        fun playLikedTracks() = playLoaded("Likes") { controller.loadLikedTracks() }
+
+        fun playLibraryPlaylist(playlist: PlaylistItem) = playLoaded(playlist.title) { controller.loadPlaylistTracks(playlist.id) }
+
+        // Loads tracks from the account and starts them as the queue; a long playlist
+        // takes a moment, so the state shows what is being loaded.
+        private fun playLoaded(
+            name: String,
+            load: suspend () -> LoadResult<List<TrackItem>>,
+        ) {
+            viewModelScope.launch {
+                val before = _libraryState.value
+                _libraryState.value = before.copy(isLoading = true, message = "Lade $name …", isError = false)
+                when (val result = load()) {
+                    is LoadResult.Ok -> {
+                        if (result.value.isEmpty()) {
+                            _libraryState.value = before.copy(isLoading = false, message = "$name ist leer", isError = true)
+                        } else {
+                            controller.playQueue(result.value, 0)
+                            _libraryState.value = before.copy(isLoading = false, message = null, isError = false)
+                        }
+                    }
+
+                    is LoadResult.Error ->
+                        _libraryState.value = before.copy(isLoading = false, message = result.message, isError = true)
+                }
+            }
         }
 
         fun signIn() = controller.openSoundCloudSignIn()

@@ -20,6 +20,13 @@ data class PlaylistItem(
     val tracks: List<TrackItem> = emptyList()
 )
 
+// The signed-in user's playlists: ones they created and ones they liked. `tracks` of
+// each PlaylistItem is empty here - the tracks are loaded when one is opened.
+data class LibraryOverview(
+    val own: List<PlaylistItem>,
+    val liked: List<PlaylistItem>,
+)
+
 // Outcome of resolving a pasted/shared SoundCloud link (see SoundCloudClient.resolveLink).
 sealed class ResolvedLink {
     data class SingleTrack(val track: TrackItem) : ResolvedLink()
