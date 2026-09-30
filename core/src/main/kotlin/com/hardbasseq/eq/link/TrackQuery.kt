@@ -89,6 +89,17 @@ object TrackMatcher {
             .map { it to score(query, title(it), uploader(it)) }
             .sortedByDescending { it.second }
 
+    // Whether every word of the artist name appears in the track's title or uploader.
+    fun mentionsArtist(
+        artist: String,
+        title: String,
+        uploader: String,
+    ): Boolean {
+        val wanted = tokens(artist)
+        if (wanted.isEmpty()) return false
+        return tokens("$title $uploader").containsAll(wanted)
+    }
+
     fun isConfident(
         query: TrackQuery,
         score: Double,

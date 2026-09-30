@@ -129,6 +129,8 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     implementation(libs.datastore.preferences)
+    // Weekly background refresh of "Interesting new uploads".
+    implementation(libs.work.runtime.ktx)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)

@@ -9,7 +9,9 @@ data class TrackItem(
     val durationMs: Long,
     // True when the resolved stream is only SoundCloud's ~30 second preview of a
     // Go track (see StreamSelection). Only known once a stream was resolved.
-    val isPreview: Boolean = false
+    val isPreview: Boolean = false,
+    // Upload time in epoch milliseconds, 0 when SoundCloud did not say.
+    val createdAtMs: Long = 0L
 )
 
 data class PlaylistItem(

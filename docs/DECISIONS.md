@@ -327,3 +327,28 @@ Ausdrücklich nicht unterstützt: Playlists, Alben, Kanäle, DJ-Sets/Mixe (keine
 einzelne Nummer), Spotify-Kurzlinks. Nicht einbettbare oder private Videos liefern
 keine Angaben → verständliche Meldung. Die Trefferqualität hängt davon ab, ob der
 Titel auf SoundCloud liegt; bei Mainstream oft nicht.
+
+### „Interesting new uploads“ – wöchentliche Entdecker-Playlist (30. September 2026)
+
+Im Player-Screen lassen sich Künstlernamen merken. Die App sucht dazu auf SoundCloud
+nach **neuen Uploads, die den Namen nennen – auch von anderen Accounts** (Re-Uploads
+sind der Sinn), und baut daraus eine eigene Playlist mit 15–20 Titeln, die sich
+jeden Montag erneuert.
+
+- **Was qualifiziert** (`DiscoveryRotation.isEligible`): der Name steht im Titel oder
+  Uploader-Namen, Einzeltitel bis 10 Minuten (keine Sets/Mixe), Upload höchstens
+  35 Tage alt, Datum bekannt. Suche: `search/tracks` mit `filter.created_at=last_month`
+  (inoffiziell; die Daten werden zusätzlich selbst gegen das Upload-Datum geprüft).
+- **Auswahl:** ungesehene Titel zuerst, Künstler reihum (einer füllt nicht die ganze
+  Liste), bei zu wenig Neuem mit früheren Vorschlägen auf mindestens 15 aufgefüllt.
+- **Wegwischen:** Titel seitlich aus der Liste wischen (oder ✕) – er wird nie wieder
+  vorgeschlagen; unter 15 Titeln füllt die Liste aus dem Reservepool nach.
+- **Montag:** `WeekKey` (Wochenwechsel um lokale Mitternacht, reine Arithmetik). Beim
+  Öffnen des Screens und durch einen WorkManager-Job (alle 6 h, nur mit Netz) wird bei
+  neuer Woche neu gebaut. Android legt die genaue Uhrzeit fest; die Liste ist also
+  „Montag“, nicht „Montag 00:00“. Schlägt die Suche fehl, bleibt die alte Liste und der
+  Job versucht es erneut.
+- Zustand: eigener DataStore (JSON), kein Schema-Bump. Neue Künstler erzwingen sofort
+  einen Neuaufbau.
+- **Nicht verifiziert:** Datumsfilter und Antwortfelder (`created_at`) der inoffiziellen
+  Suche; Trefferqualität bei häufigen Namen (zu allgemeine Namen liefern Fremdes).

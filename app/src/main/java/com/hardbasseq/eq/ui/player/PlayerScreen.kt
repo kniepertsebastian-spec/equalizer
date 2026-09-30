@@ -88,6 +88,7 @@ import java.net.URL
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    discovery: DiscoveryViewModel,
     activeContext: SoundContext?,
     onContextModeChanged: (SoundContext?) -> Unit,
     onBack: () -> Unit,
@@ -101,6 +102,8 @@ fun PlayerScreen(
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     val libraryState by viewModel.libraryState.collectAsStateWithLifecycle()
     val bridgeState by viewModel.bridgeState.collectAsStateWithLifecycle()
+    val discoveryState by discovery.state.collectAsStateWithLifecycle()
+    val discoveryUi by discovery.uiState.collectAsStateWithLifecycle()
     var linkText by remember { mutableStateOf("") }
 
     // Signed in (also right after coming back from the sign-in screen): show the library.
@@ -404,6 +407,18 @@ fun PlayerScreen(
                     }
                 }
             }
+
+            discoveryItems(
+                state = discoveryState,
+                ui = discoveryUi,
+                nowMs = System.currentTimeMillis(),
+                onAddArtist = discovery::addArtist,
+                onRemoveArtist = discovery::removeArtist,
+                onRefresh = discovery::refreshNow,
+                onPlayAll = discovery::playAll,
+                onPlay = discovery::play,
+                onDismiss = discovery::dismiss,
+            )
 
             bridgeState?.let { bridge ->
                 item {

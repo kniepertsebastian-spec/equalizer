@@ -1,5 +1,7 @@
 package com.hardbasseq.eq.di
 
+import com.hardbasseq.eq.discovery.AndroidDiscoverySource
+import com.hardbasseq.eq.discovery.DiscoverySource
 import com.hardbasseq.eq.integration.AndroidPlayerBridge
 import com.hardbasseq.eq.integration.AndroidPlayerController
 import com.hardbasseq.eq.integration.PlayerBridge
@@ -20,4 +22,8 @@ abstract class IntegrationModule {
     @Binds
     @Singleton
     abstract fun bindPlayerController(impl: AndroidPlayerController): PlayerController
+
+    @Binds
+    @Singleton
+    abstract fun bindDiscoverySource(impl: AndroidDiscoverySource): DiscoverySource
 }

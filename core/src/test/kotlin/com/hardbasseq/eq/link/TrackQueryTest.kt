@@ -97,4 +97,12 @@ class TrackQueryTest {
     fun `no title tokens means no match`() {
         assertEquals(0.0, TrackMatcher.score(TrackQuery(null, "the"), "anything", "x"), 0.0)
     }
+
+    @Test
+    fun `an artist counts as mentioned when all its words appear in title or uploader`() {
+        assertTrue(TrackMatcher.mentionsArtist("Miss K8", "Miss K8 - Hardcore Bomb", "x"))
+        assertTrue(TrackMatcher.mentionsArtist("Angerfist", "Drum Go Bang", "ANGERFIST"))
+        assertFalse(TrackMatcher.mentionsArtist("Miss K8", "K8 alone", "x"))
+        assertFalse(TrackMatcher.mentionsArtist("", "anything", "x"))
+    }
 }

@@ -21,6 +21,7 @@ coroutinesTest = "1.11.0"
 ktlint = "14.2.0"
 room = "2.7.0-alpha13"
 datastore = "1.1.3"
+work = "2.10.0"
 kotlinxSerialization = "1.7.3"
 # Desktop module (Session 18): Compose Multiplatform for the Windows/Linux
 # equalizer preset exporter. Compose compiler ships inside the Kotlin plugin
@@ -33,6 +34,7 @@ room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
+work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }

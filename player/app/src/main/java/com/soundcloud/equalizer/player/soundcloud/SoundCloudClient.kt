@@ -1,5 +1,6 @@
 package com.soundcloud.equalizer.player.soundcloud
 
+import com.hardbasseq.eq.discovery.IsoTime
 import com.hardbasseq.eq.link.ApiUrl
 import com.hardbasseq.eq.link.ShareLink
 import com.hardbasseq.eq.link.StreamOption
@@ -145,9 +146,17 @@ class SoundCloudClient(
 
     private fun executeRequest(url: String): Response = okHttpClient.newCall(buildRequest(url)).execute()
 
-    suspend fun searchTracks(query: String, limit: Int = 20, resolveStreams: Boolean = true): List<TrackItem> = withContext(Dispatchers.IO) {
+    suspend fun searchTracks(
+        query: String,
+        limit: Int = 20,
+        resolveStreams: Boolean = true,
+        recentOnly: Boolean = false,
+    ): List<TrackItem> = withContext(Dispatchers.IO) {
         val (jsonStr, clientId) = executeWithClientId { clientId ->
-            "https://api-v2.soundcloud.com/search/tracks?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit"
+            "https://api-v2.soundcloud.com/search/tracks?q=${java.net.URLEncoder.encode(query, "UTF-8")}&client_id=$clientId&limit=$limit" +
+                // Uploads of the last month only; the result is checked against the upload
+                // dates again by the caller, in case the filter is ignored.
+                if (recentOnly) "&filter.created_at=last_month" else ""
         }
 
         if (jsonStr.isBlank()) return@withContext emptyList()
@@ -435,7 +444,8 @@ class SoundCloudClient(
             artworkUrl = artworkUrl,
             streamUrl = streamUrl,
             durationMs = duration,
-            isPreview = isPreview
+            isPreview = isPreview,
+            createdAtMs = IsoTime.parseMillis(optStringOrNull(obj, "created_at")) ?: 0L
         )
     }
 }

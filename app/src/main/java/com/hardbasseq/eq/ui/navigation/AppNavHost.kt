@@ -13,6 +13,7 @@ import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.ui.MainScreen
 import com.hardbasseq.eq.ui.diagnostics.DiagnosticsScreen
 import com.hardbasseq.eq.ui.main.MainViewModel
+import com.hardbasseq.eq.ui.player.DiscoveryViewModel
 import com.hardbasseq.eq.ui.player.PlayerScreen
 import com.hardbasseq.eq.ui.player.PlayerViewModel
 
@@ -52,8 +53,10 @@ fun AppNavHost(
         }
         composable(ROUTE_PLAYER) {
             val activeContext by viewModel.activeContext.collectAsStateWithLifecycle()
+            val discoveryViewModel: DiscoveryViewModel = hiltViewModel()
             PlayerScreen(
                 viewModel = playerViewModel,
+                discovery = discoveryViewModel,
                 activeContext = activeContext,
                 onContextModeChanged = { viewModel.setContextMode(it) },
                 onBack = { navController.popBackStack() },
