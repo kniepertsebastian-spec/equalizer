@@ -5,7 +5,9 @@ import com.hardbasseq.eq.correction.RoomCorrectionProfileRepository
 import com.hardbasseq.eq.discovery.DataStoreDiscoveryRepository
 import com.hardbasseq.eq.discovery.DiscoveryRepository
 import com.hardbasseq.eq.playlist.DataStorePlaylistRepository
+import com.hardbasseq.eq.playlist.DataStoreSpotifyImportRepository
 import com.hardbasseq.eq.playlist.PlaylistRepository
+import com.hardbasseq.eq.playlist.SpotifyImportRepository
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.RoomPresetRepository
 import com.hardbasseq.eq.profile.DeviceProfileRepository
@@ -44,4 +46,8 @@ abstract class PersistenceModule {
     @Binds
     @Singleton
     abstract fun bindDiscoveryRepository(impl: DataStoreDiscoveryRepository): DiscoveryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindSpotifyImportRepository(impl: DataStoreSpotifyImportRepository): SpotifyImportRepository
 }

@@ -486,3 +486,21 @@ gespielt. Abspielen und Tasten laufen über dieselbe Media-Session wie bei Bluet
 Sprachsuche ist wirklich umgesetzt (`AutoCatalog.queueForSearch`): ein gesprochener Name, der in
 einer Playlist vorkommt, startet diese Playlist; sonst wird auf SoundCloud gesucht; „Spiel Musik“
 ohne Namen startet die neueste Playlist, sonst die Likes. Nicht verifiziert im echten Auto.
+
+### Spotify-Import in Blöcken zu 100, mit gespeichertem Stand (1. Oktober 2026)
+
+Der Playlist-Import sucht die Titel in **Blöcken zu je 100** auf SoundCloud (`SpotifyImportPlan`).
+Jeder Block wird eine eigene Playlist („Mix – Teil 2 von 4 (von Spotify)“), und **nach jedem Block
+wird der Stand gespeichert** (`SpotifyImportRepository`, eigener DataStore): Position, Titelliste,
+Treffer bisher. Wird die App geschlossen oder bricht die Verbindung ab, macht der Import dort
+weiter, statt von vorn zu beginnen:
+- Dieselben Links nochmal einfügen/teilen **oder** in der Playlists-Karte „Fortsetzen“ tippen;
+  „Verwerfen“ löscht den Stand (bereits angelegte Playlists bleiben).
+- Fällt die Suche in einem Block überwiegend wegen der Verbindung aus (mehr als die Hälfte der
+  Anfragen), hält der Import an, **ohne den Block zu überspringen** – „Fortsetzen“ versucht ihn neu.
+- Die Teile lassen sich danach mit „Zusammenführen“ zu einer Playlist vereinen.
+- Obergrenze 1.000 Titel je Import.
+- **Grenze beim Lesen bleibt:** Spotifys öffentliche Seite liefert meist nur die ersten ~100 Titel
+  einer Playlist. Hat eine gelesene Playlist genau 100 Titel, weist die Meldung darauf hin. Mehr
+  als 100 Titel kommen nur an, wenn die Seite mehr liefert oder mehrere Teil-Links zusammen
+  geteilt werden; der gespeicherte Stand hilft beim Suchen/Anlegen, nicht beim Lesen.

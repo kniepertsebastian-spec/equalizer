@@ -3,8 +3,12 @@ package com.hardbasseq.eq.ui.player
 import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
+import com.hardbasseq.eq.link.SpotifyImportPlan
+import com.hardbasseq.eq.link.SpotifyImportState
+import com.hardbasseq.eq.link.SpotifyTrack
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
+import com.hardbasseq.eq.playlist.SpotifyImportRepository
 import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.PlaylistItem
@@ -34,6 +38,7 @@ class PlayerViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val controller = FakePlayerController()
     private val repository = FakePlaylistRepository()
+    private val spotifyImports = FakeSpotifyImports()
 
     @Before
     fun setUp() {
@@ -45,7 +50,7 @@ class PlayerViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = PlayerViewModel(controller, repository)
+    private fun viewModel() = PlayerViewModel(controller, repository, spotifyImports)
 
     private fun track(
         id: Long,
@@ -575,6 +580,121 @@ class PlayerViewModelTest {
             assertTrue(vm.importState.value.isError)
         }
 
+    private fun songs(count: Int) = Array(count) { "Artist" to "Song ${it + 1}" }
+
+    private fun answerAllSongs(count: Int) {
+        for (i in 1..count) {
+            controller.searchResults["Artist Song $i"] = LoadResult.Ok(listOf(candidate(i.toLong(), "Artist - Song $i", "Artist")))
+        }
+    }
+
+    @Test
+    fun `a long playlist is looked up in blocks of 100 and each block becomes a playlist`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(250))
+            answerAllSongs(250)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val lists = vm.playlists.value.sortedBy { it.title }
+            assertEquals(
+                listOf(
+                    "Hardcore Mix – Teil 1 von 3 (von Spotify)",
+                    "Hardcore Mix – Teil 2 von 3 (von Spotify)",
+                    "Hardcore Mix – Teil 3 von 3 (von Spotify)",
+                ),
+                lists.map { it.title },
+            )
+            assertEquals(listOf(100, 100, 50), lists.map { it.tracks.size })
+            assertEquals(null, spotifyImports.flow.value)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains("250 von 250"))
+        }
+
+    @Test
+    fun `the same link again goes on at the saved position without reading it anew`() =
+        runTest {
+            val vm = viewModel()
+            val tracks = (1..150).map { SpotifyTrack("Song $it", "Artist") }
+            spotifyImports.flow.value =
+                SpotifyImportState("37i9dQZF1DXcBWIGoYBM5M", "Hardcore Mix", tracks, nextIndex = 100, partsWritten = 1, foundSoFar = 100)
+            answerAllSongs(150)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(controller.fetchedSpotifyPlaylists.isEmpty())
+            val written = vm.playlists.value.single()
+            assertEquals("Hardcore Mix – Teil 2 von 2 (von Spotify)", written.title)
+            assertEquals(50, written.tracks.size)
+            assertEquals(null, spotifyImports.flow.value)
+        }
+
+    @Test
+    fun `a lost connection keeps the position and continue finishes the block`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(4))
+            for (i in 1..4) controller.searchResults["Artist Song $i"] = LoadResult.Error("offline")
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertTrue(
+                vm.importState.value.message
+                    .orEmpty()
+                    .contains("Unterbrochen"),
+            )
+            assertTrue(vm.playlists.value.isEmpty())
+            assertEquals(0, spotifyImports.flow.value?.nextIndex)
+
+            answerAllSongs(4)
+            vm.resumeSpotifyImport()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                4,
+                vm.playlists.value
+                    .single()
+                    .tracks.size,
+            )
+            assertEquals(null, spotifyImports.flow.value)
+        }
+
+    @Test
+    fun `a playlist of exactly 100 songs is probably cut off by spotify and says so`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(100)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(
+                vm.importState.value.message
+                    .orEmpty()
+                    .contains("höchstens 100"),
+            )
+        }
+
+    @Test
+    fun `discarding forgets an unfinished import`() =
+        runTest {
+            val vm = viewModel()
+            spotifyImports.flow.value = SpotifyImportPlan.start("k", "Mix", listOf(SpotifyTrack("S", "A")))
+
+            vm.discardSpotifyImport()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(null, spotifyImports.flow.value)
+        }
+
     @Test
     fun `picking another match plays it and closing hides the list`() =
         runTest {
@@ -831,6 +951,21 @@ class PlayerViewModelTest {
         override fun signOutSoundCloud() {
             signedIn = false
             commands.add("signout")
+        }
+    }
+
+    private class FakeSpotifyImports : SpotifyImportRepository {
+        val flow = MutableStateFlow<SpotifyImportState?>(null)
+        override val pending: Flow<SpotifyImportState?> = flow
+
+        override suspend fun current(): SpotifyImportState? = flow.value
+
+        override suspend fun save(state: SpotifyImportState) {
+            flow.value = state
+        }
+
+        override suspend fun clear() {
+            flow.value = null
         }
     }
 

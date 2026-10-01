@@ -456,6 +456,9 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | X5 | Spotify-Titel mit häufigem Namen (z. B. „Roar“) | richtiger Künstler steht oben in der Trefferliste |
 | X6 | Zwei Spotify-Playlist-Links in einem Text teilen/einfügen | eine gemeinsame Playlist „… + 1 weitere (von Spotify)“, doppelte Titel nur einmal |
 | X7 | Playlists → „Zusammenführen“, zwei Playlists wählen, Namen eingeben | neue Playlist mit allen Titeln, Originale bleiben |
+| X8 | Spotify-Playlist mit mehr als 100 Titeln (bzw. mehrere Teil-Links) importieren | Fortschritt „Teil n von m“, je Block eine Playlist „… – Teil n von m …“ |
+| X9 | Import mitten drin abbrechen (App schließen oder Flugmodus), dann Link nochmal einfügen oder „Fortsetzen“ | macht beim gespeicherten Stand weiter, kein Block doppelt |
+| X10 | Playlist mit genau 100 Titeln | Meldung weist auf die 100er-Grenze von Spotify hin |
 | C1 | Titel im Player starten, Handy per Bluetooth mit dem Auto verbunden | Autodisplay zeigt Titel und Interpret (ggf. Cover) statt „Inhalt nicht gefunden“ |
 | C2 | Weiter/Zurück/Pause am Lenkrad oder Autoradio | wirkt auf die Warteschlange des Players; Anzeige zieht nach |
 | C3 | Sperrbildschirm und Benachrichtigung ansehen | Titel, Interpret und die drei Tasten sind da |
