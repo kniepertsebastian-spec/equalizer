@@ -445,3 +445,18 @@ Links in einem Text), liest die App alle Teile und legt **eine** gemeinsame Play
 Zusätzlich: „Zusammenführen“ in der Playlists-Karte fasst beliebige eigene/importierte Playlists
 zu einer neuen zusammen (Reihenfolge erhalten, Dopplungen entfernt, Originale bleiben).
 Ein Spotify-API-Schlüssel (der echte Weg für Playlists >100) ist nicht eingebaut.
+
+### Auto / Bluetooth: Titelanzeige und Tasten (1. Oktober 2026)
+
+Der Player hatte keine Media-Session – Auto, Bluetooth-Geräte und Sperrbildschirm sahen deshalb
+nichts (Anzeige „Inhalt nicht gefunden“). `AudioPlayerService` meldet jetzt eine Media3-
+`MediaSession`: Titel, Interpret und Cover des laufenden Titels, Wiedergabestatus und die Tasten
+Play/Pause/Weiter/Zurück (Weiter/Zurück gehen an die Warteschlange des Dienstes, ExoPlayer kennt
+nur den einen laufenden Titel). Die Benachrichtigung ist ein Medien-Stil mit denselben Tasten und
+wird bei Titel- oder Statuswechsel aktualisiert.
+- Das ist der Weg für Bluetooth (AVRCP): das Auto zeigt „Läuft gerade“ wie bei Spotify.
+- **Nicht gebaut:** Android Auto (USB/kabellos) und die Durchsuch-Ansicht im Auto – das braucht
+  einen `MediaLibraryService` mit Inhaltsbaum. Die Auto-Mediaauswahl bleibt für HardBass EQ leer.
+- Läuft die App nicht mehr (Dienst beendet), kann eine Auto-Taste sie nicht starten – erst in der
+  App einen Titel starten.
+- **Nicht verifiziert** auf einem echten Auto (Cover-Übertragung hängt vom Autoradio ab).

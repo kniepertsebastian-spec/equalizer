@@ -12,13 +12,16 @@ import android.os.Binder
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import android.net.Uri
 import android.os.Looper
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -26,6 +29,8 @@ import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaStyleNotificationHelper
 import com.hardbasseq.eq.playlist.QueueNavigation
 import com.soundcloud.equalizer.player.PlayerActivity
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
@@ -71,6 +76,12 @@ class AudioPlayerService : Service() {
 
     private val binder = LocalBinder()
     private var exoPlayer: ExoPlayer? = null
+
+    // What the car, Bluetooth devices, the lock screen and the notification see: the
+    // title, artist and cover of the playing track and the transport buttons. Without
+    // a media session they show nothing (a car display says "content not found").
+    private var mediaSession: MediaSession? = null
+    private var notifiedKey: Triple<String, String, Boolean>? = null
     private var currentAudioSessionId: Int = C.AUDIO_SESSION_ID_UNSET
     private var isAudioSessionActive = false
     private var currentTitle: String = ""
@@ -169,6 +180,51 @@ class AudioPlayerService : Service() {
             }
 
         currentAudioSessionId = exoPlayer?.audioSessionId ?: C.AUDIO_SESSION_ID_UNSET
+        exoPlayer?.let { createMediaSession(it) }
+    }
+
+    // The queue is kept by this service, not by ExoPlayer (which only ever holds the one
+    // track that plays), so the session's player passes next / previous on to it.
+    private fun createMediaSession(player: ExoPlayer) {
+        val queueAwarePlayer = object : ForwardingPlayer(player) {
+            override fun getAvailableCommands(): Player.Commands =
+                super.getAvailableCommands().buildUpon()
+                    .addAll(
+                        Player.COMMAND_SEEK_TO_NEXT,
+                        Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM,
+                        Player.COMMAND_SEEK_TO_PREVIOUS,
+                        Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM,
+                    )
+                    .build()
+
+            override fun isCommandAvailable(command: Int): Boolean =
+                command == Player.COMMAND_SEEK_TO_NEXT ||
+                    command == Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM ||
+                    command == Player.COMMAND_SEEK_TO_PREVIOUS ||
+                    command == Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM ||
+                    super.isCommandAvailable(command)
+
+            override fun hasNextMediaItem(): Boolean = true
+
+            override fun hasPreviousMediaItem(): Boolean = true
+
+            override fun seekToNext() = playNext()
+
+            override fun seekToNextMediaItem() = playNext()
+
+            override fun seekToPrevious() = playPrevious()
+
+            override fun seekToPreviousMediaItem() = playPrevious()
+
+            override fun stop() = stopPlayer()
+        }
+        val openPlayer = PendingIntent.getActivity(
+            this, 0, Intent(this, PlayerActivity::class.java),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        mediaSession = MediaSession.Builder(this, queueAwarePlayer)
+            .setSessionActivity(openPlayer)
+            .build()
     }
 
     fun openAudioSession() {
@@ -279,7 +335,12 @@ class AudioPlayerService : Service() {
     private fun startStream(streamUrl: String) {
         val player = exoPlayer ?: return
         isLoadingTrack = false
-        player.setMediaItem(MediaItem.fromUri(streamUrl))
+        val metadata = MediaMetadata.Builder()
+            .setTitle(currentTitle)
+            .setArtist(currentArtist)
+            .setArtworkUri(currentArtworkUrl?.let { Uri.parse(it) })
+            .build()
+        player.setMediaItem(MediaItem.Builder().setUri(streamUrl).setMediaMetadata(metadata).build())
         player.prepare()
         player.play()
         startProgressTicker()
@@ -309,6 +370,7 @@ class AudioPlayerService : Service() {
         val playing = isLoadingTrack || player != null &&
             (player.isPlaying || (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING))
         val duration = player?.duration?.takeIf { it != C.TIME_UNSET && it > 0 && !isLoadingTrack } ?: 0L
+        refreshNotification(playing)
         NowPlayingState.update(
             NowPlaying(
                 title = currentTitle,
@@ -344,6 +406,7 @@ class AudioPlayerService : Service() {
         queueIndex = -1
         isLoadingTrack = false
         isPreviewStream = false
+        notifiedKey = null
         NowPlayingState.update(null)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -393,6 +456,8 @@ class AudioPlayerService : Service() {
         serviceScope.cancel()
         closeAudioSession()
         NowPlayingState.update(null)
+        mediaSession?.release()
+        mediaSession = null
         exoPlayer?.release()
         exoPlayer = null
         super.onDestroy()
@@ -410,6 +475,23 @@ class AudioPlayerService : Service() {
         }
     }
 
+    // Keeps the notification (and with it the lock screen and the car) in step with what
+    // plays: only re-posted when the track or the play/pause state really changed.
+    private fun refreshNotification(playing: Boolean) {
+        val key = Triple(currentTitle, currentArtist, playing)
+        if (key == notifiedKey) return
+        notifiedKey = key
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, buildNotification(currentTitle, currentArtist, playing))
+    }
+
+    private fun actionIntent(action: String, requestCode: Int): PendingIntent = PendingIntent.getService(
+        this, requestCode,
+        Intent(this, AudioPlayerService::class.java).setAction(action),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    @OptIn(UnstableApi::class)
     private fun buildNotification(title: String, artist: String, isPlaying: Boolean): Notification {
         val intent = Intent(this, PlayerActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(
@@ -417,12 +499,23 @@ class AudioPlayerService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(artist)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setContentIntent(pendingIntent)
             .setOngoing(isPlaying)
-            .build()
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .addAction(android.R.drawable.ic_media_previous, "Zurück", actionIntent(ACTION_PREVIOUS, 1))
+            .addAction(
+                if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+                if (isPlaying) "Pause" else "Abspielen",
+                actionIntent(ACTION_TOGGLE_PLAYBACK, 2)
+            )
+            .addAction(android.R.drawable.ic_media_next, "Weiter", actionIntent(ACTION_NEXT, 3))
+        mediaSession?.let { session ->
+            builder.setStyle(MediaStyleNotificationHelper.MediaStyle(session).setShowActionsInCompactView(0, 1, 2))
+        }
+        return builder.build()
     }
 }
