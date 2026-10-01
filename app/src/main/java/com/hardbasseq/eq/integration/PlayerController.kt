@@ -100,6 +100,14 @@ interface PlayerController {
 
     suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>>
 
+    // Writes a playlist into the signed-in SoundCloud account (private); with [existingId] that one
+    // is updated. Returns the SoundCloud playlist id.
+    suspend fun pushPlaylistToSoundCloud(
+        title: String,
+        trackIds: List<Long>,
+        existingId: Long?,
+    ): LoadResult<Long>
+
     // Spotify sign-in with the user's own client id (see SpotifyApiClient): reads all songs of
     // the user's own playlists, which the public page cannot.
     fun spotifyClientId(): String
@@ -187,6 +195,12 @@ class AndroidPlayerController
         override suspend fun loadLibrary(): LoadResult<LibraryOverview> = load { libraryLoader.overview() }
 
         override suspend fun loadLikedTracks(): LoadResult<List<TrackItem>> = load { libraryLoader.likedTracks() }
+
+        override suspend fun pushPlaylistToSoundCloud(
+            title: String,
+            trackIds: List<Long>,
+            existingId: Long?,
+        ): LoadResult<Long> = load { libraryLoader.pushPlaylist(title, trackIds, existingId) }
 
         override suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>> =
             load { libraryLoader.playlistTracks(playlistId) }

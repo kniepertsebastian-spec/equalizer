@@ -28,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
@@ -524,6 +525,11 @@ fun PlayerScreen(
                             if (playlists.size >= 2) {
                                 TextButton(onClick = { mergeDialogOpen = true }) { Text("Zusammenführen") }
                             }
+                            if (playlists.isNotEmpty()) {
+                                TextButton(onClick = { viewModel.syncToSoundCloud(playlists) }, enabled = !importState.isLoading) {
+                                    Text("Alle zu SoundCloud")
+                                }
+                            }
                         }
                         if (playlists.isNotEmpty()) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = spacing.small))
@@ -533,6 +539,7 @@ fun PlayerScreen(
                                     onPlay = { viewModel.playPlaylist(playlist) },
                                     onPlayTrack = { viewModel.playPlaylist(playlist, it) },
                                     onDelete = { viewModel.deletePlaylist(playlist) },
+                                    onSendToSoundCloud = { viewModel.syncToSoundCloud(listOf(playlist)) },
                                     onRemoveTrack = { viewModel.removeFromPlaylist(playlist, it) },
                                     currentTrackId = currentTrackId,
                                     playedIds = playedIds,
@@ -745,6 +752,7 @@ private fun PlaylistRow(
     onPlay: () -> Unit,
     onPlayTrack: (Int) -> Unit,
     onDelete: () -> Unit,
+    onSendToSoundCloud: () -> Unit,
     onRemoveTrack: (Long) -> Unit,
     currentTrackId: Long?,
     playedIds: Set<Long>,
@@ -769,10 +777,13 @@ private fun PlaylistRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${playlist.tracks.size} Titel",
+                    text = "${playlist.tracks.size} Titel" + if (playlist.soundCloudId != null) " · bei SoundCloud" else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = PlayerTextMutedColor,
                 )
+            }
+            IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
+                Icon(Icons.Default.CloudUpload, contentDescription = "Zu SoundCloud übertragen")
             }
             IconButton(onClick = onPlay, enabled = playlist.tracks.isNotEmpty()) {
                 Icon(Icons.Default.PlayArrow, contentDescription = "Playlist abspielen")

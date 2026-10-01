@@ -22,6 +22,9 @@ data class SavedPlaylist(
     val sourceUrl: String? = null,
     val tracks: List<SavedTrack>,
     val createdAtMs: Long = 0L,
+    // Id of the copy in the user's SoundCloud account once it was sent there, so sending again
+    // updates that playlist instead of making a second one. Defaulted: older data still decodes.
+    val soundCloudId: Long? = null,
 )
 
 object SavedPlaylistJson {

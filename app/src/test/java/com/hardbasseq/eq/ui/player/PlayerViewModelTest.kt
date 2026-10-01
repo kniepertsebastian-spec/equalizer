@@ -285,6 +285,51 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `sending a playlist to soundcloud keeps its id and updates it the next time`() =
+        runTest {
+            controller.signedIn = true
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(1))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(
+                777L,
+                vm.playlists.value
+                    .single()
+                    .soundCloudId,
+            )
+            assertEquals(Triple("Auto", listOf(1L), null as Long?), controller.pushedPlaylists.single())
+
+            vm.addToPlaylist(vm.playlists.value.single(), track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(Triple("Auto", listOf(1L, 2L), 777L as Long?), controller.pushedPlaylists.last())
+        }
+
+    @Test
+    fun `sending to soundcloud needs a sign in and skips empty playlists`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Leer")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.signedIn = false
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.signedIn = true
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+            assertTrue(controller.pushedPlaylists.isEmpty())
+        }
+
+    @Test
     fun `deleting removes a saved playlist`() =
         runTest {
             controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(1)))
@@ -1143,6 +1188,18 @@ class PlayerViewModelTest {
         override suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>> {
             loadedPlaylistIds.add(playlistId)
             return playlistTracksResult
+        }
+
+        val pushedPlaylists = mutableListOf<Triple<String, List<Long>, Long?>>()
+        var pushResult: LoadResult<Long> = LoadResult.Ok(777L)
+
+        override suspend fun pushPlaylistToSoundCloud(
+            title: String,
+            trackIds: List<Long>,
+            existingId: Long?,
+        ): LoadResult<Long> {
+            pushedPlaylists.add(Triple(title, trackIds, existingId))
+            return pushResult
         }
 
         override fun isSoundCloudSignedIn(): Boolean = signedIn

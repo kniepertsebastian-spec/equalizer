@@ -668,6 +668,37 @@ class PlayerViewModel
             }
         }
 
+        /**
+         * Sends the playlists to the signed-in SoundCloud account as private playlists; ones sent
+         * before are updated in place (their SoundCloud id is kept). Empty playlists are skipped.
+         */
+        fun syncToSoundCloud(playlists: List<SavedPlaylist>) {
+            if (!controller.isSoundCloudSignedIn()) {
+                fail("Bitte zuerst bei SoundCloud anmelden")
+                return
+            }
+            val toSend = playlists.filter { it.tracks.isNotEmpty() }
+            if (toSend.isEmpty()) {
+                fail("Keine Playlist mit Titeln zum Übertragen")
+                return
+            }
+            viewModelScope.launch {
+                _importState.value = ImportUiState(isLoading = true)
+                var sent = 0
+                for (selected in toSend) {
+                    val latest = playlistRepository.playlists.first().firstOrNull { it.id == selected.id } ?: continue
+                    val result = controller.pushPlaylistToSoundCloud(latest.title, latest.tracks.map { it.id }, latest.soundCloudId)
+                    if (result is LoadResult.Error) {
+                        fail("„${latest.title}“ konnte nicht übertragen werden: ${result.message}")
+                        return@launch
+                    }
+                    playlistRepository.save(latest.copy(soundCloudId = (result as LoadResult.Ok).value))
+                    sent++
+                }
+                _importState.value = ImportUiState(message = "$sent Playlist(s) zu SoundCloud übertragen (privat)")
+            }
+        }
+
         fun deletePlaylist(playlist: SavedPlaylist) {
             viewModelScope.launch { playlistRepository.delete(playlist.id) }
         }

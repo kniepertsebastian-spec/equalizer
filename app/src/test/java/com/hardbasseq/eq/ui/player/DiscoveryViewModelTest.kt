@@ -270,6 +270,12 @@ class DiscoveryViewModelTest {
 
         override suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>> = unused()
 
+        override suspend fun pushPlaylistToSoundCloud(
+            title: String,
+            trackIds: List<Long>,
+            existingId: Long?,
+        ): LoadResult<Long> = unused()
+
         override fun openSoundCloudSignIn() = unused()
 
         override fun signOutSoundCloud() = unused()

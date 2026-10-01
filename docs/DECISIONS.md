@@ -557,3 +557,13 @@ zurück. Die Eingangsverstärkung wird weiter über den Headroom-Schutz begrenzt
 Karte warnt vor Gehörschäden bei hoher Lautstärke. Virtual Bass/Mono-Bass gehören nicht zum Preset
 (nur im eingebauten Player). Das Loudness-Schalter der Karte „Auto & Bluetooth-Box“ wird im Kopfhörer-
 Modus weiter übersprungen – dort gilt der Regler dieser Karte.
+
+### Playlists zu SoundCloud übertragen (1. Oktober 2026)
+
+Jede Playlist hat ein Wolken-Symbol, dazu „Alle zu SoundCloud“. Das legt die Playlist im angemeldeten
+SoundCloud-Konto als **private** Playlist an (`POST /playlists`); beim nächsten Mal wird dieselbe
+aktualisiert (`PUT /playlists/{id}`, Titel und Titel ersetzt), weil `SavedPlaylist.soundCloudId` die ID
+merkt. Bewusst per Tipp und nicht automatisch: es schreibt in das Konto des Nutzers. Leere Playlists
+werden übersprungen. Es sind die internen Aufrufe des SoundCloud-Webplayers mit dem gespeicherten
+Anmelde-Token (keine offizielle API – wie die übrigen Konto-Funktionen); **nicht verifiziert**, ob
+SoundCloud das Token für Schreibzugriffe annimmt und das genaue Antwortformat.

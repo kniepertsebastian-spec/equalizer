@@ -25,4 +25,11 @@ class LibraryLoader(
     suspend fun likedTracks(): List<TrackItem> = withAccount { it.getMyLikedTracks() }
 
     suspend fun playlistTracks(playlistId: Long): List<TrackItem> = withAccount { it.getPlaylistTracks(playlistId) }
+
+    // Sends a playlist to the user's account; returns its SoundCloud id (see SoundCloudClient.pushPlaylist).
+    suspend fun pushPlaylist(
+        title: String,
+        trackIds: List<Long>,
+        existingId: Long?,
+    ): Long = withAccount { it.pushPlaylist(title, trackIds, existingId) }
 }

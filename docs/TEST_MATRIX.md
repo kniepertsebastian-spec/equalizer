@@ -519,3 +519,6 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | H2 | „Standard“ tippen | Klang wie vor der Funktion (2,5 dB / 9 dB / Dynamik an) |
 | H3 | Bass-Regler auf 0, Loudness auf 0 | Bass-Anhebung bzw. Loudness entfallen hörbar |
 | H4 | App neu starten | Reglerstellungen bleiben; Karte nur im Kopfhörer-Modus sichtbar |
+| T1 | Bei SoundCloud angemeldet, Wolken-Symbol an einer Playlist | Meldung „1 Playlist(s) zu SoundCloud übertragen (privat)“; in der SoundCloud-App erscheint sie als private Playlist mit den Titeln; Zeile zeigt „bei SoundCloud“ |
+| T2 | Titel hinzufügen, erneut übertragen | dieselbe SoundCloud-Playlist ist aktualisiert, keine zweite |
+| T3 | „Alle zu SoundCloud“ | alle nicht leeren Playlists drüben; nicht angemeldet → Hinweis zur Anmeldung |

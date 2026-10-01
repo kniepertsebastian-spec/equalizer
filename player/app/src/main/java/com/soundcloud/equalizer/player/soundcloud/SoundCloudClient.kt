@@ -14,8 +14,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
@@ -386,6 +388,46 @@ class SoundCloudClient(
     }
 
     /** One track with a freshly resolved stream URL, or null if it cannot be played. */
+    /**
+     * Writes a playlist into the signed-in user's account: a new private one when [existingId] is
+     * null, otherwise the tracks (and title) of that playlist are replaced. Returns its id.
+     * Uses the web player's own api-v2 calls (POST/PUT /playlists) with the user's session token.
+     */
+    suspend fun pushPlaylist(title: String, trackIds: List<Long>, existingId: Long?): Long = withContext(Dispatchers.IO) {
+        requireSignedIn()
+        val playlistJson = JSONObject()
+            .put("title", title)
+            .put("tracks", JSONArray(trackIds))
+        if (existingId == null) playlistJson.put("sharing", "private")
+        val body = JSONObject().put("playlist", playlistJson).toString()
+            .toRequestBody("application/json".toMediaType())
+
+        var clientId = getClientId()
+        fun send(id: String): Response {
+            val url = if (existingId == null) {
+                "https://api-v2.soundcloud.com/playlists?client_id=$id"
+            } else {
+                "https://api-v2.soundcloud.com/playlists/$existingId?client_id=$id"
+            }
+            val request = buildRequest(url).newBuilder()
+                .method(if (existingId == null) "POST" else "PUT", body)
+                .build()
+            return okHttpClient.newCall(request).execute()
+        }
+        var response = send(clientId)
+        if (!response.isSuccessful && (response.code == 401 || response.code == 403)) {
+            response.close()
+            clientId = getClientId(forceRefresh = true)
+            response = send(clientId)
+        }
+        response.use {
+            if (!it.isSuccessful) throw IOException("SoundCloud hat die Playlist nicht angenommen (HTTP ${it.code})")
+            val id = JSONObject(it.body?.string() ?: "").optLong("id", -1)
+            if (id <= 0) throw IOException("SoundCloud hat keine Playlist-ID geliefert")
+            id
+        }
+    }
+
     suspend fun getTrack(id: Long): TrackItem? = withContext(Dispatchers.IO) {
         val (jsonStr, clientId) = executeWithClientId { clientId ->
             "https://api-v2.soundcloud.com/tracks/$id?client_id=$clientId"
