@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,6 +82,7 @@ import com.hardbasseq.eq.ui.theme.PlayerTextColor
 import com.hardbasseq.eq.ui.theme.PlayerTextMutedColor
 import com.hardbasseq.eq.ui.theme.PlayerTitleColor
 import com.hardbasseq.eq.ui.theme.spacing
+import com.soundcloud.equalizer.player.model.TrackItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.URL
@@ -93,8 +98,10 @@ fun PlayerScreen(
     onContextModeChanged: (SoundContext?) -> Unit,
     onBack: () -> Unit,
     onOpenSearch: () -> Unit,
+    dspViewModel: PlayerDspViewModel = hiltViewModel(),
 ) {
     val spacing = MaterialTheme.spacing
+    val dsp by dspViewModel.settings.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
@@ -105,6 +112,9 @@ fun PlayerScreen(
     val discoveryState by discovery.state.collectAsStateWithLifecycle()
     val discoveryUi by discovery.uiState.collectAsStateWithLifecycle()
     var linkText by remember { mutableStateOf("") }
+    // What the playlist dialog is for: null = closed; a track = add it to a playlist;
+    // no track = just make a new, empty playlist.
+    var playlistDialog by remember { mutableStateOf<PlaylistDialogRequest?>(null) }
 
     // Signed in (also right after coming back from the sign-in screen): show the library.
     LaunchedEffect(signedIn) { if (signedIn) viewModel.loadLibrary() }
@@ -117,6 +127,21 @@ fun PlayerScreen(
     // is unreadable on the dark background - so the default is light here, with the
     // song title and artist colored explicitly below.
     val bars = WindowInsets.systemBars.asPaddingValues()
+    playlistDialog?.let { request ->
+        PlaylistDialog(
+            track = request.track,
+            playlists = playlists,
+            onAddTo = { playlist ->
+                request.track?.let { viewModel.addToPlaylist(playlist, it) }
+                playlistDialog = null
+            },
+            onCreate = { name ->
+                viewModel.createPlaylist(name, request.track)
+                playlistDialog = null
+            },
+            onDismiss = { playlistDialog = null },
+        )
+    }
     CompositionLocalProvider(LocalContentColor provides PlayerTextColor) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -214,6 +239,12 @@ fun PlayerScreen(
                         }
                         IconButton(onClick = viewModel::next, enabled = playing != null) {
                             Icon(Icons.Default.SkipNext, contentDescription = "Weiter", modifier = Modifier.size(36.dp))
+                        }
+                        IconButton(
+                            onClick = { viewModel.currentTrack()?.let { playlistDialog = PlaylistDialogRequest(it) } },
+                            enabled = viewModel.currentTrack() != null,
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Zur Playlist hinzufügen")
                         }
                     }
                 }
@@ -394,6 +425,11 @@ fun PlayerScreen(
                                 Text("Hinzufügen")
                             }
                         }
+                        TextButton(onClick = { playlistDialog = PlaylistDialogRequest(null) }) {
+                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
+                            Spacer(modifier = Modifier.size(spacing.small))
+                            Text("Neue Playlist")
+                        }
                         if (playlists.isNotEmpty()) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = spacing.small))
                             playlists.forEach { playlist ->
@@ -401,11 +437,21 @@ fun PlayerScreen(
                                     playlist = playlist,
                                     onPlay = { viewModel.playPlaylist(playlist) },
                                     onDelete = { viewModel.deletePlaylist(playlist) },
+                                    onRemoveTrack = { viewModel.removeFromPlaylist(playlist, it) },
                                 )
                             }
                         }
                     }
                 }
+            }
+
+            item {
+                PlayerDspCard(
+                    settings = dsp,
+                    onMonoBass = dspViewModel::setMonoBass,
+                    onCutoff = dspViewModel::setMonoBassCutoff,
+                    onLimiter = dspViewModel::setLimiter,
+                )
             }
 
             discoveryItems(
@@ -514,6 +560,9 @@ fun PlayerScreen(
                                 color = PlayerTextMutedColor,
                             )
                         }
+                        IconButton(onClick = { playlistDialog = PlaylistDialogRequest(track) }) {
+                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Zur Playlist hinzufügen")
+                        }
                     }
                 }
             }
@@ -586,35 +635,135 @@ private fun LibraryRow(
     }
 }
 
+// A saved playlist: tap the name to show its tracks. Tracks of playlists made on the
+// device can be removed there; imported ones are refreshed by importing the link again.
 @Composable
 private fun PlaylistRow(
     playlist: SavedPlaylist,
     onPlay: () -> Unit,
     onDelete: () -> Unit,
+    onRemoveTrack: (Long) -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = playlist.title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = PlayerTitleColor,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                text = "${playlist.tracks.size} Titel",
-                style = MaterialTheme.typography.bodySmall,
-                color = PlayerTextMutedColor,
-            )
+    var expanded by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { expanded = !expanded },
+            ) {
+                Text(
+                    text = playlist.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = PlayerTitleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "${playlist.tracks.size} Titel",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PlayerTextMutedColor,
+                )
+            }
+            IconButton(onClick = onPlay, enabled = playlist.tracks.isNotEmpty()) {
+                Icon(Icons.Default.PlayArrow, contentDescription = "Playlist abspielen")
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.Delete, contentDescription = "Playlist löschen")
+            }
         }
-        IconButton(onClick = onPlay) {
-            Icon(Icons.Default.PlayArrow, contentDescription = "Playlist abspielen")
-        }
-        IconButton(onClick = onDelete) {
-            Icon(Icons.Default.Delete, contentDescription = "Playlist löschen")
+        if (expanded) {
+            if (playlist.tracks.isEmpty()) {
+                Text(
+                    text = "Noch leer – füge Titel über das Playlist-Symbol im Player oder in der Warteschlange hinzu.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PlayerTextMutedColor,
+                )
+            }
+            playlist.tracks.forEach { track ->
+                Row(modifier = Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = track.title,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = PlayerTitleColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = track.artist,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = PlayerArtistColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (playlist.sourceUrl == null) {
+                        IconButton(onClick = { onRemoveTrack(track.id) }) {
+                            Icon(Icons.Default.Close, contentDescription = "Aus Playlist entfernen")
+                        }
+                    }
+                }
+            }
         }
     }
+}
+
+// Opens the playlist dialog: with a track it adds that track somewhere, without one it
+// only makes a new playlist.
+private data class PlaylistDialogRequest(
+    val track: TrackItem?,
+)
+
+@Composable
+private fun PlaylistDialog(
+    track: TrackItem?,
+    playlists: List<SavedPlaylist>,
+    onAddTo: (SavedPlaylist) -> Unit,
+    onCreate: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    // Only playlists made on the device take tracks: imported ones mirror their link.
+    val local = playlists.filter { it.sourceUrl == null }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (track != null) "Zur Playlist hinzufügen" else "Neue Playlist") },
+        text = {
+            Column {
+                if (track != null) {
+                    Text(text = track.title, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    local.forEach { playlist ->
+                        TextButton(onClick = { onAddTo(playlist) }, modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "${playlist.title} (${playlist.tracks.size})",
+                                modifier = Modifier.fillMaxWidth(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    HorizontalDivider()
+                }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Name der neuen Playlist") },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onCreate(name) }, enabled = name.isNotBlank()) {
+                Text(if (track != null) "Neu anlegen und hinzufügen" else "Anlegen")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+    )
 }
 
 // No image-loading library in this app, and one cover at a time is all this screen

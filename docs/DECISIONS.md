@@ -365,3 +365,30 @@ zum Genre passen. Modi: *Wie meine Musik* (Standard), *Eigene* (Stichwörter), *
   5 Titel, mind. 3 Treffer bzw. 5 %, max. 6, ohne Allgemeinwörter), einmal pro Woche oder
   bei „Jetzt aktualisieren“. Schlägt das Lesen fehl, bleiben die alten Genres.
 - **Nicht verifiziert:** Qualität der Genre-Tags auf echten Uploads; Likes-Endpunkt.
+
+### Mono-Bass und Limiter im eigenen Player (1. Oktober 2026)
+
+`BassMonoSummer` und `LookaheadLimiter` (vorher nur in `:core`, ungenutzt) hängen jetzt als
+letzte Stufe in der Audiokette des eigenen Players (`PlayerDspAudioProcessor`, hinter
+Virtual Bass, damit der Limiter dessen Obertöne mitfängt).
+
+- **Beide standardmäßig an, beide abschaltbar** (Karte „Klang-Feinschliff“ im Player-Screen);
+  Mono-Bass mit Übergangsfrequenz-Regler 40–200 Hz (Standard 120 Hz). Gespeichert in
+  SharedPreferences (`PlayerDspState`), wirkt sofort ohne Player-Neustart.
+- Mono-Bass nur bei Stereo; der Limiter läuft pro Kanal (nicht gelinkt) und verzögert das
+  Signal um ca. 5 ms. Beim Wiedereinschalten wird er zurückgesetzt (kurze Stille möglich).
+- Nur eigener Player, nicht Spotify & Co. (kein Hook im Systempfad).
+- **Nicht verifiziert:** Klang auf echter Hardware, CPU-Last des Limiters (Fenster-Minimum
+  pro Sample) – bei Aussetzern den Limiter abschalten und melden.
+
+### Eigene Playlists: neu anlegen und Titel hinzufügen (1. Oktober 2026)
+
+Im Player-Screen: „Neue Playlist“ (Karte Playlists) und ein Playlist-Symbol am aktuellen Titel
+und an jedem Eintrag der Warteschlange („Zur Playlist hinzufügen“, auch mit „Neu anlegen und
+hinzufügen“). Tippen auf den Namen einer Playlist klappt ihre Titel auf; bei eigenen Playlists
+lassen sie sich einzeln entfernen.
+- Lokal auf dem Gerät (`PlaylistEditing`, gleiche DataStore-JSON-Ablage, `sourceUrl == null`);
+  ein Titel steht höchstens einmal in einer Playlist. Importierte Link-Playlists nehmen keine
+  Titel auf (der Link ist ihre Quelle).
+- **Nicht gebaut:** Schreiben in SoundCloud-Playlists des Kontos (inoffizielle API, Schreibzugriff
+  ungeprüft) und Hinzufügen direkt aus „Interesting new uploads“.

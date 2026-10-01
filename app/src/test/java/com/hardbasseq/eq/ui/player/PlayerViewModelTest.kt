@@ -60,6 +60,92 @@ class PlayerViewModelTest {
     )
 
     @Test
+    fun `creates an empty local playlist and refuses a blank name`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.createPlaylist("   ")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.playlists.value.isEmpty())
+            assertTrue(vm.importState.value.isError)
+
+            vm.createPlaylist("Auto")
+            dispatcher.scheduler.advanceUntilIdle()
+            val saved = vm.playlists.value.single()
+            assertEquals("Auto", saved.title)
+            assertTrue(saved.tracks.isEmpty())
+            assertEquals(null, saved.sourceUrl)
+        }
+
+    @Test
+    fun `a new playlist can start with a track`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.createPlaylist("Auto", track(7))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                listOf(7L),
+                vm.playlists.value
+                    .single()
+                    .tracks
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun `adding to a playlist keeps each track once`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto")
+            dispatcher.scheduler.advanceUntilIdle()
+            val playlist = vm.playlists.value.single()
+
+            vm.addToPlaylist(playlist, track(1))
+            vm.addToPlaylist(playlist, track(1))
+            vm.addToPlaylist(playlist, track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                listOf(1L, 2L),
+                vm.playlists.value
+                    .single()
+                    .tracks
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun `tracks can be removed from a local playlist but not from an imported one`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(1))
+            controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(5)))
+            vm.importFromText("https://soundcloud.com/a/sets/mix")
+            dispatcher.scheduler.advanceUntilIdle()
+            val local = vm.playlists.value.first { it.sourceUrl == null }
+            val imported = vm.playlists.value.first { it.sourceUrl != null }
+
+            vm.removeFromPlaylist(local, 1L)
+            vm.removeFromPlaylist(imported, 5L)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(
+                vm.playlists.value
+                    .first { it.sourceUrl == null }
+                    .tracks
+                    .isEmpty(),
+            )
+            assertEquals(
+                1,
+                vm.playlists.value
+                    .first { it.sourceUrl != null }
+                    .tracks.size,
+            )
+        }
+
+    @Test
     fun `a playlist link is saved under its link and not played`() =
         runTest {
             controller.nextResult =

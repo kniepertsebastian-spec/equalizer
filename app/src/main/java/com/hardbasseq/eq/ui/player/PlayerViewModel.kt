@@ -9,6 +9,7 @@ import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
 import com.hardbasseq.eq.link.TrackMatcher
 import com.hardbasseq.eq.link.TrackQueryBuilder
+import com.hardbasseq.eq.playlist.PlaylistEditing
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
 import com.hardbasseq.eq.playlist.SavedTrack
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -287,6 +289,53 @@ class PlayerViewModel
 
         fun playPlaylist(playlist: SavedPlaylist) {
             controller.playQueue(playlist.tracks.map { it.toTrackItem() }, 0)
+        }
+
+        // The track that is playing right now (from the queue), null when nothing plays.
+        fun currentTrack(): TrackItem? = queue.value.getOrNull(nowPlaying.value?.queueIndex ?: -1)
+
+        /** Makes a playlist on the device, optionally starting with [firstTrack]. Blank names are refused. */
+        fun createPlaylist(
+            title: String,
+            firstTrack: TrackItem? = null,
+        ) {
+            viewModelScope.launch {
+                val existing = playlistRepository.playlists.first()
+                val playlist = PlaylistEditing.create(title, existing, System.currentTimeMillis(), firstTrack?.toSaved())
+                if (playlist == null) {
+                    fail("Bitte einen Namen eingeben")
+                    return@launch
+                }
+                playlistRepository.save(playlist)
+                _importState.value = ImportUiState(message = "Playlist „${playlist.title}“ angelegt")
+            }
+        }
+
+        fun addToPlaylist(
+            playlist: SavedPlaylist,
+            track: TrackItem,
+        ) {
+            viewModelScope.launch {
+                // Read again: the list shown may be a moment old.
+                val latest = playlistRepository.playlists.first().firstOrNull { it.id == playlist.id } ?: return@launch
+                if (PlaylistEditing.contains(latest, track.id)) {
+                    _importState.value = ImportUiState(message = "„${track.title}“ ist schon in „${latest.title}“")
+                    return@launch
+                }
+                playlistRepository.save(PlaylistEditing.addTrack(latest, track.toSaved()))
+                _importState.value = ImportUiState(message = "Zu „${latest.title}“ hinzugefügt")
+            }
+        }
+
+        fun removeFromPlaylist(
+            playlist: SavedPlaylist,
+            trackId: Long,
+        ) {
+            if (!PlaylistEditing.isLocal(playlist)) return
+            viewModelScope.launch {
+                val latest = playlistRepository.playlists.first().firstOrNull { it.id == playlist.id } ?: return@launch
+                playlistRepository.save(PlaylistEditing.removeTrack(latest, trackId))
+            }
         }
 
         fun deletePlaylist(playlist: SavedPlaylist) {
