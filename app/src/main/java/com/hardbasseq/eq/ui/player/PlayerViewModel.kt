@@ -7,7 +7,11 @@ import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
+import com.hardbasseq.eq.link.SpotifyPlaylist
+import com.hardbasseq.eq.link.SpotifyPlaylistPage
+import com.hardbasseq.eq.link.SpotifyTrackPage
 import com.hardbasseq.eq.link.TrackMatcher
+import com.hardbasseq.eq.link.TrackQuery
 import com.hardbasseq.eq.link.TrackQueryBuilder
 import com.hardbasseq.eq.playlist.PlaylistEditing
 import com.hardbasseq.eq.playlist.PlaylistRepository
@@ -19,6 +23,7 @@ import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.PlayedTracksState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -180,8 +185,14 @@ class PlayerViewModel
             when (ShareLink.classify(url)) {
                 LinkSource.SOUNDCLOUD -> Unit
                 LinkSource.SPOTIFY -> {
+                    val playlistIds = ShareLink.extractUrls(text).mapNotNull { ShareLink.spotifyPlaylistId(it) }.distinct()
+                    if (playlistIds.isNotEmpty()) return importSpotifyPlaylists(playlistIds)
                     val trackId = ShareLink.spotifyTrackId(url)
-                    return bridgeExternalSong(trackId?.let { ShareLink.canonicalSpotifyTrackUrl(it) }, isYouTube = false)
+                    return bridgeExternalSong(
+                        trackId?.let { ShareLink.canonicalSpotifyTrackUrl(it) },
+                        isYouTube = false,
+                        spotifyTrackId = trackId,
+                    )
                 }
 
                 LinkSource.YOUTUBE -> {
@@ -220,6 +231,115 @@ class PlayerViewModel
             }
         }
 
+        private var spotifyImport: Job? = null
+
+        // A Spotify playlist cannot be played from Spotify, but its list of songs is public:
+        // every song is looked up on SoundCloud, and what is found becomes a playlist on
+        // the device. Songs without a sure match are left out and named in the message.
+        //
+        // Spotify's public page lists only the first ~100 songs of a playlist. A longer one
+        // can be split into parts of up to 100 in Spotify and shared together (several links
+        // in one text): all parts are read and end up merged in one playlist.
+        private fun importSpotifyPlaylists(playlistIds: List<String>) {
+            spotifyImport?.cancel()
+            spotifyImport =
+                viewModelScope.launch {
+                    val parts = mutableListOf<SpotifyPlaylist>()
+                    var lastError: String? = null
+                    playlistIds.forEachIndexed { index, id ->
+                        _importState.value =
+                            ImportUiState(isLoading = true, message = "Lese die Spotify-Playlist … ${index + 1} von ${playlistIds.size}")
+                        when (val result = controller.fetchSpotifyPlaylistPage(id)) {
+                            is LoadResult.Ok ->
+                                SpotifyPlaylistPage.parse(result.value)?.let { parts.add(it) }
+                                    ?: run {
+                                        lastError =
+                                            "Die Titel dieser Spotify-Playlist konnten nicht gelesen werden (nur öffentliche Playlists)"
+                                    }
+
+                            is LoadResult.Error -> lastError = result.message
+                        }
+                    }
+                    if (parts.isEmpty()) {
+                        fail(lastError ?: "Die Spotify-Playlist konnte nicht gelesen werden")
+                        return@launch
+                    }
+                    // The same song in two parts is searched once.
+                    val wanted =
+                        parts
+                            .flatMap { it.tracks }
+                            .distinctBy { it.artist.lowercase() to it.title.lowercase() }
+                            .take(MAX_SPOTIFY_TRACKS)
+                    val found = LinkedHashMap<Long, TrackItem>()
+                    val missing = mutableListOf<String>()
+                    wanted.forEachIndexed { index, entry ->
+                        _importState.value =
+                            ImportUiState(isLoading = true, message = "Suche auf SoundCloud … ${index + 1} von ${wanted.size}")
+                        val query = TrackQueryBuilder.fromArtistAndTitle(entry.artist, entry.title)
+                        val match = findOnSoundCloud(query)
+                        if (match == null) missing.add(query.label) else found.putIfAbsent(match.id, match)
+                    }
+                    if (found.isEmpty()) {
+                        fail("Nichts davon gibt es auf SoundCloud (oder die Suche ging nicht)")
+                        return@launch
+                    }
+                    val name =
+                        if (parts.size == 1) {
+                            "${parts.first().title} (von Spotify)"
+                        } else {
+                            "${parts.first().title} + ${parts.size - 1} weitere (von Spotify)"
+                        }
+                    val existing = playlistRepository.playlists.first()
+                    val saved =
+                        PlaylistEditing
+                            .create(name, existing, System.currentTimeMillis())
+                            ?.copy(tracks = found.values.map { it.toSaved() })
+                    if (saved == null) {
+                        fail("Die Playlist konnte nicht angelegt werden")
+                        return@launch
+                    }
+                    playlistRepository.save(saved)
+                    val skipped =
+                        if (missing.isEmpty()) {
+                            ""
+                        } else {
+                            ". Nicht gefunden: ${missing.take(MAX_LISTED_MISSING).joinToString(", ")}" +
+                                if (missing.size > MAX_LISTED_MISSING) " und ${missing.size - MAX_LISTED_MISSING} weitere" else ""
+                        }
+                    val partsNote = if (parts.size < playlistIds.size) " (${playlistIds.size - parts.size} Teil(e) nicht lesbar)" else ""
+                    _importState.value =
+                        ImportUiState(
+                            message = "„${saved.title}“ angelegt: ${found.size} von ${wanted.size} Titeln gefunden$partsNote$skipped",
+                        )
+                }
+        }
+
+        /** Merges the chosen playlists (in the given order) into one new playlist; the originals stay. */
+        fun mergePlaylists(
+            sources: List<SavedPlaylist>,
+            title: String,
+        ) {
+            viewModelScope.launch {
+                val existing = playlistRepository.playlists.first()
+                val merged = PlaylistEditing.merge(title, sources, existing, System.currentTimeMillis())
+                if (merged == null) {
+                    fail("Bitte mindestens eine Playlist und einen Namen angeben")
+                    return@launch
+                }
+                playlistRepository.save(merged)
+                _importState.value =
+                    ImportUiState(message = "„${merged.title}“ angelegt: ${merged.tracks.size} Titel aus ${sources.size} Playlists")
+            }
+        }
+
+        // The best sure match on SoundCloud for a song, or null when there is none (or
+        // the search failed - one bad request must not stop a whole playlist).
+        private suspend fun findOnSoundCloud(query: TrackQuery): TrackItem? {
+            val candidates = (candidatesFor(query) as? LoadResult.Ok)?.value ?: return null
+            val best = TrackMatcher.rank(query, candidates, { it.title }, { it.artist }).firstOrNull() ?: return null
+            return best.first.takeIf { TrackMatcher.isConfident(query, best.second) }
+        }
+
         // A song shared from YouTube / Spotify cannot be played from there (protected
         // streams), but what it is can be read from the link's public preview data and
         // looked up on SoundCloud. Only single songs: playlists, albums, channels and
@@ -227,6 +347,7 @@ class PlayerViewModel
         private fun bridgeExternalSong(
             canonicalUrl: String?,
             isYouTube: Boolean,
+            spotifyTrackId: String? = null,
         ) {
             if (canonicalUrl == null) {
                 val service = if (isYouTube) "YouTube" else "Spotify"
@@ -235,19 +356,32 @@ class PlayerViewModel
             }
             viewModelScope.launch {
                 _importState.value = ImportUiState(isLoading = true, message = "Lese den Titel …")
-                val info =
-                    when (val result = controller.describeExternalLink(canonicalUrl)) {
+                // Spotify's preview names only the song; its public track page also names the
+                // artist, which makes the SoundCloud search (and the ranking) far more precise.
+                val spotifyQuery = spotifyTrackId?.let { spotifyQueryFor(it) }
+                val query =
+                    spotifyQuery ?: run {
+                        val info =
+                            when (val result = controller.describeExternalLink(canonicalUrl)) {
+                                is LoadResult.Ok -> result.value
+                                is LoadResult.Error -> return@launch fail(result.message)
+                            }
+                        if (isYouTube) {
+                            TrackQueryBuilder.fromYouTube(
+                                info.title,
+                                info.author,
+                            )
+                        } else {
+                            TrackQueryBuilder.fromTitleOnly(info.title)
+                        }
+                    }
+                _importState.value = ImportUiState(isLoading = true, message = "Suche „${query.label}“ auf SoundCloud …")
+
+                val candidates =
+                    when (val result = candidatesFor(query)) {
                         is LoadResult.Ok -> result.value
                         is LoadResult.Error -> return@launch fail(result.message)
                     }
-                val query =
-                    if (isYouTube) TrackQueryBuilder.fromYouTube(info.title, info.author) else TrackQueryBuilder.fromTitleOnly(info.title)
-                _importState.value = ImportUiState(isLoading = true, message = "Suche „${query.label}“ auf SoundCloud …")
-
-                var candidates = searchSoundCloud(query.searchText) ?: return@launch
-                // Artist plus title can be too strict (the uploader names it differently):
-                // fall back to the title alone, the ranking still uses the artist.
-                if (candidates.isEmpty() && query.artist != null) candidates = searchSoundCloud(query.title) ?: return@launch
 
                 val matches =
                     TrackMatcher
@@ -273,15 +407,29 @@ class PlayerViewModel
             }
         }
 
-        // null when the search failed (the error is already shown).
-        private suspend fun searchSoundCloud(text: String): List<TrackItem>? =
-            when (val result = controller.searchSoundCloud(text, CANDIDATE_LIMIT)) {
-                is LoadResult.Ok -> result.value
-                is LoadResult.Error -> {
-                    fail(result.message)
-                    null
+        // Artist and song of a Spotify track from its public page, null when that cannot be read.
+        private suspend fun spotifyQueryFor(trackId: String): TrackQuery? {
+            val page = (controller.fetchSpotifyTrackPage(trackId) as? LoadResult.Ok)?.value ?: return null
+            val track = SpotifyTrackPage.parse(page) ?: return null
+            return TrackQueryBuilder.fromArtistAndTitle(track.artist, track.title)
+        }
+
+        // SoundCloud results worth ranking for a song. "Artist title" goes first; when that
+        // gives nothing sure and the artist is known, a search by title alone adds the
+        // tracks the uploader named differently (the ranking still weighs the artist).
+        private suspend fun candidatesFor(query: TrackQuery): LoadResult<List<TrackItem>> {
+            val first = controller.searchSoundCloud(query.searchText, CANDIDATE_LIMIT)
+            if (first !is LoadResult.Ok) return first
+            var all = first.value.distinctBy { it.id }
+            if (query.artist != null) {
+                val best = TrackMatcher.rank(query, all, { it.title }, { it.artist }).firstOrNull()
+                if (best == null || !TrackMatcher.isConfident(query, best.second)) {
+                    val more = controller.searchSoundCloud(query.title, CANDIDATE_LIMIT)
+                    if (more is LoadResult.Ok) all = (all + more.value).distinctBy { it.id }
                 }
             }
+            return LoadResult.Ok(all)
+        }
 
         fun playBridgeMatch(match: BridgeMatch) {
             controller.playQueue(listOf(match.track), 0)
@@ -371,6 +519,10 @@ class PlayerViewModel
 
 private const val CANDIDATE_LIMIT = 10
 private const val MAX_SHOWN_MATCHES = 5
+
+// A playlist import looks every song up one by one, so it is capped.
+private const val MAX_SPOTIFY_TRACKS = 500
+private const val MAX_LISTED_MISSING = 5
 
 // Results scoring below this are noise, not candidates worth showing.
 private const val MIN_SHOWN_SCORE = 0.3

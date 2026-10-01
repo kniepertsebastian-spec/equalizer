@@ -449,6 +449,22 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | S2 | Wie S1 mit Limiter aus (Klang-Feinschliff) | zeigt, ob der Limiter der Auslöser war |
 | S3 | Titel antippen | Zeile leuchtet pulsierend mit Equalizer-Symbol |
 | S4 | Nächster Titel | vorheriger bekommt Haken und ist gedimmt (Queue, Playlist, Entdecker-Liste) |
+| X1 | Öffentliche Spotify-Playlist teilen/einfügen | Fortschritt „Suche … n von m“, danach neue Playlist „… (von Spotify)“ mit den gefundenen Titeln |
+| X2 | Meldung nach X1 | nennt „n von m gefunden“ und bis zu 5 nicht gefundene Titel |
+| X3 | Private Playlist oder Kurzlink | verständliche Fehlermeldung, nichts gespeichert |
+| X4 | Einzelnen Spotify-Titel teilen | Meldung „Suche „Künstler - Titel“ …“; bei sicherem Treffer startet er von selbst |
+| X5 | Spotify-Titel mit häufigem Namen (z. B. „Roar“) | richtiger Künstler steht oben in der Trefferliste |
+| X6 | Zwei Spotify-Playlist-Links in einem Text teilen/einfügen | eine gemeinsame Playlist „… + 1 weitere (von Spotify)“, doppelte Titel nur einmal |
+| X7 | Playlists → „Zusammenführen“, zwei Playlists wählen, Namen eingeben | neue Playlist mit allen Titeln, Originale bleiben |
+| C1 | Titel im Player starten, Handy per Bluetooth mit dem Auto verbunden | Autodisplay zeigt Titel und Interpret (ggf. Cover) statt „Inhalt nicht gefunden“ |
+| C2 | Weiter/Zurück/Pause am Lenkrad oder Autoradio | wirkt auf die Warteschlange des Players; Anzeige zieht nach |
+| C3 | Sperrbildschirm und Benachrichtigung ansehen | Titel, Interpret und die drei Tasten sind da |
+| C4 | Titel pausieren | Benachrichtigung zeigt „Abspielen“ und lässt sich wegwischen |
+| A1 | Android Auto: Entwickleroptionen → „Unbekannte Quellen“ an, Handy verbinden | HardBass EQ erscheint in der Medienauswahl |
+| A2 | Öffnen | Ordner „Meine Playlists“, „Interesting new uploads“, „Likes“ |
+| A3 | Playlist öffnen, Titel antippen | Titel startet, Playlist läuft ab diesem Titel weiter; Titel/Interpret auf dem Display |
+| A4 | Weiter/Zurück/Pause im Auto | wirkt wie bei Bluetooth |
+| A5 | App vorher komplett beendet, dann Auto verbinden | Browser lädt, Titel startet (Player-Dienst wird dabei gestartet) |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
 
 | # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |

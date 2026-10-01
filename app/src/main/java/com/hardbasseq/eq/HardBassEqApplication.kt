@@ -8,15 +8,23 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.hardbasseq.eq.auto.AppAutoCatalog
 import com.hardbasseq.eq.discovery.DiscoveryWorker
 import com.hardbasseq.eq.service.AudioSessionForegroundService
+import com.soundcloud.equalizer.player.playback.AutoCatalogHolder
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
 
 @HiltAndroidApp
 class HardBassEqApplication : Application() {
+    @Inject
+    lateinit var autoCatalog: AppAutoCatalog
+
     override fun onCreate() {
         super.onCreate()
+        // What the car (Android Auto) may browse and play; also read by the player service.
+        AutoCatalogHolder.catalog = autoCatalog
         // Starts as early as the app process exists (not only once MainActivity/
         // MainViewModel is created), so the session-open broadcast a player sends
         // is much less likely to be missed. See AudioSessionForegroundService.

@@ -27,6 +27,14 @@ object ShareLink {
             ?.trimEnd { it in TRAILING_PUNCTUATION }
             ?.takeIf { hostOf(it) != null }
 
+    // Every usable link in a text (several can be pasted or shared at once), in order.
+    fun extractUrls(text: String): List<String> =
+        urlPattern
+            .findAll(text)
+            .map { it.value.trimEnd { ch -> ch in TRAILING_PUNCTUATION } }
+            .filter { hostOf(it) != null }
+            .toList()
+
     fun classify(url: String): LinkSource {
         val host = hostOf(url) ?: return LinkSource.OTHER
         return when {
@@ -92,6 +100,21 @@ object ShareLink {
     }
 
     fun canonicalSpotifyTrackUrl(trackId: String): String = "https://open.spotify.com/track/$trackId"
+
+    // The public embed page of a single track; unlike the oEmbed preview it names the artist.
+    fun spotifyTrackEmbedUrl(trackId: String): String = "https://open.spotify.com/embed/track/$trackId"
+
+    // The playlist behind an open.spotify.com link, or null for anything else.
+    fun spotifyPlaylistId(url: String): String? {
+        if (hostOf(url) != "open.spotify.com") return null
+        val segments = pathSegments(url).let { if (it.firstOrNull()?.startsWith("intl-") == true) it.drop(1) else it }
+        if (segments.firstOrNull() != "playlist") return null
+        return segments.getOrNull(1)?.takeIf { spotifyTrackIdPattern.matches(it) }
+    }
+
+    // The public embed page of a playlist (what Spotify shows inside other sites); it
+    // lists the playlist's tracks without a login.
+    fun spotifyPlaylistEmbedUrl(playlistId: String): String = "https://open.spotify.com/embed/playlist/$playlistId"
 
     private fun pathSegments(url: String): List<String> =
         url

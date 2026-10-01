@@ -105,4 +105,16 @@ class TrackQueryTest {
         assertFalse(TrackMatcher.mentionsArtist("Miss K8", "K8 alone", "x"))
         assertFalse(TrackMatcher.mentionsArtist("", "anything", "x"))
     }
+
+    @Test
+    fun `builds a query from a playlist entry with several artists`() {
+        val query = TrackQueryBuilder.fromArtistAndTitle("Angerfist, Miss K8", "Drum Go Bang (Official Video)")
+        assertEquals("Angerfist", query.artist)
+        assertEquals("Drum Go Bang", query.title)
+    }
+
+    @Test
+    fun `a blank artist leaves the artist out`() {
+        assertNull(TrackQueryBuilder.fromArtistAndTitle("  ", "Song").artist)
+    }
 }

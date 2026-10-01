@@ -242,6 +242,10 @@ class DiscoveryViewModelTest {
 
         override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> = unused()
 
+        override suspend fun fetchSpotifyTrackPage(trackId: String): LoadResult<String> = unused()
+
+        override suspend fun fetchSpotifyPlaylistPage(playlistId: String): LoadResult<String> = unused()
+
         override suspend fun searchSoundCloud(
             query: String,
             limit: Int,

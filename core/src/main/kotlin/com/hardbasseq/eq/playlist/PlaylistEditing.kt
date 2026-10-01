@@ -38,4 +38,17 @@ object PlaylistEditing {
         playlist: SavedPlaylist,
         trackId: Long,
     ): Boolean = playlist.tracks.any { it.id == trackId }
+
+    // One new playlist holding the tracks of all [sources] in order, each track once.
+    // The sources stay as they are. Null for a blank name or nothing to merge.
+    fun merge(
+        title: String,
+        sources: List<SavedPlaylist>,
+        existing: List<SavedPlaylist>,
+        nowMs: Long,
+    ): SavedPlaylist? {
+        if (sources.isEmpty()) return null
+        val tracks = sources.flatMap { it.tracks }.distinctBy { it.id }
+        return create(title, existing, nowMs)?.copy(tracks = tracks)
+    }
 }

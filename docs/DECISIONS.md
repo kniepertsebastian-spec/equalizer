@@ -409,3 +409,73 @@ lassen sie sich einzeln entfernen.
 Equalizer-Symbol), bereits gespielte Titel sind gedimmt mit Haken – in Warteschlange,
 aufgeklappten Playlists und „Interesting new uploads“. `PlayedTracksState` merkt sich die
 Titel nur, solange der App-Prozess läuft.
+
+### Spotify-Playlist → Playlist aus SoundCloud-Titeln (1. Oktober 2026)
+
+Ein öffentlicher Spotify-Playlist-Link (Teilen-Link oder eingefügt) legt auf dem Gerät eine
+Playlist „<Name> (von Spotify)“ an: jeder Titel wird auf SoundCloud gesucht, nur sichere Treffer
+(`TrackMatcher.isConfident`, Künstler bekannt) kommen hinein, der Rest steht in der Meldung
+(„n von m gefunden. Nicht gefunden: …“). Es wird nichts von Spotify abgespielt oder geladen.
+- Quelle der Titelliste: die öffentliche Embed-Seite der Playlist (`open.spotify.com/embed/playlist/<id>`),
+  deren JSON (`__NEXT_DATA__`, Array `trackList`) `SpotifyPlaylistPage` namensbasiert liest.
+  Inoffiziell: Spotify kann das jederzeit ändern; dann kommt „Titel konnten nicht gelesen werden“.
+  Meist nur die ersten ~100 Titel; maximal 150 werden gesucht (eine Suche pro Titel, nacheinander).
+- Nur öffentliche Playlists. Spotify-Kurzlinks (`spotify.link`), Alben und YouTube-Playlists sind
+  weiter nicht möglich (YouTube hat keine öffentliche Titelliste ohne API-Schlüssel).
+- **Nicht verifiziert** (kein Netz zu Spotify in der Entwicklungsumgebung): Aufbau der Embed-Seite,
+  Trefferquote bei echten Playlists. Einzelne Spotify-Titel liefern über oEmbed nur den Titel,
+  keinen Künstler – deshalb fragt die App dort weiter nach, statt automatisch zu starten.
+
+**Nachtrag: Künstler bei einzelnen Spotify-Links.** Die oEmbed-Vorschau nennt nur den Titel.
+Deshalb liest die App zuerst die öffentliche Track-Seite (`open.spotify.com/embed/track/<id>`,
+`SpotifyTrackPage`) und sucht mit „Künstler Titel“; ist der Künstler bekannt und der Treffer
+sicher, startet der Titel von allein. Lässt sich die Seite nicht lesen, bleibt es beim bisherigen
+Weg (nur Titel, Trefferliste zur Auswahl). Außerdem gilt für alle Brücken-Suchen (YouTube,
+Spotify, Playlist-Import): ist der erste Treffer nicht sicher, wird zusätzlich nur nach dem
+Titel gesucht und beide Ergebnislisten werden gemeinsam nach Titel und Künstler bewertet.
+Nicht verifiziert: Aufbau der Track-Embed-Seite.
+
+**Nachtrag: lange Spotify-Playlists und Zusammenführen.** Spotifys öffentliche Seite listet nur die
+ersten ca. 100 Titel einer Playlist – mehr kommt über diesen Weg nicht an (das ist die Grenze beim
+*Lesen*, nicht beim Anlegen). Eine längere Playlist lässt sich deshalb in Spotify in Teile zu je
+höchstens 100 Titeln aufteilen; werden die Links der Teile **zusammen** geteilt/eingefügt (mehrere
+Links in einem Text), liest die App alle Teile und legt **eine** gemeinsame Playlist an
+(„<Name> + n weitere (von Spotify)“), gleiche Titel nur einmal. Maximal 500 Titel pro Import
+(eine Suche pro Titel, nacheinander – bei sehr vielen Titeln kann SoundCloud bremsen).
+Zusätzlich: „Zusammenführen“ in der Playlists-Karte fasst beliebige eigene/importierte Playlists
+zu einer neuen zusammen (Reihenfolge erhalten, Dopplungen entfernt, Originale bleiben).
+Ein Spotify-API-Schlüssel (der echte Weg für Playlists >100) ist nicht eingebaut.
+
+### Auto / Bluetooth: Titelanzeige und Tasten (1. Oktober 2026)
+
+Der Player hatte keine Media-Session – Auto, Bluetooth-Geräte und Sperrbildschirm sahen deshalb
+nichts (Anzeige „Inhalt nicht gefunden“). `AudioPlayerService` meldet jetzt eine Media3-
+`MediaSession`: Titel, Interpret und Cover des laufenden Titels, Wiedergabestatus und die Tasten
+Play/Pause/Weiter/Zurück (Weiter/Zurück gehen an die Warteschlange des Dienstes, ExoPlayer kennt
+nur den einen laufenden Titel). Die Benachrichtigung ist ein Medien-Stil mit denselben Tasten und
+wird bei Titel- oder Statuswechsel aktualisiert.
+- Das ist der Weg für Bluetooth (AVRCP): das Auto zeigt „Läuft gerade“ wie bei Spotify.
+- **Nicht gebaut:** Android Auto (USB/kabellos) und die Durchsuch-Ansicht im Auto – das braucht
+  einen `MediaLibraryService` mit Inhaltsbaum. Die Auto-Mediaauswahl bleibt für HardBass EQ leer.
+- Läuft die App nicht mehr (Dienst beendet), kann eine Auto-Taste sie nicht starten – erst in der
+  App einen Titel starten.
+- **Nicht verifiziert** auf einem echten Auto (Cover-Übertragung hängt vom Autoradio ab).
+
+### Android Auto (1. Oktober 2026)
+
+HardBass EQ meldet sich bei Android Auto als Medien-App: `AutoBrowserService`
+(`MediaBrowserServiceCompat`, im Manifest mit `automotive_app_desc.xml`) zeigt dem Auto drei
+Ordner – „Meine Playlists“ (mit ihren Titeln), „Interesting new uploads“, „Likes“ (nur mit
+SoundCloud-Login) – bis 100 Einträge je Liste (`AppAutoCatalog`, Ids in `AutoMediaId`).
+Wählt man einen Titel, wird die Liste, in der er steht, die Warteschlange und ab diesem Titel
+gespielt. Abspielen und Tasten laufen über dieselbe Media-Session wie bei Bluetooth.
+- Der Wiedergabe-Dienst selbst ist kaum verändert: die Session bekommt einen Callback, und der
+  `ForwardingPlayer` fängt „spiele diese Id“ aus dem Auto ab (`startFromCar`); alles andere läuft
+  wie bisher. Der Browser-Dienst bindet den Player-Dienst nur, wenn ein Auto/Assistent verbindet.
+- Zugriff nur für System, Android Auto, Assistent und Bluetooth (`isTrustedClient`), nicht für
+  beliebige Apps.
+- **Voraussetzung:** Android Auto zeigt Apps, die nicht aus dem Play Store kommen, nur mit
+  aktivierten Entwickleroptionen: Android-Auto-Einstellungen → mehrfach auf „Version“ tippen →
+  Entwicklereinstellungen → „Unbekannte Quellen“ aktivieren.
+- **Nicht verifiziert** (kein Android/Auto in der Entwicklungsumgebung): ob Android Auto die App
+  anzeigt, Cover-Laden über https-Adressen, Sprachbefehle („Spiele Playlist …“).

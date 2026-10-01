@@ -77,4 +77,27 @@ class PlaylistEditingTest {
         assertFalse(PlaylistEditing.contains(result, 1L))
         assertTrue(PlaylistEditing.contains(result, 2L))
     }
+
+    @Test
+    fun `merging keeps the order and each track once`() {
+        val first = PlaylistEditing.create("A", emptyList(), 1L, firstTrack = kick)!!.let { PlaylistEditing.addTrack(it, snare) }
+        val second =
+            PlaylistEditing.create("B", listOf(first), 2L, firstTrack = snare)!!.let {
+                PlaylistEditing.addTrack(it, SavedTrack(3L, "Hat", "DJ C"))
+            }
+
+        val merged = PlaylistEditing.merge("Alles", listOf(first, second), listOf(first, second), 3L)!!
+
+        assertEquals(listOf(1L, 2L, 3L), merged.tracks.map { it.id })
+        assertEquals("Alles", merged.title)
+        assertEquals(2, first.tracks.size)
+        assertTrue(PlaylistEditing.isLocal(merged))
+    }
+
+    @Test
+    fun `merging nothing or with a blank name makes nothing`() {
+        val one = PlaylistEditing.create("A", emptyList(), 1L)!!
+        assertNull(PlaylistEditing.merge("X", emptyList(), emptyList(), 1L))
+        assertNull(PlaylistEditing.merge("  ", listOf(one), listOf(one), 2L))
+    }
 }

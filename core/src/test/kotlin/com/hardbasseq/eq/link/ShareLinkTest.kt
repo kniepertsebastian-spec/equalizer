@@ -96,4 +96,31 @@ class ShareLinkTest {
         assertNull(ShareLink.spotifyTrackId("https://open.spotify.com/album/$id"))
         assertNull(ShareLink.spotifyTrackId("https://spotify.link/abc"))
     }
+
+    @Test
+    fun `finds the playlist behind a spotify link`() {
+        val id = "37i9dQZF1DXcBWIGoYBM5M"
+        assertEquals(id, ShareLink.spotifyPlaylistId("https://open.spotify.com/playlist/$id?si=abc"))
+        assertEquals(id, ShareLink.spotifyPlaylistId("https://open.spotify.com/intl-de/playlist/$id"))
+        assertNull(ShareLink.spotifyPlaylistId("https://open.spotify.com/track/$id"))
+        assertNull(ShareLink.spotifyPlaylistId("https://open.spotify.com/playlist/short"))
+        assertNull(ShareLink.spotifyPlaylistId("https://example.com/playlist/$id"))
+        assertEquals("https://open.spotify.com/embed/playlist/$id", ShareLink.spotifyPlaylistEmbedUrl(id))
+        assertEquals("https://open.spotify.com/embed/track/$id", ShareLink.spotifyTrackEmbedUrl(id))
+    }
+
+    @Test
+    fun `finds every link in a text`() {
+        val text =
+            "Teil 1: https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M, " +
+                "Teil 2 (https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd)"
+        assertEquals(
+            listOf(
+                "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+                "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
+            ),
+            ShareLink.extractUrls(text),
+        )
+        assertTrue(ShareLink.extractUrls("kein Link").isEmpty())
+    }
 }

@@ -420,19 +420,159 @@ class PlayerViewModelTest {
         }
 
     @Test
-    fun `playlists albums and channels are refused without any lookup`() =
+    fun `youtube playlists and spotify albums are refused without any lookup`() =
         runTest {
             val vm = viewModel()
 
             vm.importFromText("https://www.youtube.com/playlist?list=PL123")
-            assertTrue(vm.importState.value.isError)
-            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
             assertTrue(vm.importState.value.isError)
             vm.importFromText("https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT")
             assertTrue(vm.importState.value.isError)
             dispatcher.scheduler.advanceUntilIdle()
 
             assertTrue(controller.describedUrls.isEmpty())
+        }
+
+    private fun spotifyPage(vararg entries: Pair<String, String>): LoadResult<String> {
+        val list = entries.joinToString(",") { """{"title":"${it.second}","subtitle":"${it.first}"}""" }
+        return LoadResult.Ok(
+            """<script id="__NEXT_DATA__" type="application/json">{"entity":{"name":"Hardcore Mix","trackList":[$list]}}</script>""",
+        )
+    }
+
+    @Test
+    fun `a spotify playlist becomes a soundcloud playlist of the songs found`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage("Angerfist" to "Drum Go Bang", "Miss K8" to "Unknown Banger")
+            controller.searchResults["Angerfist Drum Go Bang"] =
+                LoadResult.Ok(listOf(track(1, "Angerfist - Drum Go Bang").copy(artist = "Angerfist")))
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=x")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.fetchedSpotifyPlaylists)
+            val saved = vm.playlists.value.single()
+            assertEquals("Hardcore Mix (von Spotify)", saved.title)
+            assertEquals(listOf(1L), saved.tracks.map { it.id })
+            assertFalse(vm.importState.value.isError)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains("1 von 2"))
+            assertTrue(message, message.contains("Miss K8 - Unknown Banger"))
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `an unreadable spotify page or a playlist with no matches saves nothing`() =
+        runTest {
+            val vm = viewModel()
+
+            controller.spotifyPage = LoadResult.Ok("<html>nothing</html>")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.spotifyPage = spotifyPage("Nobody" to "Nothing")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.spotifyPage = LoadResult.Error("offline")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("offline", vm.importState.value.message)
+            assertTrue(vm.playlists.value.isEmpty())
+        }
+
+    @Test
+    fun `a spotify song with a readable page is searched by artist and title and starts when sure`() =
+        runTest {
+            controller.spotifyTrackPage =
+                LoadResult.Ok(
+                    """<script id="__NEXT_DATA__" type="application/json">{"entity":{"name":"Criminally Insane","artists":[{"name":"Angerfist"}]}}</script>""",
+                )
+            controller.searchResults["Angerfist Criminally Insane"] =
+                LoadResult.Ok(listOf(candidate(7, "Angerfist - Criminally Insane", "Angerfist")))
+            val vm = viewModel()
+
+            vm.importFromText("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("4cOdK2wGLETKBW3PvgPWqT"), controller.fetchedSpotifyTracks)
+            assertTrue(controller.describedUrls.isEmpty())
+            assertEquals(listOf("Angerfist Criminally Insane"), controller.searchedQueries)
+            assertEquals(true, vm.bridgeState.value?.startedAutomatically)
+            assertEquals(
+                7L,
+                controller.playedQueues
+                    .single()
+                    .first
+                    .single()
+                    .id,
+            )
+        }
+
+    @Test
+    fun `an unsure artist search is widened by a title search and the better result wins`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Angerfist - Criminally Insane", null))
+            controller.searchResults["Angerfist Criminally Insane"] = LoadResult.Ok(listOf(candidate(1, "Some Mix 2024", "Someone")))
+            controller.searchResults["Criminally Insane"] = LoadResult.Ok(listOf(candidate(2, "Criminally Insane", "Angerfist")))
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("Angerfist Criminally Insane", "Criminally Insane"), controller.searchedQueries)
+            assertEquals(2L, vm.bridgeTrackIds().first())
+        }
+
+    @Test
+    fun `several spotify links in one text are read together into one playlist`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage("Angerfist" to "Drum Go Bang")
+            controller.searchResults["Angerfist Drum Go Bang"] =
+                LoadResult.Ok(listOf(track(1, "Angerfist - Drum Go Bang").copy(artist = "Angerfist")))
+
+            vm.importFromText(
+                "Teil 1 https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M und Teil 2 https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
+            )
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DX0XUsuxWHRQd"), controller.fetchedSpotifyPlaylists)
+            val saved = vm.playlists.value.single()
+            assertEquals("Hardcore Mix + 1 weitere (von Spotify)", saved.title)
+            // The same song in both parts is searched and stored once.
+            assertEquals(listOf(1L), saved.tracks.map { it.id })
+            assertEquals(1, controller.searchedQueries.count { it == "Angerfist Drum Go Bang" })
+        }
+
+    @Test
+    fun `playlists can be merged into a new one and the originals stay`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("A", track(1))
+            vm.createPlaylist("B", track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            val sources = vm.playlists.value.sortedBy { it.title }
+
+            vm.mergePlaylists(sources, "Alles")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(3, vm.playlists.value.size)
+            assertEquals(
+                listOf(1L, 2L),
+                vm.playlists.value
+                    .first { it.title == "Alles" }
+                    .tracks
+                    .map { it.id },
+            )
+            vm.mergePlaylists(emptyList(), "Nichts")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
         }
 
     @Test
@@ -644,6 +784,22 @@ class PlayerViewModelTest {
         override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> {
             describedUrls.add(url)
             return describeResult
+        }
+
+        var spotifyTrackPage: LoadResult<String> = LoadResult.Error("not configured")
+        val fetchedSpotifyTracks = mutableListOf<String>()
+
+        override suspend fun fetchSpotifyTrackPage(trackId: String): LoadResult<String> {
+            fetchedSpotifyTracks.add(trackId)
+            return spotifyTrackPage
+        }
+
+        var spotifyPage: LoadResult<String> = LoadResult.Error("not configured")
+        val fetchedSpotifyPlaylists = mutableListOf<String>()
+
+        override suspend fun fetchSpotifyPlaylistPage(playlistId: String): LoadResult<String> {
+            fetchedSpotifyPlaylists.add(playlistId)
+            return spotifyPage
         }
 
         override suspend fun searchSoundCloud(
