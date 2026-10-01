@@ -3,6 +3,7 @@ package com.hardbasseq.eq.ui.player
 import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
+import com.hardbasseq.eq.link.SpotifyImportLedger
 import com.hardbasseq.eq.link.SpotifyImportPlan
 import com.hardbasseq.eq.link.SpotifyImportState
 import com.hardbasseq.eq.link.SpotifyTrack
@@ -684,6 +685,71 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `sharing the same playlist again imports nothing twice`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(100)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, vm.playlists.value.size)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.startsWith("Nichts Neues"))
+            assertFalse(vm.importState.value.isError)
+        }
+
+    @Test
+    fun `only the songs that are new since the last time are imported`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(150)
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.spotifyPage = spotifyPage(*songs(150))
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(2, vm.playlists.value.size)
+            val second = vm.playlists.value.first { it.title.contains("Nachtrag") }
+            assertEquals("Hardcore Mix (Nachtrag) (von Spotify)", second.title)
+            assertEquals((101L..150L).toList(), second.tracks.map { it.id })
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains("100 schon importierte Titel übersprungen"))
+        }
+
+    @Test
+    fun `after deleting the playlist the same link imports it again`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(5))
+            answerAllSongs(5)
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.deletePlaylist(vm.playlists.value.single())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                5,
+                vm.playlists.value
+                    .single()
+                    .tracks.size,
+            )
+        }
+
+    @Test
     fun `discarding forgets an unfinished import`() =
         runTest {
             val vm = viewModel()
@@ -966,6 +1032,17 @@ class PlayerViewModelTest {
 
         override suspend fun clear() {
             flow.value = null
+        }
+
+        var ledgerState = SpotifyImportLedger()
+
+        override suspend fun ledger(): SpotifyImportLedger = ledgerState
+
+        override suspend fun record(
+            sourceKey: String,
+            songs: Map<String, Long>,
+        ) {
+            ledgerState = SpotifyImportLedger.record(ledgerState, sourceKey, songs)
         }
     }
 

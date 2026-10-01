@@ -7,6 +7,7 @@ import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
+import com.hardbasseq.eq.link.SpotifyImportLedger
 import com.hardbasseq.eq.link.SpotifyImportPlan
 import com.hardbasseq.eq.link.SpotifyImportState
 import com.hardbasseq.eq.link.SpotifyPlaylist
@@ -262,7 +263,25 @@ class PlayerViewModel
                         return@launch
                     }
                     val read = readSpotifyPlaylists(playlistIds, key) ?: return@launch
-                    runSpotifyImport(read.first, readNote = read.second)
+                    // Songs imported from these links before are not imported again (sharing the
+                    // same, only partly readable playlist twice used to repeat its first 100).
+                    val presentIds =
+                        playlistRepository.playlists
+                            .first()
+                            .flatMap { list -> list.tracks.map { it.id } }
+                            .toSet()
+                    val todo = SpotifyImportLedger.remaining(spotifyImportRepository.ledger(), key, read.first.tracks, presentIds)
+                    if (todo.isEmpty()) {
+                        _importState.value =
+                            ImportUiState(
+                                message = "Nichts Neues: alle ${read.first.total} Titel sind schon in deinen Playlists${read.second}",
+                            )
+                        return@launch
+                    }
+                    val alreadyDone = read.first.total - todo.size
+                    val title = if (alreadyDone > 0) "${read.first.title} (Nachtrag)" else read.first.title
+                    val skippedNote = if (alreadyDone > 0) ". $alreadyDone schon importierte Titel übersprungen" else ""
+                    runSpotifyImport(SpotifyImportPlan.start(key, title, todo), readNote = read.second + skippedNote)
                 }
         }
 
@@ -339,6 +358,9 @@ class PlayerViewModel
                 val batch = SpotifyImportPlan.nextBatch(state)
                 val part = SpotifyImportPlan.nextPartNumber(state)
                 val found = LinkedHashMap<Long, TrackItem>()
+                // Song -> SoundCloud track (or NOT_FOUND) for the ledger; failed lookups are left out
+                // so that they are tried again next time.
+                val looked = mutableMapOf<String, Long>()
                 var failed = 0
                 for ((index, entry) in batch.withIndex()) {
                     val done = state.nextIndex + index + 1
@@ -350,8 +372,13 @@ class PlayerViewModel
                     val query = TrackQueryBuilder.fromArtistAndTitle(entry.artist, entry.title)
                     when (val outcome = lookUp(query)) {
                         is Lookup.Failed -> failed++
-                        is Lookup.NotFound -> missing.add(query.label)
+                        is Lookup.NotFound -> {
+                            missing.add(query.label)
+                            looked[SpotifyImportLedger.songKey(entry)] = SpotifyImportLedger.NOT_FOUND
+                        }
+
                         is Lookup.Hit -> {
+                            looked[SpotifyImportLedger.songKey(entry)] = outcome.track.id
                             if (seen.add(outcome.track.id)) found[outcome.track.id] = outcome.track
                         }
                     }
@@ -382,6 +409,7 @@ class PlayerViewModel
                 }
                 state = SpotifyImportPlan.advance(state, batch.size, found.size, wrote)
                 // After every block: the position is safe even if the app is closed now.
+                spotifyImportRepository.record(state.key, looked)
                 spotifyImportRepository.save(state)
             }
             spotifyImportRepository.clear()

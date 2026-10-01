@@ -504,3 +504,16 @@ weiter, statt von vorn zu beginnen:
   einer Playlist. Hat eine gelesene Playlist genau 100 Titel, weist die Meldung darauf hin. Mehr
   als 100 Titel kommen nur an, wenn die Seite mehr liefert oder mehrere Teil-Links zusammen
   geteilt werden; der gespeicherte Stand hilft beim Suchen/Anlegen, nicht beim Lesen.
+
+**Nachtrag: nichts doppelt importieren.** Spotifys Seite liefert nur die ersten ~100 Titel. Wer eine
+größere Playlist ein zweites Mal teilte, bekam deshalb dieselben 100 nochmal als zweite Playlist.
+Jetzt merkt sich die App je Quelle (`SpotifyImportLedger`), welche Spotify-Titel schon importiert
+wurden und welcher SoundCloud-Titel dazu gefunden wurde:
+- Dieselbe Playlist nochmal → „Nichts Neues“, keine zweite Playlist. Kommen neue Titel dazu (ergänzt
+  in Spotify oder liefert die Seite mehr), werden nur diese als „… (Nachtrag)“ angelegt.
+- Ein Titel zählt nur als erledigt, solange sein SoundCloud-Titel noch in einer deiner Playlists
+  liegt – löschst du die Playlist, lässt sich dieselbe Quelle erneut importieren. Nicht gefundene
+  Titel werden beim nächsten Mal nochmal versucht.
+- **Weiter nicht möglich:** Titel 101 ff. aus *einer* Spotify-Playlist zu lesen. Dafür bräuchte es die
+  Spotify-Web-API mit eigenem Entwickler-Schlüssel (nicht eingebaut) oder die Playlist in Spotify in
+  Teile zu je ≤100 aufzuteilen und die Links zusammen zu teilen.

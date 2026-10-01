@@ -459,6 +459,9 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | X8 | Spotify-Playlist mit mehr als 100 Titeln (bzw. mehrere Teil-Links) importieren | Fortschritt „Teil n von m“, je Block eine Playlist „… – Teil n von m …“ |
 | X9 | Import mitten drin abbrechen (App schließen oder Flugmodus), dann Link nochmal einfügen oder „Fortsetzen“ | macht beim gespeicherten Stand weiter, kein Block doppelt |
 | X10 | Playlist mit genau 100 Titeln | Meldung weist auf die 100er-Grenze von Spotify hin |
+| X11 | Dieselbe Spotify-Playlist zweimal teilen | beim zweiten Mal „Nichts Neues“, keine zweite Playlist |
+| X12 | In Spotify einen Titel ergänzen, nochmal teilen | nur der neue Titel kommt als „… (Nachtrag)“ |
+| X13 | Importierte Playlist löschen, Link nochmal teilen | wird wieder angelegt |
 | C1 | Titel im Player starten, Handy per Bluetooth mit dem Auto verbunden | Autodisplay zeigt Titel und Interpret (ggf. Cover) statt „Inhalt nicht gefunden“ |
 | C2 | Weiter/Zurück/Pause am Lenkrad oder Autoradio | wirkt auf die Warteschlange des Players; Anzeige zieht nach |
 | C3 | Sperrbildschirm und Benachrichtigung ansehen | Titel, Interpret und die drei Tasten sind da |
