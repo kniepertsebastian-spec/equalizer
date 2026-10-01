@@ -7,6 +7,7 @@ import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
+import com.hardbasseq.eq.link.SpotifyPlaylist
 import com.hardbasseq.eq.link.SpotifyPlaylistPage
 import com.hardbasseq.eq.link.SpotifyTrackPage
 import com.hardbasseq.eq.link.TrackMatcher
@@ -184,7 +185,8 @@ class PlayerViewModel
             when (ShareLink.classify(url)) {
                 LinkSource.SOUNDCLOUD -> Unit
                 LinkSource.SPOTIFY -> {
-                    ShareLink.spotifyPlaylistId(url)?.let { return importSpotifyPlaylist(it) }
+                    val playlistIds = ShareLink.extractUrls(text).mapNotNull { ShareLink.spotifyPlaylistId(it) }.distinct()
+                    if (playlistIds.isNotEmpty()) return importSpotifyPlaylists(playlistIds)
                     val trackId = ShareLink.spotifyTrackId(url)
                     return bridgeExternalSong(
                         trackId?.let { ShareLink.canonicalSpotifyTrackUrl(it) },
@@ -234,22 +236,40 @@ class PlayerViewModel
         // A Spotify playlist cannot be played from Spotify, but its list of songs is public:
         // every song is looked up on SoundCloud, and what is found becomes a playlist on
         // the device. Songs without a sure match are left out and named in the message.
-        private fun importSpotifyPlaylist(playlistId: String) {
+        //
+        // Spotify's public page lists only the first ~100 songs of a playlist. A longer one
+        // can be split into parts of up to 100 in Spotify and shared together (several links
+        // in one text): all parts are read and end up merged in one playlist.
+        private fun importSpotifyPlaylists(playlistIds: List<String>) {
             spotifyImport?.cancel()
             spotifyImport =
                 viewModelScope.launch {
-                    _importState.value = ImportUiState(isLoading = true, message = "Lese die Spotify-Playlist …")
-                    val page =
-                        when (val result = controller.fetchSpotifyPlaylistPage(playlistId)) {
-                            is LoadResult.Ok -> result.value
-                            is LoadResult.Error -> return@launch fail(result.message)
+                    val parts = mutableListOf<SpotifyPlaylist>()
+                    var lastError: String? = null
+                    playlistIds.forEachIndexed { index, id ->
+                        _importState.value =
+                            ImportUiState(isLoading = true, message = "Lese die Spotify-Playlist … ${index + 1} von ${playlistIds.size}")
+                        when (val result = controller.fetchSpotifyPlaylistPage(id)) {
+                            is LoadResult.Ok ->
+                                SpotifyPlaylistPage.parse(result.value)?.let { parts.add(it) }
+                                    ?: run {
+                                        lastError =
+                                            "Die Titel dieser Spotify-Playlist konnten nicht gelesen werden (nur öffentliche Playlists)"
+                                    }
+
+                            is LoadResult.Error -> lastError = result.message
                         }
-                    val playlist = SpotifyPlaylistPage.parse(page)
-                    if (playlist == null) {
-                        fail("Die Titel dieser Spotify-Playlist konnten nicht gelesen werden (nur öffentliche Playlists)")
+                    }
+                    if (parts.isEmpty()) {
+                        fail(lastError ?: "Die Spotify-Playlist konnte nicht gelesen werden")
                         return@launch
                     }
-                    val wanted = playlist.tracks.take(MAX_SPOTIFY_TRACKS)
+                    // The same song in two parts is searched once.
+                    val wanted =
+                        parts
+                            .flatMap { it.tracks }
+                            .distinctBy { it.artist.lowercase() to it.title.lowercase() }
+                            .take(MAX_SPOTIFY_TRACKS)
                     val found = LinkedHashMap<Long, TrackItem>()
                     val missing = mutableListOf<String>()
                     wanted.forEachIndexed { index, entry ->
@@ -263,10 +283,16 @@ class PlayerViewModel
                         fail("Nichts davon gibt es auf SoundCloud (oder die Suche ging nicht)")
                         return@launch
                     }
+                    val name =
+                        if (parts.size == 1) {
+                            "${parts.first().title} (von Spotify)"
+                        } else {
+                            "${parts.first().title} + ${parts.size - 1} weitere (von Spotify)"
+                        }
                     val existing = playlistRepository.playlists.first()
                     val saved =
                         PlaylistEditing
-                            .create("${playlist.title} (von Spotify)", existing, System.currentTimeMillis())
+                            .create(name, existing, System.currentTimeMillis())
                             ?.copy(tracks = found.values.map { it.toSaved() })
                     if (saved == null) {
                         fail("Die Playlist konnte nicht angelegt werden")
@@ -280,9 +306,30 @@ class PlayerViewModel
                             ". Nicht gefunden: ${missing.take(MAX_LISTED_MISSING).joinToString(", ")}" +
                                 if (missing.size > MAX_LISTED_MISSING) " und ${missing.size - MAX_LISTED_MISSING} weitere" else ""
                         }
+                    val partsNote = if (parts.size < playlistIds.size) " (${playlistIds.size - parts.size} Teil(e) nicht lesbar)" else ""
                     _importState.value =
-                        ImportUiState(message = "„${saved.title}“ angelegt: ${found.size} von ${wanted.size} Titeln gefunden$skipped")
+                        ImportUiState(
+                            message = "„${saved.title}“ angelegt: ${found.size} von ${wanted.size} Titeln gefunden$partsNote$skipped",
+                        )
                 }
+        }
+
+        /** Merges the chosen playlists (in the given order) into one new playlist; the originals stay. */
+        fun mergePlaylists(
+            sources: List<SavedPlaylist>,
+            title: String,
+        ) {
+            viewModelScope.launch {
+                val existing = playlistRepository.playlists.first()
+                val merged = PlaylistEditing.merge(title, sources, existing, System.currentTimeMillis())
+                if (merged == null) {
+                    fail("Bitte mindestens eine Playlist und einen Namen angeben")
+                    return@launch
+                }
+                playlistRepository.save(merged)
+                _importState.value =
+                    ImportUiState(message = "„${merged.title}“ angelegt: ${merged.tracks.size} Titel aus ${sources.size} Playlists")
+            }
         }
 
         // The best sure match on SoundCloud for a song, or null when there is none (or
@@ -474,7 +521,7 @@ private const val CANDIDATE_LIMIT = 10
 private const val MAX_SHOWN_MATCHES = 5
 
 // A playlist import looks every song up one by one, so it is capped.
-private const val MAX_SPOTIFY_TRACKS = 150
+private const val MAX_SPOTIFY_TRACKS = 500
 private const val MAX_LISTED_MISSING = 5
 
 // Results scoring below this are noise, not candidates worth showing.

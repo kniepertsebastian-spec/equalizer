@@ -434,3 +434,14 @@ Weg (nur Titel, Trefferliste zur Auswahl). Außerdem gilt für alle Brücken-Suc
 Spotify, Playlist-Import): ist der erste Treffer nicht sicher, wird zusätzlich nur nach dem
 Titel gesucht und beide Ergebnislisten werden gemeinsam nach Titel und Künstler bewertet.
 Nicht verifiziert: Aufbau der Track-Embed-Seite.
+
+**Nachtrag: lange Spotify-Playlists und Zusammenführen.** Spotifys öffentliche Seite listet nur die
+ersten ca. 100 Titel einer Playlist – mehr kommt über diesen Weg nicht an (das ist die Grenze beim
+*Lesen*, nicht beim Anlegen). Eine längere Playlist lässt sich deshalb in Spotify in Teile zu je
+höchstens 100 Titeln aufteilen; werden die Links der Teile **zusammen** geteilt/eingefügt (mehrere
+Links in einem Text), liest die App alle Teile und legt **eine** gemeinsame Playlist an
+(„<Name> + n weitere (von Spotify)“), gleiche Titel nur einmal. Maximal 500 Titel pro Import
+(eine Suche pro Titel, nacheinander – bei sehr vielen Titeln kann SoundCloud bremsen).
+Zusätzlich: „Zusammenführen“ in der Playlists-Karte fasst beliebige eigene/importierte Playlists
+zu einer neuen zusammen (Reihenfolge erhalten, Dopplungen entfernt, Originale bleiben).
+Ein Spotify-API-Schlüssel (der echte Weg für Playlists >100) ist nicht eingebaut.

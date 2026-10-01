@@ -27,6 +27,14 @@ object ShareLink {
             ?.trimEnd { it in TRAILING_PUNCTUATION }
             ?.takeIf { hostOf(it) != null }
 
+    // Every usable link in a text (several can be pasted or shared at once), in order.
+    fun extractUrls(text: String): List<String> =
+        urlPattern
+            .findAll(text)
+            .map { it.value.trimEnd { ch -> ch in TRAILING_PUNCTUATION } }
+            .filter { hostOf(it) != null }
+            .toList()
+
     fun classify(url: String): LinkSource {
         val host = hostOf(url) ?: return LinkSource.OTHER
         return when {

@@ -530,6 +530,52 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `several spotify links in one text are read together into one playlist`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage("Angerfist" to "Drum Go Bang")
+            controller.searchResults["Angerfist Drum Go Bang"] =
+                LoadResult.Ok(listOf(track(1, "Angerfist - Drum Go Bang").copy(artist = "Angerfist")))
+
+            vm.importFromText(
+                "Teil 1 https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M und Teil 2 https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
+            )
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DX0XUsuxWHRQd"), controller.fetchedSpotifyPlaylists)
+            val saved = vm.playlists.value.single()
+            assertEquals("Hardcore Mix + 1 weitere (von Spotify)", saved.title)
+            // The same song in both parts is searched and stored once.
+            assertEquals(listOf(1L), saved.tracks.map { it.id })
+            assertEquals(1, controller.searchedQueries.count { it == "Angerfist Drum Go Bang" })
+        }
+
+    @Test
+    fun `playlists can be merged into a new one and the originals stay`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("A", track(1))
+            vm.createPlaylist("B", track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            val sources = vm.playlists.value.sortedBy { it.title }
+
+            vm.mergePlaylists(sources, "Alles")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(3, vm.playlists.value.size)
+            assertEquals(
+                listOf(1L, 2L),
+                vm.playlists.value
+                    .first { it.title == "Alles" }
+                    .tracks
+                    .map { it.id },
+            )
+            vm.mergePlaylists(emptyList(), "Nichts")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+        }
+
+    @Test
     fun `picking another match plays it and closing hides the list`() =
         runTest {
             controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Roar", null))

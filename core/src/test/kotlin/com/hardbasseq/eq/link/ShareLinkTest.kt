@@ -108,4 +108,19 @@ class ShareLinkTest {
         assertEquals("https://open.spotify.com/embed/playlist/$id", ShareLink.spotifyPlaylistEmbedUrl(id))
         assertEquals("https://open.spotify.com/embed/track/$id", ShareLink.spotifyTrackEmbedUrl(id))
     }
+
+    @Test
+    fun `finds every link in a text`() {
+        val text =
+            "Teil 1: https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M, " +
+                "Teil 2 (https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd)"
+        assertEquals(
+            listOf(
+                "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+                "https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
+            ),
+            ShareLink.extractUrls(text),
+        )
+        assertTrue(ShareLink.extractUrls("kein Link").isEmpty())
+    }
 }

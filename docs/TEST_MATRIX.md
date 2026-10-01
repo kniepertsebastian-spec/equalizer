@@ -454,6 +454,8 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | X3 | Private Playlist oder Kurzlink | verständliche Fehlermeldung, nichts gespeichert |
 | X4 | Einzelnen Spotify-Titel teilen | Meldung „Suche „Künstler - Titel“ …“; bei sicherem Treffer startet er von selbst |
 | X5 | Spotify-Titel mit häufigem Namen (z. B. „Roar“) | richtiger Künstler steht oben in der Trefferliste |
+| X6 | Zwei Spotify-Playlist-Links in einem Text teilen/einfügen | eine gemeinsame Playlist „… + 1 weitere (von Spotify)“, doppelte Titel nur einmal |
+| X7 | Playlists → „Zusammenführen“, zwei Playlists wählen, Namen eingeben | neue Playlist mit allen Titeln, Originale bleiben |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
 
 | # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |

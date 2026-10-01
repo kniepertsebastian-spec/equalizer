@@ -40,6 +40,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -117,6 +118,7 @@ fun PlayerScreen(
     // What the playlist dialog is for: null = closed; a track = add it to a playlist;
     // no track = just make a new, empty playlist.
     var playlistDialog by remember { mutableStateOf<PlaylistDialogRequest?>(null) }
+    var mergeDialogOpen by remember { mutableStateOf(false) }
 
     // Signed in (also right after coming back from the sign-in screen): show the library.
     LaunchedEffect(signedIn) { if (signedIn) viewModel.loadLibrary() }
@@ -142,6 +144,16 @@ fun PlayerScreen(
                 playlistDialog = null
             },
             onDismiss = { playlistDialog = null },
+        )
+    }
+    if (mergeDialogOpen) {
+        MergePlaylistsDialog(
+            playlists = playlists,
+            onMerge = { chosen, name ->
+                viewModel.mergePlaylists(chosen, name)
+                mergeDialogOpen = false
+            },
+            onDismiss = { mergeDialogOpen = false },
         )
     }
     CompositionLocalProvider(LocalContentColor provides PlayerTextColor) {
@@ -429,10 +441,15 @@ fun PlayerScreen(
                                 Text("Hinzufügen")
                             }
                         }
-                        TextButton(onClick = { playlistDialog = PlaylistDialogRequest(null) }) {
-                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
-                            Spacer(modifier = Modifier.size(spacing.small))
-                            Text("Neue Playlist")
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { playlistDialog = PlaylistDialogRequest(null) }) {
+                                Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
+                                Spacer(modifier = Modifier.size(spacing.small))
+                                Text("Neue Playlist")
+                            }
+                            if (playlists.size >= 2) {
+                                TextButton(onClick = { mergeDialogOpen = true }) { Text("Zusammenführen") }
+                            }
                         }
                         if (playlists.isNotEmpty()) {
                             HorizontalDivider(modifier = Modifier.padding(vertical = spacing.small))
@@ -734,6 +751,57 @@ private fun PlaylistRow(
 private data class PlaylistDialogRequest(
     val track: TrackItem?,
 )
+
+// Pick two or more playlists and a name: one new playlist with all their tracks, each once.
+@Composable
+private fun MergePlaylistsDialog(
+    playlists: List<SavedPlaylist>,
+    onMerge: (List<SavedPlaylist>, String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var chosenIds by remember { mutableStateOf(setOf<String>()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Playlists zusammenführen") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Name der neuen Playlist") },
+                    singleLine = true,
+                )
+                playlists.forEach { playlist ->
+                    val checked = playlist.id in chosenIds
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { chosenIds = if (checked) chosenIds - playlist.id else chosenIds + playlist.id },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = checked, onCheckedChange = null)
+                        Text(
+                            text = "${playlist.title} (${playlist.tracks.size})",
+                            modifier = Modifier.padding(start = 8.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onMerge(playlists.filter { it.id in chosenIds }, name) },
+                enabled = chosenIds.size >= 2 && name.isNotBlank(),
+            ) { Text("Zusammenführen") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+    )
+}
 
 @Composable
 private fun PlaylistDialog(
