@@ -109,6 +109,7 @@ fun PlayerScreen(
     val currentTrackId = queue.getOrNull(nowPlaying?.queueIndex ?: -1)?.id
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val importState by viewModel.importState.collectAsStateWithLifecycle()
+    val pendingImport by viewModel.pendingImport.collectAsStateWithLifecycle()
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     val libraryState by viewModel.libraryState.collectAsStateWithLifecycle()
     val bridgeState by viewModel.bridgeState.collectAsStateWithLifecycle()
@@ -439,6 +440,20 @@ fun PlayerScreen(
                                 enabled = linkText.isNotBlank() && !importState.isLoading,
                             ) {
                                 Text("Hinzufügen")
+                            }
+                        }
+                        // A long Spotify import that stopped (app closed, no connection): go on or drop it.
+                        // While one is running the saved position is only a checkpoint, not a pause.
+                        pendingImport?.takeIf { !importState.isLoading }?.let { pending ->
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Spotify-Import „${pending.title}“ angehalten: ${pending.nextIndex} von ${pending.total}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = PlayerTextMutedColor,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(onClick = viewModel::resumeSpotifyImport) { Text("Fortsetzen") }
+                                TextButton(onClick = viewModel::discardSpotifyImport) { Text("Verwerfen") }
                             }
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
