@@ -2,6 +2,7 @@ package com.hardbasseq.eq.integration
 
 import android.content.Context
 import android.content.Intent
+import com.hardbasseq.eq.link.SpotifyPlaylist
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
 import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
@@ -13,6 +14,7 @@ import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
 import com.soundcloud.equalizer.player.playback.PlaybackQueueState
 import com.soundcloud.equalizer.player.service.AudioPlayerService
+import com.soundcloud.equalizer.player.spotify.SpotifyApiClient
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.StateFlow
@@ -98,6 +100,21 @@ interface PlayerController {
 
     suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>>
 
+    // Spotify sign-in with the user's own client id (see SpotifyApiClient): reads all songs of
+    // the user's own playlists, which the public page cannot.
+    fun spotifyClientId(): String
+
+    fun saveSpotifyClientId(clientId: String)
+
+    fun isSpotifySignedIn(): Boolean
+
+    // Opens the Spotify sign-in in the browser; returns what is wrong (no client id saved) or null.
+    fun openSpotifySignIn(): String?
+
+    fun signOutSpotify()
+
+    suspend fun fetchSpotifyPlaylistViaApi(playlistId: String): LoadResult<SpotifyPlaylist>
+
     fun openSoundCloudSignIn()
 
     fun signOutSoundCloud()
@@ -111,6 +128,7 @@ class AndroidPlayerController
     ) : PlayerController {
         private val linkResolver = LinkResolver(context)
         private val libraryLoader = LibraryLoader(context)
+        private val spotifyApi = SpotifyApiClient.get(context)
 
         override val nowPlaying: StateFlow<NowPlaying?> = NowPlayingState.current
         override val queue: StateFlow<List<TrackItem>> = PlaybackQueueState.queue
@@ -191,6 +209,33 @@ class AndroidPlayerController
         }
 
         override fun signOutSoundCloud() = SoundCloudLoginActivity.clearToken(context)
+
+        override fun spotifyClientId(): String = spotifyApi.clientId
+
+        override fun saveSpotifyClientId(clientId: String) = spotifyApi.saveClientId(clientId)
+
+        override fun isSpotifySignedIn(): Boolean = spotifyApi.isSignedIn()
+
+        override fun openSpotifySignIn(): String? {
+            val intent = spotifyApi.loginIntent() ?: return "Trag zuerst die Client-ID deiner Spotify-App ein"
+            return try {
+                context.startActivity(intent)
+                null
+            } catch (e: android.content.ActivityNotFoundException) {
+                "Kein Browser gefunden, der die Spotify-Anmeldung öffnen kann"
+            }
+        }
+
+        override fun signOutSpotify() = spotifyApi.signOut()
+
+        override suspend fun fetchSpotifyPlaylistViaApi(playlistId: String): LoadResult<SpotifyPlaylist> =
+            try {
+                LoadResult.Ok(spotifyApi.readPlaylist(playlistId))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoadResult.Error(e.message ?: "Spotify hat nicht geantwortet")
+            }
 
         private fun send(
             action: String,

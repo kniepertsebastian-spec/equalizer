@@ -7,6 +7,7 @@ import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
+import com.hardbasseq.eq.link.SpotifyImportLedger
 import com.hardbasseq.eq.link.SpotifyImportPlan
 import com.hardbasseq.eq.link.SpotifyImportState
 import com.hardbasseq.eq.link.SpotifyPlaylist
@@ -59,6 +60,13 @@ data class BridgeUiState(
     val startedAutomatically: Boolean,
 )
 
+// The Spotify sign-in as the player screen shows it: the client id of the user's own Spotify
+// developer app and whether they are signed in (needed to read all songs of long playlists).
+data class SpotifyAccountUi(
+    val clientId: String = "",
+    val signedIn: Boolean = false,
+)
+
 // The signed-in user's SoundCloud library as shown in the player screen.
 data class LibraryUiState(
     val isLoading: Boolean = false,
@@ -108,9 +116,28 @@ class PlayerViewModel
         private val _showPlayerRequest = MutableStateFlow(false)
         val showPlayerRequest: StateFlow<Boolean> = _showPlayerRequest.asStateFlow()
 
+        private val _spotifyAccount = MutableStateFlow(SpotifyAccountUi(controller.spotifyClientId(), controller.isSpotifySignedIn()))
+        val spotifyAccount: StateFlow<SpotifyAccountUi> = _spotifyAccount.asStateFlow()
+
+        fun saveSpotifyClientId(clientId: String) {
+            controller.saveSpotifyClientId(clientId)
+            refreshAccount()
+        }
+
+        fun signInSpotify() {
+            // The client id typed in the field counts even if "Speichern" was not tapped.
+            controller.openSpotifySignIn()?.let { problem -> fail(problem) }
+        }
+
+        fun signOutSpotify() {
+            controller.signOutSpotify()
+            refreshAccount()
+        }
+
         // The sign-in happens in its own activity, so the screen re-reads the state
         // whenever it comes back to the foreground.
         fun refreshAccount() {
+            _spotifyAccount.value = SpotifyAccountUi(controller.spotifyClientId(), controller.isSpotifySignedIn())
             _signedIn.value = controller.isSoundCloudSignedIn()
             if (!_signedIn.value) _libraryState.value = LibraryUiState()
         }
@@ -262,7 +289,25 @@ class PlayerViewModel
                         return@launch
                     }
                     val read = readSpotifyPlaylists(playlistIds, key) ?: return@launch
-                    runSpotifyImport(read.first, readNote = read.second)
+                    // Songs imported from these links before are not imported again (sharing the
+                    // same, only partly readable playlist twice used to repeat its first 100).
+                    val presentIds =
+                        playlistRepository.playlists
+                            .first()
+                            .flatMap { list -> list.tracks.map { it.id } }
+                            .toSet()
+                    val todo = SpotifyImportLedger.remaining(spotifyImportRepository.ledger(), key, read.first.tracks, presentIds)
+                    if (todo.isEmpty()) {
+                        _importState.value =
+                            ImportUiState(
+                                message = "Nichts Neues: alle ${read.first.total} Titel sind schon in deinen Playlists${read.second}",
+                            )
+                        return@launch
+                    }
+                    val alreadyDone = read.first.total - todo.size
+                    val title = if (alreadyDone > 0) "${read.first.title} (Nachtrag)" else read.first.title
+                    val skippedNote = if (alreadyDone > 0) ". $alreadyDone schon importierte Titel übersprungen" else ""
+                    runSpotifyImport(SpotifyImportPlan.start(key, title, todo), readNote = read.second + skippedNote)
                 }
         }
 
@@ -293,16 +338,34 @@ class PlayerViewModel
         ): Pair<SpotifyImportState, String>? {
             val parts = mutableListOf<SpotifyPlaylist>()
             var lastError: String? = null
+            // Songs of a playlist read from the public page: that page stops at 100.
+            var cutOffByPage = false
+            // Why the sign-in could not be used for a playlist (shown when the page falls short).
+            var apiNote = ""
             playlistIds.forEachIndexed { index, id ->
                 _importState.value =
                     ImportUiState(isLoading = true, message = "Lese die Spotify-Playlist … ${index + 1} von ${playlistIds.size}")
+                // Signed in to Spotify: its Web API gives all songs of the user's own playlists.
+                if (controller.isSpotifySignedIn()) {
+                    when (val viaApi = controller.fetchSpotifyPlaylistViaApi(id)) {
+                        is LoadResult.Ok -> {
+                            parts.add(viaApi.value)
+                            return@forEachIndexed
+                        }
+
+                        is LoadResult.Error -> apiNote = " (Spotify-Anmeldung: ${viaApi.message})"
+                    }
+                }
                 when (val result = controller.fetchSpotifyPlaylistPage(id)) {
-                    is LoadResult.Ok ->
-                        SpotifyPlaylistPage.parse(result.value)?.let { parts.add(it) }
-                            ?: run {
-                                lastError =
-                                    "Die Titel dieser Spotify-Playlist konnten nicht gelesen werden (nur öffentliche Playlists)"
-                            }
+                    is LoadResult.Ok -> {
+                        val page = SpotifyPlaylistPage.parse(result.value)
+                        if (page == null) {
+                            lastError = "Die Titel dieser Spotify-Playlist konnten nicht gelesen werden (nur öffentliche Playlists)"
+                        } else {
+                            parts.add(page)
+                            if (page.tracks.size == SpotifyImportPlan.BATCH_SIZE) cutOffByPage = true
+                        }
+                    }
 
                     is LoadResult.Error -> lastError = result.message
                 }
@@ -320,7 +383,7 @@ class PlayerViewModel
             val title = if (parts.size == 1) parts.first().title else "${parts.first().title} + ${parts.size - 1} weitere"
             val unreadable = if (parts.size < playlistIds.size) " (${playlistIds.size - parts.size} Teil(e) nicht lesbar)" else ""
             // Spotify's page stops at 100 songs: a list of exactly that size is probably cut off.
-            val cutOff = if (parts.any { it.tracks.size == SpotifyImportPlan.BATCH_SIZE }) CUT_OFF_HINT else ""
+            val cutOff = if (cutOffByPage) CUT_OFF_HINT + apiNote else ""
             return SpotifyImportPlan.start(key, title, wanted) to (unreadable + cutOff)
         }
 
@@ -339,6 +402,9 @@ class PlayerViewModel
                 val batch = SpotifyImportPlan.nextBatch(state)
                 val part = SpotifyImportPlan.nextPartNumber(state)
                 val found = LinkedHashMap<Long, TrackItem>()
+                // Song -> SoundCloud track (or NOT_FOUND) for the ledger; failed lookups are left out
+                // so that they are tried again next time.
+                val looked = mutableMapOf<String, Long>()
                 var failed = 0
                 for ((index, entry) in batch.withIndex()) {
                     val done = state.nextIndex + index + 1
@@ -350,8 +416,13 @@ class PlayerViewModel
                     val query = TrackQueryBuilder.fromArtistAndTitle(entry.artist, entry.title)
                     when (val outcome = lookUp(query)) {
                         is Lookup.Failed -> failed++
-                        is Lookup.NotFound -> missing.add(query.label)
+                        is Lookup.NotFound -> {
+                            missing.add(query.label)
+                            looked[SpotifyImportLedger.songKey(entry)] = SpotifyImportLedger.NOT_FOUND
+                        }
+
                         is Lookup.Hit -> {
+                            looked[SpotifyImportLedger.songKey(entry)] = outcome.track.id
                             if (seen.add(outcome.track.id)) found[outcome.track.id] = outcome.track
                         }
                     }
@@ -382,6 +453,7 @@ class PlayerViewModel
                 }
                 state = SpotifyImportPlan.advance(state, batch.size, found.size, wrote)
                 // After every block: the position is safe even if the app is closed now.
+                spotifyImportRepository.record(state.key, looked)
                 spotifyImportRepository.save(state)
             }
             spotifyImportRepository.clear()

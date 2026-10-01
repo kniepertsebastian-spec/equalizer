@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.hardbasseq.eq.link.SpotifyImportJson
+import com.hardbasseq.eq.link.SpotifyImportLedger
 import com.hardbasseq.eq.link.SpotifyImportState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -24,10 +25,19 @@ interface SpotifyImportRepository {
     suspend fun save(state: SpotifyImportState)
 
     suspend fun clear()
+
+    // What was imported from which Spotify source so far (see SpotifyImportLedger).
+    suspend fun ledger(): SpotifyImportLedger
+
+    suspend fun record(
+        sourceKey: String,
+        songs: Map<String, Long>,
+    )
 }
 
 private val Context.spotifyImportDataStore by preferencesDataStore(name = "spotify_import")
 private val SPOTIFY_IMPORT_KEY = stringPreferencesKey("spotify_import_json")
+private val SPOTIFY_LEDGER_KEY = stringPreferencesKey("spotify_ledger_json")
 
 @Singleton
 class DataStoreSpotifyImportRepository
@@ -46,5 +56,18 @@ class DataStoreSpotifyImportRepository
 
         override suspend fun clear() {
             context.spotifyImportDataStore.edit { prefs -> prefs.remove(SPOTIFY_IMPORT_KEY) }
+        }
+
+        override suspend fun ledger(): SpotifyImportLedger =
+            SpotifyImportLedger.decode(context.spotifyImportDataStore.data.first()[SPOTIFY_LEDGER_KEY])
+
+        override suspend fun record(
+            sourceKey: String,
+            songs: Map<String, Long>,
+        ) {
+            context.spotifyImportDataStore.edit { prefs ->
+                val updated = SpotifyImportLedger.record(SpotifyImportLedger.decode(prefs[SPOTIFY_LEDGER_KEY]), sourceKey, songs)
+                prefs[SPOTIFY_LEDGER_KEY] = SpotifyImportLedger.encode(updated)
+            }
         }
     }

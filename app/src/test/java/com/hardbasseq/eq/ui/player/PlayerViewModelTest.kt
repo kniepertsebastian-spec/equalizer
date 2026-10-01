@@ -3,8 +3,10 @@ package com.hardbasseq.eq.ui.player
 import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
+import com.hardbasseq.eq.link.SpotifyImportLedger
 import com.hardbasseq.eq.link.SpotifyImportPlan
 import com.hardbasseq.eq.link.SpotifyImportState
+import com.hardbasseq.eq.link.SpotifyPlaylist
 import com.hardbasseq.eq.link.SpotifyTrack
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
@@ -684,6 +686,159 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `sharing the same playlist again imports nothing twice`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(100)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, vm.playlists.value.size)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.startsWith("Nichts Neues"))
+            assertFalse(vm.importState.value.isError)
+        }
+
+    @Test
+    fun `only the songs that are new since the last time are imported`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(150)
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.spotifyPage = spotifyPage(*songs(150))
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(2, vm.playlists.value.size)
+            val second = vm.playlists.value.first { it.title.contains("Nachtrag") }
+            assertEquals("Hardcore Mix (Nachtrag) (von Spotify)", second.title)
+            assertEquals((101L..150L).toList(), second.tracks.map { it.id })
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains("100 schon importierte Titel übersprungen"))
+        }
+
+    @Test
+    fun `after deleting the playlist the same link imports it again`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(5))
+            answerAllSongs(5)
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.deletePlaylist(vm.playlists.value.single())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                5,
+                vm.playlists.value
+                    .single()
+                    .tracks.size,
+            )
+        }
+
+    @Test
+    fun `signed in to spotify a long playlist is read through the api and not the page`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifySignedIn = true
+            controller.spotifyApiResult =
+                LoadResult.Ok(SpotifyPlaylist("Mein Mix", (1..150).map { SpotifyTrack("Song $it", "Artist") }))
+            answerAllSongs(150)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.spotifyApiRequests)
+            assertTrue(controller.fetchedSpotifyPlaylists.isEmpty())
+            val lists = vm.playlists.value.sortedBy { it.title }
+            assertEquals(listOf("Mein Mix – Teil 1 von 2 (von Spotify)", "Mein Mix – Teil 2 von 2 (von Spotify)"), lists.map { it.title })
+            assertEquals(listOf(100, 50), lists.map { it.tracks.size })
+            assertFalse(
+                vm.importState.value.message
+                    .orEmpty()
+                    .contains("höchstens 100"),
+            )
+        }
+
+    @Test
+    fun `when the api refuses the page is used and the reason is shown if it is cut off`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifySignedIn = true
+            controller.spotifyApiResult = LoadResult.Error("Spotify gibt die Titel nur für Playlists heraus, die dir gehören")
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(100)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.fetchedSpotifyPlaylists)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains("höchstens 100"))
+            assertTrue(message, message.contains("Spotify-Anmeldung: Spotify gibt die Titel nur für Playlists heraus"))
+        }
+
+    @Test
+    fun `not signed in the api is never asked`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(3))
+            answerAllSongs(3)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(controller.spotifyApiRequests.isEmpty())
+        }
+
+    @Test
+    fun `the client id is saved and the account state follows`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.saveSpotifyClientId("  abc123  ")
+            assertEquals(SpotifyAccountUi("abc123", false), vm.spotifyAccount.value)
+
+            controller.spotifySignedIn = true
+            vm.refreshAccount()
+            assertEquals(SpotifyAccountUi("abc123", true), vm.spotifyAccount.value)
+
+            vm.signOutSpotify()
+            assertFalse(vm.spotifyAccount.value.signedIn)
+        }
+
+    @Test
+    fun `signing in opens the browser and shows what is missing`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.signInSpotify()
+            assertEquals(1, controller.signInOpened)
+            assertFalse(vm.importState.value.isError)
+
+            controller.spotifySignInProblem = "Trag zuerst die Client-ID ein"
+            vm.signInSpotify()
+            assertTrue(vm.importState.value.isError)
+            assertEquals("Trag zuerst die Client-ID ein", vm.importState.value.message)
+        }
+
+    @Test
     fun `discarding forgets an unfinished import`() =
         runTest {
             val vm = viewModel()
@@ -906,6 +1061,35 @@ class PlayerViewModelTest {
             return describeResult
         }
 
+        var spotifyClient = ""
+        var spotifySignedIn = false
+        var spotifySignInProblem: String? = null
+        var signInOpened = 0
+        var spotifyApiResult: LoadResult<SpotifyPlaylist> = LoadResult.Error("not configured")
+        val spotifyApiRequests = mutableListOf<String>()
+
+        override fun spotifyClientId(): String = spotifyClient
+
+        override fun saveSpotifyClientId(clientId: String) {
+            spotifyClient = clientId.trim()
+        }
+
+        override fun isSpotifySignedIn(): Boolean = spotifySignedIn
+
+        override fun openSpotifySignIn(): String? {
+            signInOpened++
+            return spotifySignInProblem
+        }
+
+        override fun signOutSpotify() {
+            spotifySignedIn = false
+        }
+
+        override suspend fun fetchSpotifyPlaylistViaApi(playlistId: String): LoadResult<SpotifyPlaylist> {
+            spotifyApiRequests.add(playlistId)
+            return spotifyApiResult
+        }
+
         var spotifyTrackPage: LoadResult<String> = LoadResult.Error("not configured")
         val fetchedSpotifyTracks = mutableListOf<String>()
 
@@ -966,6 +1150,17 @@ class PlayerViewModelTest {
 
         override suspend fun clear() {
             flow.value = null
+        }
+
+        var ledgerState = SpotifyImportLedger()
+
+        override suspend fun ledger(): SpotifyImportLedger = ledgerState
+
+        override suspend fun record(
+            sourceKey: String,
+            songs: Map<String, Long>,
+        ) {
+            ledgerState = SpotifyImportLedger.record(ledgerState, sourceKey, songs)
         }
     }
 

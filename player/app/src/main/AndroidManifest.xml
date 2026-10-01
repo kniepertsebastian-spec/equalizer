@@ -37,6 +37,25 @@
             android:label="SoundCloud Login"
             android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
 
+        <!--
+          Spotify sign-in: the browser is sent back to hardbasseq://spotify-callback (the redirect
+          address registered in the user's Spotify developer app). Exported because the browser
+          starts it; the sign-in state it checks keeps other apps from feeding it a code.
+        -->
+        <activity
+            android:name=".spotify.SpotifyLoginActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="hardbasseq"
+                    android:host="spotify-callback" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".service.AudioPlayerService"
             android:enabled="true"
