@@ -460,6 +460,11 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | C2 | Weiter/Zurück/Pause am Lenkrad oder Autoradio | wirkt auf die Warteschlange des Players; Anzeige zieht nach |
 | C3 | Sperrbildschirm und Benachrichtigung ansehen | Titel, Interpret und die drei Tasten sind da |
 | C4 | Titel pausieren | Benachrichtigung zeigt „Abspielen“ und lässt sich wegwischen |
+| A1 | Android Auto: Entwickleroptionen → „Unbekannte Quellen“ an, Handy verbinden | HardBass EQ erscheint in der Medienauswahl |
+| A2 | Öffnen | Ordner „Meine Playlists“, „Interesting new uploads“, „Likes“ |
+| A3 | Playlist öffnen, Titel antippen | Titel startet, Playlist läuft ab diesem Titel weiter; Titel/Interpret auf dem Display |
+| A4 | Weiter/Zurück/Pause im Auto | wirkt wie bei Bluetooth |
+| A5 | App vorher komplett beendet, dann Auto verbinden | Browser lädt, Titel startet (Player-Dienst wird dabei gestartet) |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
 
 | # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |

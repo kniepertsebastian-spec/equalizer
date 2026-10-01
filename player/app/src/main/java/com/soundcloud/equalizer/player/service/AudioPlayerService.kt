@@ -31,9 +31,14 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import com.hardbasseq.eq.auto.AutoMediaId
 import com.hardbasseq.eq.playlist.QueueNavigation
 import com.soundcloud.equalizer.player.PlayerActivity
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
+import com.soundcloud.equalizer.player.playback.AutoCatalogHolder
+import com.soundcloud.equalizer.player.playback.AutoSessionState
 import com.soundcloud.equalizer.player.playback.BassExciterAudioProcessor
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
@@ -185,6 +190,7 @@ class AudioPlayerService : Service() {
 
     // The queue is kept by this service, not by ExoPlayer (which only ever holds the one
     // track that plays), so the session's player passes next / previous on to it.
+    @OptIn(UnstableApi::class)
     private fun createMediaSession(player: ExoPlayer) {
         val queueAwarePlayer = object : ForwardingPlayer(player) {
             override fun getAvailableCommands(): Player.Commands =
@@ -217,6 +223,33 @@ class AudioPlayerService : Service() {
             override fun seekToPreviousMediaItem() = playPrevious()
 
             override fun stop() = stopPlayer()
+
+            // "Play this" from the car (Android Auto) arrives as a media item that only
+            // has an id; it stands for a whole folder of the car's browser, which becomes
+            // the play queue. Anything else goes to ExoPlayer as usual.
+            override fun setMediaItems(mediaItems: MutableList<MediaItem>, startIndex: Int, startPositionMs: Long) {
+                if (!startFromCar(mediaItems)) super.setMediaItems(mediaItems, startIndex, startPositionMs)
+            }
+
+            override fun setMediaItems(mediaItems: MutableList<MediaItem>, resetPosition: Boolean) {
+                if (!startFromCar(mediaItems)) super.setMediaItems(mediaItems, resetPosition)
+            }
+
+            override fun setMediaItems(mediaItems: MutableList<MediaItem>) {
+                if (!startFromCar(mediaItems)) super.setMediaItems(mediaItems)
+            }
+
+            override fun setMediaItem(mediaItem: MediaItem) {
+                if (!startFromCar(listOf(mediaItem))) super.setMediaItem(mediaItem)
+            }
+
+            override fun setMediaItem(mediaItem: MediaItem, startPositionMs: Long) {
+                if (!startFromCar(listOf(mediaItem))) super.setMediaItem(mediaItem, startPositionMs)
+            }
+
+            override fun setMediaItem(mediaItem: MediaItem, resetPosition: Boolean) {
+                if (!startFromCar(listOf(mediaItem))) super.setMediaItem(mediaItem, resetPosition)
+            }
         }
         val openPlayer = PendingIntent.getActivity(
             this, 0, Intent(this, PlayerActivity::class.java),
@@ -224,7 +257,33 @@ class AudioPlayerService : Service() {
         )
         mediaSession = MediaSession.Builder(this, queueAwarePlayer)
             .setSessionActivity(openPlayer)
+            .setCallback(object : MediaSession.Callback {
+                // Items from a car carry only an id (see startFromCar); keep them as they are
+                // instead of letting the session reject items without a stream address.
+                override fun onAddMediaItems(
+                    mediaSession: MediaSession,
+                    controller: MediaSession.ControllerInfo,
+                    mediaItems: MutableList<MediaItem>,
+                ): ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(mediaItems)
+            })
             .build()
+        AutoSessionState.sessionToken = mediaSession?.sessionCompatToken
+    }
+
+    // True when [items] is a request from the car's browser (ids of AutoMediaId): the
+    // folder behind it is loaded and played as the queue, from the chosen track on.
+    private fun startFromCar(items: List<MediaItem>): Boolean {
+        val id = items.firstOrNull()?.mediaId?.takeIf { AutoMediaId.isTrack(it) } ?: return false
+        val catalog = AutoCatalogHolder.catalog ?: return true
+        // A service that was only bound (not started) would end when the car lets go.
+        runCatching { startService(Intent(this, AudioPlayerService::class.java)) }
+        serviceScope.launch {
+            val queue = runCatching { catalog.queueFor(id) }.getOrNull()
+            if (queue == null || queue.tracks.isEmpty()) return@launch
+            PlaybackQueueState.setQueue(queue.tracks)
+            playIndex(queue.startIndex.coerceIn(0, queue.tracks.lastIndex))
+        }
+        return true
     }
 
     fun openAudioSession() {
@@ -456,6 +515,7 @@ class AudioPlayerService : Service() {
         serviceScope.cancel()
         closeAudioSession()
         NowPlayingState.update(null)
+        AutoSessionState.sessionToken = null
         mediaSession?.release()
         mediaSession = null
         exoPlayer?.release()

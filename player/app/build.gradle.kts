@@ -61,6 +61,8 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
     implementation("androidx.media3:media3-ui:1.3.1")
     implementation("androidx.media3:media3-session:1.3.1")
+    // MediaSessionCompat.Token: the car browser (Android Auto) works with the platform session.
+    implementation("androidx.media:media:1.7.0")
 
     // Networking / Async / JSON
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

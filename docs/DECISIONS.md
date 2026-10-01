@@ -460,3 +460,22 @@ wird bei Titel- oder Statuswechsel aktualisiert.
 - Läuft die App nicht mehr (Dienst beendet), kann eine Auto-Taste sie nicht starten – erst in der
   App einen Titel starten.
 - **Nicht verifiziert** auf einem echten Auto (Cover-Übertragung hängt vom Autoradio ab).
+
+### Android Auto (1. Oktober 2026)
+
+HardBass EQ meldet sich bei Android Auto als Medien-App: `AutoBrowserService`
+(`MediaBrowserServiceCompat`, im Manifest mit `automotive_app_desc.xml`) zeigt dem Auto drei
+Ordner – „Meine Playlists“ (mit ihren Titeln), „Interesting new uploads“, „Likes“ (nur mit
+SoundCloud-Login) – bis 100 Einträge je Liste (`AppAutoCatalog`, Ids in `AutoMediaId`).
+Wählt man einen Titel, wird die Liste, in der er steht, die Warteschlange und ab diesem Titel
+gespielt. Abspielen und Tasten laufen über dieselbe Media-Session wie bei Bluetooth.
+- Der Wiedergabe-Dienst selbst ist kaum verändert: die Session bekommt einen Callback, und der
+  `ForwardingPlayer` fängt „spiele diese Id“ aus dem Auto ab (`startFromCar`); alles andere läuft
+  wie bisher. Der Browser-Dienst bindet den Player-Dienst nur, wenn ein Auto/Assistent verbindet.
+- Zugriff nur für System, Android Auto, Assistent und Bluetooth (`isTrustedClient`), nicht für
+  beliebige Apps.
+- **Voraussetzung:** Android Auto zeigt Apps, die nicht aus dem Play Store kommen, nur mit
+  aktivierten Entwickleroptionen: Android-Auto-Einstellungen → mehrfach auf „Version“ tippen →
+  Entwicklereinstellungen → „Unbekannte Quellen“ aktivieren.
+- **Nicht verifiziert** (kein Android/Auto in der Entwicklungsumgebung): ob Android Auto die App
+  anzeigt, Cover-Laden über https-Adressen, Sprachbefehle („Spiele Playlist …“).
