@@ -380,3 +380,15 @@ Virtual Bass, damit der Limiter dessen Obertöne mitfängt).
 - Nur eigener Player, nicht Spotify & Co. (kein Hook im Systempfad).
 - **Nicht verifiziert:** Klang auf echter Hardware, CPU-Last des Limiters (Fenster-Minimum
   pro Sample) – bei Aussetzern den Limiter abschalten und melden.
+
+### Eigene Playlists: neu anlegen und Titel hinzufügen (1. Oktober 2026)
+
+Im Player-Screen: „Neue Playlist“ (Karte Playlists) und ein Playlist-Symbol am aktuellen Titel
+und an jedem Eintrag der Warteschlange („Zur Playlist hinzufügen“, auch mit „Neu anlegen und
+hinzufügen“). Tippen auf den Namen einer Playlist klappt ihre Titel auf; bei eigenen Playlists
+lassen sie sich einzeln entfernen.
+- Lokal auf dem Gerät (`PlaylistEditing`, gleiche DataStore-JSON-Ablage, `sourceUrl == null`);
+  ein Titel steht höchstens einmal in einer Playlist. Importierte Link-Playlists nehmen keine
+  Titel auf (der Link ist ihre Quelle).
+- **Nicht gebaut:** Schreiben in SoundCloud-Playlists des Kontos (inoffizielle API, Schreibzugriff
+  ungeprüft) und Hinzufügen direkt aus „Interesting new uploads“.
