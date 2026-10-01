@@ -465,6 +465,8 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | A3 | Playlist öffnen, Titel antippen | Titel startet, Playlist läuft ab diesem Titel weiter; Titel/Interpret auf dem Display |
 | A4 | Weiter/Zurück/Pause im Auto | wirkt wie bei Bluetooth |
 | A5 | App vorher komplett beendet, dann Auto verbinden | Browser lädt, Titel startet (Player-Dienst wird dabei gestartet) |
+| A6 | Sprachbefehl „Spiel <Playlist-Name> auf HardBass EQ“ | die Playlist startet |
+| A7 | „Spiel <Künstler> auf HardBass EQ“ (in keiner Playlist) | SoundCloud-Treffer laufen als Warteschlange |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
 
 | # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |

@@ -479,3 +479,10 @@ gespielt. Abspielen und Tasten laufen über dieselbe Media-Session wie bei Bluet
   Entwicklereinstellungen → „Unbekannte Quellen“ aktivieren.
 - **Nicht verifiziert** (kein Android/Auto in der Entwicklungsumgebung): ob Android Auto die App
   anzeigt, Cover-Laden über https-Adressen, Sprachbefehle („Spiele Playlist …“).
+
+**Nachtrag Android Auto: Sprachsuche.** Android-Lint verlangt für Auto-Medien-Apps einen
+`MEDIA_PLAY_FROM_SEARCH`-Eintrag (`MissingIntentFilterForMediaSearch`) – ohne ihn war die CI auf
+`main` nach dem Merge von PR #47 rot. Der Eintrag steht jetzt am `AutoBrowserService`, und die
+Sprachsuche ist wirklich umgesetzt (`AutoCatalog.queueForSearch`): ein gesprochener Name, der in
+einer Playlist vorkommt, startet diese Playlist; sonst wird auf SoundCloud gesucht; „Spiel Musik“
+ohne Namen startet die neueste Playlist, sonst die Likes. Nicht verifiziert im echten Auto.

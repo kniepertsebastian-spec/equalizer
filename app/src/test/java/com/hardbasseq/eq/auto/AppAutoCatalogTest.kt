@@ -21,11 +21,21 @@ class AppAutoCatalogTest {
     private val discovery = FakeDiscovery()
     private var likes: List<TrackItem> = emptyList()
     private var likeLoads = 0
+    private var searchResult: List<TrackItem> = emptyList()
+    private val searches = mutableListOf<String>()
     private val catalog =
-        AppAutoCatalog(playlists, discovery) {
-            likeLoads++
-            likes
-        }
+        AppAutoCatalog(
+            playlists,
+            discovery,
+            {
+                likeLoads++
+                likes
+            },
+            { query ->
+                searches.add(query)
+                searchResult
+            },
+        )
 
     private fun saved(id: Long) = SavedTrack(id, "Track $id", "Artist")
 
@@ -100,6 +110,50 @@ class AppAutoCatalogTest {
             assertNull(catalog.queueFor("garbage"))
             assertNull(catalog.queueFor(AutoMediaId.playlistTrack("missing", 1L)))
             assertNull(catalog.queueFor(AutoMediaId.discoveryTrack(1L)))
+        }
+
+    @Test
+    fun `a spoken playlist name starts that playlist`() =
+        runTest {
+            playlists.flow.value =
+                listOf(
+                    SavedPlaylist("a", "Auto Mix", tracks = listOf(saved(1), saved(2))),
+                    SavedPlaylist("b", "Sport", tracks = listOf(saved(3))),
+                )
+
+            val queue = catalog.queueForSearch("auto mix")!!
+
+            assertEquals(listOf(1L, 2L), queue.tracks.map { it.id })
+            assertEquals(0, queue.startIndex)
+            assertTrue(searches.isEmpty())
+        }
+
+    @Test
+    fun `something in no playlist is searched on soundcloud`() =
+        runTest {
+            searchResult = listOf(item(7), item(8))
+
+            val queue = catalog.queueForSearch("Angerfist")!!
+
+            assertEquals(listOf("Angerfist"), searches)
+            assertEquals(listOf(7L, 8L), queue.tracks.map { it.id })
+
+            searchResult = emptyList()
+            assertNull(catalog.queueForSearch("nothing"))
+        }
+
+    @Test
+    fun `saying nothing plays the newest playlist or else the likes`() =
+        runTest {
+            likes = listOf(item(4))
+            assertEquals(listOf(4L), catalog.queueForSearch("")!!.tracks.map { it.id })
+
+            playlists.flow.value =
+                listOf(
+                    SavedPlaylist("old", "Old", tracks = listOf(saved(1)), createdAtMs = 1L),
+                    SavedPlaylist("new", "New", tracks = listOf(saved(2)), createdAtMs = 9L),
+                )
+            assertEquals(listOf(2L), catalog.queueForSearch("  ")!!.tracks.map { it.id })
         }
 
     private class FakePlaylists : PlaylistRepository {

@@ -273,12 +273,16 @@ class AudioPlayerService : Service() {
     // True when [items] is a request from the car's browser (ids of AutoMediaId): the
     // folder behind it is loaded and played as the queue, from the chosen track on.
     private fun startFromCar(items: List<MediaItem>): Boolean {
-        val id = items.firstOrNull()?.mediaId?.takeIf { AutoMediaId.isTrack(it) } ?: return false
+        val first = items.firstOrNull() ?: return false
+        val id = first.mediaId.takeIf { AutoMediaId.isTrack(it) }
+        // Voice search ("play X") arrives as an item with a search query and no id.
+        val query = if (id == null && first.mediaId.isEmpty()) first.requestMetadata.searchQuery else null
+        if (id == null && query == null) return false
         val catalog = AutoCatalogHolder.catalog ?: return true
         // A service that was only bound (not started) would end when the car lets go.
         runCatching { startService(Intent(this, AudioPlayerService::class.java)) }
         serviceScope.launch {
-            val queue = runCatching { catalog.queueFor(id) }.getOrNull()
+            val queue = runCatching { if (id != null) catalog.queueFor(id) else catalog.queueForSearch(query.orEmpty()) }.getOrNull()
             if (queue == null || queue.tracks.isEmpty()) return@launch
             PlaybackQueueState.setQueue(queue.tracks)
             playIndex(queue.startIndex.coerceIn(0, queue.tracks.lastIndex))

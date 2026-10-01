@@ -22,6 +22,8 @@ class AppAutoCatalog(
     private val discoveryRepository: DiscoveryRepository,
     // The signed-in account's likes; empty when signed out or when loading failed.
     private val likesLoader: suspend () -> List<TrackItem>,
+    // A plain SoundCloud search (voice commands for something that is in no playlist).
+    private val searchLoader: suspend (String) -> List<TrackItem>,
 ) : AutoCatalog {
     @Inject
     constructor(
@@ -32,6 +34,7 @@ class AppAutoCatalog(
         playlistRepository,
         discoveryRepository,
         { (controller.loadLikedTracks() as? LoadResult.Ok)?.value.orEmpty() },
+        { query -> (controller.searchSoundCloud(query, SEARCH_LIMIT) as? LoadResult.Ok)?.value.orEmpty() },
     )
 
     // The likes are loaded from the network once per browse; starting a track reuses them.
@@ -93,6 +96,28 @@ class AppAutoCatalog(
         return if (start < 0) null else AutoQueue(tracks, start)
     }
 
+    // Voice: a playlist whose name contains the words wins, then a SoundCloud search.
+    // Nothing said ("play music") plays the newest playlist, or else the likes.
+    override suspend fun queueForSearch(query: String): AutoQueue? {
+        val words = query.trim()
+        val all = playlistRepository.playlists.first().filter { it.tracks.isNotEmpty() }
+        if (words.isEmpty()) {
+            val newest = all.maxByOrNull { it.createdAtMs }
+            if (newest != null) return AutoQueue(newest.tracks.take(MAX_ENTRIES).map { it.toTrackItem() }, 0)
+            return likesQueue()
+        }
+        all.firstOrNull { it.title.contains(words, ignoreCase = true) }?.let { playlist ->
+            return AutoQueue(playlist.tracks.take(MAX_ENTRIES).map { it.toTrackItem() }, 0)
+        }
+        val found = searchLoader(words).take(MAX_ENTRIES)
+        return if (found.isEmpty()) null else AutoQueue(found, 0)
+    }
+
+    private suspend fun likesQueue(): AutoQueue? {
+        val liked = likes.ifEmpty { loadLikes() }.take(MAX_ENTRIES)
+        return if (liked.isEmpty()) null else AutoQueue(liked, 0)
+    }
+
     private fun rootFolders() =
         listOf(
             AutoNode(AutoMediaId.PLAYLISTS, "Meine Playlists", playable = false),
@@ -122,5 +147,6 @@ class AppAutoCatalog(
 
     private companion object {
         const val MAX_ENTRIES = 100
+        const val SEARCH_LIMIT = 20
     }
 }
