@@ -106,5 +106,6 @@ class ShareLinkTest {
         assertNull(ShareLink.spotifyPlaylistId("https://open.spotify.com/playlist/short"))
         assertNull(ShareLink.spotifyPlaylistId("https://example.com/playlist/$id"))
         assertEquals("https://open.spotify.com/embed/playlist/$id", ShareLink.spotifyPlaylistEmbedUrl(id))
+        assertEquals("https://open.spotify.com/embed/track/$id", ShareLink.spotifyTrackEmbedUrl(id))
     }
 }

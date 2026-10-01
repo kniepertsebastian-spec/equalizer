@@ -425,3 +425,12 @@ Playlist „<Name> (von Spotify)“ an: jeder Titel wird auf SoundCloud gesucht,
 - **Nicht verifiziert** (kein Netz zu Spotify in der Entwicklungsumgebung): Aufbau der Embed-Seite,
   Trefferquote bei echten Playlists. Einzelne Spotify-Titel liefern über oEmbed nur den Titel,
   keinen Künstler – deshalb fragt die App dort weiter nach, statt automatisch zu starten.
+
+**Nachtrag: Künstler bei einzelnen Spotify-Links.** Die oEmbed-Vorschau nennt nur den Titel.
+Deshalb liest die App zuerst die öffentliche Track-Seite (`open.spotify.com/embed/track/<id>`,
+`SpotifyTrackPage`) und sucht mit „Künstler Titel“; ist der Künstler bekannt und der Treffer
+sicher, startet der Titel von allein. Lässt sich die Seite nicht lesen, bleibt es beim bisherigen
+Weg (nur Titel, Trefferliste zur Auswahl). Außerdem gilt für alle Brücken-Suchen (YouTube,
+Spotify, Playlist-Import): ist der erste Treffer nicht sicher, wird zusätzlich nur nach dem
+Titel gesucht und beide Ergebnislisten werden gemeinsam nach Titel und Künstler bewertet.
+Nicht verifiziert: Aufbau der Track-Embed-Seite.

@@ -26,14 +26,15 @@ object SpotifyPlaylistPage {
     private val dataScript = Regex("<script[^>]*id=\"__NEXT_DATA__\"[^>]*>(.*?)</script>", RegexOption.DOT_MATCHES_ALL)
     private val json = Json { isLenient = true }
 
+    // The page's embedded JSON, or null when the page has none or it is unreadable.
+    internal fun pageData(html: String): JsonElement? {
+        val match = dataScript.find(html) ?: return null
+        val raw = match.groupValues[1].trim()
+        return runCatching { json.parseToJsonElement(raw) }.getOrNull()
+    }
+
     fun parse(html: String): SpotifyPlaylist? {
-        val raw =
-            dataScript
-                .find(html)
-                ?.groupValues
-                ?.get(1)
-                ?.trim() ?: return null
-        val root = runCatching { json.parseToJsonElement(raw) }.getOrNull() ?: return null
+        val root = pageData(html) ?: return null
         val holder = findHolder(root) ?: return null
         val list = holder["trackList"] as? JsonArray ?: return null
         val tracks = list.mapNotNull { toTrack(it) }
@@ -58,10 +59,10 @@ object SpotifyPlaylistPage {
         return SpotifyTrack(title, artist)
     }
 
-    private fun firstArtistName(element: JsonElement?): String? =
+    internal fun firstArtistName(element: JsonElement?): String? =
         (element as? JsonArray)?.firstNotNullOfOrNull { text((it as? JsonObject)?.get("name")) }
 
-    private fun text(element: JsonElement?): String? =
+    internal fun text(element: JsonElement?): String? =
         (element as? JsonPrimitive)
             ?.takeIf { it.isString }
             ?.contentOrNull

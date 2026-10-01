@@ -93,6 +93,9 @@ object ShareLink {
 
     fun canonicalSpotifyTrackUrl(trackId: String): String = "https://open.spotify.com/track/$trackId"
 
+    // The public embed page of a single track; unlike the oEmbed preview it names the artist.
+    fun spotifyTrackEmbedUrl(trackId: String): String = "https://open.spotify.com/embed/track/$trackId"
+
     // The playlist behind an open.spotify.com link, or null for anything else.
     fun spotifyPlaylistId(url: String): String? {
         if (hostOf(url) != "open.spotify.com") return null

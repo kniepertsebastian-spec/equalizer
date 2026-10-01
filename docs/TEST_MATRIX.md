@@ -452,6 +452,8 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | X1 | Öffentliche Spotify-Playlist teilen/einfügen | Fortschritt „Suche … n von m“, danach neue Playlist „… (von Spotify)“ mit den gefundenen Titeln |
 | X2 | Meldung nach X1 | nennt „n von m gefunden“ und bis zu 5 nicht gefundene Titel |
 | X3 | Private Playlist oder Kurzlink | verständliche Fehlermeldung, nichts gespeichert |
+| X4 | Einzelnen Spotify-Titel teilen | Meldung „Suche „Künstler - Titel“ …“; bei sicherem Treffer startet er von selbst |
+| X5 | Spotify-Titel mit häufigem Namen (z. B. „Roar“) | richtiger Künstler steht oben in der Trefferliste |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
 
 | # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |

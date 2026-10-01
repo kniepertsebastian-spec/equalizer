@@ -487,6 +487,49 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `a spotify song with a readable page is searched by artist and title and starts when sure`() =
+        runTest {
+            controller.spotifyTrackPage =
+                LoadResult.Ok(
+                    """<script id="__NEXT_DATA__" type="application/json">{"entity":{"name":"Criminally Insane","artists":[{"name":"Angerfist"}]}}</script>""",
+                )
+            controller.searchResults["Angerfist Criminally Insane"] =
+                LoadResult.Ok(listOf(candidate(7, "Angerfist - Criminally Insane", "Angerfist")))
+            val vm = viewModel()
+
+            vm.importFromText("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("4cOdK2wGLETKBW3PvgPWqT"), controller.fetchedSpotifyTracks)
+            assertTrue(controller.describedUrls.isEmpty())
+            assertEquals(listOf("Angerfist Criminally Insane"), controller.searchedQueries)
+            assertEquals(true, vm.bridgeState.value?.startedAutomatically)
+            assertEquals(
+                7L,
+                controller.playedQueues
+                    .single()
+                    .first
+                    .single()
+                    .id,
+            )
+        }
+
+    @Test
+    fun `an unsure artist search is widened by a title search and the better result wins`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Angerfist - Criminally Insane", null))
+            controller.searchResults["Angerfist Criminally Insane"] = LoadResult.Ok(listOf(candidate(1, "Some Mix 2024", "Someone")))
+            controller.searchResults["Criminally Insane"] = LoadResult.Ok(listOf(candidate(2, "Criminally Insane", "Angerfist")))
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("Angerfist Criminally Insane", "Criminally Insane"), controller.searchedQueries)
+            assertEquals(2L, vm.bridgeTrackIds().first())
+        }
+
+    @Test
     fun `picking another match plays it and closing hides the list`() =
         runTest {
             controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Roar", null))
@@ -695,6 +738,14 @@ class PlayerViewModelTest {
         override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> {
             describedUrls.add(url)
             return describeResult
+        }
+
+        var spotifyTrackPage: LoadResult<String> = LoadResult.Error("not configured")
+        val fetchedSpotifyTracks = mutableListOf<String>()
+
+        override suspend fun fetchSpotifyTrackPage(trackId: String): LoadResult<String> {
+            fetchedSpotifyTracks.add(trackId)
+            return spotifyTrackPage
         }
 
         var spotifyPage: LoadResult<String> = LoadResult.Error("not configured")

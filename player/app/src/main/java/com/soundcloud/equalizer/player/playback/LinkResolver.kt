@@ -76,12 +76,17 @@ class LinkResolver(
      * The public embed page of a Spotify playlist as text (it lists the tracks); read
      * by SpotifyPlaylistPage. Nothing is played or downloaded from Spotify.
      */
-    suspend fun fetchSpotifyPlaylistPage(playlistId: String): String =
+    suspend fun fetchSpotifyPlaylistPage(playlistId: String): String = fetchPage(ShareLink.spotifyPlaylistEmbedUrl(playlistId))
+
+    /** The public embed page of a single Spotify track (names its artist); read by SpotifyTrackPage. */
+    suspend fun fetchSpotifyTrackPage(trackId: String): String = fetchPage(ShareLink.spotifyTrackEmbedUrl(trackId))
+
+    private suspend fun fetchPage(url: String): String =
         withContext(Dispatchers.IO) {
             val request =
                 Request
                     .Builder()
-                    .url(ShareLink.spotifyPlaylistEmbedUrl(playlistId))
+                    .url(url)
                     .header("Accept", "text/html")
                     .header("User-Agent", BROWSER_USER_AGENT)
                     .build()
@@ -89,7 +94,7 @@ class LinkResolver(
                 if (!response.isSuccessful) {
                     throw IOException(
                         if (response.code in NO_DETAILS_CODES) {
-                            "Die Playlist ist nicht öffentlich oder existiert nicht"
+                            "Der Titel oder die Playlist ist nicht öffentlich oder existiert nicht"
                         } else {
                             "Spotify antwortet nicht (HTTP ${response.code})"
                         },

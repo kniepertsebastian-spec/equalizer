@@ -8,6 +8,7 @@ import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
 import com.hardbasseq.eq.link.SpotifyPlaylistPage
+import com.hardbasseq.eq.link.SpotifyTrackPage
 import com.hardbasseq.eq.link.TrackMatcher
 import com.hardbasseq.eq.link.TrackQuery
 import com.hardbasseq.eq.link.TrackQueryBuilder
@@ -185,7 +186,11 @@ class PlayerViewModel
                 LinkSource.SPOTIFY -> {
                     ShareLink.spotifyPlaylistId(url)?.let { return importSpotifyPlaylist(it) }
                     val trackId = ShareLink.spotifyTrackId(url)
-                    return bridgeExternalSong(trackId?.let { ShareLink.canonicalSpotifyTrackUrl(it) }, isYouTube = false)
+                    return bridgeExternalSong(
+                        trackId?.let { ShareLink.canonicalSpotifyTrackUrl(it) },
+                        isYouTube = false,
+                        spotifyTrackId = trackId,
+                    )
                 }
 
                 LinkSource.YOUTUBE -> {
@@ -283,12 +288,8 @@ class PlayerViewModel
         // The best sure match on SoundCloud for a song, or null when there is none (or
         // the search failed - one bad request must not stop a whole playlist).
         private suspend fun findOnSoundCloud(query: TrackQuery): TrackItem? {
-            var candidates =
-                (controller.searchSoundCloud(query.searchText, CANDIDATE_LIMIT) as? LoadResult.Ok)?.value ?: return null
-            if (candidates.isEmpty() && query.artist != null) {
-                candidates = (controller.searchSoundCloud(query.title, CANDIDATE_LIMIT) as? LoadResult.Ok)?.value ?: return null
-            }
-            val best = TrackMatcher.rank(query, candidates.distinctBy { it.id }, { it.title }, { it.artist }).firstOrNull() ?: return null
+            val candidates = (candidatesFor(query) as? LoadResult.Ok)?.value ?: return null
+            val best = TrackMatcher.rank(query, candidates, { it.title }, { it.artist }).firstOrNull() ?: return null
             return best.first.takeIf { TrackMatcher.isConfident(query, best.second) }
         }
 
@@ -299,6 +300,7 @@ class PlayerViewModel
         private fun bridgeExternalSong(
             canonicalUrl: String?,
             isYouTube: Boolean,
+            spotifyTrackId: String? = null,
         ) {
             if (canonicalUrl == null) {
                 val service = if (isYouTube) "YouTube" else "Spotify"
@@ -307,19 +309,32 @@ class PlayerViewModel
             }
             viewModelScope.launch {
                 _importState.value = ImportUiState(isLoading = true, message = "Lese den Titel …")
-                val info =
-                    when (val result = controller.describeExternalLink(canonicalUrl)) {
+                // Spotify's preview names only the song; its public track page also names the
+                // artist, which makes the SoundCloud search (and the ranking) far more precise.
+                val spotifyQuery = spotifyTrackId?.let { spotifyQueryFor(it) }
+                val query =
+                    spotifyQuery ?: run {
+                        val info =
+                            when (val result = controller.describeExternalLink(canonicalUrl)) {
+                                is LoadResult.Ok -> result.value
+                                is LoadResult.Error -> return@launch fail(result.message)
+                            }
+                        if (isYouTube) {
+                            TrackQueryBuilder.fromYouTube(
+                                info.title,
+                                info.author,
+                            )
+                        } else {
+                            TrackQueryBuilder.fromTitleOnly(info.title)
+                        }
+                    }
+                _importState.value = ImportUiState(isLoading = true, message = "Suche „${query.label}“ auf SoundCloud …")
+
+                val candidates =
+                    when (val result = candidatesFor(query)) {
                         is LoadResult.Ok -> result.value
                         is LoadResult.Error -> return@launch fail(result.message)
                     }
-                val query =
-                    if (isYouTube) TrackQueryBuilder.fromYouTube(info.title, info.author) else TrackQueryBuilder.fromTitleOnly(info.title)
-                _importState.value = ImportUiState(isLoading = true, message = "Suche „${query.label}“ auf SoundCloud …")
-
-                var candidates = searchSoundCloud(query.searchText) ?: return@launch
-                // Artist plus title can be too strict (the uploader names it differently):
-                // fall back to the title alone, the ranking still uses the artist.
-                if (candidates.isEmpty() && query.artist != null) candidates = searchSoundCloud(query.title) ?: return@launch
 
                 val matches =
                     TrackMatcher
@@ -345,15 +360,29 @@ class PlayerViewModel
             }
         }
 
-        // null when the search failed (the error is already shown).
-        private suspend fun searchSoundCloud(text: String): List<TrackItem>? =
-            when (val result = controller.searchSoundCloud(text, CANDIDATE_LIMIT)) {
-                is LoadResult.Ok -> result.value
-                is LoadResult.Error -> {
-                    fail(result.message)
-                    null
+        // Artist and song of a Spotify track from its public page, null when that cannot be read.
+        private suspend fun spotifyQueryFor(trackId: String): TrackQuery? {
+            val page = (controller.fetchSpotifyTrackPage(trackId) as? LoadResult.Ok)?.value ?: return null
+            val track = SpotifyTrackPage.parse(page) ?: return null
+            return TrackQueryBuilder.fromArtistAndTitle(track.artist, track.title)
+        }
+
+        // SoundCloud results worth ranking for a song. "Artist title" goes first; when that
+        // gives nothing sure and the artist is known, a search by title alone adds the
+        // tracks the uploader named differently (the ranking still weighs the artist).
+        private suspend fun candidatesFor(query: TrackQuery): LoadResult<List<TrackItem>> {
+            val first = controller.searchSoundCloud(query.searchText, CANDIDATE_LIMIT)
+            if (first !is LoadResult.Ok) return first
+            var all = first.value.distinctBy { it.id }
+            if (query.artist != null) {
+                val best = TrackMatcher.rank(query, all, { it.title }, { it.artist }).firstOrNull()
+                if (best == null || !TrackMatcher.isConfident(query, best.second)) {
+                    val more = controller.searchSoundCloud(query.title, CANDIDATE_LIMIT)
+                    if (more is LoadResult.Ok) all = (all + more.value).distinctBy { it.id }
                 }
             }
+            return LoadResult.Ok(all)
+        }
 
         fun playBridgeMatch(match: BridgeMatch) {
             controller.playQueue(listOf(match.track), 0)
