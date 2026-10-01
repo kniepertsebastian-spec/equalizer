@@ -392,3 +392,20 @@ lassen sie sich einzeln entfernen.
   Titel auf (der Link ist ihre Quelle).
 - **Nicht gebaut:** Schreiben in SoundCloud-Playlists des Kontos (inoffizielle API, Schreibzugriff
   ungeprüft) und Hinzufügen direkt aus „Interesting new uploads“.
+
+### Bildschirm sperren: Kratzen/Aussetzer, gespielt-Markierung (1. Oktober 2026)
+
+**Kratzen und Hängen bei gesperrtem Handy.** Zwei wahrscheinliche Ursachen, beide behoben:
+- Der Player hielt weder CPU noch WLAN wach (`WAKE_LOCK` / `setWakeMode(WAKE_MODE_NETWORK)`
+  fehlte); bei gesperrtem Bildschirm schläft das Handy ein und der Stream stockt.
+- Der Limiter war zu rechenintensiv (Boxing, Minimum über das ganze Fenster, `pow`/`exp` pro
+  Sample, ca. 20 Mio. Vergleiche/s). Bei gesperrtem Bildschirm taktet die CPU herunter, dann
+  reicht die Rechenzeit nicht mehr → Aussetzer. Jetzt Ringpuffer ohne Allokation, Minimum in
+  O(1), Konstanten gecacht; Verhalten gegen eine einfache Referenzimplementierung getestet.
+- **Nicht verifiziert** auf dem Gerät. Hilft es nicht, hat der Hersteller-Akkusparmodus die App
+  im Griff: Einstellungen → Apps → HardBass EQ → Akku → „Nicht optimieren“/„Unbegrenzt“.
+
+**Gespielt-Markierung.** Der laufende Titel leuchtet (pulsierender fliederfarbener Rahmen,
+Equalizer-Symbol), bereits gespielte Titel sind gedimmt mit Haken – in Warteschlange,
+aufgeklappten Playlists und „Interesting new uploads“. `PlayedTracksState` merkt sich die
+Titel nur, solange der App-Prozess läuft.

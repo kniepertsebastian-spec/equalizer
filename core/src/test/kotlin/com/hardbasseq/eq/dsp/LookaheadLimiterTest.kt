@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
+import kotlin.math.exp
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
@@ -103,4 +104,41 @@ class LookaheadLimiterTest {
     }
 
     private fun lookaheadSamplesFor(lookaheadMs: Float): Int = ((lookaheadMs / 1000f) * sampleRateHz).roundToInt()
+
+    // The limiter keeps its window minimum with a monotonic queue; this checks it
+    // against the plain "scan the whole window" definition on noisy input.
+    @Test
+    fun `matches a straightforward reference implementation`() {
+        val rate = 44_100f
+        val settings = LookaheadLimiterSettings(enabled = true, thresholdDb = -6f, lookaheadMs = 3f)
+        val limiter = LookaheadLimiter(settings)
+        val lookahead = ((settings.lookaheadMs / 1000f) * rate).roundToInt()
+        val threshold = 10f.pow(settings.thresholdDb / 20f)
+        val release = exp(-1f / ((50f / 1000f) * rate))
+        val random = java.util.Random(7)
+        val delay = ArrayDeque<Float>()
+        val window = ArrayDeque<Float>()
+        var gain = 1f
+        var previous = 0f
+        repeat(5_000) { n ->
+            val input = (random.nextGaussian().toFloat() * 0.6f).coerceIn(-1f, 1f) * if (n % 700 < 40) 1.6f else 1f
+            val clamped = input.coerceIn(-1f, 1f)
+            val peak = maxOf(abs(clamped), abs((previous + clamped) / 2f))
+            previous = clamped
+            val required = if (peak > threshold) threshold / peak else 1f
+            delay.addLast(clamped)
+            window.addLast(required)
+            val expected =
+                if (delay.size <= lookahead) {
+                    0f
+                } else {
+                    val minGain = window.min()
+                    gain = if (minGain < gain) minGain else release * gain + (1f - release) * minGain
+                    val out = (delay.removeFirst() * gain).coerceIn(-1f, 1f)
+                    window.removeFirst()
+                    out
+                }
+            assertEquals("sample $n", expected, limiter.process(clamped, rate), 1e-6f)
+        }
+    }
 }

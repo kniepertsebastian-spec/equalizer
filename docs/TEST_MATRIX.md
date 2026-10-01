@@ -445,6 +445,10 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | L3 | Eine eigene Playlist antippen (>50 Titel) | alle Titel in der Queue, richtige Reihenfolge |
 | L4 | Private eigene Playlist | lädt (Token) und spielt |
 | L5 | Abmelden | Bibliothek verschwindet; Go-Titel wieder nur Vorschau |
+| S1 | Musik im eigenen Player, Handy sperren (selbst und per Timeout), 5 Min. laufen lassen | kein Kratzen, kein Aussetzen |
+| S2 | Wie S1 mit Limiter aus (Klang-Feinschliff) | zeigt, ob der Limiter der Auslöser war |
+| S3 | Titel antippen | Zeile leuchtet pulsierend mit Equalizer-Symbol |
+| S4 | Nächster Titel | vorheriger bekommt Haken und ist gedimmt (Queue, Playlist, Entdecker-Liste) |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
 
 | # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |

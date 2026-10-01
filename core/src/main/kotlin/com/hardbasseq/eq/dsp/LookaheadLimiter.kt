@@ -58,20 +58,39 @@ class LookaheadLimiter(
     // lookaheadSamples ahead of it - callers get silence for the first
     // lookaheadSamples calls as a result, exactly like any real lookahead
     // limiter's inherent startup latency.
-    private val sampleDelay = ArrayDeque<Float>()
+    //
+    // Runs on the audio thread for every sample, so it uses primitive ring buffers
+    // (no boxing, no allocation) and a monotonic deque for the window minimum
+    // (O(1) per sample instead of scanning the whole window). That matters: with the
+    // screen off the CPU clocks down, and a slow limiter makes the music stutter.
+    // Samples are numbered 0, 1, 2 ... in the order they arrive; `pushed` is how many
+    // came in, `popped` how many went out again.
+    private var delayLine = FloatArray(0)
 
-    // One entry per buffered sample: the gain that sample alone would need to
-    // stay under the threshold. The gain actually applied to the oldest
-    // sample is the minimum across this whole window, not just its own entry -
-    // that's what lets a future peak pull gain down before it ever reaches
-    // the output.
-    private val requiredGainWindow = ArrayDeque<Float>()
+    // The gain each buffered sample alone would need to stay under the threshold. The
+    // gain actually applied to the oldest sample is the minimum across the whole
+    // window, not just its own entry - that's what lets a future peak pull gain down
+    // before it ever reaches the output.
+    private var requiredGains = FloatArray(0)
+
+    // Sample numbers whose required gain is smaller than every later one's: the front
+    // of this queue is always the minimum of the current window.
+    private var minCandidates = LongArray(0)
+    private var minHead = 0
+    private var minCount = 0
+    private var pushed = 0L
+    private var popped = 0L
 
     private var currentGain = 1f
     private var previousSample = 0f
     private var lookaheadSamples = -1
     private var configuredSampleRateHz = -1f
     private var configuredLookaheadMs = -1f
+
+    // pow/exp per sample would be wasted work: both only change with the settings.
+    private var cachedThresholdDb = Float.NaN
+    private var thresholdLinear = 1f
+    private var releaseCoefficient = 0f
 
     fun updateSettings(newSettings: LookaheadLimiterSettings) {
         settings = newSettings.clamped()
@@ -89,39 +108,56 @@ class LookaheadLimiter(
 
         ensureLookaheadWindowSize(currentSettings.lookaheadMs, sampleRateHz)
 
-        val thresholdLinear = dbToAmplitude(currentSettings.thresholdDb)
+        if (currentSettings.thresholdDb != cachedThresholdDb) {
+            cachedThresholdDb = currentSettings.thresholdDb
+            thresholdLinear = dbToAmplitude(cachedThresholdDb)
+        }
         val interpolatedMidpoint = (previousSample + inputSample) / 2f
         val peakEstimate = maxOf(abs(inputSample), abs(interpolatedMidpoint))
         previousSample = inputSample
 
         val requiredGain = if (peakEstimate > thresholdLinear) thresholdLinear / peakEstimate else 1f
 
-        sampleDelay.addLast(inputSample)
-        requiredGainWindow.addLast(requiredGain)
+        val capacity = delayLine.size
+        val slot = (pushed % capacity).toInt()
+        delayLine[slot] = inputSample
+        requiredGains[slot] = requiredGain
+        // Anything not smaller than the new gain can never be the minimum again.
+        while (minCount > 0 && requiredGains[(minCandidates[lastCandidate(capacity)] % capacity).toInt()] >= requiredGain) minCount--
+        minCandidates[(minHead + minCount) % capacity] = pushed
+        minCount++
+        pushed++
 
-        if (sampleDelay.size <= lookaheadSamples) return 0f
+        if (pushed - popped <= lookaheadSamples) return 0f
 
-        val windowMinGain = requiredGainWindow.min()
+        val windowMinGain = requiredGains[(minCandidates[minHead] % capacity).toInt()]
         currentGain =
             if (windowMinGain < currentGain) {
                 // Lookahead already saw this coming - no attack ramp needed.
                 windowMinGain
             } else {
-                val releaseCoefficient = timeConstantCoefficient(RELEASE_MS, sampleRateHz)
                 releaseCoefficient * currentGain + (1f - releaseCoefficient) * windowMinGain
             }
 
-        val outputSample = sampleDelay.removeFirst() * currentGain
-        requiredGainWindow.removeFirst()
+        val outputSample = delayLine[(popped % capacity).toInt()] * currentGain
+        if (minCandidates[minHead] == popped) {
+            minHead = (minHead + 1) % capacity
+            minCount--
+        }
+        popped++
         return outputSample.coerceIn(-1f, 1f)
     }
 
     fun reset() {
-        sampleDelay.clear()
-        requiredGainWindow.clear()
+        pushed = 0L
+        popped = 0L
+        minHead = 0
+        minCount = 0
         currentGain = 1f
         previousSample = 0f
     }
+
+    private fun lastCandidate(capacity: Int): Int = (minHead + minCount - 1) % capacity
 
     private fun ensureLookaheadWindowSize(
         lookaheadMs: Float,
@@ -131,6 +167,13 @@ class LookaheadLimiter(
         lookaheadSamples = ((lookaheadMs / 1000f) * sampleRateHz).roundToInt().coerceAtLeast(1)
         configuredSampleRateHz = sampleRateHz
         configuredLookaheadMs = lookaheadMs
+        releaseCoefficient = timeConstantCoefficient(RELEASE_MS, sampleRateHz)
+        // The window holds lookaheadSamples + 1 samples at most; a new size starts clean.
+        val capacity = lookaheadSamples + 2
+        delayLine = FloatArray(capacity)
+        requiredGains = FloatArray(capacity)
+        minCandidates = LongArray(capacity)
+        reset()
     }
 
     private fun timeConstantCoefficient(

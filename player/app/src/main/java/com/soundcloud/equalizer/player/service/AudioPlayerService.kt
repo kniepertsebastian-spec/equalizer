@@ -33,6 +33,7 @@ import com.soundcloud.equalizer.player.playback.BassExciterAudioProcessor
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
 import com.soundcloud.equalizer.player.playback.PlaybackQueueState
+import com.soundcloud.equalizer.player.playback.PlayedTracksState
 import com.soundcloud.equalizer.player.playback.PlayerDspAudioProcessor
 import com.soundcloud.equalizer.player.playback.PlayerDspState
 import com.soundcloud.equalizer.player.soundcloud.SoundCloudClient
@@ -129,6 +130,9 @@ class AudioPlayerService : Service() {
         exoPlayer = ExoPlayer.Builder(this, buildRenderersFactory())
             .setAudioAttributes(audioAttributes, true)
             .setHandleAudioBecomingNoisy(true)
+            // Keeps the CPU and the Wi-Fi connection awake while music plays: without it
+            // the phone dozes when the screen locks and the stream stutters or stops.
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             .build().apply {
                 addListener(object : Player.Listener {
                     override fun onPlaybackStateChanged(playbackState: Int) {
@@ -249,6 +253,7 @@ class AudioPlayerService : Service() {
             if (url.isNullOrEmpty()) {
                 onTrackUnplayable()
             } else {
+                PlayedTracksState.mark(track.id)
                 startStream(url)
             }
         }
