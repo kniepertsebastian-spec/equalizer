@@ -45,6 +45,49 @@ object DiscoveryRotation {
             pool = state.pool.filterNot { it.artist.equals(name, ignoreCase = true) },
         )
 
+    const val MAX_GENRES = 10
+
+    // Genre settings change what qualifies, so they force a rebuild like a new artist.
+    fun setGenreMode(
+        state: DiscoveryState,
+        mode: GenreMode,
+    ): DiscoveryState =
+        state.copy(
+            genreMode = mode,
+            weekKey = DiscoveryState.NEVER,
+            // Switching to "like my music" re-reads the likes.
+            autoGenresWeek = if (mode == GenreMode.AUTO) DiscoveryState.NEVER else state.autoGenresWeek,
+        )
+
+    // Typing a genre means choosing your own list.
+    fun addGenre(
+        state: DiscoveryState,
+        raw: String,
+    ): DiscoveryState {
+        val name = GenreMatcher.normalize(raw).takeIf { it.length in 2..40 } ?: return state
+        if (name in state.genres || state.genres.size >= MAX_GENRES) return state
+        return state.copy(genres = state.genres + name, genreMode = GenreMode.MANUAL, weekKey = DiscoveryState.NEVER)
+    }
+
+    fun removeGenre(
+        state: DiscoveryState,
+        genre: String,
+    ): DiscoveryState = state.copy(genres = state.genres - genre, weekKey = DiscoveryState.NEVER)
+
+    fun withAutoGenres(
+        state: DiscoveryState,
+        genres: List<String>,
+        weekKey: Long,
+    ): DiscoveryState = state.copy(autoGenres = genres, autoGenresWeek = weekKey)
+
+    // The genres uploads have to fit right now; empty means no filtering.
+    fun wantedGenres(state: DiscoveryState): List<String> =
+        when (state.genreMode) {
+            GenreMode.OFF -> emptyList()
+            GenreMode.MANUAL -> state.genres
+            GenreMode.AUTO -> state.autoGenres
+        }
+
     fun needsRotation(
         state: DiscoveryState,
         weekKey: Long,
@@ -82,15 +125,19 @@ object DiscoveryRotation {
         val unseen = usable.filter { it.track.id !in seen }
         val seenBefore = usable.filter { it.track.id in seen }
 
-        val picked = interleave(unseen).take(TARGET_SIZE).toMutableList()
+        val picked = interleaveConfirmedFirst(unseen).take(TARGET_SIZE).toMutableList()
         if (picked.size < MIN_SIZE) {
             val pickedIds = picked.map { it.track.id }.toSet()
-            val filler = interleave(seenBefore).filter { it.track.id !in pickedIds }
+            val filler = interleaveConfirmedFirst(seenBefore).filter { it.track.id !in pickedIds }
             picked.addAll(filler.take(MIN_SIZE - picked.size))
         }
 
         val pickedIds = picked.map { it.track.id }.toSet()
-        val pool = usable.filter { it.track.id !in pickedIds }.sortedByDescending { it.uploadedAtMs }.take(MAX_POOL)
+        val pool =
+            usable
+                .filter { it.track.id !in pickedIds }
+                .sortedWith(compareByDescending<DiscoveryTrack> { it.genreConfirmed }.thenByDescending { it.uploadedAtMs })
+                .take(MAX_POOL)
         return state.copy(
             playlist = picked,
             pool = pool,
@@ -117,6 +164,11 @@ object DiscoveryRotation {
             seenIds = (state.seenIds + playlist.map { it.track.id }).distinct().takeLast(MAX_SEEN),
         )
     }
+
+    // Uploads that positively fit the wanted genres come first; ones with no genre info
+    // (neither fitting nor clashing) only after them.
+    private fun interleaveConfirmedFirst(tracks: List<DiscoveryTrack>): List<DiscoveryTrack> =
+        interleave(tracks.filter { it.genreConfirmed }) + interleave(tracks.filterNot { it.genreConfirmed })
 
     // Round-robin over the artists, each artist's uploads newest first.
     private fun interleave(tracks: List<DiscoveryTrack>): List<DiscoveryTrack> {

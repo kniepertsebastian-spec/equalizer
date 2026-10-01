@@ -467,3 +467,7 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | U6 | Nach Montag (Gerät-Datum vorstellen oder warten) App öffnen/Hintergrund | Liste neu, bevorzugt ungesehene Titel |
 | U7 | Flugmodus, „Jetzt aktualisieren“ | Fehlermeldung, alte Liste bleibt |
 | U8 | Sehr allgemeiner Name (z. B. „Sub“) | zeigt, wie viel Fremdes kommt – ggf. Namen genauer eintragen |
+| U9 | Künstler „MBK“, Genre „Wie meine Musik“ (Likes: Uptempo) | kein Schlager-/Pop-MBK in der Liste; Meldung nennt aussortierte Titel |
+| U10 | „Eigene“, Stichwort „uptempo“ hinzufügen/entfernen | Liste wird sofort neu gebaut; ohne Stichwörter kein Filter |
+| U11 | Genre „Aus“ | alle Treffer wie vorher |
+| U12 | Titel ohne Genre-Angabe | erscheint, aber hinter den passenden |

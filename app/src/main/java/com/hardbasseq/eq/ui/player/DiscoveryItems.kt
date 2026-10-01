@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.discovery.DiscoveryState
 import com.hardbasseq.eq.discovery.DiscoveryTrack
+import com.hardbasseq.eq.discovery.GenreMode
 import com.hardbasseq.eq.playlist.AgeFormat
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
@@ -73,6 +74,9 @@ fun LazyListScope.discoveryItems(
     nowMs: Long,
     onAddArtist: (String) -> Unit,
     onRemoveArtist: (String) -> Unit,
+    onGenreMode: (GenreMode) -> Unit,
+    onAddGenre: (String) -> Unit,
+    onRemoveGenre: (String) -> Unit,
     onRefresh: () -> Unit,
     onPlayAll: () -> Unit,
     onPlay: (Int) -> Unit,
@@ -85,7 +89,7 @@ fun LazyListScope.discoveryItems(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = BorderStroke(1.dp, HardBassCardBorder),
         ) {
-            DiscoveryHeader(state, ui, onAddArtist, onRemoveArtist, onRefresh, onPlayAll)
+            DiscoveryHeader(state, ui, onAddArtist, onRemoveArtist, onGenreMode, onAddGenre, onRemoveGenre, onRefresh, onPlayAll)
         }
     }
     items(state.playlist, key = { "discovery-${it.track.id}" }) { item ->
@@ -112,9 +116,10 @@ fun LazyListScope.discoveryItems(
                         text =
                             listOf(
                                 item.track.artist,
+                                item.genre,
                                 PlayerFormat.duration(item.track.durationMs),
                                 AgeFormat.daysAgo(nowMs, item.uploadedAtMs),
-                            ).joinToString(" · "),
+                            ).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = PlayerArtistColor,
                         maxLines = 1,
@@ -135,10 +140,14 @@ private fun DiscoveryHeader(
     ui: DiscoveryUiState,
     onAddArtist: (String) -> Unit,
     onRemoveArtist: (String) -> Unit,
+    onGenreMode: (GenreMode) -> Unit,
+    onAddGenre: (String) -> Unit,
+    onRemoveGenre: (String) -> Unit,
     onRefresh: () -> Unit,
     onPlayAll: () -> Unit,
 ) {
     var artistText by remember { mutableStateOf("") }
+    var genreText by remember { mutableStateOf("") }
     Column(modifier = Modifier.padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -207,6 +216,19 @@ private fun DiscoveryHeader(
                 }
             }
         }
+        if (state.artists.isNotEmpty()) {
+            GenreSection(
+                state = state,
+                genreText = genreText,
+                onGenreTextChange = { genreText = it },
+                onGenreMode = onGenreMode,
+                onAddGenre = {
+                    onAddGenre(genreText)
+                    genreText = ""
+                },
+                onRemoveGenre = onRemoveGenre,
+            )
+        }
         ui.message?.let { message ->
             Spacer(modifier = Modifier.height(8.dp))
             Text(
@@ -227,6 +249,95 @@ private fun DiscoveryHeader(
                 style = MaterialTheme.typography.bodySmall,
                 color = PlayerTextMutedColor,
             )
+        }
+    }
+}
+
+// Which genres an upload has to fit: off, the genres of the user's likes, or their own
+// keywords - so a namesake artist in another genre does not show up.
+@Composable
+private fun GenreSection(
+    state: DiscoveryState,
+    genreText: String,
+    onGenreTextChange: (String) -> Unit,
+    onGenreMode: (GenreMode) -> Unit,
+    onAddGenre: () -> Unit,
+    onRemoveGenre: (String) -> Unit,
+) {
+    Spacer(modifier = Modifier.height(12.dp))
+    Text(text = "Genre muss passen", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        listOf(GenreMode.AUTO to "Wie meine Musik", GenreMode.MANUAL to "Eigene", GenreMode.OFF to "Aus").forEach { (mode, label) ->
+            val selected = state.genreMode == mode
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = if (selected) PlayerTitleColor.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, if (selected) PlayerTitleColor else HardBassCardBorder),
+            ) {
+                TextButton(onClick = { onGenreMode(mode) }) {
+                    Text(
+                        text = label,
+                        color = if (selected) PlayerTitleColor else PlayerTextMutedColor,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+        }
+    }
+    when (state.genreMode) {
+        GenreMode.OFF ->
+            Text(
+                "Alles wird vorgeschlagen, egal in welchem Genre.",
+                style = MaterialTheme.typography.bodySmall,
+                color = PlayerTextMutedColor,
+            )
+
+        GenreMode.AUTO ->
+            Text(
+                text =
+                    if (state.autoGenres.isEmpty()) {
+                        "Noch keine Vorlieben erkannt. Melde dich an und like ein paar Titel - oder wähl „Eigene“."
+                    } else {
+                        "Erkannt aus deinen Likes: ${state.autoGenres.joinToString(", ")}"
+                    },
+                style = MaterialTheme.typography.bodySmall,
+                color = PlayerTextMutedColor,
+            )
+
+        GenreMode.MANUAL -> {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = genreText,
+                    onValueChange = onGenreTextChange,
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("z. B. Uptempo Hardcore") },
+                    singleLine = true,
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Button(onClick = onAddGenre, enabled = genreText.isNotBlank()) { Text("Dazu") }
+            }
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                state.genres.forEach { genre ->
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        border = BorderStroke(1.dp, HardBassCardBorder),
+                    ) {
+                        Row(modifier = Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = genre, style = MaterialTheme.typography.labelMedium, color = PlayerTextColor)
+                            IconButton(onClick = { onRemoveGenre(genre) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "$genre entfernen", modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

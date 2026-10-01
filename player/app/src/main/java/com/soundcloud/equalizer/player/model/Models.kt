@@ -11,7 +11,11 @@ data class TrackItem(
     // Go track (see StreamSelection). Only known once a stream was resolved.
     val isPreview: Boolean = false,
     // Upload time in epoch milliseconds, 0 when SoundCloud did not say.
-    val createdAtMs: Long = 0L
+    val createdAtMs: Long = 0L,
+    // What the uploader set as genre ("" if none) and SoundCloud's raw tag_list (space
+    // separated, multi-word tags in quotes).
+    val genre: String = "",
+    val tagList: String = ""
 )
 
 data class PlaylistItem(

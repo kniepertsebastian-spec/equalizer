@@ -352,3 +352,16 @@ jeden Montag erneuert.
   einen Neuaufbau.
 - **Nicht verifiziert:** Datumsfilter und Antwortfelder (`created_at`) der inoffiziellen
   Suche; Trefferqualität bei häufigen Namen (zu allgemeine Namen liefern Fremdes).
+
+**Genre-Filter (Nachtrag):** Damit „MBK“ nicht den Schlager-MBK liefert, müssen Uploads
+zum Genre passen. Modi: *Wie meine Musik* (Standard), *Eigene* (Stichwörter), *Aus*.
+- `GenreMatcher` vergleicht SoundCloud-`genre` und `tag_list` mit den gewünschten Begriffen
+  (ganze Wörter; „uptempo“, „hardcore“, „gabber“ … gelten als eine Szene-Familie).
+  Bei Szene-Wünschen zählen Gegen-Tags (Punk, Hip-Hop, Rap, Metal …) nicht, und
+  „hardcore“ allein reicht dann nicht. Ergebnis: passt / unbekannt / passt nicht.
+- *Passt nicht* wird aussortiert (Anzahl steht in der Meldung), *unbekannt* (kein Genre
+  gesetzt) kommt, aber hinter den bestätigten Titeln.
+- *Wie meine Musik*: `GenreProfile` leitet aus den Likes die häufigsten Genres ab (mind.
+  5 Titel, mind. 3 Treffer bzw. 5 %, max. 6, ohne Allgemeinwörter), einmal pro Woche oder
+  bei „Jetzt aktualisieren“. Schlägt das Lesen fehl, bleiben die alten Genres.
+- **Nicht verifiziert:** Qualität der Genre-Tags auf echten Uploads; Likes-Endpunkt.

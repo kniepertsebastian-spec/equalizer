@@ -445,7 +445,9 @@ class SoundCloudClient(
             streamUrl = streamUrl,
             durationMs = duration,
             isPreview = isPreview,
-            createdAtMs = IsoTime.parseMillis(optStringOrNull(obj, "created_at")) ?: 0L
+            createdAtMs = IsoTime.parseMillis(optStringOrNull(obj, "created_at")) ?: 0L,
+            genre = optStringOrNull(obj, "genre").orEmpty(),
+            tagList = optStringOrNull(obj, "tag_list").orEmpty()
         )
     }
 }

@@ -19,6 +19,12 @@ class DiscoveryLoader(
         return client.searchTracks(artist, limit = SEARCH_LIMIT, resolveStreams = false, recentOnly = true)
     }
 
+    // The tracks the signed-in user liked: what their taste is read from. Fails when signed out.
+    suspend fun likedTracks(): List<TrackItem> {
+        client.setUserAuthToken(SoundCloudLoginActivity.getSavedToken(context))
+        return client.getMyLikedTracks()
+    }
+
     private companion object {
         const val SEARCH_LIMIT = 50
     }
