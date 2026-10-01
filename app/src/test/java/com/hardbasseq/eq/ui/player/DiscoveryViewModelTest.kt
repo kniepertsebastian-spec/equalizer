@@ -7,6 +7,7 @@ import com.hardbasseq.eq.discovery.DiscoveryUpdater
 import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
+import com.hardbasseq.eq.link.SpotifyPlaylist
 import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -243,6 +244,18 @@ class DiscoveryViewModelTest {
         override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> = unused()
 
         override suspend fun fetchSpotifyTrackPage(trackId: String): LoadResult<String> = unused()
+
+        override fun spotifyClientId(): String = unused()
+
+        override fun saveSpotifyClientId(clientId: String) = unused()
+
+        override fun isSpotifySignedIn(): Boolean = unused()
+
+        override fun openSpotifySignIn(): String? = unused()
+
+        override fun signOutSpotify() = unused()
+
+        override suspend fun fetchSpotifyPlaylistViaApi(playlistId: String): LoadResult<SpotifyPlaylist> = unused()
 
         override suspend fun fetchSpotifyPlaylistPage(playlistId: String): LoadResult<String> = unused()
 

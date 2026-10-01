@@ -517,3 +517,24 @@ wurden und welcher SoundCloud-Titel dazu gefunden wurde:
 - **Weiter nicht möglich:** Titel 101 ff. aus *einer* Spotify-Playlist zu lesen. Dafür bräuchte es die
   Spotify-Web-API mit eigenem Entwickler-Schlüssel (nicht eingebaut) oder die Playlist in Spotify in
   Teile zu je ≤100 aufzuteilen und die Links zusammen zu teilen.
+
+### Spotify-Anmeldung für lange eigene Playlists (1. Oktober 2026)
+
+Wer in der Playlists-Ansicht die Client-ID seiner eigenen Spotify-Entwickler-App einträgt und sich
+anmeldet, bekommt **alle** Titel seiner eigenen Playlists (auch über 100) über die Spotify-Web-API.
+- **Anmeldung:** OAuth „Authorization Code mit PKCE“, kein Client-Secret (`SpotifyAuth`, core,
+  getestet inkl. RFC-7636-Testvektor). Redirect-URI **`hardbasseq://spotify-callback`** (in der
+  Spotify-App einzutragen), Rechte nur `playlist-read-private` und `playlist-read-collaborative`.
+  `SpotifyLoginActivity` nimmt den Redirect an, tauscht den Code gegen Tokens (`SpotifyApiClient`,
+  :player; Tokens in privaten SharedPreferences) und holt die App nach vorn. Das `state` schützt vor
+  untergeschobenen Codes; Token werden automatisch erneuert.
+- **Lesen:** `GET /playlists/{id}/items` in Seiten zu 50 bis max. 1.000 Titel (`SpotifyApiJson`,
+  getestet für neues `item`- und älteres `track`-Feld, Episoden/leere Einträge übersprungen); 429 wird
+  abgewartet, 401 einmal mit erneuertem Token wiederholt.
+- **Einschränkung von Spotify (seit März 2026):** Entwickler-Apps bekommen die Titel nur für
+  Playlists, die dem Nutzer **gehören oder bei denen er mitarbeitet**; der Besitzer der App braucht
+  Premium. Bei fremden Playlists antwortet die API mit 403 – die App fällt dann auf die öffentliche
+  Seite zurück (max. ~100 Titel) und nennt den Grund in der Meldung.
+- Der Import selbst (Blöcke zu 100, Stand, Nachtrag) bleibt unverändert.
+- **Nicht verifiziert** (kein Netz zu Spotify hier): der ganze Anmelde-Ablauf auf dem Gerät, das
+  genaue Antwortformat von `/items`, ob Spotify für diese Entwickler-App 50 je Seite erlaubt.

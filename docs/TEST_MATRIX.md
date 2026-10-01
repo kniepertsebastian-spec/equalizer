@@ -462,6 +462,10 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | X11 | Dieselbe Spotify-Playlist zweimal teilen | beim zweiten Mal „Nichts Neues“, keine zweite Playlist |
 | X12 | In Spotify einen Titel ergänzen, nochmal teilen | nur der neue Titel kommt als „… (Nachtrag)“ |
 | X13 | Importierte Playlist löschen, Link nochmal teilen | wird wieder angelegt |
+| X14 | In Spotifys Entwicklerportal App anlegen (Web API, Redirect-URI `hardbasseq://spotify-callback`), Client-ID im Player unter „Spotify-Konto“ eintragen, „Anmelden“ | Browser öffnet Spotify-Login, danach zurück in der App, Toast „Mit Spotify angemeldet“, Karte zeigt „Angemeldet“ |
+| X15 | Eigene Spotify-Playlist mit mehr als 100 Titeln teilen | alle Titel werden gelesen (Meldung ohne 100er-Hinweis), Teile à 100 als Playlists |
+| X16 | Fremde öffentliche Playlist teilen (angemeldet) | Seiten-Weg mit max. ~100 Titeln, Meldung nennt den Grund („Spotify-Anmeldung: … nur für Playlists, die dir gehören“) |
+| X17 | „Abmelden“ | Karte zeigt wieder „Anmelden“, Import nutzt wieder die öffentliche Seite |
 | C1 | Titel im Player starten, Handy per Bluetooth mit dem Auto verbunden | Autodisplay zeigt Titel und Interpret (ggf. Cover) statt „Inhalt nicht gefunden“ |
 | C2 | Weiter/Zurück/Pause am Lenkrad oder Autoradio | wirkt auf die Warteschlange des Players; Anzeige zieht nach |
 | C3 | Sperrbildschirm und Benachrichtigung ansehen | Titel, Interpret und die drei Tasten sind da |
