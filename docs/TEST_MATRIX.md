@@ -471,3 +471,7 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | U10 | „Eigene“, Stichwort „uptempo“ hinzufügen/entfernen | Liste wird sofort neu gebaut; ohne Stichwörter kein Filter |
 | U11 | Genre „Aus“ | alle Treffer wie vorher |
 | U12 | Titel ohne Genre-Angabe | erscheint, aber hinter den passenden |
+| D1 | Player-Screen → „Klang-Feinschliff“ | Mono-Bass und Limiter sind standardmäßig an |
+| D2 | Mono-Bass aus/an, Regler bewegen (SoundCloud-Titel, In-Ears) | Bass wird beim Einschalten straffer/mittiger, Wechsel ohne Neustart |
+| D3 | Limiter aus/an bei starkem Bass-Boost (Auto-Modus, Virtual Bass) | mit Limiter kein Kratzen/Clipping; Aus klingt wie vorher |
+| D4 | App neu starten | Schalterstellung und Reglerwert bleiben |

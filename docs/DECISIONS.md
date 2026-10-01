@@ -365,3 +365,18 @@ zum Genre passen. Modi: *Wie meine Musik* (Standard), *Eigene* (Stichwörter), *
   5 Titel, mind. 3 Treffer bzw. 5 %, max. 6, ohne Allgemeinwörter), einmal pro Woche oder
   bei „Jetzt aktualisieren“. Schlägt das Lesen fehl, bleiben die alten Genres.
 - **Nicht verifiziert:** Qualität der Genre-Tags auf echten Uploads; Likes-Endpunkt.
+
+### Mono-Bass und Limiter im eigenen Player (1. Oktober 2026)
+
+`BassMonoSummer` und `LookaheadLimiter` (vorher nur in `:core`, ungenutzt) hängen jetzt als
+letzte Stufe in der Audiokette des eigenen Players (`PlayerDspAudioProcessor`, hinter
+Virtual Bass, damit der Limiter dessen Obertöne mitfängt).
+
+- **Beide standardmäßig an, beide abschaltbar** (Karte „Klang-Feinschliff“ im Player-Screen);
+  Mono-Bass mit Übergangsfrequenz-Regler 40–200 Hz (Standard 120 Hz). Gespeichert in
+  SharedPreferences (`PlayerDspState`), wirkt sofort ohne Player-Neustart.
+- Mono-Bass nur bei Stereo; der Limiter läuft pro Kanal (nicht gelinkt) und verzögert das
+  Signal um ca. 5 ms. Beim Wiedereinschalten wird er zurückgesetzt (kurze Stille möglich).
+- Nur eigener Player, nicht Spotify & Co. (kein Hook im Systempfad).
+- **Nicht verifiziert:** Klang auf echter Hardware, CPU-Last des Limiters (Fenster-Minimum
+  pro Sample) – bei Aussetzern den Limiter abschalten und melden.

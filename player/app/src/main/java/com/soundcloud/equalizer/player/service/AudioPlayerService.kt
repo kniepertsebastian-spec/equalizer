@@ -33,6 +33,8 @@ import com.soundcloud.equalizer.player.playback.BassExciterAudioProcessor
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
 import com.soundcloud.equalizer.player.playback.PlaybackQueueState
+import com.soundcloud.equalizer.player.playback.PlayerDspAudioProcessor
+import com.soundcloud.equalizer.player.playback.PlayerDspState
 import com.soundcloud.equalizer.player.soundcloud.SoundCloudClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -97,12 +99,14 @@ class AudioPlayerService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        PlayerDspState.load(this)
         createNotificationChannel()
         initExoPlayer()
     }
 
     // Same sink DefaultRenderersFactory would build, plus the virtual-bass
-    // processor in its audio chain (see BassExciterAudioProcessor).
+    // processor and the mono-bass / limiter stage in its audio chain (see
+    // BassExciterAudioProcessor, PlayerDspAudioProcessor).
     @OptIn(UnstableApi::class)
     private fun buildRenderersFactory() = object : DefaultRenderersFactory(this) {
         override fun buildAudioSink(
@@ -112,7 +116,7 @@ class AudioPlayerService : Service() {
         ): AudioSink = DefaultAudioSink.Builder(context)
             .setEnableFloatOutput(enableFloatOutput)
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-            .setAudioProcessors(arrayOf(BassExciterAudioProcessor()))
+            .setAudioProcessors(arrayOf(BassExciterAudioProcessor(), PlayerDspAudioProcessor()))
             .build()
     }
 
