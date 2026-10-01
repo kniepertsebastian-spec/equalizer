@@ -104,6 +104,8 @@ fun PlayerScreen(
     val dsp by dspViewModel.settings.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
+    val playedIds by viewModel.playedIds.collectAsStateWithLifecycle()
+    val currentTrackId = queue.getOrNull(nowPlaying?.queueIndex ?: -1)?.id
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val importState by viewModel.importState.collectAsStateWithLifecycle()
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
@@ -438,6 +440,8 @@ fun PlayerScreen(
                                     onPlay = { viewModel.playPlaylist(playlist) },
                                     onDelete = { viewModel.deletePlaylist(playlist) },
                                     onRemoveTrack = { viewModel.removeFromPlaylist(playlist, it) },
+                                    currentTrackId = currentTrackId,
+                                    playedIds = playedIds,
                                 )
                             }
                         }
@@ -458,6 +462,8 @@ fun PlayerScreen(
                 state = discoveryState,
                 ui = discoveryUi,
                 nowMs = System.currentTimeMillis(),
+                currentTrackId = currentTrackId,
+                playedIds = playedIds,
                 onAddArtist = discovery::addArtist,
                 onRemoveArtist = discovery::removeArtist,
                 onGenreMode = discovery::setGenreMode,
@@ -525,23 +531,25 @@ fun PlayerScreen(
                 }
                 itemsIndexed(queue, key = { index, track -> "${track.id}-$index" }) { index, track ->
                     val isCurrent = nowPlaying?.queueIndex == index
+                    val playState = if (isCurrent) TrackPlayState.CURRENT else trackPlayState(track.id, currentTrackId, playedIds)
                     Row(
                         modifier =
                             Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(
-                                    if (isCurrent) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                                ).clickable { viewModel.playQueueIndex(index) }
+                                .background(MaterialTheme.colorScheme.surface)
+                                .glowWhenCurrent(playState)
+                                .clickable { viewModel.playQueueIndex(index) }
                                 .padding(horizontal = spacing.small, vertical = spacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = track.title,
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                color = PlayerTitleColor,
+                                color = PlayerTitleColor.copy(alpha = playState.textAlpha()),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -643,6 +651,8 @@ private fun PlaylistRow(
     onPlay: () -> Unit,
     onDelete: () -> Unit,
     onRemoveTrack: (Long) -> Unit,
+    currentTrackId: Long?,
+    playedIds: Set<Long>,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -684,12 +694,17 @@ private fun PlaylistRow(
                 )
             }
             playlist.tracks.forEach { track ->
-                Row(modifier = Modifier.fillMaxWidth().padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                val playState = trackPlayState(track.id, currentTrackId, playedIds)
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp).glowWhenCurrent(playState),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = track.title,
                             style = MaterialTheme.typography.bodySmall,
-                            color = PlayerTitleColor,
+                            color = PlayerTitleColor.copy(alpha = playState.textAlpha()),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

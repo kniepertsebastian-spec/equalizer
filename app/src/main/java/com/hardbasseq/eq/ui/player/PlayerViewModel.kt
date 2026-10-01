@@ -17,6 +17,7 @@ import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.NowPlaying
+import com.soundcloud.equalizer.player.playback.PlayedTracksState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -67,6 +68,9 @@ class PlayerViewModel
     ) : ViewModel() {
         val nowPlaying: StateFlow<NowPlaying?> = controller.nowPlaying
         val queue: StateFlow<List<TrackItem>> = controller.queue
+
+        // Ids of the tracks that were started in the player (this app session).
+        val playedIds: StateFlow<Set<Long>> = PlayedTracksState.ids
 
         // Newest first.
         val playlists: StateFlow<List<SavedPlaylist>> =

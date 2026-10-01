@@ -72,6 +72,8 @@ fun LazyListScope.discoveryItems(
     state: DiscoveryState,
     ui: DiscoveryUiState,
     nowMs: Long,
+    currentTrackId: Long?,
+    playedIds: Set<Long>,
     onAddArtist: (String) -> Unit,
     onRemoveArtist: (String) -> Unit,
     onGenreMode: (GenreMode) -> Unit,
@@ -94,21 +96,24 @@ fun LazyListScope.discoveryItems(
     }
     items(state.playlist, key = { "discovery-${it.track.id}" }) { item ->
         val index = state.playlist.indexOf(item)
+        val playState = trackPlayState(item.track.id, currentTrackId, playedIds)
         SwipeAwayRow(onDismiss = { onDismiss(item) }) {
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .glowWhenCurrent(playState)
                         .clickable { onPlay(index) }
                         .padding(start = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
                 Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
                     Text(
                         text = item.track.title,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = PlayerTitleColor,
+                        color = PlayerTitleColor.copy(alpha = playState.textAlpha()),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
