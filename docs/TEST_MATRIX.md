@@ -515,3 +515,7 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | L3 | Playlist-Symbol in der Warteschlange → „Neu anlegen und hinzufügen“ | neue Playlist mit diesem Titel |
 | L4 | Playlist antippen (Namen) → ✕ bei einem Titel | Titel verschwindet; importierte Playlists haben kein ✕ |
 | L5 | Eigene Playlist abspielen, App neu starten | Playlist bleibt erhalten |
+| H1 | Kopfhörer-Modus an → Karte „Kopfhörer-Power“ erscheint; „Knall“ tippen | Bass deutlich kräftiger, Regler springen auf 7 / 12 dB, Dynamik-Schalter aus; kein Kratzen/Übersteuern |
+| H2 | „Standard“ tippen | Klang wie vor der Funktion (2,5 dB / 9 dB / Dynamik an) |
+| H3 | Bass-Regler auf 0, Loudness auf 0 | Bass-Anhebung bzw. Loudness entfallen hörbar |
+| H4 | App neu starten | Reglerstellungen bleiben; Karte nur im Kopfhörer-Modus sichtbar |

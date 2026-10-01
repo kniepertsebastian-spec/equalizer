@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.SportsMma
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -81,6 +82,7 @@ import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
+import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
@@ -111,6 +113,7 @@ fun EqualizerScreen(
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
+    headphonePower: HeadphonePower,
     activeContext: SoundContext?,
     currentLevelDb: Float,
     isDirty: Boolean,
@@ -125,6 +128,7 @@ fun EqualizerScreen(
     onAcceptSuggestedCorrectionProfile: () -> Unit,
     onDismissSuggestedCorrectionProfile: () -> Unit,
     onHeadphoneAcousticsChanged: (Boolean) -> Unit,
+    onHeadphonePowerChanged: (HeadphonePower) -> Unit,
     onContextModeChanged: (SoundContext?) -> Unit,
     onLoudnessCompensationChanged: (Boolean) -> Unit,
     onSubsonicFilterChanged: (Boolean) -> Unit,
@@ -150,9 +154,13 @@ fun EqualizerScreen(
     // the HeadphoneComfortCurve and LoudnessCompensationCurve fold-ins while
     // effectiveHeadphoneAcoustics is on) so the banner here always agrees with
     // the inputGainDb the engine actually applied.
-    val headphoneCurve = if (effectiveHeadphoneAcoustics) HeadphoneComfortCurve.curve else emptyList()
+    val headphoneCurve = if (effectiveHeadphoneAcoustics) HeadphoneComfortCurve.curve(headphonePower.bassDb) else emptyList()
     val loudnessCurve =
-        if (effectiveHeadphoneAcoustics) LoudnessCompensationCurve.forLevel(currentLevelDb = currentLevelDb) else emptyList()
+        if (effectiveHeadphoneAcoustics) {
+            LoudnessCompensationCurve.forLevel(currentLevelDb = currentLevelDb, maxBoostDb = headphonePower.loudnessMaxDb)
+        } else {
+            emptyList()
+        }
     // Subsonic high-pass + preset loudness compensation, same as MainViewModel.contextCurve().
     val contextCurve =
         CurveComposer.combine(
@@ -535,6 +543,14 @@ fun EqualizerScreen(
                             )
                         }
                     }
+                }
+
+                if (effectiveHeadphoneAcoustics) {
+                    HeadphonePowerCard(
+                        power = headphonePower,
+                        onPowerChanged = onHeadphonePowerChanged,
+                        style = style,
+                    )
                 }
 
                 // Listening-context card (car / Bluetooth speaker): the mode switches plus
@@ -1230,3 +1246,87 @@ private fun retryingStatusText(state: AudioEngineState.Retrying): String {
 }
 
 private fun secondsUntil(millis: Long): Long = ((millis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+
+// "Kopfhörer-Power": Bass, Dynamik und Loudness im Kopfhörer-Modus einstellbar,
+// dazu die Presets "Standard" (altes Verhalten) und "Knall".
+@Composable
+private fun HeadphonePowerCard(
+    power: HeadphonePower,
+    onPowerChanged: (HeadphonePower) -> Unit,
+    style: EqualizerDesignStyle,
+) {
+    val spacing = MaterialTheme.spacing
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(style.cardCorner),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, style.border),
+    ) {
+        Column(modifier = Modifier.padding(spacing.medium)) {
+            Text(
+                text = "Kopfhörer-Power",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text =
+                    "Mehr Wumms für Kopfhörer. Bei hoher Lautstärke und viel Bass kann das dem Gehör schaden - " +
+                        "die Eingangsverstärkung wird automatisch begrenzt, damit nichts übersteuert.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(spacing.small))
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                OutlinedButton(onClick = { onPowerChanged(HeadphonePower.DEFAULT) }) { Text("Standard") }
+                Button(onClick = { onPowerChanged(HeadphonePower.KNALL) }) { Text("Knall") }
+            }
+            Spacer(modifier = Modifier.height(spacing.small))
+            Text(
+                text = "Bass-Stärke: +${"%.1f".format(power.bassDb)} dB",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Slider(
+                value = power.bassDb,
+                onValueChange = { onPowerChanged(power.copy(bassDb = it)) },
+                valueRange = 0f..HeadphonePower.MAX_BASS_DB,
+            )
+            Text(
+                text =
+                    if (power.loudnessMaxDb > 0f) {
+                        "Loudness: bis +${"%.1f".format(power.loudnessMaxDb)} dB bei leiser Lautstärke"
+                    } else {
+                        "Loudness: aus"
+                    },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Slider(
+                value = power.loudnessMaxDb,
+                onValueChange = { onPowerChanged(power.copy(loudnessMaxDb = it)) },
+                valueRange = 0f..HeadphonePower.MAX_LOUDNESS_DB,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Dynamik entschärfen", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "Aus = volle Dynamik, Bässe und Kicks schlagen härter durch",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = power.easeDynamics,
+                    onCheckedChange = { onPowerChanged(power.copy(easeDynamics = it)) },
+                )
+            }
+            Text(
+                text = "Virtual Bass und Mono-Bass gibt es nur im eingebauten Player.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}

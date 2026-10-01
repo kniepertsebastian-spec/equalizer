@@ -23,15 +23,20 @@ import com.hardbasseq.eq.preset.TargetPoint
 // als spürbaren Bass-/Präsenz-Tilt statt als 1:1-Nachbau von Crossfeed
 // umsetzen.
 object HeadphoneComfortCurve {
-    val curve: List<TargetPoint> =
+    const val DEFAULT_BASS_DB = 2.5f
+
+    // Bassanhebung wählbar (Kopfhörer-Power); die Präsenzsenke bleibt fest.
+    fun curve(bassDb: Float): List<TargetPoint> =
         listOf(
-            TargetPoint(20f, 2.5f),
-            TargetPoint(60f, 2.5f),
-            TargetPoint(150f, 1f),
+            TargetPoint(20f, bassDb),
+            TargetPoint(60f, bassDb),
+            TargetPoint(150f, bassDb * 0.4f),
             TargetPoint(300f, 0f),
             TargetPoint(3000f, 0f),
             TargetPoint(4500f, -1.5f),
             TargetPoint(8000f, -1f),
             TargetPoint(16000f, 0f),
         )
+
+    val curve: List<TargetPoint> = curve(DEFAULT_BASS_DB)
 }
