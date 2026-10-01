@@ -26,3 +26,20 @@ object PlayerFormat {
         durationMs: Long,
     ): Float = if (durationMs <= 0L) 0f else (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
 }
+
+// "heute", "gestern", "vor 3 Tagen" for how long ago an upload was.
+object AgeFormat {
+    private const val MS_PER_DAY = 86_400_000L
+
+    fun daysAgo(
+        nowMs: Long,
+        thenMs: Long,
+    ): String {
+        val days = ((nowMs - thenMs) / MS_PER_DAY).coerceAtLeast(0)
+        return when (days) {
+            0L -> "heute"
+            1L -> "gestern"
+            else -> "vor $days Tagen"
+        }
+    }
+}

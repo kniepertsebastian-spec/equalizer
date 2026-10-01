@@ -3,6 +3,7 @@ package com.hardbasseq.eq.integration
 import android.content.Context
 import android.content.Intent
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
+import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.ResolvedLink
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -75,6 +76,15 @@ interface PlayerController {
     // are only previews.
     fun isSoundCloudSignedIn(): Boolean
 
+    // Title and channel of the song behind a YouTube / Spotify link (public preview data).
+    suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo>
+
+    // Plain SoundCloud search, without resolving streams.
+    suspend fun searchSoundCloud(
+        query: String,
+        limit: Int,
+    ): LoadResult<List<TrackItem>>
+
     // The signed-in user's library. Each call asks SoundCloud again.
     suspend fun loadLibrary(): LoadResult<LibraryOverview>
 
@@ -137,6 +147,13 @@ class AndroidPlayerController
 
         override fun isSoundCloudSignedIn(): Boolean = SoundCloudLoginActivity.getSavedToken(context) != null
 
+        override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> = load { linkResolver.describeExternal(url) }
+
+        override suspend fun searchSoundCloud(
+            query: String,
+            limit: Int,
+        ): LoadResult<List<TrackItem>> = load { linkResolver.searchTracks(query, limit) }
+
         override suspend fun loadLibrary(): LoadResult<LibraryOverview> = load { libraryLoader.overview() }
 
         override suspend fun loadLikedTracks(): LoadResult<List<TrackItem>> = load { libraryLoader.likedTracks() }
@@ -150,7 +167,7 @@ class AndroidPlayerController
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoadResult.Error("SoundCloud konnte nicht geladen werden: ${e.message ?: "unbekannter Fehler"}")
+                LoadResult.Error("Das hat nicht geklappt: ${e.message ?: "unbekannter Fehler"}")
             }
 
         override fun openSoundCloudSignIn() {

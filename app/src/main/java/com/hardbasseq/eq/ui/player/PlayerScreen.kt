@@ -88,6 +88,7 @@ import java.net.URL
 @Composable
 fun PlayerScreen(
     viewModel: PlayerViewModel,
+    discovery: DiscoveryViewModel,
     activeContext: SoundContext?,
     onContextModeChanged: (SoundContext?) -> Unit,
     onBack: () -> Unit,
@@ -100,6 +101,9 @@ fun PlayerScreen(
     val importState by viewModel.importState.collectAsStateWithLifecycle()
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
     val libraryState by viewModel.libraryState.collectAsStateWithLifecycle()
+    val bridgeState by viewModel.bridgeState.collectAsStateWithLifecycle()
+    val discoveryState by discovery.state.collectAsStateWithLifecycle()
+    val discoveryUi by discovery.uiState.collectAsStateWithLifecycle()
     var linkText by remember { mutableStateOf("") }
 
     // Signed in (also right after coming back from the sign-in screen): show the library.
@@ -397,6 +401,63 @@ fun PlayerScreen(
                                     playlist = playlist,
                                     onPlay = { viewModel.playPlaylist(playlist) },
                                     onDelete = { viewModel.deletePlaylist(playlist) },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            discoveryItems(
+                state = discoveryState,
+                ui = discoveryUi,
+                nowMs = System.currentTimeMillis(),
+                onAddArtist = discovery::addArtist,
+                onRemoveArtist = discovery::removeArtist,
+                onRefresh = discovery::refreshNow,
+                onPlayAll = discovery::playAll,
+                onPlay = discovery::play,
+                onDismiss = discovery::dismiss,
+            )
+
+            bridgeState?.let { bridge ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, HardBassCardBorder),
+                    ) {
+                        Column(modifier = Modifier.padding(spacing.medium)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Auf SoundCloud gefunden: ${bridge.label}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(onClick = viewModel::dismissBridge) { Text("Schließen") }
+                            }
+                            Text(
+                                text =
+                                    if (bridge.startedAutomatically) {
+                                        "Der beste Treffer läuft. Nicht der richtige? Wähl einen anderen:"
+                                    } else {
+                                        "Kein sicherer Treffer - wähle den passenden Titel:"
+                                    },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = PlayerTextMutedColor,
+                            )
+                            bridge.matches.forEach { match ->
+                                LibraryRow(
+                                    title = match.track.title,
+                                    subtitle =
+                                        listOf(
+                                            match.track.artist,
+                                            PlayerFormat.duration(match.track.durationMs),
+                                            "${(match.score * 100).toInt()} %",
+                                        ).joinToString(" · "),
+                                    onPlay = { viewModel.playBridgeMatch(match) },
                                 )
                             }
                         }

@@ -304,3 +304,51 @@ Playlists und gelikte Playlists. Antippen lädt die Titel und spielt sie als Que
   eigener Offline-Cache aus den Streams würde die Go-Bedingungen verletzen. Der
   eigene Player braucht Netz. Denkbar (nicht umgesetzt): Download von Titeln, bei
   denen der Künstler den Download ausdrücklich freigegeben hat.
+
+### YouTube-/Spotify-Link → Titel auf SoundCloud (30. September 2026)
+
+Ein einzelner YouTube-, YouTube-Music- oder Spotify-Titel-Link wird erkannt; der
+Titel selbst wird **nicht** von dort abgespielt. Stattdessen:
+
+1. Titel und Kanal über die öffentliche oEmbed-Vorschau des Anbieters lesen
+   (dieselben Daten wie eine Link-Vorschau im Messenger). Spotify liefert keinen
+   Künstler, YouTube den Kanalnamen.
+2. `TrackQueryBuilder` bereinigt den Titel („(Official Video)“, „[HD]“ …;
+   Remix-/Edit-Hinweise bleiben) und trennt Künstler/Titel.
+3. SoundCloud-Suche (ohne Stream-Auflösung); ohne Treffer zweiter Versuch nur mit
+   dem Titel. `TrackMatcher` bewertet jeden Treffer nach Wortüberdeckung
+   (Titel 65 %, Künstler 35 %, Abzug für fremde Zusatzwörter; der Künstler darf
+   auch im Uploader-Namen stecken).
+4. Bester Treffer ≥ 0,8 **mit bekanntem Künstler** startet von selbst; sonst
+   (immer bei Spotify) zeigt die Karte „Auf SoundCloud gefunden“ die besten
+   Treffer mit Trefferquote zur Auswahl.
+
+Ausdrücklich nicht unterstützt: Playlists, Alben, Kanäle, DJ-Sets/Mixe (keine
+einzelne Nummer), Spotify-Kurzlinks. Nicht einbettbare oder private Videos liefern
+keine Angaben → verständliche Meldung. Die Trefferqualität hängt davon ab, ob der
+Titel auf SoundCloud liegt; bei Mainstream oft nicht.
+
+### „Interesting new uploads“ – wöchentliche Entdecker-Playlist (30. September 2026)
+
+Im Player-Screen lassen sich Künstlernamen merken. Die App sucht dazu auf SoundCloud
+nach **neuen Uploads, die den Namen nennen – auch von anderen Accounts** (Re-Uploads
+sind der Sinn), und baut daraus eine eigene Playlist mit 15–20 Titeln, die sich
+jeden Montag erneuert.
+
+- **Was qualifiziert** (`DiscoveryRotation.isEligible`): der Name steht im Titel oder
+  Uploader-Namen, Einzeltitel bis 10 Minuten (keine Sets/Mixe), Upload höchstens
+  35 Tage alt, Datum bekannt. Suche: `search/tracks` mit `filter.created_at=last_month`
+  (inoffiziell; die Daten werden zusätzlich selbst gegen das Upload-Datum geprüft).
+- **Auswahl:** ungesehene Titel zuerst, Künstler reihum (einer füllt nicht die ganze
+  Liste), bei zu wenig Neuem mit früheren Vorschlägen auf mindestens 15 aufgefüllt.
+- **Wegwischen:** Titel seitlich aus der Liste wischen (oder ✕) – er wird nie wieder
+  vorgeschlagen; unter 15 Titeln füllt die Liste aus dem Reservepool nach.
+- **Montag:** `WeekKey` (Wochenwechsel um lokale Mitternacht, reine Arithmetik). Beim
+  Öffnen des Screens und durch einen WorkManager-Job (alle 6 h, nur mit Netz) wird bei
+  neuer Woche neu gebaut. Android legt die genaue Uhrzeit fest; die Liste ist also
+  „Montag“, nicht „Montag 00:00“. Schlägt die Suche fehl, bleibt die alte Liste und der
+  Job versucht es erneut.
+- Zustand: eigener DataStore (JSON), kein Schema-Bump. Neue Künstler erzwingen sofort
+  einen Neuaufbau.
+- **Nicht verifiziert:** Datumsfilter und Antwortfelder (`created_at`) der inoffiziellen
+  Suche; Trefferqualität bei häufigen Namen (zu allgemeine Namen liefern Fremdes).

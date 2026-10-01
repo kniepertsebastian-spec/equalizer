@@ -446,3 +446,24 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | L4 | Private eigene Playlist | lädt (Token) und spielt |
 | L5 | Abmelden | Bibliothek verschwindet; Go-Titel wieder nur Vorschau |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
+
+| # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |
+|---|---|---|
+| B1 | YouTube-Link eines Hardcore-Tracks teilen, der auf SoundCloud liegt | Treffer erscheint, bei „Artist - Titel“ startet er von selbst |
+| B2 | Dasselbe mit YouTube Music (`music.youtube.com`) | wie B1 |
+| B3 | Spotify-Titel-Link | Trefferliste ohne Auto-Start (kein Künstler bekannt) |
+| B4 | Titel, der nicht auf SoundCloud liegt (Mainstream) | „Nichts Passendes …“ oder nur niedrige Trefferquoten |
+| B5 | Link mit Zusätzen („(Official Video)“, „ft.“, Remix) | richtiger Titel bzw. Remix wird gefunden |
+| B6 | Playlist-/Album-/Kanal-Link | verständliche Ablehnung, kein Netzwerkzugriff |
+| B7 | Privates/gesperrtes Video | Meldung „keine Angaben“ |
+
+| # | Prüfung (Interesting new uploads) | Erwartung |
+|---|---|---|
+| U1 | Einen Künstler eintragen („Merken“) | Liste füllt sich, 15–20 Titel, nur Einzeltitel, Datum „heute/vor n Tagen“ |
+| U2 | Mehrere Künstler | Titel abwechselnd, nicht nur von einem |
+| U3 | Titel nach links/rechts wischen (und ✕) | verschwindet, Liste füllt aus dem Reservepool auf; nach „Jetzt aktualisieren“ kommt er nicht wieder |
+| U4 | „Alles abspielen“, einen Titel antippen | Queue startet dort; Streams werden frisch aufgelöst |
+| U5 | Künstler entfernen | seine Titel verschwinden |
+| U6 | Nach Montag (Gerät-Datum vorstellen oder warten) App öffnen/Hintergrund | Liste neu, bevorzugt ungesehene Titel |
+| U7 | Flugmodus, „Jetzt aktualisieren“ | Fehlermeldung, alte Liste bleibt |
+| U8 | Sehr allgemeiner Name (z. B. „Sub“) | zeigt, wie viel Fremdes kommt – ggf. Namen genauer eintragen |

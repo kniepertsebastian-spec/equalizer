@@ -56,6 +56,64 @@ object ShareLink {
         return "https://$cleanHost${path.trimEnd('/')}"
     }
 
+    private val youtubeVideoIdPattern = Regex("[A-Za-z0-9_-]{11}")
+    private val spotifyTrackIdPattern = Regex("[A-Za-z0-9]{22}")
+
+    // The video behind a YouTube / YouTube Music link, or null for anything that is not
+    // a single video (a playlist-only link, a channel, the home page). The playlist
+    // part of a "watch?v=...&list=..." link is ignored - it is the video that was
+    // shared.
+    fun youtubeVideoId(url: String): String? {
+        val host = hostOf(url) ?: return null
+        val segments = pathSegments(url)
+        val id =
+            when {
+                host == "youtu.be" -> segments.firstOrNull()
+                host == "youtube.com" || host.endsWith(".youtube.com") ->
+                    when (segments.firstOrNull()) {
+                        "watch" -> queryParam(url, "v")
+                        "shorts", "embed", "live", "v" -> segments.getOrNull(1)
+                        else -> null
+                    }
+                else -> null
+            }
+        return id?.takeIf { youtubeVideoIdPattern.matches(it) }
+    }
+
+    fun canonicalYouTubeUrl(videoId: String): String = "https://www.youtube.com/watch?v=$videoId"
+
+    // The track behind an open.spotify.com link (also the "intl-de/track/..." form), or
+    // null for playlists, albums, artists and short links.
+    fun spotifyTrackId(url: String): String? {
+        if (hostOf(url) != "open.spotify.com") return null
+        val segments = pathSegments(url).let { if (it.firstOrNull()?.startsWith("intl-") == true) it.drop(1) else it }
+        if (segments.firstOrNull() != "track") return null
+        return segments.getOrNull(1)?.takeIf { spotifyTrackIdPattern.matches(it) }
+    }
+
+    fun canonicalSpotifyTrackUrl(trackId: String): String = "https://open.spotify.com/track/$trackId"
+
+    private fun pathSegments(url: String): List<String> =
+        url
+            .substringAfter("://", missingDelimiterValue = "")
+            .substringAfter('/', missingDelimiterValue = "")
+            .substringBefore('?')
+            .substringBefore('#')
+            .split('/')
+            .filter { it.isNotEmpty() }
+
+    private fun queryParam(
+        url: String,
+        name: String,
+    ): String? =
+        url
+            .substringAfter('?', missingDelimiterValue = "")
+            .substringBefore('#')
+            .split('&')
+            .firstOrNull { it.substringBefore('=') == name }
+            ?.substringAfter('=', missingDelimiterValue = "")
+            ?.takeIf { it.isNotEmpty() }
+
     private fun String.isSoundCloudHost(): Boolean = this == "soundcloud.com" || endsWith(".soundcloud.com") || this == "snd.sc"
 
     private fun hostOf(url: String): String? {

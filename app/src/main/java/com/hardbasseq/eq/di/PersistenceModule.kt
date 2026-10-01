@@ -2,6 +2,8 @@ package com.hardbasseq.eq.di
 
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
 import com.hardbasseq.eq.correction.RoomCorrectionProfileRepository
+import com.hardbasseq.eq.discovery.DataStoreDiscoveryRepository
+import com.hardbasseq.eq.discovery.DiscoveryRepository
 import com.hardbasseq.eq.playlist.DataStorePlaylistRepository
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.preset.PresetRepository
@@ -38,4 +40,8 @@ abstract class PersistenceModule {
     @Binds
     @Singleton
     abstract fun bindPlaylistRepository(impl: DataStorePlaylistRepository): PlaylistRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDiscoveryRepository(impl: DataStoreDiscoveryRepository): DiscoveryRepository
 }

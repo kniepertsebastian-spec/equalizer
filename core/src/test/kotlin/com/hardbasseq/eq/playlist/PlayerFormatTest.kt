@@ -29,4 +29,14 @@ class PlayerFormatTest {
         assertEquals(1f, PlayerFormat.progress(150_000, 100_000), 0f)
         assertEquals(0f, PlayerFormat.progress(-1, 100_000), 0f)
     }
+
+    @Test
+    fun `formats how long ago an upload was`() {
+        val day = 86_400_000L
+        val now = 100 * day
+        assertEquals("heute", AgeFormat.daysAgo(now, now - day / 2))
+        assertEquals("gestern", AgeFormat.daysAgo(now, now - day - 1))
+        assertEquals("vor 5 Tagen", AgeFormat.daysAgo(now, now - 5 * day - 1))
+        assertEquals("heute", AgeFormat.daysAgo(now, now + day))
+    }
 }

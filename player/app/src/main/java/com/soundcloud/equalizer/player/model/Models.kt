@@ -9,7 +9,9 @@ data class TrackItem(
     val durationMs: Long,
     // True when the resolved stream is only SoundCloud's ~30 second preview of a
     // Go track (see StreamSelection). Only known once a stream was resolved.
-    val isPreview: Boolean = false
+    val isPreview: Boolean = false,
+    // Upload time in epoch milliseconds, 0 when SoundCloud did not say.
+    val createdAtMs: Long = 0L
 )
 
 data class PlaylistItem(
@@ -18,6 +20,13 @@ data class PlaylistItem(
     val trackCount: Int,
     val artworkUrl: String?,
     val tracks: List<TrackItem> = emptyList()
+)
+
+// What a YouTube / Spotify link says about its song, from the service's public
+// oEmbed preview data. `author` is the channel name for YouTube; Spotify gives none.
+data class ExternalTrackInfo(
+    val title: String,
+    val author: String?,
 )
 
 // The signed-in user's playlists: ones they created and ones they liked. `tracks` of
