@@ -385,7 +385,9 @@ fun PlayerScreen(
                     Column(modifier = Modifier.padding(spacing.medium)) {
                         Text("Playlists", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            text = "SoundCloud-Link zu einem Titel oder einer Playlist einfügen, oder aus der SoundCloud-App teilen.",
+                            text =
+                                "Link einfügen oder teilen: SoundCloud-Titel/-Playlist, einzelne YouTube-/Spotify-Titel oder eine " +
+                                    "öffentliche Spotify-Playlist (wird auf SoundCloud gesucht).",
                             style = MaterialTheme.typography.bodySmall,
                             color = PlayerTextMutedColor,
                         )

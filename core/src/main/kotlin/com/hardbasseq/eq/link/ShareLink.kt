@@ -93,6 +93,18 @@ object ShareLink {
 
     fun canonicalSpotifyTrackUrl(trackId: String): String = "https://open.spotify.com/track/$trackId"
 
+    // The playlist behind an open.spotify.com link, or null for anything else.
+    fun spotifyPlaylistId(url: String): String? {
+        if (hostOf(url) != "open.spotify.com") return null
+        val segments = pathSegments(url).let { if (it.firstOrNull()?.startsWith("intl-") == true) it.drop(1) else it }
+        if (segments.firstOrNull() != "playlist") return null
+        return segments.getOrNull(1)?.takeIf { spotifyTrackIdPattern.matches(it) }
+    }
+
+    // The public embed page of a playlist (what Spotify shows inside other sites); it
+    // lists the playlist's tracks without a login.
+    fun spotifyPlaylistEmbedUrl(playlistId: String): String = "https://open.spotify.com/embed/playlist/$playlistId"
+
     private fun pathSegments(url: String): List<String> =
         url
             .substringAfter("://", missingDelimiterValue = "")

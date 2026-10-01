@@ -72,6 +72,33 @@ class LinkResolver(
             }
         }
 
+    /**
+     * The public embed page of a Spotify playlist as text (it lists the tracks); read
+     * by SpotifyPlaylistPage. Nothing is played or downloaded from Spotify.
+     */
+    suspend fun fetchSpotifyPlaylistPage(playlistId: String): String =
+        withContext(Dispatchers.IO) {
+            val request =
+                Request
+                    .Builder()
+                    .url(ShareLink.spotifyPlaylistEmbedUrl(playlistId))
+                    .header("Accept", "text/html")
+                    .header("User-Agent", BROWSER_USER_AGENT)
+                    .build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException(
+                        if (response.code in NO_DETAILS_CODES) {
+                            "Die Playlist ist nicht öffentlich oder existiert nicht"
+                        } else {
+                            "Spotify antwortet nicht (HTTP ${response.code})"
+                        },
+                    )
+                }
+                response.body?.string().orEmpty()
+            }
+        }
+
     /** SoundCloud search results as candidates: metadata only, streams are resolved when one plays. */
     suspend fun searchTracks(
         query: String,
@@ -83,5 +110,6 @@ class LinkResolver(
 
     private companion object {
         val NO_DETAILS_CODES = setOf(401, 403, 404)
+        const val BROWSER_USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
     }
 }

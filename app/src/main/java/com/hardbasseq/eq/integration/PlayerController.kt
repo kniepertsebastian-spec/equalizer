@@ -79,6 +79,9 @@ interface PlayerController {
     // Title and channel of the song behind a YouTube / Spotify link (public preview data).
     suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo>
 
+    // The public page of a Spotify playlist (HTML); SpotifyPlaylistPage reads the tracks from it.
+    suspend fun fetchSpotifyPlaylistPage(playlistId: String): LoadResult<String>
+
     // Plain SoundCloud search, without resolving streams.
     suspend fun searchSoundCloud(
         query: String,
@@ -148,6 +151,9 @@ class AndroidPlayerController
         override fun isSoundCloudSignedIn(): Boolean = SoundCloudLoginActivity.getSavedToken(context) != null
 
         override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> = load { linkResolver.describeExternal(url) }
+
+        override suspend fun fetchSpotifyPlaylistPage(playlistId: String): LoadResult<String> =
+            load { linkResolver.fetchSpotifyPlaylistPage(playlistId) }
 
         override suspend fun searchSoundCloud(
             query: String,

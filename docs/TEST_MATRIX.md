@@ -449,6 +449,9 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | S2 | Wie S1 mit Limiter aus (Klang-Feinschliff) | zeigt, ob der Limiter der Auslöser war |
 | S3 | Titel antippen | Zeile leuchtet pulsierend mit Equalizer-Symbol |
 | S4 | Nächster Titel | vorheriger bekommt Haken und ist gedimmt (Queue, Playlist, Entdecker-Liste) |
+| X1 | Öffentliche Spotify-Playlist teilen/einfügen | Fortschritt „Suche … n von m“, danach neue Playlist „… (von Spotify)“ mit den gefundenen Titeln |
+| X2 | Meldung nach X1 | nennt „n von m gefunden“ und bis zu 5 nicht gefundene Titel |
+| X3 | Private Playlist oder Kurzlink | verständliche Fehlermeldung, nichts gespeichert |
 | L6 | Flugmodus, dann Neu-laden-Symbol | verständliche Fehlermeldung, vorherige Anzeige bleibt |
 
 | # | Prüfung (YouTube/Spotify → SoundCloud) | Erwartung |

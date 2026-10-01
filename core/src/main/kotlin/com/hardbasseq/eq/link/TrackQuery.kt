@@ -49,6 +49,22 @@ object TrackQueryBuilder {
         return TrackQuery(artist, cleaned.ifBlank { videoTitle.trim() })
     }
 
+    // A track whose artist and title are known separately (a Spotify playlist entry).
+    // Several artists ("A, B") are searched by the first one; the rest rarely helps.
+    fun fromArtistAndTitle(
+        artist: String,
+        title: String,
+    ): TrackQuery {
+        val firstArtist =
+            artist
+                .replace('\u00a0', ' ')
+                .split(',', '&')
+                .first()
+                .trim()
+        val cleanedTitle = cleanTitle(title).ifBlank { title.trim() }
+        return TrackQuery(firstArtist.takeIf { it.isNotEmpty() }, cleanedTitle)
+    }
+
     // Spotify's preview data carries the track name only, no artist.
     fun fromTitleOnly(title: String): TrackQuery = TrackQuery(null, cleanTitle(title).ifBlank { title.trim() })
 

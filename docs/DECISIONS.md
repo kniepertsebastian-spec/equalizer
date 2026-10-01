@@ -409,3 +409,19 @@ lassen sie sich einzeln entfernen.
 Equalizer-Symbol), bereits gespielte Titel sind gedimmt mit Haken – in Warteschlange,
 aufgeklappten Playlists und „Interesting new uploads“. `PlayedTracksState` merkt sich die
 Titel nur, solange der App-Prozess läuft.
+
+### Spotify-Playlist → Playlist aus SoundCloud-Titeln (1. Oktober 2026)
+
+Ein öffentlicher Spotify-Playlist-Link (Teilen-Link oder eingefügt) legt auf dem Gerät eine
+Playlist „<Name> (von Spotify)“ an: jeder Titel wird auf SoundCloud gesucht, nur sichere Treffer
+(`TrackMatcher.isConfident`, Künstler bekannt) kommen hinein, der Rest steht in der Meldung
+(„n von m gefunden. Nicht gefunden: …“). Es wird nichts von Spotify abgespielt oder geladen.
+- Quelle der Titelliste: die öffentliche Embed-Seite der Playlist (`open.spotify.com/embed/playlist/<id>`),
+  deren JSON (`__NEXT_DATA__`, Array `trackList`) `SpotifyPlaylistPage` namensbasiert liest.
+  Inoffiziell: Spotify kann das jederzeit ändern; dann kommt „Titel konnten nicht gelesen werden“.
+  Meist nur die ersten ~100 Titel; maximal 150 werden gesucht (eine Suche pro Titel, nacheinander).
+- Nur öffentliche Playlists. Spotify-Kurzlinks (`spotify.link`), Alben und YouTube-Playlists sind
+  weiter nicht möglich (YouTube hat keine öffentliche Titelliste ohne API-Schlüssel).
+- **Nicht verifiziert** (kein Netz zu Spotify in der Entwicklungsumgebung): Aufbau der Embed-Seite,
+  Trefferquote bei echten Playlists. Einzelne Spotify-Titel liefern über oEmbed nur den Titel,
+  keinen Künstler – deshalb fragt die App dort weiter nach, statt automatisch zu starten.

@@ -7,7 +7,9 @@ import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
+import com.hardbasseq.eq.link.SpotifyPlaylistPage
 import com.hardbasseq.eq.link.TrackMatcher
+import com.hardbasseq.eq.link.TrackQuery
 import com.hardbasseq.eq.link.TrackQueryBuilder
 import com.hardbasseq.eq.playlist.PlaylistEditing
 import com.hardbasseq.eq.playlist.PlaylistRepository
@@ -19,6 +21,7 @@ import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.PlayedTracksState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -180,6 +183,7 @@ class PlayerViewModel
             when (ShareLink.classify(url)) {
                 LinkSource.SOUNDCLOUD -> Unit
                 LinkSource.SPOTIFY -> {
+                    ShareLink.spotifyPlaylistId(url)?.let { return importSpotifyPlaylist(it) }
                     val trackId = ShareLink.spotifyTrackId(url)
                     return bridgeExternalSong(trackId?.let { ShareLink.canonicalSpotifyTrackUrl(it) }, isYouTube = false)
                 }
@@ -218,6 +222,74 @@ class PlayerViewModel
                     is LinkImportResult.Failed -> _importState.value = ImportUiState(message = result.message, isError = true)
                 }
             }
+        }
+
+        private var spotifyImport: Job? = null
+
+        // A Spotify playlist cannot be played from Spotify, but its list of songs is public:
+        // every song is looked up on SoundCloud, and what is found becomes a playlist on
+        // the device. Songs without a sure match are left out and named in the message.
+        private fun importSpotifyPlaylist(playlistId: String) {
+            spotifyImport?.cancel()
+            spotifyImport =
+                viewModelScope.launch {
+                    _importState.value = ImportUiState(isLoading = true, message = "Lese die Spotify-Playlist …")
+                    val page =
+                        when (val result = controller.fetchSpotifyPlaylistPage(playlistId)) {
+                            is LoadResult.Ok -> result.value
+                            is LoadResult.Error -> return@launch fail(result.message)
+                        }
+                    val playlist = SpotifyPlaylistPage.parse(page)
+                    if (playlist == null) {
+                        fail("Die Titel dieser Spotify-Playlist konnten nicht gelesen werden (nur öffentliche Playlists)")
+                        return@launch
+                    }
+                    val wanted = playlist.tracks.take(MAX_SPOTIFY_TRACKS)
+                    val found = LinkedHashMap<Long, TrackItem>()
+                    val missing = mutableListOf<String>()
+                    wanted.forEachIndexed { index, entry ->
+                        _importState.value =
+                            ImportUiState(isLoading = true, message = "Suche auf SoundCloud … ${index + 1} von ${wanted.size}")
+                        val query = TrackQueryBuilder.fromArtistAndTitle(entry.artist, entry.title)
+                        val match = findOnSoundCloud(query)
+                        if (match == null) missing.add(query.label) else found.putIfAbsent(match.id, match)
+                    }
+                    if (found.isEmpty()) {
+                        fail("Nichts davon gibt es auf SoundCloud (oder die Suche ging nicht)")
+                        return@launch
+                    }
+                    val existing = playlistRepository.playlists.first()
+                    val saved =
+                        PlaylistEditing
+                            .create("${playlist.title} (von Spotify)", existing, System.currentTimeMillis())
+                            ?.copy(tracks = found.values.map { it.toSaved() })
+                    if (saved == null) {
+                        fail("Die Playlist konnte nicht angelegt werden")
+                        return@launch
+                    }
+                    playlistRepository.save(saved)
+                    val skipped =
+                        if (missing.isEmpty()) {
+                            ""
+                        } else {
+                            ". Nicht gefunden: ${missing.take(MAX_LISTED_MISSING).joinToString(", ")}" +
+                                if (missing.size > MAX_LISTED_MISSING) " und ${missing.size - MAX_LISTED_MISSING} weitere" else ""
+                        }
+                    _importState.value =
+                        ImportUiState(message = "„${saved.title}“ angelegt: ${found.size} von ${wanted.size} Titeln gefunden$skipped")
+                }
+        }
+
+        // The best sure match on SoundCloud for a song, or null when there is none (or
+        // the search failed - one bad request must not stop a whole playlist).
+        private suspend fun findOnSoundCloud(query: TrackQuery): TrackItem? {
+            var candidates =
+                (controller.searchSoundCloud(query.searchText, CANDIDATE_LIMIT) as? LoadResult.Ok)?.value ?: return null
+            if (candidates.isEmpty() && query.artist != null) {
+                candidates = (controller.searchSoundCloud(query.title, CANDIDATE_LIMIT) as? LoadResult.Ok)?.value ?: return null
+            }
+            val best = TrackMatcher.rank(query, candidates.distinctBy { it.id }, { it.title }, { it.artist }).firstOrNull() ?: return null
+            return best.first.takeIf { TrackMatcher.isConfident(query, best.second) }
         }
 
         // A song shared from YouTube / Spotify cannot be played from there (protected
@@ -371,6 +443,10 @@ class PlayerViewModel
 
 private const val CANDIDATE_LIMIT = 10
 private const val MAX_SHOWN_MATCHES = 5
+
+// A playlist import looks every song up one by one, so it is capped.
+private const val MAX_SPOTIFY_TRACKS = 150
+private const val MAX_LISTED_MISSING = 5
 
 // Results scoring below this are noise, not candidates worth showing.
 private const val MIN_SHOWN_SCORE = 0.3

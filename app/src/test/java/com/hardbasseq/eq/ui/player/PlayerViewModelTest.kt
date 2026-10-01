@@ -420,19 +420,70 @@ class PlayerViewModelTest {
         }
 
     @Test
-    fun `playlists albums and channels are refused without any lookup`() =
+    fun `youtube playlists and spotify albums are refused without any lookup`() =
         runTest {
             val vm = viewModel()
 
             vm.importFromText("https://www.youtube.com/playlist?list=PL123")
-            assertTrue(vm.importState.value.isError)
-            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
             assertTrue(vm.importState.value.isError)
             vm.importFromText("https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT")
             assertTrue(vm.importState.value.isError)
             dispatcher.scheduler.advanceUntilIdle()
 
             assertTrue(controller.describedUrls.isEmpty())
+        }
+
+    private fun spotifyPage(vararg entries: Pair<String, String>): LoadResult<String> {
+        val list = entries.joinToString(",") { """{"title":"${it.second}","subtitle":"${it.first}"}""" }
+        return LoadResult.Ok(
+            """<script id="__NEXT_DATA__" type="application/json">{"entity":{"name":"Hardcore Mix","trackList":[$list]}}</script>""",
+        )
+    }
+
+    @Test
+    fun `a spotify playlist becomes a soundcloud playlist of the songs found`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage("Angerfist" to "Drum Go Bang", "Miss K8" to "Unknown Banger")
+            controller.searchResults["Angerfist Drum Go Bang"] =
+                LoadResult.Ok(listOf(track(1, "Angerfist - Drum Go Bang").copy(artist = "Angerfist")))
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=x")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.fetchedSpotifyPlaylists)
+            val saved = vm.playlists.value.single()
+            assertEquals("Hardcore Mix (von Spotify)", saved.title)
+            assertEquals(listOf(1L), saved.tracks.map { it.id })
+            assertFalse(vm.importState.value.isError)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains("1 von 2"))
+            assertTrue(message, message.contains("Miss K8 - Unknown Banger"))
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `an unreadable spotify page or a playlist with no matches saves nothing`() =
+        runTest {
+            val vm = viewModel()
+
+            controller.spotifyPage = LoadResult.Ok("<html>nothing</html>")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.spotifyPage = spotifyPage("Nobody" to "Nothing")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.spotifyPage = LoadResult.Error("offline")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("offline", vm.importState.value.message)
+            assertTrue(vm.playlists.value.isEmpty())
         }
 
     @Test
@@ -644,6 +695,14 @@ class PlayerViewModelTest {
         override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> {
             describedUrls.add(url)
             return describeResult
+        }
+
+        var spotifyPage: LoadResult<String> = LoadResult.Error("not configured")
+        val fetchedSpotifyPlaylists = mutableListOf<String>()
+
+        override suspend fun fetchSpotifyPlaylistPage(playlistId: String): LoadResult<String> {
+            fetchedSpotifyPlaylists.add(playlistId)
+            return spotifyPage
         }
 
         override suspend fun searchSoundCloud(
