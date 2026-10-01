@@ -466,6 +466,9 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | X15 | Eigene Spotify-Playlist mit mehr als 100 Titeln teilen | alle Titel werden gelesen (Meldung ohne 100er-Hinweis), Teile à 100 als Playlists |
 | X16 | Fremde öffentliche Playlist teilen (angemeldet) | Seiten-Weg mit max. ~100 Titeln, Meldung nennt den Grund („Spotify-Anmeldung: … nur für Playlists, die dir gehören“) |
 | X17 | „Abmelden“ | Karte zeigt wieder „Anmelden“, Import nutzt wieder die öffentliche Seite |
+| L6 | Playlist aufklappen, auf einen Titel in der Mitte tippen (oder sein Play-Symbol) | die Playlist startet ab diesem Titel, die Titel davor sind in der Warteschlange davor |
+| L7 | Playlist mit ≥ 6 Titeln aufklappen, im Suchfeld „angerf“ tippen | nur passende Titel bleiben; Tipp auf einen Treffer startet an seiner Stelle in der ganzen Playlist |
+| L8 | Suche ohne Treffer | „Kein Titel passt zu …“ |
 | C1 | Titel im Player starten, Handy per Bluetooth mit dem Auto verbunden | Autodisplay zeigt Titel und Interpret (ggf. Cover) statt „Inhalt nicht gefunden“ |
 | C2 | Weiter/Zurück/Pause am Lenkrad oder Autoradio | wirkt auf die Warteschlange des Players; Anzeige zieht nach |
 | C3 | Sperrbildschirm und Benachrichtigung ansehen | Titel, Interpret und die drei Tasten sind da |
@@ -512,3 +515,7 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | L3 | Playlist-Symbol in der Warteschlange → „Neu anlegen und hinzufügen“ | neue Playlist mit diesem Titel |
 | L4 | Playlist antippen (Namen) → ✕ bei einem Titel | Titel verschwindet; importierte Playlists haben kein ✕ |
 | L5 | Eigene Playlist abspielen, App neu starten | Playlist bleibt erhalten |
+| H1 | Kopfhörer-Modus an → Karte „Kopfhörer-Power“ erscheint; „Knall“ tippen | Bass deutlich kräftiger, Regler springen auf 7 / 12 dB, Dynamik-Schalter aus; kein Kratzen/Übersteuern |
+| H2 | „Standard“ tippen | Klang wie vor der Funktion (2,5 dB / 9 dB / Dynamik an) |
+| H3 | Bass-Regler auf 0, Loudness auf 0 | Bass-Anhebung bzw. Loudness entfallen hörbar |
+| H4 | App neu starten | Reglerstellungen bleiben; Karte nur im Kopfhörer-Modus sichtbar |

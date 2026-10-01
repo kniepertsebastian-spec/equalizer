@@ -28,6 +28,7 @@ import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
 import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
+import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
@@ -258,6 +259,16 @@ class MainViewModel
             MutableStateFlow(ProcessingSettings().withPreset(BuiltInPresets.CleanPunch))
         val processingSettings: StateFlow<ProcessingSettings> = _processingSettings.asStateFlow()
 
+        // "Kopfhörer-Power": wirkt nur im Kopfhörer-Modus.
+        private val _headphonePower = MutableStateFlow(HeadphonePower())
+        val headphonePower: StateFlow<HeadphonePower> = _headphonePower.asStateFlow()
+
+        fun setHeadphonePower(power: HeadphonePower) {
+            _headphonePower.value = power.sanitized()
+            recalculateBandGains()
+            persistLiveSettings()
+        }
+
         // Guards persistLiveSettings() against running before restoreSavedState()
         // has had a chance to load what was on disk - without this, the very
         // first capabilities/init-driven applySettings() call would write this
@@ -350,6 +361,7 @@ class MainViewModel
                     findCorrectionProfileById(saved.activeCorrectionProfileId, initialCorrectionProfiles)
                 _activeContext.value = saved.activeContext?.let { name -> SoundContext.entries.firstOrNull { it.name == name } }
                 contextSetAutomatically = saved.activeContextAutomatic
+                _headphonePower.value = saved.headphonePower.sanitized()
                 // A saved activePresetId/activeCorrectionProfileId that no longer
                 // resolves (its custom entry was deleted from another install, say)
                 // just keeps this ViewModel's own compiled-in default - not an
@@ -499,6 +511,7 @@ class MainViewModel
                         activeCorrectionProfileId = _activeCorrectionProfile.value.id,
                         activeContext = _activeContext.value?.name,
                         activeContextAutomatic = contextSetAutomatically,
+                        headphonePower = _headphonePower.value,
                     ),
                 )
             }
@@ -898,10 +911,14 @@ class MainViewModel
         // compensation (also gated on headphone mode - quieter headphone listening
         // is the case it's meant for) rides the same already-working path instead.
         private fun combinedCurve(): List<TargetPoint> {
-            val headphoneCurve = if (effectiveHeadphoneAcoustics.value) HeadphoneComfortCurve.curve else emptyList()
+            val power = _headphonePower.value
+            val headphoneCurve = if (effectiveHeadphoneAcoustics.value) HeadphoneComfortCurve.curve(power.bassDb) else emptyList()
             val loudnessCurve =
                 if (effectiveHeadphoneAcoustics.value) {
-                    LoudnessCompensationCurve.forLevel(currentLevelDb = volumeRepository.currentLevelDb.value)
+                    LoudnessCompensationCurve.forLevel(
+                        currentLevelDb = volumeRepository.currentLevelDb.value,
+                        maxBoostDb = power.loudnessMaxDb,
+                    )
                 } else {
                     emptyList()
                 }
@@ -972,14 +989,15 @@ class MainViewModel
             // toggling headphone mode without reselecting a preset still applies/
             // removes the easing, and it never compounds across repeated calls.
             val preset = _activePreset.value
+            val easeDynamics = effectiveHeadphoneAcoustics.value && _headphonePower.value.easeDynamics
             val mbcThresholdDb =
-                if (effectiveHeadphoneAcoustics.value) {
+                if (easeDynamics) {
                     HeadphoneDynamicsEasing.easedThresholdDb(preset.mbcThresholdDb)
                 } else {
                     preset.mbcThresholdDb
                 }
             val mbcRatio =
-                if (effectiveHeadphoneAcoustics.value) {
+                if (easeDynamics) {
                     HeadphoneDynamicsEasing.easedRatio(preset.mbcRatio)
                 } else {
                     preset.mbcRatio

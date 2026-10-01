@@ -88,6 +88,7 @@ fun MainScreen(
     val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
     val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
     val effectiveHeadphoneAcoustics by viewModel.effectiveHeadphoneAcoustics.collectAsStateWithLifecycle()
+    val headphonePower by viewModel.headphonePower.collectAsStateWithLifecycle()
     val currentLevelDb by viewModel.currentLevelDb.collectAsStateWithLifecycle()
     val activeContext by viewModel.activeContext.collectAsStateWithLifecycle()
     val pendingImportPreview by viewModel.pendingImportPreview.collectAsStateWithLifecycle()
@@ -267,6 +268,7 @@ fun MainScreen(
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
                 effectiveHeadphoneAcoustics = effectiveHeadphoneAcoustics,
+                headphonePower = headphonePower,
                 activeContext = activeContext,
                 currentLevelDb = currentLevelDb,
                 isDirty = isDirty,
@@ -279,6 +281,7 @@ fun MainScreen(
                 onAcceptSuggestedCorrectionProfile = { viewModel.acceptSuggestedCorrectionProfile() },
                 onDismissSuggestedCorrectionProfile = { viewModel.dismissSuggestedCorrectionProfile() },
                 onHeadphoneAcousticsChanged = { viewModel.setHeadphoneAcousticsOverride(it) },
+                onHeadphonePowerChanged = { viewModel.setHeadphonePower(it) },
                 onContextModeChanged = { viewModel.setContextMode(it) },
                 onLoudnessCompensationChanged = { viewModel.setLoudnessCompensationEnabled(it) },
                 onSubsonicFilterChanged = { viewModel.setSubsonicFilterEnabled(it) },

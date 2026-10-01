@@ -21,6 +21,7 @@ import com.hardbasseq.eq.correction.CorrectionProfileRepository
 import com.hardbasseq.eq.data.profile.DeviceProfileEntity
 import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
 import com.hardbasseq.eq.dsp.CurveComposer
+import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
@@ -317,6 +318,34 @@ class MainViewModelTest {
             assertFalse(viewModel.processingSettings.value.masterEnabled)
             assertEquals(3f, viewModel.processingSettings.value.macroBassDb)
             assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `headphone power is restored from saved settings and persisted when changed`() =
+        runTest {
+            val saved =
+                LiveSettings(
+                    activePresetId = BuiltInPresets.DeepRumble.id,
+                    isDirty = false,
+                    processingSettings = ProcessingSettings(),
+                    headphonePower = HeadphonePower.KNALL,
+                )
+            val repo = FakeAppSettingsRepository(saved)
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = repo)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(HeadphonePower.KNALL, viewModel.headphonePower.value)
+
+            viewModel.setHeadphonePower(HeadphonePower(bassDb = 99f))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(HeadphonePower.MAX_BASS_DB, viewModel.headphonePower.value.bassDb)
+            assertEquals(
+                HeadphonePower.MAX_BASS_DB,
+                repo.savedSettings
+                    .last()
+                    .headphonePower
+                    .bassDb,
+            )
         }
 
     @Test

@@ -612,8 +612,13 @@ class PlayerViewModel
             _bridgeState.value = null
         }
 
-        fun playPlaylist(playlist: SavedPlaylist) {
-            controller.playQueue(playlist.tracks.map { it.toTrackItem() }, 0)
+        // Plays the playlist as the queue, from [startIndex] (a track picked in the opened list).
+        fun playPlaylist(
+            playlist: SavedPlaylist,
+            startIndex: Int = 0,
+        ) {
+            if (playlist.tracks.isEmpty()) return
+            controller.playQueue(playlist.tracks.map { it.toTrackItem() }, startIndex.coerceIn(0, playlist.tracks.lastIndex))
         }
 
         // The track that is playing right now (from the queue), null when nothing plays.

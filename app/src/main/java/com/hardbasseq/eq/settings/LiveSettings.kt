@@ -1,6 +1,7 @@
 package com.hardbasseq.eq.settings
 
 import com.hardbasseq.eq.audio.ProcessingSettings
+import com.hardbasseq.eq.dsp.HeadphonePower
 import kotlinx.serialization.Serializable
 
 // The full live editing state - which preset it's based on, whether it's been
@@ -28,4 +29,7 @@ data class LiveSettings(
     // True when route detection switched the mode on (so it switches off again when
     // that route goes away), false when the user chose it.
     val activeContextAutomatic: Boolean = false,
+    // "Kopfhörer-Power": Bass/Dynamik/Loudness im Kopfhörer-Modus. Defaultwerte =
+    // altes festes Verhalten, daher bleibt älteres JSON lesbar.
+    val headphonePower: HeadphonePower = HeadphonePower(),
 )
