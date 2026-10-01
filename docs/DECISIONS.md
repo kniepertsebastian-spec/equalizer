@@ -538,3 +538,11 @@ anmeldet, bekommt **alle** Titel seiner eigenen Playlists (auch über 100) über
 - Der Import selbst (Blöcke zu 100, Stand, Nachtrag) bleibt unverändert.
 - **Nicht verifiziert** (kein Netz zu Spotify hier): der ganze Anmelde-Ablauf auf dem Gerät, das
   genaue Antwortformat von `/items`, ob Spotify für diese Entwickler-App 50 je Seite erlaubt.
+
+### Playlists: ab einem Titel abspielen und in der Playlist suchen (1. Oktober 2026)
+
+In einer aufgeklappten Playlist startet ein Tipp auf die Zeile oder das Play-Symbol die Playlist **ab
+diesem Titel** (statt in der Warteschlange zu suchen). Ab 6 Titeln gibt es ein Suchfeld
+(`PlaylistSearch`, core): jedes eingegebene Wort muss in Titel oder Interpret vorkommen, Groß-/
+Kleinschreibung und Akzente egal, Wortteile reichen („angerf“ findet „Angerfist“). Bei gefilterter Liste
+behält jeder Treffer seine Position in der ganzen Playlist, ein Tipp startet also an der richtigen Stelle.

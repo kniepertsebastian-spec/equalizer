@@ -75,6 +75,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.playlist.PlayerFormat
+import com.hardbasseq.eq.playlist.PlaylistSearch
 import com.hardbasseq.eq.playlist.SavedPlaylist
 import com.hardbasseq.eq.ui.equalizer.ContextModeChips
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
@@ -530,6 +531,7 @@ fun PlayerScreen(
                                 PlaylistRow(
                                     playlist = playlist,
                                     onPlay = { viewModel.playPlaylist(playlist) },
+                                    onPlayTrack = { viewModel.playPlaylist(playlist, it) },
                                     onDelete = { viewModel.deletePlaylist(playlist) },
                                     onRemoveTrack = { viewModel.removeFromPlaylist(playlist, it) },
                                     currentTrackId = currentTrackId,
@@ -741,12 +743,14 @@ private fun LibraryRow(
 private fun PlaylistRow(
     playlist: SavedPlaylist,
     onPlay: () -> Unit,
+    onPlayTrack: (Int) -> Unit,
     onDelete: () -> Unit,
     onRemoveTrack: (Long) -> Unit,
     currentTrackId: Long?,
     playedIds: Set<Long>,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var search by remember { mutableStateOf("") }
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(
@@ -785,10 +789,31 @@ private fun PlaylistRow(
                     color = PlayerTextMutedColor,
                 )
             }
-            playlist.tracks.forEach { track ->
+            // A search box once the list is long enough to need one.
+            if (playlist.tracks.size >= SEARCH_MIN_TRACKS) {
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("In dieser Playlist suchen") },
+                    singleLine = true,
+                )
+            }
+            val hits = PlaylistSearch.filter(playlist.tracks, search)
+            if (hits.isEmpty() && playlist.tracks.isNotEmpty()) {
+                Text(text = "Kein Titel passt zu „$search“.", style = MaterialTheme.typography.bodySmall, color = PlayerTextMutedColor)
+            }
+            hits.forEach { hit ->
+                val track = hit.track
                 val playState = trackPlayState(track.id, currentTrackId, playedIds)
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 8.dp).glowWhenCurrent(playState),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(start = 8.dp)
+                            .glowWhenCurrent(playState)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onPlayTrack(hit.index) },
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
@@ -808,6 +833,9 @@ private fun PlaylistRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    IconButton(onClick = { onPlayTrack(hit.index) }) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = "Ab diesem Titel abspielen")
+                    }
                     if (playlist.sourceUrl == null) {
                         IconButton(onClick = { onRemoveTrack(track.id) }) {
                             Icon(Icons.Default.Close, contentDescription = "Aus Playlist entfernen")
@@ -818,6 +846,9 @@ private fun PlaylistRow(
         }
     }
 }
+
+// From this many tracks on, an opened playlist shows a search box.
+private const val SEARCH_MIN_TRACKS = 6
 
 // Opens the playlist dialog: with a track it adds that track somewhere, without one it
 // only makes a new playlist.

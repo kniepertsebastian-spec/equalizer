@@ -839,6 +839,25 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `a track picked in an opened playlist starts the playlist from there`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(1))
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.addToPlaylist(vm.playlists.value.single(), track(2))
+            vm.addToPlaylist(vm.playlists.value.single(), track(3))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.playPlaylist(vm.playlists.value.single(), startIndex = 2)
+            vm.playPlaylist(vm.playlists.value.single(), startIndex = 99)
+
+            val (first, firstStart) = controller.playedQueues[0]
+            assertEquals(listOf(1L, 2L, 3L), first.map { it.id })
+            assertEquals(2, firstStart)
+            assertEquals(2, controller.playedQueues[1].second)
+        }
+
+    @Test
     fun `discarding forgets an unfinished import`() =
         runTest {
             val vm = viewModel()
