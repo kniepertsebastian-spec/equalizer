@@ -22,6 +22,8 @@ class AppAutoCatalog(
     private val discoveryRepository: DiscoveryRepository,
     // The signed-in account's likes; empty when signed out or when loading failed.
     private val likesLoader: suspend () -> List<TrackItem>,
+    // A plain SoundCloud search (voice commands for something that is in no playlist).
+    private val searchLoader: suspend (String) -> List<TrackItem>,
 ) : AutoCatalog {
     @Inject
     constructor(
@@ -32,6 +34,7 @@ class AppAutoCatalog(
         playlistRepository,
         discoveryRepository,
         { (controller.loadLikedTracks() as? LoadResult.Ok)?.value.orEmpty() },
+        { query -> (controller.searchSoundCloud(query, SEARCH_LIMIT) as? LoadResult.Ok)?.value.orEmpty() },
     )
 
     // The likes are loaded from the network once per browse; starting a track reuses them.

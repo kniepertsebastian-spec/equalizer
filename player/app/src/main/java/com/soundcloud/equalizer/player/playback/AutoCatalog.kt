@@ -25,6 +25,9 @@ interface AutoCatalog {
     suspend fun children(parentId: String): List<AutoNode>
 
     suspend fun queueFor(mediaId: String): AutoQueue?
+
+    // "Play X" by voice: a queue for what the words ask for, or null when nothing fits.
+    suspend fun queueForSearch(query: String): AutoQueue?
 }
 
 // Same-process hand-over points between the app (browser service, catalog) and the
