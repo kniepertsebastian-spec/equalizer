@@ -7,6 +7,7 @@ import com.hardbasseq.eq.discovery.DiscoveryRotation
 import com.hardbasseq.eq.discovery.DiscoveryState
 import com.hardbasseq.eq.discovery.DiscoveryTrack
 import com.hardbasseq.eq.discovery.DiscoveryUpdater
+import com.hardbasseq.eq.discovery.GenreMode
 import com.hardbasseq.eq.discovery.RefreshResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -66,6 +67,28 @@ class DiscoveryViewModel
             viewModelScope.launch { repository.update { DiscoveryRotation.removeArtist(it, name) } }
         }
 
+        // Genre filter: all three changes force a rebuild, so the list follows right away.
+        fun setGenreMode(mode: GenreMode) {
+            viewModelScope.launch {
+                repository.update { DiscoveryRotation.setGenreMode(it, mode) }
+                refresh(onlyIfDue = true)
+            }
+        }
+
+        fun addGenre(name: String) {
+            viewModelScope.launch {
+                repository.update { DiscoveryRotation.addGenre(it, name) }
+                refresh(onlyIfDue = true)
+            }
+        }
+
+        fun removeGenre(name: String) {
+            viewModelScope.launch {
+                repository.update { DiscoveryRotation.removeGenre(it, name) }
+                refresh(onlyIfDue = true)
+            }
+        }
+
         fun refreshNow() = refresh(onlyIfDue = false)
 
         fun dismiss(track: DiscoveryTrack) {
@@ -88,13 +111,15 @@ class DiscoveryViewModel
                 _uiState.value =
                     when (val result = updater.refresh(now, offset, onlyIfDue)) {
                         RefreshResult.Skipped -> DiscoveryUiState()
-                        is RefreshResult.Updated ->
-                            DiscoveryUiState(
-                                message = if (result.count == 0) "Keine neuen Uploads gefunden" else "${result.count} Titel in der Liste",
-                            )
+                        is RefreshResult.Updated -> DiscoveryUiState(message = updatedMessage(result))
                         is RefreshResult.Failed -> DiscoveryUiState(message = result.message, isError = true)
                     }
             }
+        }
+
+        private fun updatedMessage(result: RefreshResult.Updated): String {
+            val base = if (result.count == 0) "Keine neuen Uploads gefunden" else "${result.count} Titel in der Liste"
+            return if (result.filteredByGenre > 0) "$base (${result.filteredByGenre} wegen Genre aussortiert)" else base
         }
 
         // No stream URL on purpose - the player resolves a fresh one by id when it plays.

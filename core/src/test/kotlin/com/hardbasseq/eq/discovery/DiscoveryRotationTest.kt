@@ -181,4 +181,62 @@ class DiscoveryRotationTest {
         assertEquals(DiscoveryState(), DiscoveryStateJson.decode("{oops"))
         assertEquals(DiscoveryState(), DiscoveryStateJson.decode(null))
     }
+
+    @Test
+    fun `typing a genre switches to your own list and forces a rebuild`() {
+        var state = DiscoveryState(genreMode = GenreMode.AUTO, weekKey = 3L)
+        state = DiscoveryRotation.addGenre(state, "  Uptempo  Hardcore ")
+        state = DiscoveryRotation.addGenre(state, "uptempo hardcore")
+        state = DiscoveryRotation.addGenre(state, "x")
+
+        assertEquals(listOf("uptempo hardcore"), state.genres)
+        assertEquals(GenreMode.MANUAL, state.genreMode)
+        assertEquals(DiscoveryState.NEVER, state.weekKey)
+
+        state = DiscoveryRotation.removeGenre(state.copy(weekKey = 5L), "uptempo hardcore")
+        assertTrue(state.genres.isEmpty())
+        assertEquals(DiscoveryState.NEVER, state.weekKey)
+    }
+
+    @Test
+    fun `the wanted genres follow the mode`() {
+        val state = DiscoveryState(genres = listOf("gabber"), autoGenres = listOf("uptempo"))
+
+        assertEquals(emptyList<String>(), DiscoveryRotation.wantedGenres(state.copy(genreMode = GenreMode.OFF)))
+        assertEquals(listOf("gabber"), DiscoveryRotation.wantedGenres(state.copy(genreMode = GenreMode.MANUAL)))
+        assertEquals(listOf("uptempo"), DiscoveryRotation.wantedGenres(state.copy(genreMode = GenreMode.AUTO)))
+    }
+
+    @Test
+    fun `switching to like-my-music rereads the likes and rebuilds`() {
+        val state = DiscoveryState(genreMode = GenreMode.OFF, autoGenresWeek = 9L, weekKey = 9L)
+
+        val result = DiscoveryRotation.setGenreMode(state, GenreMode.AUTO)
+
+        assertEquals(DiscoveryState.NEVER, result.autoGenresWeek)
+        assertEquals(DiscoveryState.NEVER, result.weekKey)
+        assertEquals(9L, DiscoveryRotation.setGenreMode(state, GenreMode.MANUAL).autoGenresWeek)
+    }
+
+    @Test
+    fun `uploads that confirmed the genre come before ones without genre info`() {
+        val unconfirmed = many("A", 100, 25).map { it.copy(genreConfirmed = false) }
+        val confirmed = many("A", 200, 5).map { it.copy(genreConfirmed = true) }
+
+        val state = DiscoveryRotation.rotate(DiscoveryState(artists = listOf("A")), unconfirmed + confirmed, 1, now)
+
+        val firstFive = state.playlist.take(5).map { it.track.id }
+        assertEquals((200L..204L).toSet(), firstFive.toSet())
+        assertEquals(DiscoveryRotation.TARGET_SIZE, state.playlist.size)
+    }
+
+    @Test
+    fun `old saved state without genre fields still reads and defaults to like-my-music`() {
+        val raw = """{"artists":["A"],"playlist":[],"weekKey":3}"""
+
+        val state = DiscoveryStateJson.decode(raw)
+
+        assertEquals(GenreMode.AUTO, state.genreMode)
+        assertEquals(listOf("A"), state.artists)
+    }
 }

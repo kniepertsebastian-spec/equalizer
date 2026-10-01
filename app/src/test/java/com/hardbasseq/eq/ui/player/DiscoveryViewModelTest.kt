@@ -208,6 +208,8 @@ class DiscoveryViewModelTest {
     private class FakeSource : DiscoverySource {
         val results = mutableMapOf<String, LoadResult<List<TrackItem>>>()
 
+        override suspend fun tasteTracks(): LoadResult<List<TrackItem>> = LoadResult.Error("signed out")
+
         override suspend fun recentUploads(artist: String): LoadResult<List<TrackItem>> = results[artist] ?: LoadResult.Ok(emptyList())
     }
 

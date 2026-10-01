@@ -11,7 +11,25 @@ data class DiscoveryTrack(
     val track: SavedTrack,
     val artist: String,
     val uploadedAtMs: Long,
+    // The genre the uploader gave it ("" if none) and whether it positively fits the
+    // wanted genres - false for uploads with no genre info, which are only used after
+    // all confirmed ones.
+    val genre: String = "",
+    val genreConfirmed: Boolean = true,
 )
+
+// Which genres an upload has to fit to be suggested.
+@Serializable
+enum class GenreMode {
+    // No genre filtering.
+    OFF,
+
+    // The genres of the tracks the user liked (derived weekly).
+    AUTO,
+
+    // The keywords the user typed in.
+    MANUAL,
+}
 
 // Everything behind "Interesting new uploads": the artists to watch, the current
 // weekly playlist, candidates held back for refills, and what was already shown or
@@ -23,6 +41,11 @@ data class DiscoveryState(
     val pool: List<DiscoveryTrack> = emptyList(),
     val seenIds: List<Long> = emptyList(),
     val dismissedIds: List<Long> = emptyList(),
+    val genreMode: GenreMode = GenreMode.AUTO,
+    // MANUAL: what the user typed. AUTO: what was derived from their likes, and when.
+    val genres: List<String> = emptyList(),
+    val autoGenres: List<String> = emptyList(),
+    val autoGenresWeek: Long = NEVER,
     // The week (WeekKey) the playlist was last built for; NEVER forces a rebuild.
     val weekKey: Long = NEVER,
     val updatedAtMs: Long = 0L,

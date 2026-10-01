@@ -121,6 +121,60 @@ class DiscoveryUpdaterTest {
             assertEquals(RefreshResult.Updated(1), updater.refresh(monday, 0, onlyIfDue = true))
         }
 
+    @Test
+    fun `a manual genre drops uploads of another genre and counts them`() =
+        runTest {
+            repository.set(DiscoveryState(artists = listOf("MBK")).let { DiscoveryRotation.addGenre(it, "uptempo") })
+            source.results["MBK"] =
+                LoadResult.Ok(
+                    listOf(
+                        upload(1, "MBK - Hardcore Bomb").copy(genre = "Uptempo Hardcore"),
+                        upload(2, "MBK - Schlager Hit").copy(genre = "Schlager"),
+                        upload(3, "MBK - Untagged"),
+                    ),
+                )
+
+            val result = updater.refresh(monday, 0, onlyIfDue = false)
+
+            assertEquals(RefreshResult.Updated(2, filteredByGenre = 1), result)
+            val ids = repository.current().playlist.map { it.track.id }
+            assertEquals(listOf(1L, 3L), ids)
+        }
+
+    @Test
+    fun `auto mode derives genres from the likes`() =
+        runTest {
+            repository.set(DiscoveryState(artists = listOf("MBK")))
+            source.taste = LoadResult.Ok((1L..10L).map { upload(it, "Like $it").copy(genre = "Uptempo Hardcore") })
+            source.results["MBK"] =
+                LoadResult.Ok(
+                    listOf(
+                        upload(21, "MBK - A").copy(genre = "Uptempo Hardcore"),
+                        upload(22, "MBK - B").copy(genre = "Schlager"),
+                    ),
+                )
+
+            val result = updater.refresh(monday, 0, onlyIfDue = true)
+
+            assertEquals(RefreshResult.Updated(1, filteredByGenre = 1), result)
+            assertEquals(1, source.tasteReads)
+            assertTrue(repository.current().autoGenres.isNotEmpty())
+        }
+
+    @Test
+    fun `a failing taste read keeps the earlier genres`() =
+        runTest {
+            val before = DiscoveryState(artists = listOf("MBK"), autoGenres = listOf("uptempo"))
+            repository.set(before)
+            source.taste = LoadResult.Error("offline")
+            source.results["MBK"] = LoadResult.Ok(listOf(upload(1, "MBK - A").copy(genre = "Schlager")))
+
+            val result = updater.refresh(monday, 0, onlyIfDue = true)
+
+            assertEquals(RefreshResult.Updated(0, filteredByGenre = 1), result)
+            assertEquals(listOf("uptempo"), repository.current().autoGenres)
+        }
+
     private class FakeDiscoveryRepository : DiscoveryRepository {
         private val flow = MutableStateFlow(DiscoveryState())
         override val state: Flow<DiscoveryState> = flow
@@ -139,6 +193,13 @@ class DiscoveryUpdaterTest {
     private class FakeDiscoverySource : DiscoverySource {
         val results = mutableMapOf<String, LoadResult<List<TrackItem>>>()
         val requested = mutableListOf<String>()
+        var taste: LoadResult<List<TrackItem>> = LoadResult.Error("signed out")
+        var tasteReads = 0
+
+        override suspend fun tasteTracks(): LoadResult<List<TrackItem>> {
+            tasteReads++
+            return taste
+        }
 
         override suspend fun recentUploads(artist: String): LoadResult<List<TrackItem>> {
             requested.add(artist)

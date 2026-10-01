@@ -15,6 +15,15 @@ class AndroidDiscoverySource
     ) : DiscoverySource {
         private val loader = DiscoveryLoader(context)
 
+        override suspend fun tasteTracks(): LoadResult<List<TrackItem>> =
+            try {
+                LoadResult.Ok(loader.likedTracks())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoadResult.Error("Likes konnten nicht gelesen werden: ${e.message ?: "unbekannter Fehler"}")
+            }
+
         override suspend fun recentUploads(artist: String): LoadResult<List<TrackItem>> =
             try {
                 LoadResult.Ok(loader.recentUploads(artist))

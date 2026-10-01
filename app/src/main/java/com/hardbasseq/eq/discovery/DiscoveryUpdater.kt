@@ -11,6 +11,10 @@ import javax.inject.Singleton
 // Where new uploads for an artist name come from (SoundCloud search).
 interface DiscoverySource {
     suspend fun recentUploads(artist: String): LoadResult<List<TrackItem>>
+
+    // The tracks the user liked, to read their genre taste from. An error (signed out,
+    // offline) just means "keep the genres derived earlier".
+    suspend fun tasteTracks(): LoadResult<List<TrackItem>>
 }
 
 sealed interface RefreshResult {
@@ -19,6 +23,8 @@ sealed interface RefreshResult {
 
     data class Updated(
         val count: Int,
+        // Uploads left out because their genre did not fit.
+        val filteredByGenre: Int = 0,
     ) : RefreshResult
 
     data class Failed(
@@ -46,19 +52,48 @@ class DiscoveryUpdater
         ): RefreshResult =
             lock.withLock {
                 val weekKey = WeekKey.of(nowMs, utcOffsetMs)
-                val state = repository.current()
+                var state = repository.current()
                 if (state.artists.isEmpty()) return@withLock RefreshResult.Skipped
                 if (onlyIfDue && !DiscoveryRotation.needsRotation(state, weekKey)) return@withLock RefreshResult.Skipped
 
+                // "Like my music": read the taste from the likes once a week, or whenever
+                // the user asks for a refresh. A failed read keeps the genres from before.
+                if (state.genreMode == GenreMode.AUTO && (!onlyIfDue || state.autoGenresWeek != weekKey)) {
+                    val taste = source.tasteTracks()
+                    if (taste is LoadResult.Ok) {
+                        val derived = GenreProfile.derive(taste.value.map { it.genre to it.tagList })
+                        repository.update { DiscoveryRotation.withAutoGenres(it, derived, weekKey) }
+                        state = repository.current()
+                    }
+                }
+                val wantedGenres = DiscoveryRotation.wantedGenres(state)
+
                 val candidates = mutableListOf<DiscoveryTrack>()
                 var failures = 0
+                var filteredByGenre = 0
                 var firstError: String? = null
                 for (artist in state.artists) {
                     when (val result = source.recentUploads(artist)) {
                         is LoadResult.Ok ->
-                            result.value
-                                .filter { DiscoveryRotation.isEligible(artist, it.title, it.artist, it.durationMs, it.createdAtMs, nowMs) }
-                                .mapTo(candidates) { it.toDiscoveryTrack(artist) }
+                            for (upload in result.value) {
+                                val qualifies =
+                                    DiscoveryRotation.isEligible(
+                                        artist,
+                                        upload.title,
+                                        upload.artist,
+                                        upload.durationMs,
+                                        upload.createdAtMs,
+                                        nowMs,
+                                    )
+                                if (!qualifies) continue
+                                when (val verdict = GenreMatcher.verdict(upload.genre, upload.tagList, wantedGenres)) {
+                                    GenreMatcher.Verdict.MISMATCH -> filteredByGenre++
+                                    else ->
+                                        candidates.add(
+                                            upload.toDiscoveryTrack(artist, confirmed = verdict == GenreMatcher.Verdict.MATCH),
+                                        )
+                                }
+                            }
 
                         is LoadResult.Error -> {
                             failures++
@@ -74,13 +109,17 @@ class DiscoveryUpdater
                 repository.update { current ->
                     DiscoveryRotation.rotate(current, candidates, weekKey, nowMs).also { count = it.playlist.size }
                 }
-                RefreshResult.Updated(count)
+                RefreshResult.Updated(count, filteredByGenre)
             }
 
-        private fun TrackItem.toDiscoveryTrack(artist: String) =
-            DiscoveryTrack(
-                track = SavedTrack(id = id, title = title, artist = this.artist, artworkUrl = artworkUrl, durationMs = durationMs),
-                artist = artist,
-                uploadedAtMs = createdAtMs,
-            )
+        private fun TrackItem.toDiscoveryTrack(
+            artist: String,
+            confirmed: Boolean,
+        ) = DiscoveryTrack(
+            track = SavedTrack(id = id, title = title, artist = this.artist, artworkUrl = artworkUrl, durationMs = durationMs),
+            artist = artist,
+            uploadedAtMs = createdAtMs,
+            genre = genre,
+            genreConfirmed = confirmed,
+        )
     }
