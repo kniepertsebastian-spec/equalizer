@@ -60,6 +60,17 @@ data class BridgeUiState(
     val startedAutomatically: Boolean,
 )
 
+// The SoundCloud search tab: the last query, its results and what to say when there are none.
+enum class SearchOutcome { IDLE, RESULTS, NO_RESULTS, FAILED }
+
+data class SearchUiState(
+    val query: String = "",
+    val isLoading: Boolean = false,
+    val results: List<TrackItem> = emptyList(),
+    val outcome: SearchOutcome = SearchOutcome.IDLE,
+    val errorDetail: String? = null,
+)
+
 // The Spotify sign-in as the player screen shows it: the client id of the user's own Spotify
 // developer app and whether they are signed in (needed to read all songs of long playlists).
 data class SpotifyAccountUi(
@@ -104,6 +115,9 @@ class PlayerViewModel
 
         private val _libraryState = MutableStateFlow(LibraryUiState())
         val libraryState: StateFlow<LibraryUiState> = _libraryState.asStateFlow()
+
+        private val _searchState = MutableStateFlow(SearchUiState())
+        val searchState: StateFlow<SearchUiState> = _searchState.asStateFlow()
 
         private val _bridgeState = MutableStateFlow<BridgeUiState?>(null)
         val bridgeState: StateFlow<BridgeUiState?> = _bridgeState.asStateFlow()
@@ -185,11 +199,47 @@ class PlayerViewModel
             }
         }
 
+        /** Searches SoundCloud for [query]; blank queries are ignored. The state keeps the results for the search tab. */
+        fun search(query: String) {
+            val trimmed = query.trim()
+            if (trimmed.isEmpty()) return
+            viewModelScope.launch {
+                _searchState.value = SearchUiState(query = trimmed, isLoading = true)
+                _searchState.value =
+                    when (val result = controller.searchSoundCloud(trimmed, SEARCH_RESULT_LIMIT)) {
+                        is LoadResult.Ok ->
+                            SearchUiState(
+                                query = trimmed,
+                                results = result.value,
+                                outcome = if (result.value.isEmpty()) SearchOutcome.NO_RESULTS else SearchOutcome.RESULTS,
+                            )
+
+                        is LoadResult.Error ->
+                            SearchUiState(query = trimmed, outcome = SearchOutcome.FAILED, errorDetail = result.message)
+                    }
+            }
+        }
+
+        /** Plays the search results as the queue, starting with the tapped one. */
+        fun playSearchResult(index: Int) {
+            val results = _searchState.value.results
+            if (index !in results.indices) return
+            controller.playQueue(results, index)
+        }
+
         fun signIn() = controller.openSoundCloudSignIn()
 
         fun signOut() {
             controller.signOutSoundCloud()
             refreshAccount()
+        }
+
+        // The tab the player screen should switch to (a shared link wants the playlists), once.
+        private val _requestedTab = MutableStateFlow<PlayerTab?>(null)
+        val requestedTab: StateFlow<PlayerTab?> = _requestedTab.asStateFlow()
+
+        fun consumeRequestedTab() {
+            _requestedTab.value = null
         }
 
         fun consumeShowPlayerRequest() {
@@ -209,7 +259,10 @@ class PlayerViewModel
             text: String,
             fromShare: Boolean = false,
         ) {
-            if (fromShare) _showPlayerRequest.value = true
+            if (fromShare) {
+                _showPlayerRequest.value = true
+                _requestedTab.value = PlayerTab.PLAYLISTS
+            }
             _bridgeState.value = null
 
             val url = ShareLink.extractUrl(text)
@@ -727,6 +780,7 @@ class PlayerViewModel
     }
 
 private const val CANDIDATE_LIMIT = 10
+private const val SEARCH_RESULT_LIMIT = 30
 private const val MAX_SHOWN_MATCHES = 5
 
 // A playlist import looks every song up one by one, so it is capped.

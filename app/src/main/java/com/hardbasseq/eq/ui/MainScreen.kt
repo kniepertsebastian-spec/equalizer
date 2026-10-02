@@ -9,10 +9,14 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -241,6 +245,8 @@ fun MainScreen(
     }
 
     Scaffold(
+        // The navigation bar of the app shell below handles the bottom inset.
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         containerColor = styleFor(PresetDesign.forPreset(activePreset)).background,
         bottomBar = {
             nowPlaying?.let { playing ->
@@ -326,10 +332,6 @@ fun MainScreen(
                         .horizontalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
-                OutlinedButton(onClick = onOpenFullPlayer) {
-                    Text("Player & Playlists")
-                }
-                Spacer(modifier = Modifier.width(8.dp))
                 OutlinedButton(onClick = onNavigateToDiagnostics) {
                     Text("Diagnose & Report")
                 }
@@ -484,6 +486,7 @@ private fun NowPlayingBar(
                     )
                 }
                 Spacer(modifier = Modifier.width(spacing.small))
+                TextButton(onClick = onOpenPlayer) { Text(stringResource(R.string.action_to_player)) }
                 IconButton(onClick = onTogglePlayback) {
                     Icon(
                         imageVector = if (nowPlaying.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,

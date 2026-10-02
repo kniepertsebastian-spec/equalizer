@@ -522,3 +522,10 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | T1 | Bei SoundCloud angemeldet, Wolken-Symbol an einer Playlist | Meldung „1 Playlist(s) zu SoundCloud übertragen (privat)“; in der SoundCloud-App erscheint sie als private Playlist mit den Titeln; Zeile zeigt „bei SoundCloud“ |
 | T2 | Titel hinzufügen, erneut übertragen | dieselbe SoundCloud-Playlist ist aktualisiert, keine zweite |
 | T3 | „Alle zu SoundCloud“ | alle nicht leeren Playlists drüben; nicht angemeldet → Hinweis zur Anmeldung |
+| N1 | App starten | Startet im Player; unten Leiste „Player“ / „Equalizer“; Wechsel hält Wiedergabe und Zustand |
+| N2 | Player → Tab „Suchen“, Begriff eingeben, „Suchen“ | Treffer erscheinen, Tipp startet den Titel; ohne Treffer Hinweis; ohne Netz Fehlermeldung + „Erneut versuchen“ |
+| N3 | Quellenwähler „SoundCloud ▾“ | Menü mit SoundCloud, YouTube, Anderer Player; YouTube öffnet den YouTube-Player; „Anderer Player“ zeigt Erklärung |
+| N4 | Tab „Playlists“: Link einfügen/teilen | geteilter Link öffnet „Playlists“; importierte Liste steht darunter |
+| N5 | Tab „Warteschlange“ leer / gefüllt | leer: Erklärung + „Zur Suche“; gefüllt: Anzahl, laufender Titel, Liste |
+| N6 | EQ aus/Bypass/ohne Wiedergabe/mit Wiedergabe | Player zeigt „EQ ist aus“ / „Wartet auf Wiedergabe“ / „EQ aktiv für SoundCloud“, nie „aktiv“ ohne Bestätigung |
+| N7 | Equalizer-Bereich bei laufender Musik | Mini-Player mit Titel, Play/Pause und „Zum Player“ |

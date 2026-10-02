@@ -330,6 +330,44 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `searching fills the results and a tap plays them from that result`() =
+        runTest {
+            controller.searchResults["Roar"] = LoadResult.Ok(listOf(track(1), track(2), track(3)))
+            val vm = viewModel()
+
+            vm.search("  Roar ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SearchOutcome.RESULTS, vm.searchState.value.outcome)
+            assertEquals(3, vm.searchState.value.results.size)
+            vm.playSearchResult(1)
+            val (tracks, start) = controller.playedQueues.last()
+            assertEquals(listOf(1L, 2L, 3L), tracks.map { it.id })
+            assertEquals(1, start)
+        }
+
+    @Test
+    fun `a search without hits or with an error says so and a blank one is ignored`() =
+        runTest {
+            controller.searchResults["Nope"] = LoadResult.Ok(emptyList())
+            controller.searchResults["Broken"] = LoadResult.Error("offline")
+            val vm = viewModel()
+
+            vm.search("   ")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.IDLE, vm.searchState.value.outcome)
+
+            vm.search("Nope")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.NO_RESULTS, vm.searchState.value.outcome)
+
+            vm.search("Broken")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.FAILED, vm.searchState.value.outcome)
+            assertEquals("offline", vm.searchState.value.errorDetail)
+        }
+
+    @Test
     fun `deleting removes a saved playlist`() =
         runTest {
             controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(1)))

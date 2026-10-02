@@ -567,3 +567,20 @@ merkt. Bewusst per Tipp und nicht automatisch: es schreibt in das Konto des Nutz
 werden übersprungen. Es sind die internen Aufrufe des SoundCloud-Webplayers mit dem gespeicherten
 Anmelde-Token (keine offizielle API – wie die übrigen Konto-Funktionen); **nicht verifiziert**, ob
 SoundCloud das Token für Schreibzugriffe annimmt und das genaue Antwortformat.
+
+### UX-Roadmap Schritt 1+2: Navigation, Quellenwahl, Player-Bereiche (2. Oktober 2026)
+
+Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and documentations“).
+
+- **Hauptnavigation:** untere Leiste mit **Player** und **Equalizer** (`AppNavHost`). Start ist der Player,
+  weil dort Suche, Playlists und Warteschlange liegen. Die Leiste ist im Diagnose-Bildschirm ausgeblendet.
+- **Player-Bereiche** als Tabs: **Suchen** (neue In-App-SoundCloud-Suche + Neuerscheinungen),
+  **Playlists** (Import, eigene/importierte Playlists, Konten, Bibliothek), **Warteschlange** (Anzahl,
+  laufender Titel, Leerzustand mit nächster Aktion). Ein geteilter Link öffnet den Tab „Playlists“.
+- **Quellenwähler** „SoundCloud ▾“ im Player-Kopf: SoundCloud (eingebauter Player), YouTube (öffnet den
+  YouTube-Player), „Anderer Player“ (Erklärung zu Spotify & Co.).
+- **EQ-Status im Player** („EQ aktiv für SoundCloud“, sonst Status + nächste Handlung) über `EqStatus`:
+  nur `AudioEngineState.Active` bei eingeschaltetem, nicht umgangenem EQ gilt als aktiv. Tippen öffnet den
+  Equalizer. Im Equalizer-Bereich zeigt der Mini-Player Titel/Steuerung und „Zum Player“.
+- Neue Texte stehen von Anfang an in `values/` (Englisch, Standard) und `values-de/`.
+- **Nicht verifiziert** (kein Gerät/Emulator): Aussehen und Bedienung auf dem Telefon.

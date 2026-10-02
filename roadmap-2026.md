@@ -154,8 +154,9 @@ M1 ist ein Stop-or-Go-Punkt. Wird auf wichtigen Playern keine verlässliche Frem
   fehlenden Broadcast zu warten (`PlayerBridge`/`AndroidPlayerBridge` in
   `app/src/main/java/com/hardbasseq/eq/integration/`). Spotify läuft weiterhin
   über den klassischen Session-Attach (Option A), da es den Broadcast sendet.
-  YouTube ist im Player als `PlayerSource.YOUTUBE` vorgesehen, aber laut
-  `roadmap.md` Session 19 noch nicht funktionsfähig ("und, später, YouTube").
+  YouTube ist im Player als `PlayerSource.YOUTUBE` verfügbar und funktioniert
+  nach aktuellem Projektstand (Stand 2. Oktober 2026; die frühere Angabe
+  „noch nicht funktionsfähig“ aus `roadmap.md` Session 19 ist überholt).
   **`docs/DECISIONS.md`s Entscheidungsvorlage ist damit inhaltlich überholt**
   (dort steht noch "Noch nicht entschieden") – die formale Entscheidung
   nachträglich dort festzuhalten ist offen, siehe dortige Notiz.
