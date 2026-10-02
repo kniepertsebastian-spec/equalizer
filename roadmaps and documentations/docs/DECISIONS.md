@@ -584,3 +584,19 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
   Equalizer. Im Equalizer-Bereich zeigt der Mini-Player Titel/Steuerung und „Zum Player“.
 - Neue Texte stehen von Anfang an in `values/` (Englisch, Standard) und `values-de/`.
 - **Nicht verifiziert** (kein Gerät/Emulator): Aussehen und Bedienung auf dem Telefon.
+
+### UX-Roadmap Schritt 3: EQ-Status und lautheitsangeglichener Original/EQ-Vergleich (2. Oktober 2026)
+
+- **Status in Alltagssprache** (`EqStatus`, Player und Equalizer): Aktiv, Wartet auf Wiedergabe, Verbindet…,
+  Verbindung verloren, Nicht unterstützt, Fehler, EQ ist aus – jeweils mit Hinweis, was fehlt und was als
+  Nächstes zu tun ist. „Aktiv“ gibt es nur bei bestätigtem Anbinden (`AudioEngineState.Active`) und
+  eingeschaltetem, nicht umgangenem EQ. Die Session-Nummer steht weiter in „Diagnose & Report“.
+- **Original/EQ-Vergleich** (Karte oben im Equalizer): Chips „Original“ / „EQ“, „Fertig“ beendet. Beide Seiten laufen
+  durch den Effekt; die lautere Seite wird um die geschätzte Differenz abgesenkt (`LoudnessMatch`: A-bewertetes
+  Leistungsmittel der Bandverstärkungen + Eingangsverstärkung). Der Effekt kann nur abschwächen, daher
+  gibt es kein „Original lauter machen“. „Original“ läuft flach (Bänder 0, Limiter und MBC aus, Virtual Bass aus),
+  gespeichert wird nichts; Verlassen des Equalizer-Bereichs beendet den Vergleich.
+- Grenzen: **Schätzung, keine Messung**; der eingebaute Player-Klang (Mono-Bass/Limiter im Player) bleibt im
+  Vergleich unverändert; Begrenzung der Angleichung auf ±15 dB. Der bisherige Bypass-Schalter bleibt als
+  harter Ein/Aus ohne Angleichung.
+- Aktueller Preset-Name und „Zurücksetzen“ stehen jetzt in derselben Karte.

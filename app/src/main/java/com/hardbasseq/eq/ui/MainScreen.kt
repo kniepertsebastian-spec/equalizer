@@ -38,6 +38,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,6 +102,9 @@ fun MainScreen(
     val pendingDeletePreset by viewModel.pendingDeletePreset.collectAsStateWithLifecycle()
     val showSourcePicker by viewModel.showSourcePicker.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
+    val compare by viewModel.compare.collectAsStateWithLifecycle()
+    // Leaving the equalizer ends a running Original/EQ comparison, so the next track is not heard "as original" by accident.
+    DisposableEffect(Unit) { onDispose { viewModel.endCompare() } }
     var showSpikeSection by remember { mutableStateOf(false) }
     var showSaveAsNewDialog by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Preset?>(null) }
@@ -274,6 +278,11 @@ fun MainScreen(
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
                 effectiveHeadphoneAcoustics = effectiveHeadphoneAcoustics,
+                pathLabel = if (nowPlaying != null) stringResource(R.string.source_soundcloud) else null,
+                compare = compare,
+                onStartCompare = { viewModel.startCompare() },
+                onCompareSide = { viewModel.setCompareSide(it) },
+                onEndCompare = { viewModel.endCompare() },
                 headphonePower = headphonePower,
                 activeContext = activeContext,
                 currentLevelDb = currentLevelDb,

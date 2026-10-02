@@ -1272,6 +1272,49 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `the original side of the comparison runs flat through the effect and ending restores the live settings`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            val live = viewModel.processingSettings.value
+
+            viewModel.startCompare()
+            viewModel.setCompareSide(CompareSide.ORIGINAL)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val original = fakeEngine.currentSettings.value
+            assertFalse(original.bypass)
+            assertTrue(original.bandGainsDb.values.all { it == 0f })
+            assertFalse(original.limiterEnabled)
+            assertTrue(original.inputGainDb <= 0f)
+            // The settings the user sees are untouched.
+            assertEquals(live, viewModel.processingSettings.value)
+
+            viewModel.endCompare()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(live, fakeEngine.currentSettings.value)
+            assertEquals(null, viewModel.compare.value)
+        }
+
+    @Test
+    fun `the eq side of the comparison is never louder than the live input gain`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            val live = viewModel.processingSettings.value
+
+            viewModel.startCompare()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(fakeEngine.currentSettings.value.inputGainDb <= live.inputGainDb)
+            assertEquals(CompareSide.EQ, viewModel.compare.value?.side)
+        }
+
+    @Test
     fun `virtual bass is forwarded to the player and follows master and bypass`() =
         runTest {
             val playerBridge = FakePlayerBridge()

@@ -41,6 +41,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -68,9 +69,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
@@ -94,6 +97,10 @@ import com.hardbasseq.eq.preset.GenrePreset
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
+import com.hardbasseq.eq.ui.eq.EqStatus
+import com.hardbasseq.eq.ui.eq.EqStatusLine
+import com.hardbasseq.eq.ui.main.CompareSide
+import com.hardbasseq.eq.ui.main.CompareState
 import com.hardbasseq.eq.ui.theme.Spacing
 import com.hardbasseq.eq.ui.theme.spacing
 import kotlinx.coroutines.delay
@@ -113,6 +120,11 @@ fun EqualizerScreen(
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
+    pathLabel: String?,
+    compare: CompareState?,
+    onStartCompare: () -> Unit,
+    onCompareSide: (CompareSide) -> Unit,
+    onEndCompare: () -> Unit,
     headphonePower: HeadphonePower,
     activeContext: SoundContext?,
     currentLevelDb: Float,
@@ -275,34 +287,11 @@ fun EqualizerScreen(
                         // "Wartet" category (surfaceVariant); Unsupported and Error get
                         // their own distinct categories so all 4 required statuses are
                         // visually distinguishable.
-                        val statusColors = MaterialTheme.colorScheme
-                        val (statusText, statusBg) =
-                            when (state) {
-                                is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to statusColors.primaryContainer
-                                is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to statusColors.surfaceVariant
-                                is AudioEngineState.Detached -> "Startet…" to MaterialTheme.colorScheme.surfaceVariant
-                                is AudioEngineState.Listening -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
-                                is AudioEngineState.LostControl ->
-                                    "Verbindung verloren, versuche erneut…" to MaterialTheme.colorScheme.surfaceVariant
-                                is AudioEngineState.Retrying -> retryingStatusText(state) to MaterialTheme.colorScheme.surfaceVariant
-                                is AudioEngineState.Unsupported ->
-                                    "Nicht unterstützt: ${state.reason}" to MaterialTheme.colorScheme.tertiaryContainer
-                                is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
-                            }
-
-                        Box(
-                            modifier =
-                                Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(statusBg)
-                                    .padding(horizontal = spacing.small, vertical = spacing.extraSmall),
-                        ) {
-                            Text(
-                                text = statusText,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
+                        EqStatusLine(
+                            kind = EqStatus.kind(state, settings),
+                            pathLabel = pathLabel,
+                            onClick = {},
+                        )
 
                         // "Fehler: konkrete nächste Handlung anbieten" (roadmap-2026.md M1) -
                         // resets the retry budget and re-attempts the last known session.
@@ -316,6 +305,17 @@ fun EqualizerScreen(
                         }
                     }
                 }
+
+                CompareCard(
+                    presetName = activePreset.name,
+                    isDirty = isDirty,
+                    compare = compare,
+                    onStart = onStartCompare,
+                    onSide = onCompareSide,
+                    onEnd = onEndCompare,
+                    onReset = onResetToActivePreset,
+                    style = style,
+                )
 
                 // M4 "Angewandten Input-Gain permanent anzeigen" / "Limiter-Status und
                 // verwendeten Threshold anzeigen" / "Warnstufen definieren" / MBC-
@@ -1324,6 +1324,74 @@ private fun HeadphonePowerCard(
             }
             Text(
                 text = "Virtual Bass und Mono-Bass gibt es nur im eingebauten Player.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// Preset name, reset, and the Original/EQ comparison. While comparing, both sides are matched in
+// loudness (the louder one is turned down by an estimate), so a mere volume difference does not
+// pass for a better sound.
+@Composable
+private fun CompareCard(
+    presetName: String,
+    isDirty: Boolean,
+    compare: CompareState?,
+    onStart: () -> Unit,
+    onSide: (CompareSide) -> Unit,
+    onEnd: () -> Unit,
+    onReset: () -> Unit,
+    style: EqualizerDesignStyle,
+) {
+    val spacing = MaterialTheme.spacing
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(style.cardCorner),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, style.border),
+    ) {
+        Column(modifier = Modifier.padding(spacing.medium)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.compare_current_preset),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = if (isDirty) stringResource(R.string.compare_preset_custom, presetName) else presetName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                TextButton(onClick = onReset, enabled = isDirty) { Text(stringResource(R.string.compare_reset)) }
+            }
+            Spacer(modifier = Modifier.height(spacing.small))
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(
+                    selected = compare?.side == CompareSide.ORIGINAL,
+                    onClick = { onSide(CompareSide.ORIGINAL) },
+                    label = { Text(stringResource(R.string.compare_original)) },
+                )
+                FilterChip(
+                    selected = compare == null || compare.side == CompareSide.EQ,
+                    onClick = { if (compare == null) onStart() else onSide(CompareSide.EQ) },
+                    label = { Text(stringResource(R.string.compare_eq)) },
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (compare != null) {
+                    TextButton(onClick = onEnd) { Text(stringResource(R.string.compare_done)) }
+                }
+            }
+            Text(
+                text =
+                    if (compare == null) {
+                        stringResource(R.string.compare_hint_idle)
+                    } else {
+                        stringResource(R.string.compare_hint_active, String.format("%+.1f", compare.eqLevelDeltaDb))
+                    },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

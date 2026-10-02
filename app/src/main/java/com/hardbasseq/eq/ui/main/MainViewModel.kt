@@ -31,6 +31,7 @@ import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
 import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
+import com.hardbasseq.eq.dsp.LoudnessMatch
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.integration.PlayerBridge
@@ -104,6 +105,15 @@ data class CorrectionProfileImportPreview(
     val maxBoostDb: Float,
     val requiredHeadroomDb: Float,
     val isExtremeBoost: Boolean,
+)
+
+// The Original/EQ comparison: which side is heard and how much louder (+) or quieter (-) the EQ
+// side is estimated to be before the match.
+enum class CompareSide { ORIGINAL, EQ }
+
+data class CompareState(
+    val side: CompareSide,
+    val eqLevelDeltaDb: Float,
 )
 
 @HiltViewModel
@@ -258,6 +268,11 @@ class MainViewModel
         private val _processingSettings =
             MutableStateFlow(ProcessingSettings().withPreset(BuiltInPresets.CleanPunch))
         val processingSettings: StateFlow<ProcessingSettings> = _processingSettings.asStateFlow()
+
+        // Original/EQ comparison with matched loudness: both sides run through the effect, the louder
+        // one turned down by the estimated difference. Ends with endCompare(); nothing is saved.
+        private val _compare = MutableStateFlow<CompareState?>(null)
+        val compare: StateFlow<CompareState?> = _compare.asStateFlow()
 
         // "Kopfhörer-Power": wirkt nur im Kopfhörer-Modus.
         private val _headphonePower = MutableStateFlow(HeadphonePower())
@@ -1057,11 +1072,60 @@ class MainViewModel
 
         private fun applySettings(settings: ProcessingSettings) {
             _processingSettings.value = settings
-            viewModelScope.launch {
-                audioEngine.apply(settings)
-            }
-            pushVirtualBass(settings)
+            pushToEngine(settings)
             persistLiveSettings()
+        }
+
+        // What the engine really gets: the live settings, or - while the Original/EQ comparison
+        // runs - the loudness-matched version of the chosen side (see LoudnessMatch).
+        private fun pushToEngine(settings: ProcessingSettings) {
+            val compare = _compare.value
+            val forEngine =
+                if (compare == null) {
+                    settings
+                } else {
+                    val bands = capabilities.value.bands
+                    val plan = LoudnessMatch.plan(eqLevelDeltaDb(settings, bands))
+                    when (compare.side) {
+                        CompareSide.EQ -> settings.copy(inputGainDb = settings.inputGainDb + plan.eqExtraGainDb)
+                        CompareSide.ORIGINAL ->
+                            settings.copy(
+                                bypass = false,
+                                bandGainsDb = bands.associate { it.index to 0f },
+                                inputGainDb = plan.originalGainDb,
+                                limiterEnabled = false,
+                                mbcEnabled = false,
+                            )
+                    }
+                }
+            viewModelScope.launch {
+                audioEngine.apply(forEngine)
+            }
+            pushVirtualBass(if (compare?.side == CompareSide.ORIGINAL) settings.copy(bypass = true) else settings)
+        }
+
+        private fun eqLevelDeltaDb(
+            settings: ProcessingSettings,
+            bands: List<EqualizerBandCapabilities>,
+        ): Float =
+            LoudnessMatch.eqLevelDeltaDb(
+                bands.map { it.centerFreqHz.toFloat() to (settings.bandGainsDb[it.index] ?: 0f) },
+                settings.inputGainDb,
+            )
+
+        fun startCompare() = setCompareSide(CompareSide.EQ)
+
+        fun setCompareSide(side: CompareSide) {
+            val settings = _processingSettings.value
+            val delta = eqLevelDeltaDb(settings, capabilities.value.bands)
+            _compare.value = CompareState(side = side, eqLevelDeltaDb = delta)
+            pushToEngine(settings)
+        }
+
+        fun endCompare() {
+            if (_compare.value == null) return
+            _compare.value = null
+            pushToEngine(_processingSettings.value)
         }
 
         // Virtual bass is not part of the system effect chain (AudioEngine) - it runs

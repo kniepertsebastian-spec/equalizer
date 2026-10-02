@@ -69,4 +69,12 @@
     <string name="playlists_empty_text">Füge oben einen Link ein oder lege eine neue Playlist an. Importierte Listen erscheinen hier.</string>
     <string name="mini_player_nothing">Nichts läuft</string>
     <string name="playlists_new_button">Neue Playlist</string>
+    <string name="compare_current_preset">Aktueller Klang</string>
+    <string name="compare_preset_custom">%1$s (angepasst)</string>
+    <string name="compare_reset">Zurücksetzen</string>
+    <string name="compare_original">Original</string>
+    <string name="compare_eq">EQ</string>
+    <string name="compare_done">Fertig</string>
+    <string name="compare_hint_idle">Tippe auf „Original“, um zu vergleichen. Die Lautstärke wird angeglichen, damit ein lauterer Klang nicht wie ein besserer wirkt.</string>
+    <string name="compare_hint_active">Lautstärke angeglichen (Schätzung): Der EQ liegt %1$s dB zum Original; die lautere Seite wird leiser gestellt.</string>
 </resources>

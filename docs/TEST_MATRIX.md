@@ -529,3 +529,7 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | N5 | Tab „Warteschlange“ leer / gefüllt | leer: Erklärung + „Zur Suche“; gefüllt: Anzahl, laufender Titel, Liste |
 | N6 | EQ aus/Bypass/ohne Wiedergabe/mit Wiedergabe | Player zeigt „EQ ist aus“ / „Wartet auf Wiedergabe“ / „EQ aktiv für SoundCloud“, nie „aktiv“ ohne Bestätigung |
 | N7 | Equalizer-Bereich bei laufender Musik | Mini-Player mit Titel, Play/Pause und „Zum Player“ |
+| V1 | Equalizer → „Original“ tippen, dann „EQ“, mehrmals wechseln | Lautstärke beider Seiten klingt ähnlich; nur der Klang unterscheidet sich; „Fertig“ beendet den Vergleich |
+| V2 | Vergleich aktiv, Equalizer-Bereich verlassen | Vergleich endet, EQ wirkt normal |
+| V3 | Starker Bass-Boost (z. B. Deep Rumble) | Hinweis zeigt die geschätzte Differenz; EQ-Seite wird leiser gestellt |
+| V4 | EQ aus / Bypass / keine Wiedergabe / Wiedergabe | Statuszeile „EQ ist aus“ / „Wartet auf Wiedergabe“ / „EQ aktiv für …“ ohne falsches „aktiv“ |

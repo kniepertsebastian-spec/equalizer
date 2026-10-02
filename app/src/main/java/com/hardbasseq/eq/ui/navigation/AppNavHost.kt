@@ -47,14 +47,6 @@ fun AppNavHost(
     // settings to their defaults and stop those (singleton) listeners the
     // moment the second instance's onCleared() ran.
     val viewModel: MainViewModel = hiltViewModel()
-    // A link shared into the app from elsewhere brings the player screen forward.
-    val showPlayerRequest by playerViewModel.showPlayerRequest.collectAsStateWithLifecycle()
-    LaunchedEffect(showPlayerRequest) {
-        if (showPlayerRequest) {
-            navigateTo(ROUTE_PLAYER)
-            playerViewModel.consumeShowPlayerRequest()
-        }
-    }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val navigateTo: (String) -> Unit = { route ->
@@ -62,6 +54,14 @@ fun AppNavHost(
             popUpTo(ROUTE_PLAYER) { saveState = true }
             launchSingleTop = true
             restoreState = true
+        }
+    }
+    // A link shared into the app from elsewhere brings the player screen forward.
+    val showPlayerRequest by playerViewModel.showPlayerRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(showPlayerRequest) {
+        if (showPlayerRequest) {
+            navigateTo(ROUTE_PLAYER)
+            playerViewModel.consumeShowPlayerRequest()
         }
     }
     Scaffold(

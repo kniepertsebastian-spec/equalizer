@@ -69,4 +69,12 @@
     <string name="playlists_empty_text">Paste a link above or create a new playlist. Imported lists appear here.</string>
     <string name="mini_player_nothing">Nothing playing</string>
     <string name="playlists_new_button">New playlist</string>
+    <string name="compare_current_preset">Current sound</string>
+    <string name="compare_preset_custom">%1$s (customized)</string>
+    <string name="compare_reset">Reset</string>
+    <string name="compare_original">Original</string>
+    <string name="compare_eq">EQ</string>
+    <string name="compare_done">Done</string>
+    <string name="compare_hint_idle">Tap “Original” to compare. The volume is matched so a louder sound does not pass for a better one.</string>
+    <string name="compare_hint_active">Volume matched (estimate): the EQ is %1$s dB compared to the original; the louder side is turned down.</string>
 </resources>
