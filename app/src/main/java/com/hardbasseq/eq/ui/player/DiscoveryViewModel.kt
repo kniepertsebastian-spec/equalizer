@@ -2,6 +2,7 @@ package com.hardbasseq.eq.ui.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.discovery.DiscoveryRepository
 import com.hardbasseq.eq.discovery.DiscoveryRotation
 import com.hardbasseq.eq.discovery.DiscoveryState
@@ -10,6 +11,7 @@ import com.hardbasseq.eq.discovery.DiscoveryUpdater
 import com.hardbasseq.eq.discovery.GenreMode
 import com.hardbasseq.eq.discovery.RefreshResult
 import com.hardbasseq.eq.integration.PlayerController
+import com.hardbasseq.eq.text.TextProvider
 import com.soundcloud.equalizer.player.model.TrackItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +39,7 @@ class DiscoveryViewModel
         private val repository: DiscoveryRepository,
         private val updater: DiscoveryUpdater,
         private val controller: PlayerController,
+        private val texts: TextProvider,
     ) : ViewModel() {
         val state: StateFlow<DiscoveryState> =
             repository.state.stateIn(viewModelScope, SharingStarted.Eagerly, DiscoveryState())
@@ -55,7 +58,7 @@ class DiscoveryViewModel
                 val before = repository.current().artists.size
                 repository.update { DiscoveryRotation.addArtist(it, name) }
                 if (repository.current().artists.size == before) {
-                    _uiState.value = DiscoveryUiState(message = "Den Namen gibt es schon (oder er ist ungültig)", isError = true)
+                    _uiState.value = DiscoveryUiState(message = texts.get(R.string.discovery_name_exists), isError = true)
                 } else {
                     // A new artist forces a rebuild, so their uploads show up right away.
                     refresh(onlyIfDue = true)
@@ -105,21 +108,29 @@ class DiscoveryViewModel
 
         private fun refresh(onlyIfDue: Boolean) {
             viewModelScope.launch {
-                _uiState.value = DiscoveryUiState(isLoading = true, message = "Suche neue Uploads …")
+                _uiState.value = DiscoveryUiState(isLoading = true, message = texts.get(R.string.discovery_searching))
                 val now = System.currentTimeMillis()
                 val offset = TimeZone.getDefault().getOffset(now).toLong()
                 _uiState.value =
                     when (val result = updater.refresh(now, offset, onlyIfDue)) {
                         RefreshResult.Skipped -> DiscoveryUiState()
                         is RefreshResult.Updated -> DiscoveryUiState(message = updatedMessage(result))
-                        is RefreshResult.Failed -> DiscoveryUiState(message = result.message, isError = true)
+                        is RefreshResult.Failed ->
+                            DiscoveryUiState(message = result.message ?: texts.get(R.string.discovery_no_answer), isError = true)
                     }
             }
         }
 
         private fun updatedMessage(result: RefreshResult.Updated): String {
-            val base = if (result.count == 0) "Keine neuen Uploads gefunden" else "${result.count} Titel in der Liste"
-            return if (result.filteredByGenre > 0) "$base (${result.filteredByGenre} wegen Genre aussortiert)" else base
+            val base =
+                if (result.count ==
+                    0
+                ) {
+                    texts.get(R.string.discovery_none_new)
+                } else {
+                    texts.get(R.string.discovery_count_in_list, result.count)
+                }
+            return if (result.filteredByGenre > 0) texts.get(R.string.discovery_filtered_by_genre, base, result.filteredByGenre) else base
         }
 
         // No stream URL on purpose - the player resolves a fresh one by id when it plays.

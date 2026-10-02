@@ -41,6 +41,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,6 +57,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,9 +70,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
@@ -94,6 +100,12 @@ import com.hardbasseq.eq.preset.GenrePreset
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
+import com.hardbasseq.eq.preset.SoundGoal
+import com.hardbasseq.eq.ui.eq.EqStatus
+import com.hardbasseq.eq.ui.eq.EqStatusKind
+import com.hardbasseq.eq.ui.eq.EqStatusLine
+import com.hardbasseq.eq.ui.main.CompareSide
+import com.hardbasseq.eq.ui.main.CompareState
 import com.hardbasseq.eq.ui.theme.Spacing
 import com.hardbasseq.eq.ui.theme.spacing
 import kotlinx.coroutines.delay
@@ -113,6 +125,14 @@ fun EqualizerScreen(
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
+    onOpenServices: () -> Unit,
+    activeGoal: SoundGoal,
+    onGoalSelected: (SoundGoal) -> Unit,
+    pathLabel: String?,
+    compare: CompareState?,
+    onStartCompare: () -> Unit,
+    onCompareSide: (CompareSide) -> Unit,
+    onEndCompare: () -> Unit,
     headphonePower: HeadphonePower,
     activeContext: SoundContext?,
     currentLevelDb: Float,
@@ -180,6 +200,7 @@ fun EqualizerScreen(
                 activePreset.targetCurve,
                 headphoneCurve,
                 loudnessCurve,
+                activeGoal.curve,
                 activeContext?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
                 contextCurve,
             ),
@@ -230,14 +251,19 @@ fun EqualizerScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "HardBass EQ",
+                                    text = stringResource(R.string.app_name),
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
-                                    text = "Route: ${route.name}",
+                                    text = stringResource(R.string.route_label, route.name),
                                     style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    text = stringResource(R.string.eq_playback_only_note),
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Text(
@@ -257,11 +283,13 @@ fun EqualizerScreen(
                                 IconButton(onClick = onOpenSourcePicker) {
                                     Icon(
                                         imageVector = Icons.Default.LibraryMusic,
-                                        contentDescription = "Quelle wählen",
+                                        contentDescription = stringResource(R.string.eq_pick_source),
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
+                                val masterDescription = stringResource(R.string.eq_master_switch)
                                 Switch(
+                                    modifier = Modifier.semantics { contentDescription = masterDescription },
                                     checked = settings.masterEnabled,
                                     onCheckedChange = onMasterToggled,
                                 )
@@ -275,34 +303,11 @@ fun EqualizerScreen(
                         // "Wartet" category (surfaceVariant); Unsupported and Error get
                         // their own distinct categories so all 4 required statuses are
                         // visually distinguishable.
-                        val statusColors = MaterialTheme.colorScheme
-                        val (statusText, statusBg) =
-                            when (state) {
-                                is AudioEngineState.Active -> "Aktiv (Session #${state.sessionId})" to statusColors.primaryContainer
-                                is AudioEngineState.Attaching -> "Anbinden... (#${state.sessionId})" to statusColors.surfaceVariant
-                                is AudioEngineState.Detached -> "Startet…" to MaterialTheme.colorScheme.surfaceVariant
-                                is AudioEngineState.Listening -> "Wartet auf Audio-Session" to MaterialTheme.colorScheme.surfaceVariant
-                                is AudioEngineState.LostControl ->
-                                    "Verbindung verloren, versuche erneut…" to MaterialTheme.colorScheme.surfaceVariant
-                                is AudioEngineState.Retrying -> retryingStatusText(state) to MaterialTheme.colorScheme.surfaceVariant
-                                is AudioEngineState.Unsupported ->
-                                    "Nicht unterstützt: ${state.reason}" to MaterialTheme.colorScheme.tertiaryContainer
-                                is AudioEngineState.Error -> "Fehler: ${state.message}" to MaterialTheme.colorScheme.errorContainer
-                            }
-
-                        Box(
-                            modifier =
-                                Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(statusBg)
-                                    .padding(horizontal = spacing.small, vertical = spacing.extraSmall),
-                        ) {
-                            Text(
-                                text = statusText,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium,
-                            )
-                        }
+                        EqStatusLine(
+                            kind = EqStatus.kind(state, settings),
+                            pathLabel = pathLabel,
+                            onClick = {},
+                        )
 
                         // "Fehler: konkrete nächste Handlung anbieten" (roadmap-2026.md M1) -
                         // resets the retry budget and re-attempts the last known session.
@@ -311,11 +316,22 @@ fun EqualizerScreen(
                                 onClick = onRetryAttach,
                                 modifier = Modifier.padding(top = spacing.extraSmall),
                             ) {
-                                Text("Erneut versuchen")
+                                Text(stringResource(R.string.action_retry))
                             }
                         }
                     }
                 }
+
+                CompareCard(
+                    presetName = activePreset.name,
+                    isDirty = isDirty,
+                    compare = compare,
+                    onStart = onStartCompare,
+                    onSide = onCompareSide,
+                    onEnd = onEndCompare,
+                    onReset = onResetToActivePreset,
+                    style = style,
+                )
 
                 // M4 "Angewandten Input-Gain permanent anzeigen" / "Limiter-Status und
                 // verwendeten Threshold anzeigen" / "Warnstufen definieren" / MBC-
@@ -330,31 +346,48 @@ fun EqualizerScreen(
                 ) {
                     Column(modifier = Modifier.padding(spacing.medium)) {
                         Text(
-                            text = "Signal & Sicherheit",
+                            text = stringResource(R.string.signal_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text =
+                                stringResource(
+                                    if (EqStatus.kind(state, settings) == EqStatusKind.ACTIVE) {
+                                        R.string.signal_confirmed
+                                    } else {
+                                        R.string.signal_not_confirmed
+                                    },
+                                ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource(R.string.signal_explain),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(spacing.small))
 
                         Text(
-                            text = "Input-Gain: ${String.format("%+.1f", settings.inputGainDb)} dB",
+                            text = stringResource(R.string.signal_input_gain, String.format("%+.1f", settings.inputGainDb)),
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
                             text =
                                 if (settings.limiterEnabled) {
-                                    "Limiter: aktiv, Threshold ${String.format("%.1f", settings.limiterThresholdDb)} dB"
+                                    stringResource(R.string.signal_limiter_on, String.format("%.1f", settings.limiterThresholdDb))
                                 } else {
-                                    "Limiter: deaktiviert"
+                                    stringResource(R.string.signal_limiter_off)
                                 },
                             style = MaterialTheme.typography.bodyMedium,
                         )
                         Text(
                             text =
                                 if (settings.mbcEnabled) {
-                                    "Mehrband-Kompressor: aktiv (Wirkung geschätzt, nicht gemessen)"
+                                    stringResource(R.string.signal_mbc_on)
                                 } else {
-                                    "Mehrband-Kompressor: deaktiviert"
+                                    stringResource(R.string.signal_mbc_off)
                                 },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -366,11 +399,11 @@ fun EqualizerScreen(
                         val (warningText, warningColor) =
                             when (warningLevel) {
                                 HeadroomWarningLevel.SUFFICIENT ->
-                                    "Ausreichend Headroom" to MaterialTheme.colorScheme.onSurfaceVariant
+                                    stringResource(R.string.headroom_ok) to MaterialTheme.colorScheme.onSurfaceVariant
                                 HeadroomWarningLevel.OCCASIONAL_LIMITING ->
-                                    "Limiter arbeitet voraussichtlich gelegentlich (geschätzt)" to MaterialTheme.colorScheme.tertiary
+                                    stringResource(R.string.headroom_limiter_sometimes) to MaterialTheme.colorScheme.tertiary
                                 HeadroomWarningLevel.HEAVY_LIMITING ->
-                                    "Voraussichtlich dauerhaft starke Begrenzung (geschätzt)" to MaterialTheme.colorScheme.error
+                                    stringResource(R.string.headroom_limiter_heavy) to MaterialTheme.colorScheme.error
                             }
                         Text(
                             text = warningText,
@@ -403,30 +436,59 @@ fun EqualizerScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Info,
-                                contentDescription = "Hinweis",
+                                contentDescription = stringResource(R.string.hint_icon),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(modifier = Modifier.width(spacing.small))
                             Column {
                                 Text(
-                                    text = "Keine Audio-Session gefunden",
+                                    text = stringResource(R.string.no_session_title),
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Text(
                                     text =
-                                        "HardBass EQ lauscht jetzt auch im Hintergrund auf neue Sessions. " +
-                                            "Läuft ein Player wie Spotify oder SoundCloud aber schon seit vor der " +
-                                            "Installation bzw. dem letzten Neustart, hilft meist: Titel pausieren " +
-                                            "und erneut abspielen, zum nächsten Titel springen, oder die Player-App " +
-                                            "einmal schließen und neu starten.",
+                                        stringResource(R.string.no_session_text),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
                     }
+                }
+
+                Column {
+                    Text(
+                        text = stringResource(R.string.profiles_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = stringResource(R.string.profiles_intro),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.profiles_output, route.name),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        text =
+                            stringResource(
+                                R.string.profiles_saved_for_output,
+                                activePreset.name,
+                                if (activeCorrectionProfile.id == "correction_none") {
+                                    stringResource(R.string.profiles_correction_none)
+                                } else {
+                                    activeCorrectionProfile.localizedName()
+                                },
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = onOpenServices) { Text(stringResource(R.string.profiles_open_services)) }
                 }
 
                 // M3 "Mein Kopfhörer" Card: which headphone/speaker correction curve is
@@ -444,7 +506,7 @@ fun EqualizerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "Mein Kopfhörer",
+                                text = stringResource(R.string.correction_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                             )
@@ -454,7 +516,7 @@ fun EqualizerScreen(
                             // the picked file's text is read (MainScreen owns the
                             // ContentResolver access this needs).
                             TextButton(onClick = onImportCorrectionProfileRequested) {
-                                Text("Importieren")
+                                Text(stringResource(R.string.action_import))
                             }
                         }
                         Spacer(modifier = Modifier.height(spacing.small))
@@ -475,24 +537,26 @@ fun EqualizerScreen(
                                             .padding(spacing.small),
                                 ) {
                                     Text(
-                                        text = "Erkanntes Gerät: ${suggestedCorrectionProfile.displayName}",
+                                        text = stringResource(R.string.correction_detected, suggestedCorrectionProfile.displayName),
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                                     )
                                     Text(
                                         text =
-                                            "Passendes AutoEQ-Korrekturprofil verfügbar " +
-                                                "(${suggestedCorrectionProfile.profile.sourceLabel}).",
+                                            stringResource(
+                                                R.string.correction_suggestion,
+                                                localizedSourceLabel(suggestedCorrectionProfile.profile.sourceLabel),
+                                            ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                                     )
                                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                                         TextButton(onClick = onDismissSuggestedCorrectionProfile) {
-                                            Text("Nicht jetzt")
+                                            Text(stringResource(R.string.action_not_now))
                                         }
                                         TextButton(onClick = onAcceptSuggestedCorrectionProfile) {
-                                            Text("Übernehmen")
+                                            Text(stringResource(R.string.action_apply))
                                         }
                                     }
                                 }
@@ -528,16 +592,18 @@ fun EqualizerScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Kopfhörer-Modus",
+                                    text = stringResource(R.string.headphone_mode_title),
                                     style = MaterialTheme.typography.bodyMedium,
                                 )
                                 Text(
-                                    text = "Etwas mehr Bass, etwas weniger Schärfe in den Höhen",
+                                    text = stringResource(R.string.headphone_mode_desc),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            val headphoneModeDescription = stringResource(R.string.headphone_mode_title)
                             Switch(
+                                modifier = Modifier.semantics { contentDescription = headphoneModeDescription },
                                 checked = effectiveHeadphoneAcoustics,
                                 onCheckedChange = onHeadphoneAcousticsChanged,
                             )
@@ -566,16 +632,16 @@ fun EqualizerScreen(
                 ) {
                     Column(modifier = Modifier.padding(spacing.medium)) {
                         Text(
-                            text = "Auto & Bluetooth-Box",
+                            text = stringResource(R.string.context_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                         )
                         Text(
                             text =
                                 when (route.type) {
-                                    AudioDeviceType.CAR -> "Auto erkannt: ${route.name}"
-                                    AudioDeviceType.BLUETOOTH_SPEAKER -> "Bluetooth-Box erkannt: ${route.name}"
-                                    else -> "Für Auto oder Bluetooth-Box optimierte Sounds"
+                                    AudioDeviceType.CAR -> stringResource(R.string.context_car_detected, route.name)
+                                    AudioDeviceType.BLUETOOTH_SPEAKER -> stringResource(R.string.context_speaker_detected, route.name)
+                                    else -> stringResource(R.string.context_default_desc)
                                 },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -589,30 +655,32 @@ fun EqualizerScreen(
                         )
                         Spacer(modifier = Modifier.height(spacing.small))
                         ContextFeatureSwitch(
-                            title = "Lautstärke-Loudness",
-                            subtitle = "Hebt Bass und Höhen an, wenn du leise hörst",
+                            title = stringResource(R.string.context_loudness_title),
+                            subtitle = stringResource(R.string.context_loudness_desc),
                             checked = settings.loudnessMaxBoostDb > 0f,
                             onCheckedChange = onLoudnessCompensationChanged,
                         )
                         ContextFeatureSwitch(
-                            title = "Subsonic-Filter",
+                            title = stringResource(R.string.context_subsonic_title),
                             subtitle =
                                 if (settings.subsonicCutoffHz > 0f) {
-                                    "Schneidet Tiefbass unter ca. ${settings.subsonicCutoffHz.toInt()} Hz ab - mehr Headroom"
+                                    stringResource(R.string.context_subsonic_on, settings.subsonicCutoffHz.toInt())
                                 } else {
-                                    "Schneidet Tiefbass ab, den kleine Lautsprecher nicht wiedergeben"
+                                    stringResource(R.string.context_subsonic_off)
                                 },
                             checked = settings.subsonicCutoffHz > 0f,
                             onCheckedChange = onSubsonicFilterChanged,
                         )
                         ContextFeatureSwitch(
-                            title = "Virtual Bass",
-                            subtitle = "Erzeugt Bass-Obertöne für kleine Lautsprecher - nur im eingebauten Player, nicht in Spotify & Co.",
+                            title = stringResource(R.string.virtual_bass_title),
+                            subtitle = stringResource(R.string.context_virtual_bass_desc),
                             checked = settings.virtualBassMix > 0f,
                             onCheckedChange = onVirtualBassChanged,
                         )
                     }
                 }
+
+                SoundGoalCard(active = activeGoal, onSelect = onGoalSelected, style = style)
 
                 // Klangstil (Voicing) Selector Card
                 Card(
@@ -628,7 +696,7 @@ fun EqualizerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                text = "Presets: ${style.name}",
+                                text = stringResource(R.string.presets_title, style.name),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = style.accent,
@@ -639,10 +707,10 @@ fun EqualizerScreen(
                             AnimatedVisibility(visible = isDirty) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     TextButton(onClick = onResetToActivePreset) {
-                                        Text("Zurücksetzen")
+                                        Text(stringResource(R.string.compare_reset))
                                     }
                                     TextButton(onClick = onSaveAsNewRequest) {
-                                        Text("Speichern")
+                                        Text(stringResource(R.string.action_save))
                                     }
                                 }
                             }
@@ -659,7 +727,7 @@ fun EqualizerScreen(
                         if (customPresets.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(spacing.medium))
                             Text(
-                                text = "Eigene Presets",
+                                text = stringResource(R.string.presets_custom),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = style.accent,
@@ -680,109 +748,158 @@ fun EqualizerScreen(
                     }
                 }
 
-                // Macro Controls Card
-                Card(
+                var fineTuneOpen by rememberSaveable { mutableStateOf(false) }
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(style.cardCorner),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, style.border),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(modifier = Modifier.padding(spacing.medium)) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else "Makro-Regler",
+                            text = stringResource(R.string.fine_tune_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = style.accent,
                         )
-                        Spacer(modifier = Modifier.height(spacing.small))
-
-                        // Bass Macro
-                        Text(text = "Bass: ${String.format("%+.1f", settings.macroBassDb)} dB", style = MaterialTheme.typography.bodySmall)
-                        Slider(
-                            value = settings.macroBassDb,
-                            onValueChange = onMacroBassChanged,
-                            valueRange = -6f..6f,
-                            colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
-                        )
-
-                        // Punch Macro
                         Text(
-                            text = "Punch: ${String.format("%+.1f", settings.macroPunchDb)} dB",
+                            text = stringResource(R.string.fine_tune_subtitle),
                             style = MaterialTheme.typography.bodySmall,
-                        )
-                        Slider(
-                            value = settings.macroPunchDb,
-                            onValueChange = onMacroPunchChanged,
-                            valueRange = -6f..6f,
-                            colors = SliderDefaults.colors(thumbColor = style.secondaryAccent, activeTrackColor = style.secondaryAccent),
-                        )
-
-                        // Härte Macro
-                        Text(
-                            text = "Härte: ${String.format("%+.1f", settings.macroHaerteDb)} dB",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Slider(
-                            value = settings.macroHaerteDb,
-                            onValueChange = onMacroHaerteChanged,
-                            valueRange = -2f..2f,
-                            colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    TextButton(onClick = { fineTuneOpen = !fineTuneOpen }) {
+                        Text(stringResource(if (fineTuneOpen) R.string.fine_tune_hide else R.string.fine_tune_show))
+                    }
                 }
-
-                // Dynamic Equalizer Bands Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(style.cardCorner),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, style.border),
-                ) {
-                    Column(modifier = Modifier.padding(spacing.medium)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
+                if (fineTuneOpen) {
+                    // Macro Controls Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(style.cardCorner),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, style.border),
+                    ) {
+                        Column(modifier = Modifier.padding(spacing.medium)) {
                             Text(
-                                text = "Grafischer EQ (${bands.size} Bänder)",
+                                text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else stringResource(R.string.macro_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
+                                color = style.accent,
                             )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = "Bypass", style = MaterialTheme.typography.bodySmall)
-                                Spacer(modifier = Modifier.width(spacing.extraSmall))
-                                Switch(
-                                    checked = settings.bypass,
-                                    onCheckedChange = onBypassToggled,
-                                )
-                            }
+                            Spacer(modifier = Modifier.height(spacing.small))
+
+                            // Bass Macro
+                            val bassLabel = stringResource(R.string.macro_bass_label, String.format("%+.1f", settings.macroBassDb))
+                            Text(text = bassLabel, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = stringResource(R.string.macro_bass_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Slider(
+                                modifier = Modifier.semantics { contentDescription = bassLabel },
+                                value = settings.macroBassDb,
+                                onValueChange = onMacroBassChanged,
+                                valueRange = -6f..6f,
+                                colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                            )
+
+                            // Punch Macro
+                            val punchLabel = stringResource(R.string.macro_punch_label, String.format("%+.1f", settings.macroPunchDb))
+                            Text(text = punchLabel, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = stringResource(R.string.macro_punch_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Slider(
+                                modifier = Modifier.semantics { contentDescription = punchLabel },
+                                value = settings.macroPunchDb,
+                                onValueChange = onMacroPunchChanged,
+                                valueRange = -6f..6f,
+                                colors =
+                                    SliderDefaults.colors(
+                                        thumbColor = style.secondaryAccent,
+                                        activeTrackColor = style.secondaryAccent,
+                                    ),
+                            )
+
+                            // Härte Macro
+                            val haerteLabel = stringResource(R.string.macro_haerte_label, String.format("%+.1f", settings.macroHaerteDb))
+                            Text(text = haerteLabel, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = stringResource(R.string.macro_haerte_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Slider(
+                                modifier = Modifier.semantics { contentDescription = haerteLabel },
+                                value = settings.macroHaerteDb,
+                                onValueChange = onMacroHaerteChanged,
+                                valueRange = -2f..2f,
+                                colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                            )
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(spacing.small))
-
-                        bands.forEach { band ->
-                            val gainDb = settings.bandGainsDb[band.index] ?: 0f
-                            val freqLabel = formatFrequency(band.centerFreqHz)
-
-                            Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Text(text = freqLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                    Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
+                    // Dynamic Equalizer Bands Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(style.cardCorner),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, style.border),
+                    ) {
+                        Column(modifier = Modifier.padding(spacing.medium)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.bands_title, bands.size),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = stringResource(R.string.bypass_label), style = MaterialTheme.typography.bodySmall)
+                                    Spacer(modifier = Modifier.width(spacing.extraSmall))
+                                    val bypassDescription = stringResource(R.string.bypass_label)
+                                    Switch(
+                                        modifier = Modifier.semantics { contentDescription = bypassDescription },
+                                        checked = settings.bypass,
+                                        onCheckedChange = onBypassToggled,
+                                    )
                                 }
-                                val bandColor = style.bandColors[band.index % style.bandColors.size]
-                                Slider(
-                                    value = gainDb,
-                                    onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
-                                    valueRange = band.minGainDb..band.maxGainDb,
-                                    colors = SliderDefaults.colors(thumbColor = bandColor, activeTrackColor = bandColor),
-                                )
                             }
+
+                            Spacer(modifier = Modifier.height(spacing.small))
+
+                            bands.forEach { band ->
+                                val gainDb = settings.bandGainsDb[band.index] ?: 0f
+                                val freqLabel = formatFrequency(band.centerFreqHz)
+
+                                Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(
+                                            text = freqLabel,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    val bandColor = style.bandColors[band.index % style.bandColors.size]
+                                    Slider(
+                                        modifier = Modifier.semantics { contentDescription = freqLabel },
+                                        value = gainDb,
+                                        onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
+                                        valueRange = band.minGainDb..band.maxGainDb,
+                                        colors = SliderDefaults.colors(thumbColor = bandColor, activeTrackColor = bandColor),
+                                    )
+                                }
+                            }
+                            EqualizerCurve(bands = bands, gains = settings.bandGainsDb, style = style)
                         }
-                        EqualizerCurve(bands = bands, gains = settings.bandGainsDb, style = style)
                     }
                 }
                 val clippingRisk = headroom.isClippingRisk && settings.masterEnabled
@@ -822,12 +939,15 @@ fun EqualizerScreen(
                             Text(
                                 text =
                                     if (clippingRisk) {
-                                        "Clipping-Gefahr: +${String.format("%.1f", headroom.maxPositiveGainDb)} dB. " +
-                                            "Empfohlene Absenkung: ${String.format("%.1f", headroom.recommendedInputGainDb)} dB."
+                                        stringResource(
+                                            R.string.clipping_danger,
+                                            String.format("%.1f", headroom.maxPositiveGainDb),
+                                            String.format("%.1f", headroom.recommendedInputGainDb),
+                                        )
                                     } else if (settings.limiterEnabled) {
-                                        "Clipping-Schutz bereit. Input-Gain: ${String.format("%+.1f", settings.inputGainDb)} dB."
+                                        stringResource(R.string.clipping_protected, String.format("%+.1f", settings.inputGainDb))
                                     } else {
-                                        "Limiter deaktiviert. Input-Gain: ${String.format("%+.1f", settings.inputGainDb)} dB."
+                                        stringResource(R.string.clipping_limiter_off, String.format("%+.1f", settings.inputGainDb))
                                     },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = style.warningText,
@@ -864,7 +984,7 @@ private fun GenreIntensitySelector(
         Box {
             OutlinedButton(onClick = { showGenreMenu = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = selectedGenre?.displayName ?: "Genre wählen",
+                    text = selectedGenre?.displayName ?: stringResource(R.string.genre_pick),
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -944,7 +1064,11 @@ private fun ContextFeatureSwitch(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            modifier = Modifier.semantics { contentDescription = title },
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }
 
@@ -1029,16 +1153,23 @@ private fun CorrectionProfileRow(
                 ) {
                     Column {
                         Text(
-                            text = profile.name,
+                            text = profile.localizedName(),
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = contentColor,
                         )
                         Text(
-                            text = profile.sourceLabel,
+                            text = profile.localizedSource(),
                             style = MaterialTheme.typography.bodySmall,
                             color = contentColor,
                         )
+                        profile.deviceName?.let { device ->
+                            Text(
+                                text = stringResource(R.string.profile_for_device, device),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = contentColor,
+                            )
+                        }
                     }
                     // M5 "Import, Export und Teilen ... integrieren" - only for
                     // imported/custom profiles, mirroring PresetCard's own
@@ -1047,11 +1178,11 @@ private fun CorrectionProfileRow(
                     if (!profile.builtIn) {
                         IconButton(
                             onClick = { onExportProfile(profile) },
-                            modifier = Modifier.size(28.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Share,
-                                contentDescription = "Exportieren: ${profile.name}",
+                                contentDescription = stringResource(R.string.profile_export, profile.localizedName()),
                                 tint = contentColor,
                             )
                         }
@@ -1127,7 +1258,7 @@ private fun PresetCard(
                 IconButton(onClick = { showMenu = true }, modifier = Modifier.size(20.dp)) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Weitere Aktionen für ${preset.name}",
+                        contentDescription = stringResource(R.string.preset_more_actions, preset.name),
                         tint = contentColor,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1138,7 +1269,7 @@ private fun PresetCard(
                 // unveränderlich" (M2 acceptance criterion).
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Duplizieren") },
+                        text = { Text(stringResource(R.string.preset_duplicate)) },
                         onClick = {
                             showMenu = false
                             onDuplicate()
@@ -1146,14 +1277,14 @@ private fun PresetCard(
                     )
                     if (!preset.metadata.builtIn) {
                         DropdownMenuItem(
-                            text = { Text("Umbenennen") },
+                            text = { Text(stringResource(R.string.preset_rename)) },
                             onClick = {
                                 showMenu = false
                                 onRenameRequest()
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text("Löschen") },
+                            text = { Text(stringResource(R.string.preset_delete)) },
                             onClick = {
                                 showMenu = false
                                 onDeleteRequest()
@@ -1242,7 +1373,7 @@ private fun retryingStatusText(state: AudioEngineState.Retrying): String {
             remainingSeconds = secondsUntil(state.nextRetryAtMillis)
         }
     }
-    return "Erneuter Versuch in ${remainingSeconds}s (Versuch ${state.attempt}/$MAX_RETRY_ATTEMPTS)"
+    return stringResource(R.string.retry_countdown, remainingSeconds, state.attempt, MAX_RETRY_ATTEMPTS)
 }
 
 private fun secondsUntil(millis: Long): Long = ((millis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
@@ -1264,42 +1395,39 @@ private fun HeadphonePowerCard(
     ) {
         Column(modifier = Modifier.padding(spacing.medium)) {
             Text(
-                text = "Kopfhörer-Power",
+                text = stringResource(R.string.hp_power_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
             )
             Text(
                 text =
-                    "Mehr Wumms für Kopfhörer. Bei hoher Lautstärke und viel Bass kann das dem Gehör schaden - " +
-                        "die Eingangsverstärkung wird automatisch begrenzt, damit nichts übersteuert.",
+                    stringResource(R.string.hp_power_warning),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(modifier = Modifier.height(spacing.small))
             Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-                OutlinedButton(onClick = { onPowerChanged(HeadphonePower.DEFAULT) }) { Text("Standard") }
-                Button(onClick = { onPowerChanged(HeadphonePower.KNALL) }) { Text("Knall") }
+                OutlinedButton(onClick = { onPowerChanged(HeadphonePower.DEFAULT) }) { Text(stringResource(R.string.hp_power_standard)) }
+                Button(onClick = { onPowerChanged(HeadphonePower.KNALL) }) { Text(stringResource(R.string.hp_power_knall)) }
             }
             Spacer(modifier = Modifier.height(spacing.small))
-            Text(
-                text = "Bass-Stärke: +${"%.1f".format(power.bassDb)} dB",
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            val bassLabel = stringResource(R.string.hp_power_bass, "%.1f".format(power.bassDb))
+            Text(text = bassLabel, style = MaterialTheme.typography.bodyMedium)
             Slider(
+                modifier = Modifier.semantics { contentDescription = bassLabel },
                 value = power.bassDb,
                 onValueChange = { onPowerChanged(power.copy(bassDb = it)) },
                 valueRange = 0f..HeadphonePower.MAX_BASS_DB,
             )
-            Text(
-                text =
-                    if (power.loudnessMaxDb > 0f) {
-                        "Loudness: bis +${"%.1f".format(power.loudnessMaxDb)} dB bei leiser Lautstärke"
-                    } else {
-                        "Loudness: aus"
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            val loudnessLabel =
+                if (power.loudnessMaxDb > 0f) {
+                    stringResource(R.string.hp_power_loudness_on, "%.1f".format(power.loudnessMaxDb))
+                } else {
+                    stringResource(R.string.hp_power_loudness_off)
+                }
+            Text(text = loudnessLabel, style = MaterialTheme.typography.bodyMedium)
             Slider(
+                modifier = Modifier.semantics { contentDescription = loudnessLabel },
                 value = power.loudnessMaxDb,
                 onValueChange = { onPowerChanged(power.copy(loudnessMaxDb = it)) },
                 valueRange = 0f..HeadphonePower.MAX_LOUDNESS_DB,
@@ -1310,20 +1438,90 @@ private fun HeadphonePowerCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Dynamik entschärfen", style = MaterialTheme.typography.bodyMedium)
+                    Text(text = stringResource(R.string.hp_power_dynamics), style = MaterialTheme.typography.bodyMedium)
                     Text(
-                        text = "Aus = volle Dynamik, Bässe und Kicks schlagen härter durch",
+                        text = stringResource(R.string.hp_power_dynamics_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                val dynamicsDescription = stringResource(R.string.hp_power_dynamics)
                 Switch(
+                    modifier = Modifier.semantics { contentDescription = dynamicsDescription },
                     checked = power.easeDynamics,
                     onCheckedChange = { onPowerChanged(power.copy(easeDynamics = it)) },
                 )
             }
             Text(
-                text = "Virtual Bass und Mono-Bass gibt es nur im eingebauten Player.",
+                text = stringResource(R.string.hp_power_player_only),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+// Preset name, reset, and the Original/EQ comparison. While comparing, both sides are matched in
+// loudness (the louder one is turned down by an estimate), so a mere volume difference does not
+// pass for a better sound.
+@Composable
+private fun CompareCard(
+    presetName: String,
+    isDirty: Boolean,
+    compare: CompareState?,
+    onStart: () -> Unit,
+    onSide: (CompareSide) -> Unit,
+    onEnd: () -> Unit,
+    onReset: () -> Unit,
+    style: EqualizerDesignStyle,
+) {
+    val spacing = MaterialTheme.spacing
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(style.cardCorner),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, style.border),
+    ) {
+        Column(modifier = Modifier.padding(spacing.medium)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.compare_current_preset),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = if (isDirty) stringResource(R.string.compare_preset_custom, presetName) else presetName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+                TextButton(onClick = onReset, enabled = isDirty) { Text(stringResource(R.string.compare_reset)) }
+            }
+            Spacer(modifier = Modifier.height(spacing.small))
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), verticalAlignment = Alignment.CenterVertically) {
+                FilterChip(
+                    selected = compare?.side == CompareSide.ORIGINAL,
+                    onClick = { onSide(CompareSide.ORIGINAL) },
+                    label = { Text(stringResource(R.string.compare_original)) },
+                )
+                FilterChip(
+                    selected = compare == null || compare.side == CompareSide.EQ,
+                    onClick = { if (compare == null) onStart() else onSide(CompareSide.EQ) },
+                    label = { Text(stringResource(R.string.compare_eq)) },
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (compare != null) {
+                    TextButton(onClick = onEnd) { Text(stringResource(R.string.compare_done)) }
+                }
+            }
+            Text(
+                text =
+                    if (compare == null) {
+                        stringResource(R.string.compare_hint_idle)
+                    } else {
+                        stringResource(R.string.compare_hint_active, String.format("%+.1f", compare.eqLevelDeltaDb))
+                    },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

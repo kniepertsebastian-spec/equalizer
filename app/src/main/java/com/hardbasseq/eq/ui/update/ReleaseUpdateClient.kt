@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.core.content.FileProvider
 import com.hardbasseq.eq.BuildConfig
+import com.hardbasseq.eq.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -53,9 +54,9 @@ internal class ReleaseUpdateClient(
             try {
                 val connection = openConnection(update.apkUrl)
                 try {
-                    require(connection.responseCode == HttpURLConnection.HTTP_OK) { "APK-Download fehlgeschlagen" }
+                    require(connection.responseCode == HttpURLConnection.HTTP_OK) { context.getString(R.string.upd_err_download) }
                     val total = connection.contentLengthLong
-                    require(total <= MAX_APK_BYTES) { "APK ist zu groß" }
+                    require(total <= MAX_APK_BYTES) { context.getString(R.string.upd_err_too_big) }
                     val digest = MessageDigest.getInstance("SHA-256")
                     var downloaded = 0L
                     var lastReported = 0L
@@ -66,7 +67,7 @@ internal class ReleaseUpdateClient(
                                 val count = source.read(buffer)
                                 if (count < 0) break
                                 downloaded += count
-                                require(downloaded <= MAX_APK_BYTES) { "APK ist zu groß" }
+                                require(downloaded <= MAX_APK_BYTES) { context.getString(R.string.upd_err_too_big) }
                                 destination.write(buffer, 0, count)
                                 digest.update(buffer, 0, count)
                                 if (downloaded - lastReported >= 1_000_000 || downloaded == total) {
@@ -76,15 +77,15 @@ internal class ReleaseUpdateClient(
                             }
                         }
                     }
-                    require(downloaded > 0L && (total < 0L || downloaded == total)) { "APK-Download ist unvollständig" }
+                    require(downloaded > 0L && (total < 0L || downloaded == total)) { context.getString(R.string.upd_err_incomplete) }
                     val actualSha256 = digest.digest().joinToString("") { (it.toInt() and 0xff).toString(16).padStart(2, '0') }
-                    require(actualSha256 == update.sha256) { "APK-Prüfsumme stimmt nicht" }
+                    require(actualSha256 == update.sha256) { context.getString(R.string.upd_err_checksum) }
                 } finally {
                     connection.disconnect()
                 }
                 verifyPackage(temporary, update)
                 apk.delete()
-                check(temporary.renameTo(apk)) { "APK konnte nicht gespeichert werden" }
+                check(temporary.renameTo(apk)) { context.getString(R.string.upd_err_save) }
                 apk
             } catch (error: Exception) {
                 temporary.delete()
@@ -100,10 +101,10 @@ internal class ReleaseUpdateClient(
         val flags = PackageManager.GET_SIGNING_CERTIFICATES
         val archive =
             context.packageManager.getPackageArchiveInfo(file.absolutePath, flags)
-                ?: error("Die Datei ist keine gültige APK")
-        require(archive.packageName == context.packageName) { "Die APK gehört zu einer anderen App" }
-        require(archive.longVersionCode == update.versionCode.toLong()) { "APK-Version stimmt nicht mit dem Release überein" }
-        require(archive.longVersionCode > BuildConfig.VERSION_CODE) { "Diese Version ist bereits installiert" }
+                ?: error(context.getString(R.string.upd_err_invalid))
+        require(archive.packageName == context.packageName) { context.getString(R.string.upd_err_other_app) }
+        require(archive.longVersionCode == update.versionCode.toLong()) { context.getString(R.string.upd_err_version) }
+        require(archive.longVersionCode > BuildConfig.VERSION_CODE) { context.getString(R.string.upd_err_installed) }
         val installed = context.packageManager.getPackageInfo(context.packageName, flags)
         val currentSigners =
             installed.signingInfo
@@ -116,7 +117,7 @@ internal class ReleaseUpdateClient(
                 ?.map { it.toCharsString() }
                 ?.toSet()
         require(!currentSigners.isNullOrEmpty() && currentSigners == updateSigners) {
-            "Die Release-APK ist anders signiert. Für den Wechsel ist einmalig eine Neuinstallation nötig."
+            context.getString(R.string.upd_err_signature)
         }
     }
 
@@ -134,14 +135,14 @@ internal class ReleaseUpdateClient(
     ): String {
         val connection = openConnection(url)
         return try {
-            require(connection.responseCode == HttpURLConnection.HTTP_OK) { "Release-Abfrage fehlgeschlagen" }
+            require(connection.responseCode == HttpURLConnection.HTTP_OK) { context.getString(R.string.upd_err_query) }
             connection.inputStream.use { source ->
                 val destination = ByteArrayOutputStream()
                 val buffer = ByteArray(8192)
                 while (true) {
                     val count = source.read(buffer)
                     if (count < 0) break
-                    require(destination.size() + count <= maxBytes) { "Release-Daten sind zu groß" }
+                    require(destination.size() + count <= maxBytes) { context.getString(R.string.upd_err_data_big) }
                     destination.write(buffer, 0, count)
                 }
                 destination.toString(Charsets.UTF_8.name())

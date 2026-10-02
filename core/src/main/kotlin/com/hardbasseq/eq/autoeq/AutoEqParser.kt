@@ -62,7 +62,7 @@ object AutoEqParser {
                 id = "autoeq_${profileName.lowercase().replace("\\s+".toRegex(), "_")}",
                 name = profileName,
                 curve = sortedPoints,
-                sourceLabel = "AutoEQ-Import",
+                sourceLabel = "AutoEQ import",
                 builtIn = false,
             )
         }

@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui.player
 
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
@@ -11,6 +12,7 @@ import com.hardbasseq.eq.link.SpotifyTrack
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
 import com.hardbasseq.eq.playlist.SpotifyImportRepository
+import com.hardbasseq.eq.text.FakeTextProvider
 import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.PlaylistItem
@@ -39,6 +41,7 @@ import org.junit.Test
 class PlayerViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val controller = FakePlayerController()
+    private val texts = FakeTextProvider()
     private val repository = FakePlaylistRepository()
     private val spotifyImports = FakeSpotifyImports()
 
@@ -52,7 +55,7 @@ class PlayerViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = PlayerViewModel(controller, repository, spotifyImports)
+    private fun viewModel() = PlayerViewModel(controller, repository, spotifyImports, texts)
 
     private fun track(
         id: Long,
@@ -171,7 +174,7 @@ class PlayerViewModelTest {
             assertEquals(listOf(1L, 2L), saved.tracks.map { it.id })
             assertTrue(controller.playedQueues.isEmpty())
             assertFalse(vm.importState.value.isError)
-            assertEquals("Gespeichert: Uptempo Mix (2 Titel)", vm.importState.value.message)
+            assertEquals(t(R.string.import_saved, "Uptempo Mix", 2), vm.importState.value.message)
         }
 
     @Test
@@ -204,7 +207,7 @@ class PlayerViewModelTest {
             assertEquals(listOf(7L), tracks.map { it.id })
             assertEquals(0, start)
             assertTrue(vm.playlists.value.isEmpty())
-            assertEquals("Spielt: Kick", vm.importState.value.message)
+            assertEquals(t(R.string.import_playing, "Kick"), vm.importState.value.message)
         }
 
     @Test
@@ -234,7 +237,7 @@ class PlayerViewModelTest {
             val vm = viewModel()
 
             vm.importFromText("kein Link hier")
-            assertEquals("Kein Link gefunden", vm.importState.value.message)
+            assertEquals(t(R.string.import_no_link), vm.importState.value.message)
 
             vm.importFromText("https://example.com/song")
             assertTrue(vm.importState.value.isError)
@@ -282,6 +285,89 @@ class PlayerViewModelTest {
             assertEquals(listOf(1L, 2L), tracks.map { it.id })
             assertTrue(tracks.all { it.streamUrl == null })
             assertEquals(0, start)
+        }
+
+    @Test
+    fun `sending a playlist to soundcloud keeps its id and updates it the next time`() =
+        runTest {
+            controller.signedIn = true
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(1))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(
+                777L,
+                vm.playlists.value
+                    .single()
+                    .soundCloudId,
+            )
+            assertEquals(Triple("Auto", listOf(1L), null as Long?), controller.pushedPlaylists.single())
+
+            vm.addToPlaylist(vm.playlists.value.single(), track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(Triple("Auto", listOf(1L, 2L), 777L as Long?), controller.pushedPlaylists.last())
+        }
+
+    @Test
+    fun `sending to soundcloud needs a sign in and skips empty playlists`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Leer")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.signedIn = false
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.signedIn = true
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+            assertTrue(controller.pushedPlaylists.isEmpty())
+        }
+
+    @Test
+    fun `searching fills the results and a tap plays them from that result`() =
+        runTest {
+            controller.searchResults["Roar"] = LoadResult.Ok(listOf(track(1), track(2), track(3)))
+            val vm = viewModel()
+
+            vm.search("  Roar ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SearchOutcome.RESULTS, vm.searchState.value.outcome)
+            assertEquals(3, vm.searchState.value.results.size)
+            vm.playSearchResult(1)
+            val (tracks, start) = controller.playedQueues.last()
+            assertEquals(listOf(1L, 2L, 3L), tracks.map { it.id })
+            assertEquals(1, start)
+        }
+
+    @Test
+    fun `a search without hits or with an error says so and a blank one is ignored`() =
+        runTest {
+            controller.searchResults["Nope"] = LoadResult.Ok(emptyList())
+            controller.searchResults["Broken"] = LoadResult.Error("offline")
+            val vm = viewModel()
+
+            vm.search("   ")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.IDLE, vm.searchState.value.outcome)
+
+            vm.search("Nope")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.NO_RESULTS, vm.searchState.value.outcome)
+
+            vm.search("Broken")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.FAILED, vm.searchState.value.outcome)
+            assertEquals("offline", vm.searchState.value.errorDetail)
         }
 
     @Test
@@ -360,7 +446,7 @@ class PlayerViewModelTest {
             val (tracks, _) = controller.playedQueues.single()
             assertEquals(listOf(2L), tracks.map { it.id })
             assertFalse(vm.importState.value.isError)
-            assertTrue(vm.importMessage().startsWith("Gefunden und gestartet"))
+            assertTrue(vm.importMessage().startsWith(t(R.string.bridge_found_started)))
         }
 
     @Test
@@ -379,7 +465,7 @@ class PlayerViewModelTest {
             assertTrue(controller.playedQueues.isEmpty())
             assertEquals(2, vm.bridgeTrackIds().size)
             assertEquals(false, vm.bridgeState.value?.startedAutomatically)
-            assertTrue(vm.importMessage().startsWith("Kein sicherer Treffer"))
+            assertTrue(vm.importMessage().startsWith(t(R.string.bridge_pick_from_list)))
         }
 
     @Test
@@ -407,7 +493,7 @@ class PlayerViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertTrue(vm.importState.value.isError)
-            assertTrue(vm.importMessage().startsWith("Nichts Passendes"))
+            assertTrue(vm.importMessage().startsWith(t(R.string.bridge_nothing_found)))
             assertNull(vm.bridgeState.value)
             assertTrue(controller.playedQueues.isEmpty())
         }
@@ -460,13 +546,13 @@ class PlayerViewModelTest {
 
             assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.fetchedSpotifyPlaylists)
             val saved = vm.playlists.value.single()
-            assertEquals("Hardcore Mix (von Spotify)", saved.title)
+            assertEquals(singleName("Hardcore Mix"), saved.title)
             assertEquals(listOf(1L), saved.tracks.map { it.id })
             assertFalse(vm.importState.value.isError)
             val message =
                 vm.importState.value.message
                     .orEmpty()
-            assertTrue(message, message.contains("1 von 2"))
+            assertTrue(message, message.contains("|1|2|"))
             assertTrue(message, message.contains("Miss K8 - Unknown Banger"))
             assertTrue(controller.playedQueues.isEmpty())
         }
@@ -551,7 +637,7 @@ class PlayerViewModelTest {
 
             assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DX0XUsuxWHRQd"), controller.fetchedSpotifyPlaylists)
             val saved = vm.playlists.value.single()
-            assertEquals("Hardcore Mix + 1 weitere (von Spotify)", saved.title)
+            assertEquals(singleName(t(R.string.import_title_more, "Hardcore Mix", 1)), saved.title)
             // The same song in both parts is searched and stored once.
             assertEquals(listOf(1L), saved.tracks.map { it.id })
             assertEquals(1, controller.searchedQueries.count { it == "Angerfist Drum Go Bang" })
@@ -603,9 +689,9 @@ class PlayerViewModelTest {
             val lists = vm.playlists.value.sortedBy { it.title }
             assertEquals(
                 listOf(
-                    "Hardcore Mix – Teil 1 von 3 (von Spotify)",
-                    "Hardcore Mix – Teil 2 von 3 (von Spotify)",
-                    "Hardcore Mix – Teil 3 von 3 (von Spotify)",
+                    partName("Hardcore Mix", 1, 3),
+                    partName("Hardcore Mix", 2, 3),
+                    partName("Hardcore Mix", 3, 3),
                 ),
                 lists.map { it.title },
             )
@@ -614,7 +700,7 @@ class PlayerViewModelTest {
             val message =
                 vm.importState.value.message
                     .orEmpty()
-            assertTrue(message, message.contains("250 von 250"))
+            assertTrue(message, message.contains("|250|250|"))
         }
 
     @Test
@@ -631,7 +717,7 @@ class PlayerViewModelTest {
 
             assertTrue(controller.fetchedSpotifyPlaylists.isEmpty())
             val written = vm.playlists.value.single()
-            assertEquals("Hardcore Mix – Teil 2 von 2 (von Spotify)", written.title)
+            assertEquals(partName("Hardcore Mix", 2, 2), written.title)
             assertEquals(50, written.tracks.size)
             assertEquals(null, spotifyImports.flow.value)
         }
@@ -650,7 +736,7 @@ class PlayerViewModelTest {
             assertTrue(
                 vm.importState.value.message
                     .orEmpty()
-                    .contains("Unterbrochen"),
+                    .startsWith(t(R.string.import_interrupted)),
             )
             assertTrue(vm.playlists.value.isEmpty())
             assertEquals(0, spotifyImports.flow.value?.nextIndex)
@@ -681,7 +767,7 @@ class PlayerViewModelTest {
             assertTrue(
                 vm.importState.value.message
                     .orEmpty()
-                    .contains("höchstens 100"),
+                    .contains(t(R.string.import_cut_off_hint)),
             )
         }
 
@@ -701,7 +787,7 @@ class PlayerViewModelTest {
             val message =
                 vm.importState.value.message
                     .orEmpty()
-            assertTrue(message, message.startsWith("Nichts Neues"))
+            assertTrue(message, message.startsWith(t(R.string.import_nothing_new)))
             assertFalse(vm.importState.value.isError)
         }
 
@@ -719,13 +805,13 @@ class PlayerViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(2, vm.playlists.value.size)
-            val second = vm.playlists.value.first { it.title.contains("Nachtrag") }
-            assertEquals("Hardcore Mix (Nachtrag) (von Spotify)", second.title)
+            val second = vm.playlists.value.first { it.title.contains(t(R.string.import_addendum_title)) }
+            assertEquals(singleName(t(R.string.import_addendum_title, "Hardcore Mix")), second.title)
             assertEquals((101L..150L).toList(), second.tracks.map { it.id })
             val message =
                 vm.importState.value.message
                     .orEmpty()
-            assertTrue(message, message.contains("100 schon importierte Titel übersprungen"))
+            assertTrue(message, message.contains(t(R.string.import_skipped_note, 100)))
         }
 
     @Test
@@ -765,12 +851,12 @@ class PlayerViewModelTest {
             assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.spotifyApiRequests)
             assertTrue(controller.fetchedSpotifyPlaylists.isEmpty())
             val lists = vm.playlists.value.sortedBy { it.title }
-            assertEquals(listOf("Mein Mix – Teil 1 von 2 (von Spotify)", "Mein Mix – Teil 2 von 2 (von Spotify)"), lists.map { it.title })
+            assertEquals(listOf(partName("Mein Mix", 1, 2), partName("Mein Mix", 2, 2)), lists.map { it.title })
             assertEquals(listOf(100, 50), lists.map { it.tracks.size })
             assertFalse(
                 vm.importState.value.message
                     .orEmpty()
-                    .contains("höchstens 100"),
+                    .contains(t(R.string.import_cut_off_hint)),
             )
         }
 
@@ -790,8 +876,13 @@ class PlayerViewModelTest {
             val message =
                 vm.importState.value.message
                     .orEmpty()
-            assertTrue(message, message.contains("höchstens 100"))
-            assertTrue(message, message.contains("Spotify-Anmeldung: Spotify gibt die Titel nur für Playlists heraus"))
+            assertTrue(message, message.contains(t(R.string.import_cut_off_hint)))
+            assertTrue(
+                message,
+                message.contains(
+                    t(R.string.import_spotify_signin_note, "Spotify gibt die Titel nur für Playlists heraus, die dir gehören"),
+                ),
+            )
         }
 
     @Test
@@ -887,6 +978,19 @@ class PlayerViewModelTest {
             vm.dismissBridge()
             assertNull(vm.bridgeState.value)
         }
+
+    private fun t(
+        id: Int,
+        vararg args: Any,
+    ) = texts.get(id, *args)
+
+    private fun singleName(title: String) = "$title (${t(R.string.import_name_from_spotify)})"
+
+    private fun partName(
+        title: String,
+        part: Int,
+        total: Int,
+    ) = "$title – ${t(R.string.import_name_part, part, total)} (${t(R.string.import_name_from_spotify)})"
 
     private fun PlayerViewModel.importMessage(): String = importState.value.message.orEmpty()
 
@@ -988,7 +1092,7 @@ class PlayerViewModelTest {
             vm.playLibraryPlaylist(playlistItem(1, "Leer"))
             dispatcher.scheduler.advanceUntilIdle()
             assertTrue(vm.libraryState.value.isError)
-            assertEquals("Leer ist leer", vm.libraryState.value.message)
+            assertEquals(t(R.string.import_name_empty, "Leer"), vm.libraryState.value.message)
 
             controller.playlistTracksResult = LoadResult.Error("Netzwerkfehler")
             vm.playLibraryPlaylist(playlistItem(2))
@@ -1143,6 +1247,18 @@ class PlayerViewModelTest {
         override suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>> {
             loadedPlaylistIds.add(playlistId)
             return playlistTracksResult
+        }
+
+        val pushedPlaylists = mutableListOf<Triple<String, List<Long>, Long?>>()
+        var pushResult: LoadResult<Long> = LoadResult.Ok(777L)
+
+        override suspend fun pushPlaylistToSoundCloud(
+            title: String,
+            trackIds: List<Long>,
+            existingId: Long?,
+        ): LoadResult<Long> {
+            pushedPlaylists.add(Triple(title, trackIds, existingId))
+            return pushResult
         }
 
         override fun isSoundCloudSignedIn(): Boolean = signedIn

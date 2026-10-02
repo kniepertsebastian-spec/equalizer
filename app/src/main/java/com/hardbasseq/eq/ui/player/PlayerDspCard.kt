@@ -16,8 +16,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.dsp.BassMonoSummerSettings
 import com.hardbasseq.eq.dsp.PlayerDspSettings
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
@@ -40,28 +44,30 @@ fun PlayerDspCard(
         border = BorderStroke(1.dp, HardBassCardBorder),
     ) {
         Column(modifier = Modifier.padding(spacing.medium)) {
-            Text(text = "Klang-Feinschliff", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(text = stringResource(R.string.dsp_card_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
-                text = "Wirkt nur im eingebauten Player, nicht in Spotify & Co.",
+                text = stringResource(R.string.dsp_card_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             DspSwitchRow(
-                title = "Mono-Bass (empfohlen)",
-                subtitle = "Tiefbass unter ${settings.monoBassCutoffHz.toInt()} Hz in der Mitte - straffer, vor allem mit In-Ears",
+                title = stringResource(R.string.dsp_mono_bass_title),
+                subtitle = stringResource(R.string.dsp_mono_bass_desc, settings.monoBassCutoffHz.toInt()),
                 checked = settings.monoBassEnabled,
                 onCheckedChange = onMonoBass,
             )
             if (settings.monoBassEnabled) {
+                val cutoffDescription = stringResource(R.string.dsp_cutoff_description)
                 Slider(
+                    modifier = Modifier.semantics { contentDescription = cutoffDescription },
                     value = settings.monoBassCutoffHz,
                     onValueChange = onCutoff,
                     valueRange = BassMonoSummerSettings.MIN_CUTOFF_HZ..BassMonoSummerSettings.MAX_CUTOFF_HZ,
                 )
             }
             DspSwitchRow(
-                title = "Limiter (empfohlen)",
-                subtitle = "Verhindert Übersteuern durch Bass-Boost und Virtual Bass",
+                title = stringResource(R.string.dsp_limiter_title),
+                subtitle = stringResource(R.string.dsp_limiter_desc),
                 checked = settings.limiterEnabled,
                 onCheckedChange = onLimiter,
             )
@@ -89,6 +95,10 @@ private fun DspSwitchRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            modifier = Modifier.semantics { contentDescription = title },
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }

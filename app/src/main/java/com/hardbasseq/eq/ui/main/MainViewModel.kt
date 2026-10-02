@@ -1,7 +1,9 @@
 package com.hardbasseq.eq.ui.main
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
@@ -31,6 +33,7 @@ import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
 import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
+import com.hardbasseq.eq.dsp.LoudnessMatch
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.integration.PlayerBridge
@@ -47,17 +50,22 @@ import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetMetadata
 import com.hardbasseq.eq.preset.PresetRepository
+import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
+import com.hardbasseq.eq.text.TextProvider
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
@@ -86,6 +94,7 @@ import javax.inject.Inject
 // unchanged, hard 10:1 ceiling, so it always holds the line, but it may need to work
 // noticeably harder/more audibly on already-loud presets or devices than before.
 private const val INPUT_GAIN_SAFETY_RATIO = 0.1f
+private const val FEEDBACK_BUFFER = 8
 
 // roadmap-2026.md M5: "Extreme Boosts werden nicht still angewandt, sondern
 // begrenzt oder bestätigt" - an imported correction curve peaking above this
@@ -106,6 +115,15 @@ data class CorrectionProfileImportPreview(
     val isExtremeBoost: Boolean,
 )
 
+// The Original/EQ comparison: which side is heard and how much louder (+) or quieter (-) the EQ
+// side is estimated to be before the match.
+enum class CompareSide { ORIGINAL, EQ }
+
+data class CompareState(
+    val side: CompareSide,
+    val eqLevelDeltaDb: Float,
+)
+
 @HiltViewModel
 class MainViewModel
     @Inject
@@ -120,6 +138,7 @@ class MainViewModel
         private val appSettingsRepository: AppSettingsRepository,
         private val correctionProfileRepository: CorrectionProfileRepository,
         private val deviceProfileRepository: DeviceProfileRepository,
+        private val texts: TextProvider,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -259,6 +278,21 @@ class MainViewModel
             MutableStateFlow(ProcessingSettings().withPreset(BuiltInPresets.CleanPunch))
         val processingSettings: StateFlow<ProcessingSettings> = _processingSettings.asStateFlow()
 
+        // Original/EQ comparison with matched loudness: both sides run through the effect, the louder
+        // one turned down by the estimated difference. Ends with endCompare(); nothing is saved.
+        private val _compare = MutableStateFlow<CompareState?>(null)
+        val compare: StateFlow<CompareState?> = _compare.asStateFlow()
+
+        // Sound goal ("Gesang vorne", "Mehr Power", ...): a small curve on top of the genre preset.
+        private val _activeGoal = MutableStateFlow(SoundGoal.BALANCED)
+        val activeGoal: StateFlow<SoundGoal> = _activeGoal.asStateFlow()
+
+        fun setSoundGoal(goal: SoundGoal) {
+            _activeGoal.value = goal
+            recalculateBandGains()
+            persistLiveSettings()
+        }
+
         // "Kopfhörer-Power": wirkt nur im Kopfhörer-Modus.
         private val _headphonePower = MutableStateFlow(HeadphonePower())
         val headphonePower: StateFlow<HeadphonePower> = _headphonePower.asStateFlow()
@@ -362,6 +396,7 @@ class MainViewModel
                 _activeContext.value = saved.activeContext?.let { name -> SoundContext.entries.firstOrNull { it.name == name } }
                 contextSetAutomatically = saved.activeContextAutomatic
                 _headphonePower.value = saved.headphonePower.sanitized()
+                _activeGoal.value = SoundGoal.fromId(saved.activeGoal)
                 // A saved activePresetId/activeCorrectionProfileId that no longer
                 // resolves (its custom entry was deleted from another install, say)
                 // just keeps this ViewModel's own compiled-in default - not an
@@ -512,6 +547,7 @@ class MainViewModel
                         activeContext = _activeContext.value?.name,
                         activeContextAutomatic = contextSetAutomatically,
                         headphonePower = _headphonePower.value,
+                        activeGoal = _activeGoal.value.id.takeIf { _activeGoal.value != SoundGoal.BALANCED },
                     ),
                 )
             }
@@ -588,10 +624,12 @@ class MainViewModel
         fun acceptSuggestedCorrectionProfile() {
             val entry = _suggestedCorrectionProfile.value ?: return
             _suggestedCorrectionProfile.value = null
+            val profile = entry.profile.copy(deviceName = entry.displayName)
             viewModelScope.launch {
-                correctionProfileRepository.save(entry.profile)
+                correctionProfileRepository.save(profile)
             }
-            selectCorrectionProfile(entry.profile)
+            selectCorrectionProfile(profile)
+            feedback(R.string.feedback_profile_applied, profile.name)
         }
 
         fun dismissSuggestedCorrectionProfile() {
@@ -626,7 +664,7 @@ class MainViewModel
                     _importError.value = null
                 },
                 onFailure = { e ->
-                    _importError.value = e.message ?: "Import fehlgeschlagen: unbekannter Fehler"
+                    _importError.value = e.message ?: texts.get(R.string.import_failed_unknown)
                     _pendingImportPreview.value = null
                 },
             )
@@ -643,6 +681,7 @@ class MainViewModel
                 correctionProfileRepository.save(preview.profile)
             }
             selectCorrectionProfile(preview.profile)
+            feedback(R.string.feedback_profile_imported, preview.profile.name)
         }
 
         fun cancelCorrectionProfileImport() {
@@ -696,7 +735,22 @@ class MainViewModel
         }
 
         // Discards manual edits, re-applying activePreset fresh.
-        fun resetToActivePreset() = selectPreset(_activePreset.value)
+        fun resetToActivePreset() {
+            selectPreset(_activePreset.value)
+            feedback(R.string.feedback_reset, _activePreset.value.name)
+        }
+
+        // Short confirmations of preset actions ("saved", "duplicated", ...), shown by the screen as a
+        // message; nothing is stored. Dropped when nobody is listening.
+        private val _feedback = MutableSharedFlow<String>(extraBufferCapacity = FEEDBACK_BUFFER)
+        val feedback: SharedFlow<String> = _feedback.asSharedFlow()
+
+        private fun feedback(
+            @StringRes id: Int,
+            vararg args: Any,
+        ) {
+            _feedback.tryEmit(texts.get(id, *args))
+        }
 
         fun saveAsNewPreset(name: String) {
             viewModelScope.launch {
@@ -705,6 +759,7 @@ class MainViewModel
                 _activePreset.value = newPreset
                 _isDirty.value = false
                 persistLiveSettings()
+                feedback(R.string.feedback_saved, newPreset.name)
             }
         }
 
@@ -713,11 +768,12 @@ class MainViewModel
                 val copy =
                     preset.copy(
                         id = UUID.randomUUID().toString(),
-                        name = "${preset.name} (Kopie)",
+                        name = texts.get(R.string.preset_copy_name, preset.name),
                         metadata = preset.metadata.copy(builtIn = false),
                     )
                 presetRepository.save(copy)
                 selectPreset(copy)
+                feedback(R.string.feedback_duplicated, copy.name)
             }
         }
 
@@ -735,6 +791,7 @@ class MainViewModel
                     _activePreset.value = renamed
                     persistLiveSettings()
                 }
+                feedback(R.string.feedback_renamed, newName)
             }
         }
 
@@ -755,6 +812,7 @@ class MainViewModel
                 if (_activePreset.value.id == preset.id) {
                     selectPreset(BuiltInPresets.CleanPunch)
                 }
+                feedback(R.string.feedback_deleted, preset.name)
             }
         }
 
@@ -928,6 +986,7 @@ class MainViewModel
                     _activePreset.value.targetCurve,
                     headphoneCurve,
                     loudnessCurve,
+                    _activeGoal.value.curve,
                     _activeContext.value?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
                     contextCurve(),
                 ),
@@ -1057,11 +1116,60 @@ class MainViewModel
 
         private fun applySettings(settings: ProcessingSettings) {
             _processingSettings.value = settings
-            viewModelScope.launch {
-                audioEngine.apply(settings)
-            }
-            pushVirtualBass(settings)
+            pushToEngine(settings)
             persistLiveSettings()
+        }
+
+        // What the engine really gets: the live settings, or - while the Original/EQ comparison
+        // runs - the loudness-matched version of the chosen side (see LoudnessMatch).
+        private fun pushToEngine(settings: ProcessingSettings) {
+            val compare = _compare.value
+            val forEngine =
+                if (compare == null) {
+                    settings
+                } else {
+                    val bands = capabilities.value.bands
+                    val plan = LoudnessMatch.plan(eqLevelDeltaDb(settings, bands))
+                    when (compare.side) {
+                        CompareSide.EQ -> settings.copy(inputGainDb = settings.inputGainDb + plan.eqExtraGainDb)
+                        CompareSide.ORIGINAL ->
+                            settings.copy(
+                                bypass = false,
+                                bandGainsDb = bands.associate { it.index to 0f },
+                                inputGainDb = plan.originalGainDb,
+                                limiterEnabled = false,
+                                mbcEnabled = false,
+                            )
+                    }
+                }
+            viewModelScope.launch {
+                audioEngine.apply(forEngine)
+            }
+            pushVirtualBass(if (compare?.side == CompareSide.ORIGINAL) settings.copy(bypass = true) else settings)
+        }
+
+        private fun eqLevelDeltaDb(
+            settings: ProcessingSettings,
+            bands: List<EqualizerBandCapabilities>,
+        ): Float =
+            LoudnessMatch.eqLevelDeltaDb(
+                bands.map { it.centerFreqHz.toFloat() to (settings.bandGainsDb[it.index] ?: 0f) },
+                settings.inputGainDb,
+            )
+
+        fun startCompare() = setCompareSide(CompareSide.EQ)
+
+        fun setCompareSide(side: CompareSide) {
+            val settings = _processingSettings.value
+            val delta = eqLevelDeltaDb(settings, capabilities.value.bands)
+            _compare.value = CompareState(side = side, eqLevelDeltaDb = delta)
+            pushToEngine(settings)
+        }
+
+        fun endCompare() {
+            if (_compare.value == null) return
+            _compare.value = null
+            pushToEngine(_processingSettings.value)
         }
 
         // Virtual bass is not part of the system effect chain (AudioEngine) - it runs

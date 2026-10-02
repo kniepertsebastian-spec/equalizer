@@ -1,11 +1,13 @@
 package com.hardbasseq.eq.auto
 
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.discovery.DiscoveryRepository
 import com.hardbasseq.eq.discovery.DiscoveryState
 import com.hardbasseq.eq.discovery.DiscoveryTrack
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
 import com.hardbasseq.eq.playlist.SavedTrack
+import com.hardbasseq.eq.text.FakeTextProvider
 import com.soundcloud.equalizer.player.model.TrackItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +25,7 @@ class AppAutoCatalogTest {
     private var likeLoads = 0
     private var searchResult: List<TrackItem> = emptyList()
     private val searches = mutableListOf<String>()
+    private val texts = FakeTextProvider()
     private val catalog =
         AppAutoCatalog(
             playlists,
@@ -35,6 +38,7 @@ class AppAutoCatalogTest {
                 searches.add(query)
                 searchResult
             },
+            texts,
         )
 
     private fun saved(id: Long) = SavedTrack(id, "Track $id", "Artist")
@@ -49,7 +53,14 @@ class AppAutoCatalogTest {
         runTest {
             val root = catalog.children(AutoMediaId.ROOT)
 
-            assertEquals(listOf("Meine Playlists", "Interesting new uploads", "Likes"), root.map { it.title })
+            assertEquals(
+                listOf(
+                    texts.get(R.string.auto_my_playlists),
+                    texts.get(R.string.discovery_title),
+                    texts.get(R.string.library_likes_title),
+                ),
+                root.map { it.title },
+            )
             assertTrue(root.none { it.playable })
         }
 

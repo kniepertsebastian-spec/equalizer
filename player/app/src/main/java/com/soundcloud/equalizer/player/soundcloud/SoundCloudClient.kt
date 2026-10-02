@@ -1,5 +1,7 @@
 package com.soundcloud.equalizer.player.soundcloud
 
+import com.soundcloud.equalizer.player.R
+import com.soundcloud.equalizer.player.PlayerText
 import com.hardbasseq.eq.discovery.IsoTime
 import com.hardbasseq.eq.link.ApiUrl
 import com.hardbasseq.eq.link.ShareLink
@@ -14,8 +16,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
@@ -70,7 +74,7 @@ class SoundCloudClient(
 
         val html = okHttpClient.newCall(mainPageRequest).execute().use { response ->
             if (!response.isSuccessful) {
-                throw IOException("Failed to load soundcloud.com (HTTP ${response.code}) while looking for a client_id")
+                throw IOException(PlayerText.get(R.string.err_soundcloud_load, response.code))
             }
             response.body?.string() ?: ""
         }
@@ -103,8 +107,7 @@ class SoundCloudClient(
         }
 
         throw IOException(
-            "Couldn't find a client_id in any of soundcloud.com's ${scriptUrls.size} asset " +
-                "bundles - SoundCloud likely changed how it's embedded"
+            PlayerText.get(R.string.err_soundcloud_client_id, scriptUrls.size)
         )
     }
 
@@ -138,7 +141,7 @@ class SoundCloudClient(
 
         response.use {
             if (!it.isSuccessful) {
-                throw IOException("SoundCloud returned HTTP ${it.code} for this request")
+                throw IOException(PlayerText.get(R.string.err_soundcloud_http, it.code))
             }
             (it.body?.string() ?: "") to clientId
         }
@@ -197,7 +200,7 @@ class SoundCloudClient(
                     async {
                         val obj = collection.getJSONObject(i)
                         val id = obj.optLong("id")
-                        val title = obj.optString("title", "Untitled Playlist")
+                        val title = obj.optString("title", PlayerText.get(R.string.name_untitled_playlist))
                         val trackCount = obj.optInt("track_count", 0)
                         val artwork = obj.optString("artwork_url", "")
 
@@ -273,30 +276,30 @@ class SoundCloudClient(
         val (jsonStr, clientId) = executeWithClientId { clientId ->
             "https://api-v2.soundcloud.com/resolve?url=${java.net.URLEncoder.encode(normalized, "UTF-8")}&client_id=$clientId"
         }
-        if (jsonStr.isBlank()) return@withContext ResolvedLink.Unsupported("SoundCloud hat nichts zu diesem Link geliefert")
+        if (jsonStr.isBlank()) return@withContext ResolvedLink.Unsupported(PlayerText.get(R.string.err_link_nothing))
 
         val root = JSONObject(jsonStr)
         when (root.optString("kind")) {
             "track" -> {
                 val track = parseTrack(root, clientId, resolveStream = false)
-                    ?: return@withContext ResolvedLink.Unsupported("Der Titel konnte nicht gelesen werden")
+                    ?: return@withContext ResolvedLink.Unsupported(PlayerText.get(R.string.err_track_unreadable))
                 ResolvedLink.SingleTrack(track)
             }
 
             "playlist" -> {
                 val tracks = hydrateTracks(arrayObjects(root.optJSONArray("tracks")), clientId)
                 if (tracks.isEmpty()) {
-                    ResolvedLink.Unsupported("Die Playlist ist leer oder privat")
+                    ResolvedLink.Unsupported(PlayerText.get(R.string.err_playlist_empty))
                 } else {
                     ResolvedLink.Playlist(
-                        title = root.optString("title", "Playlist").ifBlank { "Playlist" },
+                        title = root.optString("title", PlayerText.get(R.string.name_playlist)).ifBlank { PlayerText.get(R.string.name_playlist) },
                         sourceUrl = normalized,
                         tracks = tracks,
                     )
                 }
             }
 
-            else -> ResolvedLink.Unsupported("Nur Titel- und Playlist-Links werden unterstützt")
+            else -> ResolvedLink.Unsupported(PlayerText.get(R.string.err_link_unsupported))
         }
     }
 
@@ -318,7 +321,7 @@ class SoundCloudClient(
         if (array == null) emptyList() else (0 until array.length()).mapNotNull { array.optJSONObject(it) }
 
     private fun requireSignedIn() {
-        if (userAuthToken.isNullOrBlank()) throw IOException("Nicht bei SoundCloud angemeldet")
+        if (userAuthToken.isNullOrBlank()) throw IOException(PlayerText.get(R.string.err_not_signed_in))
     }
 
     // The signed-in user's id; needed for the per-user endpoints below.
@@ -326,7 +329,7 @@ class SoundCloudClient(
         requireSignedIn()
         val (jsonStr, _) = executeWithClientId { clientId -> "https://api-v2.soundcloud.com/me?client_id=$clientId" }
         val id = JSONObject(jsonStr).optLong("id", -1)
-        if (id <= 0) throw IOException("SoundCloud hat dein Konto nicht erkannt - bitte neu anmelden")
+        if (id <= 0) throw IOException(PlayerText.get(R.string.err_account_unknown))
         return id
     }
 
@@ -355,7 +358,7 @@ class SoundCloudClient(
         val firstTrackArtwork = obj.optJSONArray("tracks")?.optJSONObject(0)?.let { optStringOrNull(it, "artwork_url") }
         return PlaylistItem(
             id = id,
-            title = optStringOrNull(obj, "title") ?: "Playlist",
+            title = optStringOrNull(obj, "title") ?: PlayerText.get(R.string.name_playlist),
             trackCount = obj.optInt("track_count", 0),
             artworkUrl = optStringOrNull(obj, "artwork_url") ?: firstTrackArtwork,
         )
@@ -386,6 +389,46 @@ class SoundCloudClient(
     }
 
     /** One track with a freshly resolved stream URL, or null if it cannot be played. */
+    /**
+     * Writes a playlist into the signed-in user's account: a new private one when [existingId] is
+     * null, otherwise the tracks (and title) of that playlist are replaced. Returns its id.
+     * Uses the web player's own api-v2 calls (POST/PUT /playlists) with the user's session token.
+     */
+    suspend fun pushPlaylist(title: String, trackIds: List<Long>, existingId: Long?): Long = withContext(Dispatchers.IO) {
+        requireSignedIn()
+        val playlistJson = JSONObject()
+            .put("title", title)
+            .put("tracks", JSONArray(trackIds))
+        if (existingId == null) playlistJson.put("sharing", "private")
+        val body = JSONObject().put("playlist", playlistJson).toString()
+            .toRequestBody("application/json".toMediaType())
+
+        var clientId = getClientId()
+        fun send(id: String): Response {
+            val url = if (existingId == null) {
+                "https://api-v2.soundcloud.com/playlists?client_id=$id"
+            } else {
+                "https://api-v2.soundcloud.com/playlists/$existingId?client_id=$id"
+            }
+            val request = buildRequest(url).newBuilder()
+                .method(if (existingId == null) "POST" else "PUT", body)
+                .build()
+            return okHttpClient.newCall(request).execute()
+        }
+        var response = send(clientId)
+        if (!response.isSuccessful && (response.code == 401 || response.code == 403)) {
+            response.close()
+            clientId = getClientId(forceRefresh = true)
+            response = send(clientId)
+        }
+        response.use {
+            if (!it.isSuccessful) throw IOException(PlayerText.get(R.string.err_playlist_rejected, it.code))
+            val id = JSONObject(it.body?.string() ?: "").optLong("id", -1)
+            if (id <= 0) throw IOException(PlayerText.get(R.string.err_playlist_no_id))
+            id
+        }
+    }
+
     suspend fun getTrack(id: Long): TrackItem? = withContext(Dispatchers.IO) {
         val (jsonStr, clientId) = executeWithClientId { clientId ->
             "https://api-v2.soundcloud.com/tracks/$id?client_id=$clientId"
@@ -420,12 +463,12 @@ class SoundCloudClient(
         val id = obj.optLong("id", -1)
         if (id == -1L) return null
 
-        val title = obj.optString("title", "Unknown Track")
+        val title = obj.optString("title", PlayerText.get(R.string.name_unknown_track))
         val duration = obj.optLong("duration", 0L)
         val artworkUrl = obj.optString("artwork_url", null)
 
         val userObj = obj.optJSONObject("user")
-        val artist = userObj?.optString("username", "Unknown Artist") ?: "Unknown Artist"
+        val artist = userObj?.optString("username", PlayerText.get(R.string.name_unknown_artist)) ?: PlayerText.get(R.string.name_unknown_artist)
 
         var streamUrl: String? = null
         var isPreview = false

@@ -6,14 +6,17 @@ import kotlinx.serialization.Serializable
 // M3 "Datenmodell": headphone/speaker correction curve, kept separate from the
 // VoicingPreset (== the existing Preset/BuiltInPresets) it gets combined with via
 // CurveComposer. sourceLabel is shown in the UI (e.g. "AutoEQ: Sennheiser HD 599",
-// "Manuell") so a user can tell an imported correction from a hand-tuned one.
+// "Manual") so a user can tell an imported correction from a hand-tuned one.
 @Serializable
 data class CorrectionProfile(
     val id: String,
     val name: String,
     val curve: List<TargetPoint> = emptyList(),
-    val sourceLabel: String = "Manuell",
+    val sourceLabel: String = "Manual",
     val builtIn: Boolean = false,
+    // The headphone / output this correction was made for (for example the AutoEQ catalog entry), shown
+    // next to its origin; null when unknown. Defaulted so profiles saved before still decode.
+    val deviceName: String? = null,
 )
 
 object BuiltInCorrectionProfiles {
@@ -23,9 +26,9 @@ object BuiltInCorrectionProfiles {
     val None =
         CorrectionProfile(
             id = "correction_none",
-            name = "Kein Korrekturprofil",
+            name = "No correction profile",
             curve = emptyList(),
-            sourceLabel = "Keine Korrektur",
+            sourceLabel = "No correction",
             builtIn = true,
         )
 

@@ -2,6 +2,7 @@ package com.hardbasseq.eq.ui.player
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
@@ -21,6 +22,7 @@ import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
 import com.hardbasseq.eq.playlist.SavedTrack
 import com.hardbasseq.eq.playlist.SpotifyImportRepository
+import com.hardbasseq.eq.text.TextProvider
 import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -60,6 +62,17 @@ data class BridgeUiState(
     val startedAutomatically: Boolean,
 )
 
+// The SoundCloud search tab: the last query, its results and what to say when there are none.
+enum class SearchOutcome { IDLE, RESULTS, NO_RESULTS, FAILED }
+
+data class SearchUiState(
+    val query: String = "",
+    val isLoading: Boolean = false,
+    val results: List<TrackItem> = emptyList(),
+    val outcome: SearchOutcome = SearchOutcome.IDLE,
+    val errorDetail: String? = null,
+)
+
 // The Spotify sign-in as the player screen shows it: the client id of the user's own Spotify
 // developer app and whether they are signed in (needed to read all songs of long playlists).
 data class SpotifyAccountUi(
@@ -82,6 +95,7 @@ class PlayerViewModel
         private val controller: PlayerController,
         private val playlistRepository: PlaylistRepository,
         private val spotifyImportRepository: SpotifyImportRepository,
+        private val texts: TextProvider,
     ) : ViewModel() {
         val nowPlaying: StateFlow<NowPlaying?> = controller.nowPlaying
         val queue: StateFlow<List<TrackItem>> = controller.queue
@@ -104,6 +118,9 @@ class PlayerViewModel
 
         private val _libraryState = MutableStateFlow(LibraryUiState())
         val libraryState: StateFlow<LibraryUiState> = _libraryState.asStateFlow()
+
+        private val _searchState = MutableStateFlow(SearchUiState())
+        val searchState: StateFlow<SearchUiState> = _searchState.asStateFlow()
 
         private val _bridgeState = MutableStateFlow<BridgeUiState?>(null)
         val bridgeState: StateFlow<BridgeUiState?> = _bridgeState.asStateFlow()
@@ -156,7 +173,7 @@ class PlayerViewModel
             }
         }
 
-        fun playLikedTracks() = playLoaded("Likes") { controller.loadLikedTracks() }
+        fun playLikedTracks() = playLoaded(texts.get(R.string.library_likes_title)) { controller.loadLikedTracks() }
 
         fun playLibraryPlaylist(playlist: PlaylistItem) = playLoaded(playlist.title) { controller.loadPlaylistTracks(playlist.id) }
 
@@ -168,11 +185,13 @@ class PlayerViewModel
         ) {
             viewModelScope.launch {
                 val before = _libraryState.value
-                _libraryState.value = before.copy(isLoading = true, message = "Lade $name …", isError = false)
+                _libraryState.value =
+                    before.copy(isLoading = true, message = texts.get(R.string.import_loading_name, name), isError = false)
                 when (val result = load()) {
                     is LoadResult.Ok -> {
                         if (result.value.isEmpty()) {
-                            _libraryState.value = before.copy(isLoading = false, message = "$name ist leer", isError = true)
+                            _libraryState.value =
+                                before.copy(isLoading = false, message = texts.get(R.string.import_name_empty, name), isError = true)
                         } else {
                             controller.playQueue(result.value, 0)
                             _libraryState.value = before.copy(isLoading = false, message = null, isError = false)
@@ -185,11 +204,47 @@ class PlayerViewModel
             }
         }
 
+        /** Searches SoundCloud for [query]; blank queries are ignored. The state keeps the results for the search tab. */
+        fun search(query: String) {
+            val trimmed = query.trim()
+            if (trimmed.isEmpty()) return
+            viewModelScope.launch {
+                _searchState.value = SearchUiState(query = trimmed, isLoading = true)
+                _searchState.value =
+                    when (val result = controller.searchSoundCloud(trimmed, SEARCH_RESULT_LIMIT)) {
+                        is LoadResult.Ok ->
+                            SearchUiState(
+                                query = trimmed,
+                                results = result.value,
+                                outcome = if (result.value.isEmpty()) SearchOutcome.NO_RESULTS else SearchOutcome.RESULTS,
+                            )
+
+                        is LoadResult.Error ->
+                            SearchUiState(query = trimmed, outcome = SearchOutcome.FAILED, errorDetail = result.message)
+                    }
+            }
+        }
+
+        /** Plays the search results as the queue, starting with the tapped one. */
+        fun playSearchResult(index: Int) {
+            val results = _searchState.value.results
+            if (index !in results.indices) return
+            controller.playQueue(results, index)
+        }
+
         fun signIn() = controller.openSoundCloudSignIn()
 
         fun signOut() {
             controller.signOutSoundCloud()
             refreshAccount()
+        }
+
+        // The tab the player screen should switch to (a shared link wants the playlists), once.
+        private val _requestedTab = MutableStateFlow<PlayerTab?>(null)
+        val requestedTab: StateFlow<PlayerTab?> = _requestedTab.asStateFlow()
+
+        fun consumeRequestedTab() {
+            _requestedTab.value = null
         }
 
         fun consumeShowPlayerRequest() {
@@ -209,12 +264,15 @@ class PlayerViewModel
             text: String,
             fromShare: Boolean = false,
         ) {
-            if (fromShare) _showPlayerRequest.value = true
+            if (fromShare) {
+                _showPlayerRequest.value = true
+                _requestedTab.value = PlayerTab.PLAYLISTS
+            }
             _bridgeState.value = null
 
             val url = ShareLink.extractUrl(text)
             if (url == null) {
-                _importState.value = ImportUiState(message = "Kein Link gefunden", isError = true)
+                _importState.value = ImportUiState(message = texts.get(R.string.import_no_link), isError = true)
                 return
             }
             when (ShareLink.classify(url)) {
@@ -235,7 +293,7 @@ class PlayerViewModel
                     return bridgeExternalSong(videoId?.let { ShareLink.canonicalYouTubeUrl(it) }, isYouTube = true)
                 }
 
-                LinkSource.OTHER -> return fail("Nur SoundCloud-Links werden unterstützt")
+                LinkSource.OTHER -> return fail(texts.get(R.string.import_only_soundcloud))
             }
 
             viewModelScope.launch {
@@ -243,7 +301,7 @@ class PlayerViewModel
                 when (val result = controller.resolveLink(url)) {
                     is LinkImportResult.Track -> {
                         controller.playQueue(listOf(result.track), 0)
-                        _importState.value = ImportUiState(message = "Spielt: ${result.track.title}")
+                        _importState.value = ImportUiState(message = texts.get(R.string.import_playing, result.track.title))
                     }
 
                     is LinkImportResult.Playlist -> {
@@ -258,7 +316,7 @@ class PlayerViewModel
                                 createdAtMs = System.currentTimeMillis(),
                             ),
                         )
-                        _importState.value = ImportUiState(message = "Gespeichert: ${result.title} (${result.tracks.size} Titel)")
+                        _importState.value = ImportUiState(message = texts.get(R.string.import_saved, result.title, result.tracks.size))
                     }
 
                     is LinkImportResult.Failed -> _importState.value = ImportUiState(message = result.message, isError = true)
@@ -300,13 +358,13 @@ class PlayerViewModel
                     if (todo.isEmpty()) {
                         _importState.value =
                             ImportUiState(
-                                message = "Nichts Neues: alle ${read.first.total} Titel sind schon in deinen Playlists${read.second}",
+                                message = texts.get(R.string.import_nothing_new, read.first.total, read.second),
                             )
                         return@launch
                     }
                     val alreadyDone = read.first.total - todo.size
-                    val title = if (alreadyDone > 0) "${read.first.title} (Nachtrag)" else read.first.title
-                    val skippedNote = if (alreadyDone > 0) ". $alreadyDone schon importierte Titel übersprungen" else ""
+                    val title = if (alreadyDone > 0) texts.get(R.string.import_addendum_title, read.first.title) else read.first.title
+                    val skippedNote = if (alreadyDone > 0) texts.get(R.string.import_skipped_note, alreadyDone) else ""
                     runSpotifyImport(SpotifyImportPlan.start(key, title, todo), readNote = read.second + skippedNote)
                 }
         }
@@ -344,7 +402,7 @@ class PlayerViewModel
             var apiNote = ""
             playlistIds.forEachIndexed { index, id ->
                 _importState.value =
-                    ImportUiState(isLoading = true, message = "Lese die Spotify-Playlist … ${index + 1} von ${playlistIds.size}")
+                    ImportUiState(isLoading = true, message = texts.get(R.string.import_reading_spotify, index + 1, playlistIds.size))
                 // Signed in to Spotify: its Web API gives all songs of the user's own playlists.
                 if (controller.isSpotifySignedIn()) {
                     when (val viaApi = controller.fetchSpotifyPlaylistViaApi(id)) {
@@ -353,14 +411,14 @@ class PlayerViewModel
                             return@forEachIndexed
                         }
 
-                        is LoadResult.Error -> apiNote = " (Spotify-Anmeldung: ${viaApi.message})"
+                        is LoadResult.Error -> apiNote = texts.get(R.string.import_spotify_signin_note, viaApi.message)
                     }
                 }
                 when (val result = controller.fetchSpotifyPlaylistPage(id)) {
                     is LoadResult.Ok -> {
                         val page = SpotifyPlaylistPage.parse(result.value)
                         if (page == null) {
-                            lastError = "Die Titel dieser Spotify-Playlist konnten nicht gelesen werden (nur öffentliche Playlists)"
+                            lastError = texts.get(R.string.import_spotify_unreadable)
                         } else {
                             parts.add(page)
                             if (page.tracks.size == SpotifyImportPlan.BATCH_SIZE) cutOffByPage = true
@@ -371,7 +429,7 @@ class PlayerViewModel
                 }
             }
             if (parts.isEmpty()) {
-                fail(lastError ?: "Die Spotify-Playlist konnte nicht gelesen werden")
+                fail(lastError ?: texts.get(R.string.import_spotify_failed))
                 return null
             }
             // The same song in two parts is searched once.
@@ -380,10 +438,24 @@ class PlayerViewModel
                     .flatMap { it.tracks }
                     .distinctBy { it.artist.lowercase() to it.title.lowercase() }
                     .take(MAX_SPOTIFY_TRACKS)
-            val title = if (parts.size == 1) parts.first().title else "${parts.first().title} + ${parts.size - 1} weitere"
-            val unreadable = if (parts.size < playlistIds.size) " (${playlistIds.size - parts.size} Teil(e) nicht lesbar)" else ""
+            val title =
+                if (parts.size ==
+                    1
+                ) {
+                    parts.first().title
+                } else {
+                    texts.get(R.string.import_title_more, parts.first().title, parts.size - 1)
+                }
+            val unreadable =
+                if (parts.size <
+                    playlistIds.size
+                ) {
+                    texts.get(R.string.import_parts_unreadable, playlistIds.size - parts.size)
+                } else {
+                    ""
+                }
             // Spotify's page stops at 100 songs: a list of exactly that size is probably cut off.
-            val cutOff = if (cutOffByPage) CUT_OFF_HINT + apiNote else ""
+            val cutOff = if (cutOffByPage) texts.get(R.string.import_cut_off_hint) + apiNote else ""
             return SpotifyImportPlan.start(key, title, wanted) to (unreadable + cutOff)
         }
 
@@ -411,7 +483,7 @@ class PlayerViewModel
                     _importState.value =
                         ImportUiState(
                             isLoading = true,
-                            message = "Teil $part von $totalParts: Suche auf SoundCloud … $done von ${state.total}",
+                            message = texts.get(R.string.import_part_progress, part, totalParts, done, state.total),
                         )
                     val query = TrackQueryBuilder.fromArtistAndTitle(entry.artist, entry.title)
                     when (val outcome = lookUp(query)) {
@@ -431,8 +503,7 @@ class PlayerViewModel
                     _importState.value =
                         ImportUiState(
                             message =
-                                "Unterbrochen bei ${state.nextIndex} von ${state.total} (Verbindung?). " +
-                                    "„Fortsetzen“ macht hier weiter.",
+                                texts.get(R.string.import_interrupted, state.nextIndex, state.total),
                             isError = true,
                         )
                     spotifyImportRepository.save(state)
@@ -441,7 +512,7 @@ class PlayerViewModel
                 var wrote = false
                 if (found.isNotEmpty()) {
                     val existing = playlistRepository.playlists.first()
-                    val name = SpotifyImportPlan.playlistName(state.title, part, totalParts)
+                    val name = spotifyPlaylistName(state.title, part, totalParts)
                     val playlist =
                         PlaylistEditing
                             .create(name, existing, System.currentTimeMillis())
@@ -458,21 +529,46 @@ class PlayerViewModel
             }
             spotifyImportRepository.clear()
             if (state.foundSoFar == 0) {
-                fail("Nichts davon gibt es auf SoundCloud (oder die Suche ging nicht)")
+                fail(texts.get(R.string.import_none_found))
                 return
             }
             val skipped =
                 if (missing.isEmpty()) {
                     ""
                 } else {
-                    ". Nicht gefunden: ${missing.take(MAX_LISTED_MISSING).joinToString(", ")}" +
-                        if (missing.size > MAX_LISTED_MISSING) " und ${missing.size - MAX_LISTED_MISSING} weitere" else ""
+                    texts.get(R.string.import_missing_list, missing.take(MAX_LISTED_MISSING).joinToString(", ")) +
+                        if (missing.size >
+                            MAX_LISTED_MISSING
+                        ) {
+                            texts.get(R.string.import_missing_more, missing.size - MAX_LISTED_MISSING)
+                        } else {
+                            ""
+                        }
                 }
-            val name = SpotifyImportPlan.playlistName(state.title, 1, 1)
-            val headline = if (totalParts <= 1) "„$name“ angelegt" else "„${state.title}“ in ${state.partsWritten} Playlists angelegt"
+            val name = spotifyPlaylistName(state.title, 1, 1)
+            val headline =
+                if (totalParts <=
+                    1
+                ) {
+                    texts.get(R.string.import_headline_one, name)
+                } else {
+                    texts.get(R.string.import_headline_many, state.title, state.partsWritten)
+                }
             _importState.value =
-                ImportUiState(message = "$headline: ${state.foundSoFar} von ${state.total} Titeln gefunden$readNote$skipped")
+                ImportUiState(message = texts.get(R.string.import_result, headline, state.foundSoFar, state.total, readNote, skipped))
         }
+
+        private fun spotifyPlaylistName(
+            title: String,
+            part: Int,
+            totalParts: Int,
+        ) = SpotifyImportPlan.playlistName(
+            title,
+            part,
+            totalParts,
+            fromSpotify = texts.get(R.string.import_name_from_spotify),
+            partOfTotal = { number, total -> texts.get(R.string.import_name_part, number, total) },
+        )
 
         // What looking a song up on SoundCloud gave: a sure match, nothing, or an error.
         private sealed interface Lookup {
@@ -504,12 +600,12 @@ class PlayerViewModel
                 val existing = playlistRepository.playlists.first()
                 val merged = PlaylistEditing.merge(title, sources, existing, System.currentTimeMillis())
                 if (merged == null) {
-                    fail("Bitte mindestens eine Playlist und einen Namen angeben")
+                    fail(texts.get(R.string.merge_needs_input))
                     return@launch
                 }
                 playlistRepository.save(merged)
                 _importState.value =
-                    ImportUiState(message = "„${merged.title}“ angelegt: ${merged.tracks.size} Titel aus ${sources.size} Playlists")
+                    ImportUiState(message = texts.get(R.string.merge_done, merged.title, merged.tracks.size, sources.size))
             }
         }
 
@@ -524,11 +620,11 @@ class PlayerViewModel
         ) {
             if (canonicalUrl == null) {
                 val service = if (isYouTube) "YouTube" else "Spotify"
-                fail("Nur einzelne $service-Titel werden unterstützt - keine Playlists, Alben, Kanäle oder Kurzlinks")
+                fail(texts.get(R.string.bridge_single_only, service))
                 return
             }
             viewModelScope.launch {
-                _importState.value = ImportUiState(isLoading = true, message = "Lese den Titel …")
+                _importState.value = ImportUiState(isLoading = true, message = texts.get(R.string.bridge_reading_title))
                 // Spotify's preview names only the song; its public track page also names the
                 // artist, which makes the SoundCloud search (and the ranking) far more precise.
                 val spotifyQuery = spotifyTrackId?.let { spotifyQueryFor(it) }
@@ -548,7 +644,7 @@ class PlayerViewModel
                             TrackQueryBuilder.fromTitleOnly(info.title)
                         }
                     }
-                _importState.value = ImportUiState(isLoading = true, message = "Suche „${query.label}“ auf SoundCloud …")
+                _importState.value = ImportUiState(isLoading = true, message = texts.get(R.string.bridge_searching, query.label))
 
                 val candidates =
                     when (val result = candidatesFor(query)) {
@@ -563,7 +659,7 @@ class PlayerViewModel
                         .take(MAX_SHOWN_MATCHES)
                         .map { BridgeMatch(track = it.first, score = it.second) }
                 if (matches.isEmpty()) {
-                    fail("Nichts Passendes auf SoundCloud gefunden für „${query.label}“")
+                    fail(texts.get(R.string.bridge_nothing_found, query.label))
                     return@launch
                 }
 
@@ -572,9 +668,9 @@ class PlayerViewModel
                 _bridgeState.value = BridgeUiState(label = query.label, matches = matches, startedAutomatically = sure)
                 val message =
                     if (sure) {
-                        "Gefunden und gestartet: ${matches.first().track.title}"
+                        texts.get(R.string.bridge_found_started, matches.first().track.title)
                     } else {
-                        "Kein sicherer Treffer - wähle einen aus der Liste"
+                        texts.get(R.string.bridge_pick_from_list)
                     }
                 _importState.value = ImportUiState(message = message)
             }
@@ -633,11 +729,11 @@ class PlayerViewModel
                 val existing = playlistRepository.playlists.first()
                 val playlist = PlaylistEditing.create(title, existing, System.currentTimeMillis(), firstTrack?.toSaved())
                 if (playlist == null) {
-                    fail("Bitte einen Namen eingeben")
+                    fail(texts.get(R.string.playlist_name_needed))
                     return@launch
                 }
                 playlistRepository.save(playlist)
-                _importState.value = ImportUiState(message = "Playlist „${playlist.title}“ angelegt")
+                _importState.value = ImportUiState(message = texts.get(R.string.playlist_created, playlist.title))
             }
         }
 
@@ -649,11 +745,11 @@ class PlayerViewModel
                 // Read again: the list shown may be a moment old.
                 val latest = playlistRepository.playlists.first().firstOrNull { it.id == playlist.id } ?: return@launch
                 if (PlaylistEditing.contains(latest, track.id)) {
-                    _importState.value = ImportUiState(message = "„${track.title}“ ist schon in „${latest.title}“")
+                    _importState.value = ImportUiState(message = texts.get(R.string.playlist_already_in, track.title, latest.title))
                     return@launch
                 }
                 playlistRepository.save(PlaylistEditing.addTrack(latest, track.toSaved()))
-                _importState.value = ImportUiState(message = "Zu „${latest.title}“ hinzugefügt")
+                _importState.value = ImportUiState(message = texts.get(R.string.playlist_added_to, latest.title))
             }
         }
 
@@ -665,6 +761,37 @@ class PlayerViewModel
             viewModelScope.launch {
                 val latest = playlistRepository.playlists.first().firstOrNull { it.id == playlist.id } ?: return@launch
                 playlistRepository.save(PlaylistEditing.removeTrack(latest, trackId))
+            }
+        }
+
+        /**
+         * Sends the playlists to the signed-in SoundCloud account as private playlists; ones sent
+         * before are updated in place (their SoundCloud id is kept). Empty playlists are skipped.
+         */
+        fun syncToSoundCloud(playlists: List<SavedPlaylist>) {
+            if (!controller.isSoundCloudSignedIn()) {
+                fail(texts.get(R.string.soundcloud_sign_in_first))
+                return
+            }
+            val toSend = playlists.filter { it.tracks.isNotEmpty() }
+            if (toSend.isEmpty()) {
+                fail(texts.get(R.string.soundcloud_nothing_to_send))
+                return
+            }
+            viewModelScope.launch {
+                _importState.value = ImportUiState(isLoading = true)
+                var sent = 0
+                for (selected in toSend) {
+                    val latest = playlistRepository.playlists.first().firstOrNull { it.id == selected.id } ?: continue
+                    val result = controller.pushPlaylistToSoundCloud(latest.title, latest.tracks.map { it.id }, latest.soundCloudId)
+                    if (result is LoadResult.Error) {
+                        fail(texts.get(R.string.soundcloud_send_failed, latest.title, result.message))
+                        return@launch
+                    }
+                    playlistRepository.save(latest.copy(soundCloudId = (result as LoadResult.Ok).value))
+                    sent++
+                }
+                _importState.value = ImportUiState(message = texts.get(R.string.soundcloud_sent, sent))
             }
         }
 
@@ -696,12 +823,12 @@ class PlayerViewModel
     }
 
 private const val CANDIDATE_LIMIT = 10
+private const val SEARCH_RESULT_LIMIT = 30
 private const val MAX_SHOWN_MATCHES = 5
 
 // A playlist import looks every song up one by one, so it is capped.
 private const val MAX_SPOTIFY_TRACKS = 1_000
 private const val MAX_LISTED_MISSING = 5
-private const val CUT_OFF_HINT = ". Spotify liefert über diesen Weg höchstens 100 Titel je Playlist - der Rest fehlt vermutlich"
 
 // Results scoring below this are noise, not candidates worth showing.
 private const val MIN_SHOWN_SCORE = 0.3

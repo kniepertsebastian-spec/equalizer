@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import com.hardbasseq.eq.auto.AppAutoCatalog
 import com.hardbasseq.eq.discovery.DiscoveryWorker
 import com.hardbasseq.eq.service.AudioSessionForegroundService
+import com.soundcloud.equalizer.player.PlayerText
 import com.soundcloud.equalizer.player.playback.AutoCatalogHolder
 import dagger.hilt.android.HiltAndroidApp
 import java.util.concurrent.TimeUnit
@@ -23,6 +24,7 @@ class HardBassEqApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        PlayerText.init(this)
         // What the car (Android Auto) may browse and play; also read by the player service.
         AutoCatalogHolder.catalog = autoCatalog
         // Starts as early as the app process exists (not only once MainActivity/

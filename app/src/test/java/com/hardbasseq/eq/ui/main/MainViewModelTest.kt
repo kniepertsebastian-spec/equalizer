@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui.main
 
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioCapabilities
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
@@ -32,16 +33,21 @@ import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetRepository
+import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
+import com.hardbasseq.eq.text.FakeTextProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -468,6 +474,7 @@ class MainViewModelTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     correctionProfileRepository = FakeCorrectionProfileRepository(),
                     deviceProfileRepository = FakeDeviceProfileRepository(),
+                    texts = FakeTextProvider(),
                     backgroundDispatcher = dispatcher,
                 )
             dispatcher.scheduler.advanceUntilIdle()
@@ -1272,6 +1279,94 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `the original side of the comparison runs flat through the effect and ending restores the live settings`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            val live = viewModel.processingSettings.value
+
+            viewModel.startCompare()
+            viewModel.setCompareSide(CompareSide.ORIGINAL)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val original = fakeEngine.currentSettings.value
+            assertFalse(original.bypass)
+            assertTrue(original.bandGainsDb.values.all { it == 0f })
+            assertFalse(original.limiterEnabled)
+            assertTrue(original.inputGainDb <= 0f)
+            // The settings the user sees are untouched.
+            assertEquals(live, viewModel.processingSettings.value)
+
+            viewModel.endCompare()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(live, fakeEngine.currentSettings.value)
+            assertEquals(null, viewModel.compare.value)
+        }
+
+    @Test
+    fun `the eq side of the comparison is never louder than the live input gain`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            val live = viewModel.processingSettings.value
+
+            viewModel.startCompare()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(fakeEngine.currentSettings.value.inputGainDb <= live.inputGainDb)
+            assertEquals(CompareSide.EQ, viewModel.compare.value?.side)
+        }
+
+    @Test
+    fun `a sound goal changes the band gains and is persisted and restored`() =
+        runTest {
+            val repo = FakeAppSettingsRepository()
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = repo)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.bandGainsDb
+
+            viewModel.setSoundGoal(SoundGoal.LESS_BASS)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundGoal.LESS_BASS, viewModel.activeGoal.value)
+            assertTrue(viewModel.processingSettings.value.bandGainsDb != before)
+            assertEquals(SoundGoal.LESS_BASS.id, repo.savedSettings.last().activeGoal)
+
+            val restored = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(repo.savedSettings.last()))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundGoal.LESS_BASS, restored.activeGoal.value)
+
+            viewModel.setSoundGoal(SoundGoal.BALANCED)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(null, repo.savedSettings.last().activeGoal)
+        }
+
+    @Test
+    fun `preset actions confirm themselves with a short message`() =
+        runTest {
+            val texts = FakeTextProvider()
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val messages = mutableListOf<String>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.feedback.toList(messages) }
+
+            viewModel.setMacroBass(2f)
+            viewModel.saveAsNewPreset("Mine")
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.resetToActivePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(texts.get(R.string.feedback_saved, "Mine"), messages.first())
+            assertEquals(texts.get(R.string.feedback_reset, "Mine"), messages.last())
+        }
+
+    @Test
     fun `virtual bass is forwarded to the player and follows master and bypass`() =
         runTest {
             val playerBridge = FakePlayerBridge()
@@ -1344,6 +1439,7 @@ class MainViewModelTest {
             appSettingsRepository = appSettingsRepository,
             correctionProfileRepository = correctionProfileRepository,
             deviceProfileRepository = deviceProfileRepository,
+            texts = FakeTextProvider(),
             backgroundDispatcher = dispatcher,
         )
 

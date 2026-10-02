@@ -200,6 +200,33 @@ object BuiltInGenrePresets {
                 ),
         )
 
+    val Rap =
+        GenrePreset(
+            id = "genre_rap",
+            displayName = "Rap",
+            base =
+                Preset(
+                    id = "genre_rap",
+                    name = "Rap",
+                    targetCurve =
+                        listOf(
+                            TargetPoint(50f, 3.0f),
+                            TargetPoint(90f, 2.0f),
+                            TargetPoint(250f, -1.0f),
+                            TargetPoint(2500f, 1.0f),
+                            TargetPoint(5000f, 0.5f),
+                            TargetPoint(9000f, -0.5f),
+                        ),
+                    macroBassDb = 0.8f,
+                    macroPunchDb = 0.5f,
+                    macroHaerteDb = 0.0f,
+                    requestedHeadroomDb = 3.5f,
+                    mbcThresholdDb = -8.0f,
+                    mbcRatio = 2.0f,
+                    metadata = PresetMetadata(genre = "rap", builtIn = true),
+                ),
+        )
+
     // Neutral reference - ignores the intensity axis entirely (see
     // GenrePreset.allowsIntensity).
     val Flat =
@@ -226,7 +253,7 @@ object BuiltInGenrePresets {
                 ),
         )
 
-    val all = listOf(Terror, Uptempo, Gabber, Early, Frenchcore, Dance, Pop, Flat)
+    val all = listOf(Terror, Uptempo, Gabber, Early, Frenchcore, Dance, Pop, Rap, Flat)
 
     // Every (genre, intensity) combination, pre-resolved into a concrete
     // Preset - this is what BuiltInPresets.all folds in, so findPresetById

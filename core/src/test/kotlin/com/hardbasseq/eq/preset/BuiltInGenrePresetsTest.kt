@@ -6,10 +6,10 @@ import org.junit.Test
 
 class BuiltInGenrePresetsTest {
     @Test
-    fun `has exactly the eight requested genres`() {
-        assertEquals(8, BuiltInGenrePresets.all.size)
+    fun `has exactly the nine genres`() {
+        assertEquals(9, BuiltInGenrePresets.all.size)
         assertEquals(
-            setOf("Terror", "Uptempo", "Gabber", "Early", "Frenchcore", "Dance", "Pop", "Flat"),
+            setOf("Terror", "Uptempo", "Gabber", "Early", "Frenchcore", "Dance", "Pop", "Rap", "Flat"),
             BuiltInGenrePresets.all.map { it.displayName }.toSet(),
         )
     }
@@ -22,7 +22,7 @@ class BuiltInGenrePresetsTest {
 
     @Test
     fun `resolved presets are 5 per intensity-enabled genre plus 1 for flat, all with unique ids`() {
-        val expectedCount = 7 * PresetIntensity.entries.size + 1
+        val expectedCount = 8 * PresetIntensity.entries.size + 1
         assertEquals(expectedCount, BuiltInGenrePresets.allResolvedPresets.size)
 
         val ids = BuiltInGenrePresets.allResolvedPresets.map { it.id }

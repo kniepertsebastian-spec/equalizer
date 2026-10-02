@@ -11,14 +11,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.context.SoundContext
 
+@Composable
 fun SoundContext.displayName(): String =
-    when (this) {
-        SoundContext.CAR -> "Auto"
-        SoundContext.BLUETOOTH_SPEAKER -> "Bluetooth-Box"
-    }
+    stringResource(
+        when (this) {
+            SoundContext.CAR -> R.string.context_name_car
+            SoundContext.BLUETOOTH_SPEAKER -> R.string.context_name_speaker
+        },
+    )
 
 // The listening-context mode switches ("Auto", "Bluetooth-Box"): tap one to turn the
 // mode on, tap it again to turn it off. A mode, not a preset - it stays on when the

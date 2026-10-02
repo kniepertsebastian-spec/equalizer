@@ -32,4 +32,6 @@ data class LiveSettings(
     // "Kopfhörer-Power": Bass/Dynamik/Loudness im Kopfhörer-Modus. Defaultwerte =
     // altes festes Verhalten, daher bleibt älteres JSON lesbar.
     val headphonePower: HeadphonePower = HeadphonePower(),
+    // Chosen sound goal (SoundGoal.id), null = "Ausgewogen". Defaulted for older saved settings.
+    val activeGoal: String? = null,
 )

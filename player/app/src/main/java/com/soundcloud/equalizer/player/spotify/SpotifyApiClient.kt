@@ -1,5 +1,7 @@
 package com.soundcloud.equalizer.player.spotify
 
+import com.soundcloud.equalizer.player.R
+import com.soundcloud.equalizer.player.PlayerText
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -64,8 +66,8 @@ class SpotifyApiClient private constructor(
             val verifier = prefs.getString(KEY_VERIFIER, "").orEmpty()
             prefs.edit().remove(KEY_STATE).remove(KEY_VERIFIER).apply()
             when (val redirect = SpotifyAuth.parseRedirect(redirectUri, state)) {
-                SpotifyAuth.Redirect.Invalid -> "Die Anmeldung passt nicht zu der, die gestartet wurde. Bitte nochmal anmelden."
-                is SpotifyAuth.Redirect.Denied -> "Spotify: Anmeldung abgebrochen (${redirect.reason})"
+                SpotifyAuth.Redirect.Invalid -> PlayerText.get(R.string.err_spotify_login_mismatch)
+                is SpotifyAuth.Redirect.Denied -> PlayerText.get(R.string.err_spotify_login_cancelled, redirect.reason)
                 is SpotifyAuth.Redirect.Code ->
                     try {
                         val body =
@@ -79,7 +81,7 @@ class SpotifyApiClient private constructor(
                                 .build()
                         if (requestTokens(body) != null) null else LOGIN_REFUSED
                     } catch (e: IOException) {
-                        "Keine Verbindung zu Spotify: ${e.message}"
+                        PlayerText.get(R.string.err_spotify_no_connection, e.message)
                     }
             }
         }
@@ -94,11 +96,11 @@ class SpotifyApiClient private constructor(
             val tracks = mutableListOf<SpotifyTrack>()
             var url: String? = "$API/playlists/$playlistId/items?limit=$PAGE_SIZE&offset=0"
             while (url != null && tracks.size < MAX_TRACKS) {
-                val page = SpotifyApiJson.parseItemsPage(getJson(url)) ?: throw IOException("Spotify hat die Titel in einem unbekannten Format geliefert")
+                val page = SpotifyApiJson.parseItemsPage(getJson(url)) ?: throw IOException(PlayerText.get(R.string.err_spotify_format))
                 tracks.addAll(page.tracks)
                 url = page.next
             }
-            if (tracks.isEmpty()) throw IOException("In dieser Playlist wurden keine Titel gefunden")
+            if (tracks.isEmpty()) throw IOException(PlayerText.get(R.string.err_spotify_no_tracks))
             // The name is a nicety: without it the playlist just gets a general title.
             val name = runCatching { SpotifyApiJson.parsePlaylistName(getJson("$API/playlists/$playlistId?fields=name")) }.getOrNull()
             SpotifyPlaylist(name ?: SpotifyPlaylistPage.DEFAULT_TITLE, tracks.take(MAX_TRACKS))
@@ -123,14 +125,14 @@ class SpotifyApiClient private constructor(
 
                     code == 401 -> throw IOException(SIGN_IN_AGAIN)
                     code == 403 -> throw IOException(NOT_YOURS)
-                    code == 404 -> throw IOException("Spotify kennt diese Playlist nicht (oder sie ist privat)")
+                    code == 404 -> throw IOException(PlayerText.get(R.string.err_spotify_unknown_playlist))
                     code == 429 && waits < MAX_RATE_LIMIT_WAITS -> {
                         waits++
                         val seconds = response.header("Retry-After")?.toLongOrNull() ?: 1L
                         delay(seconds.coerceIn(1L, MAX_RETRY_AFTER_SECONDS) * 1_000L)
                     }
 
-                    else -> throw IOException("Spotify antwortet nicht (HTTP $code)")
+                    else -> throw IOException(PlayerText.get(R.string.err_spotify_http, code))
                 }
             }
         }
@@ -194,11 +196,9 @@ class SpotifyApiClient private constructor(
         private const val MAX_TRACKS = 1_000
         private const val MAX_RATE_LIMIT_WAITS = 3
         private const val MAX_RETRY_AFTER_SECONDS = 10L
-        private const val SIGN_IN_AGAIN = "Bitte bei Spotify neu anmelden"
-        private const val NOT_YOURS =
-            "Spotify gibt die Titel nur für Playlists heraus, die dir gehören oder an denen du mitarbeitest"
-        private const val LOGIN_REFUSED =
-            "Spotify hat die Anmeldung abgelehnt. Stimmen die Client-ID und die Redirect-URI hardbasseq://spotify-callback?"
+        private val SIGN_IN_AGAIN get() = PlayerText.get(R.string.err_spotify_sign_in_again)
+        private val NOT_YOURS get() = PlayerText.get(R.string.err_spotify_not_yours)
+        private val LOGIN_REFUSED get() = PlayerText.get(R.string.err_spotify_login_refused)
 
         @Volatile
         private var instance: SpotifyApiClient? = null
