@@ -779,7 +779,7 @@ fun EqualizerScreen(
                     ) {
                         Column(modifier = Modifier.padding(spacing.medium)) {
                             Text(
-                                text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else "Makro-Regler",
+                                text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else stringResource(R.string.macro_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = style.accent,

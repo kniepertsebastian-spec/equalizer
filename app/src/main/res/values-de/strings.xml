@@ -380,4 +380,5 @@
     <string name="seek_description">Wiedergabeposition</string>
     <string name="dsp_cutoff_description">Grenzfrequenz des Mono-Basses</string>
     <string name="eq_master_switch">Equalizer ein oder aus</string>
+    <string name="macro_title">Makro-Regler</string>
 </resources>

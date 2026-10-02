@@ -380,4 +380,5 @@
     <string name="seek_description">Playback position</string>
     <string name="dsp_cutoff_description">Mono bass cutoff frequency</string>
     <string name="eq_master_switch">Equalizer on or off</string>
+    <string name="macro_title">Macro controls</string>
 </resources>
