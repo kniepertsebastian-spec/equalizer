@@ -80,9 +80,16 @@ fun ReleaseUpdateNotice() {
                                                 if (total >
                                                     0L
                                                 ) {
-                                                    resources.getString(R.string.update_progress_total, currentMb, total / 1_000_000)
+                                                    resources.getString(
+                                                        R.string.update_progress_total,
+                                                        currentMb.toString(),
+                                                        (
+                                                            total /
+                                                                1_000_000
+                                                        ).toString(),
+                                                    )
                                                 } else {
-                                                    resources.getString(R.string.update_progress, currentMb)
+                                                    resources.getString(R.string.update_progress, currentMb.toString())
                                                 }
                                         }
                                     context.startActivity(client.installIntent(file))
