@@ -1,0 +1,2292 @@
+# Roadmap: Bass-orientierte Equalizer-App für Android
+
+> **Ab 23. September 2026 gilt `roadmap-2026.md` als aktuelle Produkt- und
+> Technik-Roadmap** (Meilensteine, Architekturzielbild, Prioritäten). Diese
+> Datei bleibt das **Entwicklungs-Session-Log** mit der vollständigen
+> bisherigen Historie (siehe „Session-Log" unten) – bestehende Verweise wie
+> „roadmap.md Session 16" oder „roadmap.md §2/§3" bleiben dadurch gültig.
+> Neue Session-Log-Einträge gehören weiterhin hierher.
+
+> Arbeitsdokument für Claude Code. Diese Datei ist zugleich Produktspezifikation, Architekturentscheidung und Umsetzungsplan. Arbeite die Meilensteine der Reihe nach ab, halte den Build nach jedem Meilenstein grün und aktualisiere die Checklisten in dieser Datei.
+
+## 1. Produktvision
+
+Eine moderne Android-App, die Kopfhörer und Lautsprecher für basslastige elektronische Musik – insbesondere Uptempo Hardcore – kontrolliert abstimmt. Die App soll nicht einfach maximalen Bass erzeugen, sondern Tiefbass, Kick-Punch und Klarheit verbessern, Übersteuerung vermeiden und verständlich zeigen, welche Funktionen auf dem jeweiligen Gerät tatsächlich verfügbar sind.
+
+Arbeitstitel: **HardBass EQ**. Der Name ist vor Veröffentlichung zu prüfen und leicht austauschbar zu halten.
+
+### Leitprinzipien
+
+1. **Sauberer Druck statt maximaler Lautstärke.** Keine irreführende „Volume Booster“-Funktion.
+2. **Clipping-Schutz zuerst.** Positive Verstärkung muss mit Headroom, Eingangsabsenkung oder Limiting gekoppelt werden.
+3. **Ehrliche Kompatibilität.** Die App behauptet niemals, auf jedem Android-Gerät und in jeder Streaming-App systemweit zu funktionieren.
+4. **Progressive Komplexität.** Einsteiger erhalten sichere Presets; erfahrene Nutzer können Parameter detailliert bearbeiten.
+5. **Offline und privat.** Presets und Geräteprofile bleiben standardmäßig lokal. Keine Analyse von Hörverhalten.
+6. **Messbar und testbar.** Jede DSP- oder Effektfunktion benötigt definierte Grenzen, Bypass-Vergleiche und Tests.
+
+## 2. Harte Android-Grenze
+
+Androids öffentliche `AudioEffect`-APIs binden Effekte zuverlässig an eine konkrete Audio-Session. Das Anhängen von Insert-Effekten an den globalen Ausgabemix über Session-ID `0` ist officially veraltet. Manche Geräte und Player unterstützen globale oder fremde Sessions weiterhin, andere nicht oder nur teilweise.
+
+Daraus folgen drei Betriebsarten:
+
+| Modus | Zweck | Zuverlässigkeit | Release-Status |
+|---|---|---:|---|
+| Session-Modus | Effekt an eine vom Player veröffentlichte Audio-Session binden | Gut, wenn der Player kooperiert | MVP |
+| Kompatibilitätsmodus | Herstellerabhängige globale Session bzw. verfügbare Systemeffekte verwenden | Best Effort | Experimentell, klar kennzeichnen |
+| Eigene Wiedergabepipeline | Eigene Audiodateien über Media3 und eigenen DSP verarbeiten | Kontrollierbar | Spätere Phase, nicht MVP |
+
+Wichtig: `MediaProjection`/Playback Capture ist kein zulässiger Ersatz für einen virtuellen Systemausgang. Es darf nicht als Weg geplant werden, fremde App-Audiosignale abzugreifen, zu bearbeiten und wieder systemweit auszugeben.
+
+## 3. Umfang
+
+### MVP – enthalten
+
+- Kotlin-App mit Jetpack Compose und Material 3
+- Android 9+ (`minSdk 28`), weil `DynamicsProcessing` ab API 28 verfügbar ist
+- Laufzeit-Erkennung der verfügbaren Audioeffekte und ihrer echten Parametergrenzen
+- Session-Erkennung über die vorgesehenen AudioEffect-Control-Intents, soweit vom Player unterstützt
+- Grafischer EQ auf Basis der vom Gerät bereitgestellten Bänder
+- Presets für Uptempo/Hard Dance sowie ein neutrales Preset
+- Master-Schalter und vollständiger Bypass
+- Automatischer Headroom, wenn die aktive Engine Eingangs-Gain unterstützt
+- Limiter und Multiband-Dynamik nur, wenn `DynamicsProcessing` tatsächlich verfügbar ist
+- Separate Profile für Bluetooth-, Kabel-, USB- und Gerätelautsprecher-Ausgänge
+- Automatischer Profilwechsel anhand des Audio-Ausgabegeräts
+- Import/Export eigener Presets als versioniertes JSON
+- Diagnoseansicht mit aktiver Session, Route, Engine und nicht unterstützten Funktionen
+- Lokale Speicherung; keine Anmeldung und kein Tracking-SDK
+- Deutsche und englische UI-Texte
+
+### Nicht im MVP
+
+- Root/Magisk-Unterstützung
+- Eigener Kernel- oder Audio-Treiber
+- Garantierte Bearbeitung jeder Drittanbieter-App
+- DRM-Umgehung oder Playback Capture zur Wieder-Ausgabe
+- Cloud-Konto, Community-Presets oder Telemetrie
+- Eigener Musikplayer
+- AutoEQ-Datenbank
+- Convolution/Impulse Responses
+- Transient Shaper, Subharmonic Synthesizer oder harmonischer Exciter
+- Werbung, Abonnement oder In-App-Käufe
+
+## 4. Ziel-Nutzererlebnis
+
+### Erster Start
+
+1. Kurze Erklärung: Die App verbessert Klang kontrolliert, Verfügbarkeit hängt von Gerät und Player ab.
+2. Berechtigungen nur kontextbezogen anfragen.
+3. Angeschlossenen Audioausgang erkennen.
+4. Kompatibilitätstest ausführen und Ergebnis verständlich anzeigen.
+5. Preset „Uptempo – Clean Punch“ als Vorschlag anbieten, aber nicht ungefragt aktivieren.
+6. A/B-Schalter für sofortigen Vergleich bereitstellen.
+
+### Hauptansicht
+
+- Master-Schalter
+- Statuschip: `Aktiv`, `Wartet auf Audio-Session`, `Teilweise unterstützt` oder `Nicht unterstützt`
+- Aktuelles Ausgabegerät und aktives Profil
+- Preset-Auswahl
+- EQ-Kurve und Bandregler
+- Headroom-/Clipping-Anzeige
+- Schnellzugriff auf Bass, Punch und Härte; diese Makros werden deterministisch auf EQ-Bänder abgebildet
+- Link zur Diagnose, wenn eine Funktion nicht greift
+
+### Expertenansicht
+
+- Alle vom Gerät gemeldeten EQ-Bänder mit tatsächlichem Frequenzzentrum und Wertebereich
+- Eingangs-Gain/Preamp, falls unterstützt
+- Limiterparameter, falls unterstützt
+- Multiband-Kompressor, falls unterstützt
+- Links-/Rechts-Balance, sofern technisch sauber umsetzbar
+- Preset duplizieren, umbenennen, zurücksetzen, importieren und exportieren
+
+## 5. Klangkonzept und sichere Presets
+
+Die Presets sind Zielkurven, keine Garantie für identische Ergebnisse auf allen Geräten. Sie müssen auf die tatsächlich verfügbaren Bänder interpoliert und anschließend begrenzt werden.
+
+### Preset A: Uptempo – Clean Punch
+
+| Zielbereich | Gain | Zweck |
+|---|---:|---|
+| 45–60 Hz | +3 dB | kontrollierter Tiefbass |
+| 90–120 Hz | +2 dB | Kick-Punch |
+| 200–350 Hz | −2 dB | weniger Matsch/Dröhnen |
+| 2,5–4,5 kHz | +1 dB | Attack und Durchsetzung |
+| 7–10 kHz | −1 dB | weniger Härte bei scharfen Masters |
+
+Ziel-Headroom: mindestens `−4 dB` vor Dynamikverarbeitung. Wenn kein echtes Input-Gain verfügbar ist, positive Gains so skalieren, dass das geschätzte Clipping-Risiko begrenzt bleibt, und die Einschränkung in der UI anzeigen.
+
+### Preset B: Uptempo – Deep Rumble
+
+- 45–70 Hz: +4 dB
+- 90–120 Hz: +1 dB
+- 220–350 Hz: −2,5 dB
+- 3–5 kHz: 0 dB
+- Ziel-Headroom: −5 dB
+
+### Preset C: Hard Dance – Balanced
+
+- 50–80 Hz: +2 dB
+- 100–140 Hz: +1 dB
+- 250–400 Hz: −1,5 dB
+- 3–5 kHz: +0,5 dB
+- Ziel-Headroom: −3 dB
+
+### Preset D: Flat/Safe
+
+- Alle Bänder: 0 dB
+- Dynamikmodule: aus
+- Kein versteckter Gain
+
+### Makroregler
+
+- **Bass:** Low-Shelf-ähnliche Abbildung auf alle verfügbaren Bänder unter 120 Hz
+- **Punch:** breite Anhebung um 90–140 Hz, gekoppelt mit optionaler leichter Absenkung um 250–350 Hz
+- **Härte:** kontrolliert 2,5–6 kHz; positive Änderung maximal +2 dB
+- Makros dürfen niemals außerhalb der Engine-Grenzen schreiben.
+- Jede Makroänderung muss im Experten-EQ sichtbar und vollständig reversibel sein.
+
+## 6. Vorgeschlagener Technologie-Stack
+
+- Sprache: Kotlin
+- UI: Jetpack Compose + Material 3
+- Architektur: unidirektionaler Datenfluss mit ViewModels, Coroutines und `StateFlow`
+- Dependency Injection: Hilt
+- Navigation: Navigation Compose
+- Einstellungen: DataStore
+- Komplexere Profile/Presets: Room
+- Serialisierung: Kotlin Serialization
+- Audio MVP: `android.media.audiofx.AudioEffect`, `Equalizer`, `DynamicsProcessing`
+- Routing: `AudioManager`, `AudioDeviceInfo`, passende Audio-Device-Callbacks
+- Hintergrundarbeit: nur wenn nachweislich nötig; keine dauerhaft laufende Foreground-Service-Lösung als Voreinstellung
+- Tests: JUnit, kotlinx-coroutines-test, Turbine oder gleichwertig, Compose UI Test, instrumentierte Android-Tests
+- Qualität: ktlint oder Spotless, detekt, Android Lint
+- CI: GitHub Actions mit Build, Unit Tests, Lint und Debug-APK-Artefakt
+
+Keine Versionsnummern blind festschreiben. Claude Code soll beim Projektstart die aktuelle stabile Android-/Kotlin-/Compose-Kompatibilitätsmatrix prüfen und die gewählten Versionen in `docs/DEPENDENCIES.md` dokumentieren.
+
+## 7. Architektur
+
+### Module
+
+```text
+app/
+core:model/
+core:data/
+core:audio-api/
+core:audio-android/
+core:designsystem/
+feature:onboarding/
+feature:equalizer/
+feature:presets/
+feature:profiles/
+feature:diagnostics/
+```
+
+Für den ersten Commit darf ein einzelnes App-Modul verwendet werden. Vor Meilenstein 2 sollen die Audio-Schnittstellen jedoch klar vom Android-Backend getrennt sein. Modularisierung nur durchführen, wenn sie Build und Entwicklung nicht unnötig blockiert.
+
+### Zentrale Schnittstellen
+
+```kotlin
+interface AudioEngine {
+    val capabilities: StateFlow<AudioCapabilities>
+    val state: StateFlow<AudioEngineState>
+
+    suspend fun attach(session: AudioSession): AttachResult
+    suspend fun detach()
+    suspend fun setEnabled(enabled: Boolean)
+    suspend fun apply(settings: ProcessingSettings): ApplyResult
+    suspend fun readBack(): ProcessingSnapshot
+}
+
+interface AudioSessionRepository {
+    val sessions: StateFlow<List<AudioSession>>
+    val activeSession: StateFlow<AudioSession?>
+}
+
+interface AudioRouteRepository {
+    val activeRoute: StateFlow<AudioRoute>
+}
+```
+
+Weitere Kernmodelle:
+
+- `AudioCapabilities`: verfügbare Effekte, Bandanzahl, Frequenzen, Gain-Grenzen, Kanalzahl, Input-Gain, Limiter, MBC
+- `AudioEngineState`: detached, attaching, active, suspended, unsupported, lostControl, error
+- `ProcessingSettings`: EQ, Input-Gain, Limiter, MBC, Balance und Bypass
+- `DeviceProfile`: Route-Fingerprint, Anzeigename, Preset-ID, Overrides
+- `Preset`: Schema-Version, Name, Zielkurve, Dynamikeinstellungen, Herkunft
+- `CompatibilityReport`: Gerät, Android-Version, Effekt-Deskriptoren, getestete Funktionen und Fehlercodes – ohne personenbezogene Daten
+
+### Datenfluss
+
+```text
+Audio route/session events
+        -> repositories
+        -> profile resolver
+        -> validated ProcessingSettings
+        -> AudioEngine
+        -> read-back verification
+        -> UI state + diagnostics
+```
+
+### Threading und Lebenszyklus
+
+- Niemals AudioEffect-Aufrufe direkt aus Composables.
+- Alle Effektobjekte besitzen genau einen Owner im Audio-Layer.
+- Erstellen, Anwenden und Freigeben seriell über einen `Mutex` oder einen einzelnen Actor.
+- Bei Session-Wechsel alte Effekte immer in `finally` freigeben.
+- `DEAD_OBJECT`, Kontrollverlust und nicht unterstützte Parameter als Zustände modellieren, nicht als App-Crash.
+- Slider-Eingaben drosseln, aber die letzte Änderung garantiert anwenden.
+
+## 8. Signal- und Einstellungsreihenfolge
+
+Logische Reihenfolge, soweit das jeweilige Android-Backend sie unterstützt:
+
+```text
+Input -> Input Gain/Headroom -> Pre-EQ -> Multiband Dynamics -> Post-EQ -> Limiter -> Output
+```
+
+Regeln:
+
+- Limiter steht logisch immer am Ende.
+- Bypass darf keinerlei versteckte Klangänderung behalten.
+- Automatischer Headroom basiert konservativ auf dem maximalen positiven EQ-Gain; später kann eine präzisere Schätzung folgen.
+- Parameteränderungen möglichst weich interpolieren, um Knackser zu verhindern.
+- Wenn das System nur einen einfachen `Equalizer` bereitstellt, UI und Datenmodell auf dessen echte Fähigkeiten reduzieren.
+- Nicht unterstützte Parameter nicht simulieren oder stillschweigend ignorieren.
+
+## 9. Datenformat für Presets
+
+Versioniertes, menschenlesbares JSON verwenden:
+
+```json
+{
+  "schemaVersion": 1,
+  "name": "Uptempo - Clean Punch",
+  "targetCurve": [
+    { "frequencyHz": 55.0, "gainDb": 3.0 },
+    { "frequencyHz": 105.0, "gainDb": 2.0 },
+    { "frequencyHz": 280.0, "gainDb": -2.0 },
+    { "frequencyHz": 3500.0, "gainDb": 1.0 },
+    { "frequencyHz": 8500.0, "gainDb": -1.0 }
+  ],
+  "requestedHeadroomDb": 4.0,
+  "limiter": { "enabled": true, "thresholdDb": -1.0 },
+  "metadata": { "genre": "uptempo-hardcore", "builtIn": true }
+}
+```
+
+Importregeln:
+
+- Schema-Version validieren.
+- Größenlimit setzen.
+- NaN, Infinity, negative Frequenzen und extreme Gains ablehnen.
+- Unbekannte Felder für Vorwärtskompatibilität tolerieren.
+- Import niemals direkt aktivieren; zuerst Vorschau und Bestätigung.
+- Export enthält keine Gerätekennungen oder Nutzungsdaten.
+
+## 10. Meilensteine
+
+### M0 – Machbarkeits-Spike
+
+Ziel: Vor UI-Feinarbeit beweisen, was auf realen Geräten funktioniert.
+
+- [x] Leeres Kotlin-/Compose-Projekt erstellen und reproduzierbaren Gradle-Build herstellen. (Verifiziert per CI: `./gradlew assembleDebug` grün, s. PR #1 / `docs/TEST_MATRIX.md`.)
+- [x] `minSdk 28` setzen; aktuelle stabile `compileSdk`/`targetSdk` verwenden. (`app/build.gradle.kts`: `minSdk 28`, `compileSdk 37`, `targetSdk 36`; Begründung in `docs/DEPENDENCIES.md`.)
+- [x] Verfügbare Effekte über `AudioEffect.queryEffects()` erfassen. (`AudioEffectRepository`/`AndroidAudioEffectRepository`; unit-getestet in CI **und** auf echtem Gerät bestätigt – Google Pixel 10/Android 16 meldet u. a. `EqualizerBundle` und `DynamicsProcessing`, s. `docs/TEST_MATRIX.md`.)
+- [x] Einfachen `Equalizer` an eine kontrollierte Test-Audio-Session binden. (Verifiziert auf Google Pixel 10/Android 16 über den Session-Attach-Spike-Button, PR #2; Session-ID 665, kein Crash, sauberes Attach/Release.)
+- [x] Bänder, Frequenzen und Gain-Grenzen auslesen und protokollieren. (5 Bänder, Gain-Bereich −15.0…15.0 dB, Zentren 60/230/910/3600/14000 Hz mit vollen Frequenzbereichen – protokolliert in `docs/TEST_MATRIX.md`.)
+- [x] `DynamicsProcessing` erkennen und Input-Gain, EQ, MBC sowie Limiter einzeln testen. (Alle vier Stufen isoliert getestet, alle **OK** auf Pixel 10 – Details in `docs/TEST_MATRIX.md`.)
+- [x] Open/Close-AudioEffect-Control-Intents mit einem eigenen kleinen Testplayer validieren. (Validiert auf Pixel 10/Android 16, PR #4: selbst gesendete Broadcasts kommen beim eigenen Empfänger nicht an, reproduziert auch mit 3s aktivem Warten. Negatives, aber sauber dokumentiertes Ergebnis – Details/Implikation für M2 in `docs/FEASIBILITY.md`.)
+- [x] Verhalten bei Session `0` ausschließlich als Experiment dokumentieren; nicht als Garantie verwenden. (Validiert auf Pixel 10/Android 16: `Equalizer`-Konstruktion auf Session `0` schlägt sauber fehl, kein Crash, Effekt nie aktiviert. Kein unterstütztes Feature, wie vorgesehen – Details in `docs/TEST_MATRIX.md`.)
+- [ ] Geräte-Matrix mit mindestens Emulator plus einem physischen Gerät beginnen. (Physisches Gerät vorhanden – Google Pixel 10/Android 16, s. `docs/TEST_MATRIX.md`; Emulator-Eintrag steht noch aus.)
+- [x] Ergebnisse in `docs/FEASIBILITY.md` festhalten.
+
+Abnahmekriterien:
+
+- App kann auf dem Testgerät eine bekannte Session hörbar und reversibel verändern.
+- Bypass stellt Flat-Zustand wieder her.
+- Alle erzeugten Effektobjekte werden zuverlässig freigegeben.
+- Eine Entscheidung für MVP-Backend und Fallbacks ist schriftlich dokumentiert.
+
+Stop-Kriterium: Falls keine stabile Bearbeitung fremder Sessions möglich ist, bleibt die App als Session-kompatibler Effect Controller positioniert. Nicht zu einer behaupteten systemweiten Lösung umdeuten.
+
+### M1 – Projektfundament
+
+- [x] Paketnamen und Arbeitstitel zentral konfigurierbar machen. (`gradle.properties`: `hardbasseq.applicationId`/`hardbasseq.namespace`, referenziert aus `app/build.gradle.kts`; Anzeigename bleibt in `strings.xml`.)
+- [x] Compose Design System, Navigation und Theme erstellen. (Navigation seit M0/`AppNavHost`; Cyber/Dark-Material-3-Farbtokens (`Color.kt`) und `Spacing`-Tokens in Session 10 ergänzt und im Code-Review verifiziert – `MaterialTheme.spacing` wird tatsächlich in `EqualizerScreen`/`DiagnosticsScreen` verwendet, nicht nur definiert.)
+- [x] Hilt und Coroutines einrichten. (Hilt/KSP-Umbau nach Reparatur des JVM-Zielkonflikts verifiziert: PR #6, Commit `007f53f`, CI-Lauf `35404523035`, `assembleDebug` und `testDebugUnitTest` grün. Kotlin und Java zielen explizit auf JVM 17; siehe ADR 0002.)
+- [x] DataStore, Room und Serialization einrichten. (Wie in M1 vorgesehen nur die Gradle-Einrichtung: Room `AppDatabase`/DAOs/Entities, `kotlinx-serialization-json` und die DataStore-Preferences-Abhängigkeit sind vorhanden und bauen. Die DataStore-Abhängigkeit hat im Code-Review keine einzige Verwendungsstelle – das ist für M1 in Ordnung, siehe aber M4, wo die tatsächliche Nutzung als nicht erledigt zurückgestuft wurde.)
+- [x] CI mit `assembleDebug`, Unit Tests und Android Lint einrichten. (`lintDebug` und `lintRelease` in PR #7 ergänzt; Lauf `35405675078` grün, beide Varianten mit 0 Fehlern / 16 Warnungen. Berichte werden auch bei Fehlern als Artefakt gespeichert; Details in `docs/QUALITY.md`.)
+- [x] Formatierung und detekt in CI einrichten. (ktlint eingerichtet und in CI aktiv, `ktlint_official`-Stil per `ktlint --format` auf den Bestand angewendet; detekt bleibt bewusst zurückgestellt, da dessen stabile Version Kotlin 2.3.20 weiterhin nicht unterstützt – siehe ADR 0003.)
+- [x] Fehler- und Logstrategie definieren; Release-Logs dürfen keine Track- oder Gerätenamen enthalten. (Policy dokumentiert in `docs/ARCHITECTURE.md`; noch keine konkrete Logging-Bibliothek nötig, da noch kein produktiver Logging-Code existiert.)
+- [x] `docs/ARCHITECTURE.md`, `docs/DEPENDENCIES.md` und ADR-Verzeichnis anlegen. (`docs/DEPENDENCIES.md` existiert seit M0; `docs/ARCHITECTURE.md` und `docs/adr/0001-...md` neu angelegt.)
+- [ ] Debug-Menü für Engine-Simulation und Capability-Fakes hinzufügen. (`FakeAudioEngine` existiert, wird laut Code-Review von Session 10 aber nirgends aus der App heraus gebunden oder erreichbar gemacht – `AudioModule` bindet immer `AndroidAudioEngine`. Aktuell nur als Test-Double in Unit-Tests genutzt, kein echtes Debug-Menü.)
+
+Abnahmekriterien:
+
+- Frischer Checkout baut mit einem dokumentierten Befehl. (`./gradlew assembleDebug`; Hilt/KSP-Stand mit JVM-Ziel-Fix in PR #6, Commit `007f53f`, CI-Lauf `35404523035` verifiziert.)
+- CI ist grün. (Build und Unit-Tests für `007f53f` erfolgreich; Android Lint in PR #7 verifiziert; ktlint neu ergänzt, siehe ADR 0003. detekt bleibt bewusst zurückgestellt.)
+- Keine Geschäftslogik lebt in Composables. (Erfüllt: `MainViewModel` übernimmt Repository-Zugriff und Dispatcher-Wechsel; `MainScreen` liest nur noch Zustand und leitet Events weiter.)
+
+### M2 – Audio-Engine und Session-Lebenszyklus
+
+- [x] `AudioEngine` und Fake-Implementierung erstellen.
+- [x] Android-Implementierung für `Equalizer` erstellen.
+- [x] Optionale Android-Implementierung für `DynamicsProcessing` erstellen. (Nur der Limiter ist tatsächlich konfiguriert; PreEQ/MBC/PostEQ wurden im Code-Review von Session 10 bewusst aus der angeforderten Konfiguration entfernt, siehe M5.)
+- [x] Capability Discovery mit Read-back implementieren.
+- [x] AudioEffect-Control-Session-Intents verarbeiten. (`AndroidAudioSessionRepository`) **Wichtiger Vorbehalt:** Der M0-Spike hat genau diesen Broadcast-Mechanismus (`ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`) bereits als auf dem Testgerät unzuverlässig dokumentiert (`docs/TEST_MATRIX.md`, Session 4/Control-Intent-Test) – selbst gesendete Broadcasts kamen nicht beim eigenen Empfänger an. Diese M2-Implementierung wurde **nicht** erneut auf einem echten Gerät mit einem echten Drittanbieter-Player verifiziert; ob sie in der Praxis funktioniert, ist offen.
+- [ ] Attach/Detach, Kontrollverlust, tote Session und Engine-Konflikt behandeln. (Attach/Detach vorhanden; `AudioEngineState.LostControl` wird bei einem Fehler gesetzt, aber nichts versucht danach automatisch ein Recovery/Re-Attach. Nicht im Detail auditiert.)
+- [x] Route-Erkennung für Speaker, kabelgebunden, Bluetooth und USB implementieren. (`AndroidAudioRouteRepository`)
+- [x] Engine-State als `StateFlow` zur UI führen.
+- [x] Keine dauerhafte Hintergrundausführung einführen, bevor sie technisch und Play-Policy-seitig begründet ist.
+
+### M3 – Equalizer-MVP
+
+- [x] Dynamische Bandregler anhand der realen Engine-Bänder darstellen.
+- [x] Flat, Clean Punch, Deep Rumble und Balanced als Built-in-Presets auslievers.
+- [x] Zielkurve logarithmisch auf Gerätebänder interpolieren. (`EqualizerInterpolator`)
+- [x] Gain-Werte auf gemeldete Min-/Max-Grenzen begrenzen.
+- [x] Master-Bypass und A/B-Vergleich implementieren.
+- [x] Bass-, Punch- und Härte-Makros implementieren.
+- [x] Headroom-Schätzung und Warnung bei Clipping-Risiko anzeigen.
+- [ ] Bei verfügbarem Input-Gain automatische Absenkung anwenden. (`EqualizerInterpolator.calculateHeadroom()` berechnet nur einen *empfohlenen* Wert für die Anzeige; nirgends im Code wird `dp.setInputGainAllChannelsTo(...)` o. ä. aufgerufen. Die Absenkung wird also nicht angewendet, nur vorgeschlagen.)
+- [x] Alle Änderungen per Read-back verifizieren.
+
+### M4 – Profile und Persistenz
+
+- [x] Room-Schema für Presets und Geräteprofile implementieren. (`PresetEntity`, `DeviceProfileEntity`, DAOs, `AppDatabase` – die Schema-Definitionen existieren.)
+- [ ] DataStore für globale UI-/App-Einstellungen nutzen. (Abhängigkeit eingebunden, aber im Code-Review keine einzige Verwendungsstelle gefunden – `grep` nach `dataStore`/`preferencesDataStore` im Quellcode ergibt nichts.)
+- [ ] Stabilen, datensparsamen Route-Fingerprint definieren. (Keine entsprechende Klasse/Funktion im Code gefunden.)
+- [ ] Profilwechsel bei Route-Wechsel implementieren. (Keine `ProfileRepository`/`DeviceProfileRepository` oder vergleichbare Klasse verwendet die DAOs; `AudioRouteRepository` meldet Route-Wechsel, aber nichts reagiert darauf mit einem Profilwechsel.)
+- [ ] Konfliktregeln definieren: manuelle Auswahl schlägt automatische Auswahl bis zum nächsten Route-Wechsel. (Ohne Profilwechsel-Logik gegenstandslos – nicht umgesetzt.)
+- [ ] JSON-Import mit Vorschau und Validierung implementieren. (`PresetJsonSerializer` existiert und ist unit-getestet – Größenlimit, Schema-Version, Frequenz-/Gain-Grenzen –, wird aber von keiner UI oder ViewModel-Methode aufgerufen. Kein Import-Button, keine Vorschau.)
+- [ ] JSON-Export über Android Sharesheet/Storage Access Framework implementieren. (Kein Sharesheet-/SAF-Code im Projekt; `exportToJson()` wird nirgends aufgerufen.)
+
+### M5 – Dynamik und Schutz
+
+- [x] Limiter nur bei gemeldeter Unterstützung aktivieren.
+- [x] Sichere Standardwerte definieren; Threshold niemals über 0 dBFS anbieten. (Strikte Begrenzung `<= 0 dBFS`; im Code-Review von Session 10 zusätzlich einen Bug behoben, bei dem `limiterEnabled = false` den bereits aktiven Limiter nicht wirklich abschaltete.)
+- [ ] Optionalen Bass-Multiband-Kompressor für 30–150 Hz anbieten, sofern Engine unterstützt. (War in der `DynamicsProcessing.Config` strukturell aktiv, aber nirgends konfiguriert – lief mit undokumentierten Werkseinstellungen des jeweiligen Geräts. Im Code-Review von Session 10 bewusst aus der Konfiguration entfernt (`mbcInUse = false`), bis eine echte Konfiguration/UI existiert; `hasMbc` meldet jetzt korrekt `false`.)
+- [x] Attack, Release, Ratio und Gain-Grenzen konservativ begrenzen. (Nur für den tatsächlich konfigurierten Limiter zutreffend.)
+- [x] Schutz vor Parameter-Sprüngen und Race Conditions implementieren. (War **nicht** umgesetzt – `attach()`/`detach()`/`apply()` liefen ohne jede Synchronisierung nebeneinander her. Im Code-Review von Session 10 mit einem `Mutex` nachgerüstet, analog zum Muster aus `SessionAttachSpikeController`.)
+
+### M6 – Diagnose, Onboarding und UX-Politur
+
+- [ ] Kompatibilitätsprüfung beim Onboarding. (Kein Onboarding-Flow im Code; sogar der bisherige M0/M1-Platzhalter-Chip für den Kompatibilitätsstatus wurde beim Umbau von `MainScreen` ersatzlos entfernt.)
+- [x] Diagnoseansicht mit aktiver Route, Session-ID, Effekt-Engine, Bandanzahl und Fähigkeiten. (`DiagnosticsScreen`)
+- [x] Kopierbaren, datensparsamen Diagnosebericht erstellen. (`DiagnosticsReportFormatter`)
+- [ ] Deutsche und englische Lokalisierung vervollständigen. (Alle neuen Strings in `DiagnosticsScreen.kt`, `EqualizerScreen.kt` und Teilen von `MainScreen.kt` sind hartkodierte deutsche Literale statt `stringResource(...)` – auf einem englischsprachigen Gerät bleiben sie deutsch. Nicht in diesem Review behoben, da es sich um eine größere, eigenständige Lokalisierungsaufgabe handelt.)
+- [x] Keine manipulativen Lautstärkeversprechen oder audiophile Scheinmetriken verwenden.
+
+### M7 – Qualität und Beta
+
+- [x] Unit Tests für Interpolation, Clamping, Headroom, Makros und Importvalidierung.
+- [ ] Contract Tests, die Fake- und Android-Engine gegen dieselben Zustandsregeln prüfen. (`AudioEngineContractTest` testet ausschließlich `FakeAudioEngine`; `AndroidAudioEngine` kommt darin nicht vor – naheliegend, da es echte Android-Media-Klassen braucht und ohne Instrumented-/Robolectric-Test nicht im reinen JVM-Unit-Test läuft, aber die Behauptung "Fake- und Android-Engine" stimmt so nicht.)
+- [ ] Audio-Smoke-Tests mit Sinustönen, Sweep, Impuls und Testsignalen. (Nur Sweep (`LogarithmicSweepGenerator`) und der bereits aus M0 vorhandene Sinuston (`SineWaveGenerator`) sind vorhanden; kein Impulssignal-Generator/-Test gefunden.)
+
+### M8 – Post-MVP
+
+- [x] AutoEQ-Import (`AutoEqParser`).
+- [x] Media3 Eigene Wiedergabepipeline & DSP Prototype (`Media3DspPipeline`).
+
+Stand der Roadmap: 19. September 2026. **Nicht "durch":** Das Code-Review in
+Session 10 hat einen wiederkehrenden Musters aus PR #9 aufgedeckt – viele
+Checkboxen waren als erledigt markiert, obwohl der zugehörige Code entweder
+gar nicht aus der UI erreichbar war (Room/DataStore/JSON-Import-Export,
+Onboarding, Debug-Menü) oder aktiv, aber unkonfiguriert lief (MBC-Band). Die
+Korrekturen dazu stehen bei den jeweiligen Checkboxen und im Session-10-Log.
+
+## 19. Session-Log
+
+### Session 1 (18. September 2026)
+
+Bearbeitet: ausschließlich die in §16 "Erste konkrete Aufgaben" aufgeführten
+acht Punkte (Projekt-Setup, Compose-Startansicht, `AudioEffectRepository`,
+Debug-Ansicht, Mapping-Unit-Test, CI-Grundworkflow, `docs/FEASIBILITY.md`).
+
+Details, offene Punkte und Testanleitung: siehe `docs/FEASIBILITY.md`,
+`docs/DEPENDENCIES.md`, `docs/DECISIONS.md`, `docs/TEST_MATRIX.md`.
+
+Erster CI-Lauf (Commit `eafc8a0`) schlug fehl: AGP 9.0+ bringt Kotlin fest
+eingebaut mit, das zusätzlich angewendete `org.jetbrains.kotlin.android`-Plugin
+brach den Build fatal ab. Behoben in Commit `4e61b82` (Plugin entfernt,
+`kotlinOptions`-Block entfernt, siehe `docs/DEPENDENCIES.md`). Zweiter
+CI-Lauf auf `4e61b82` war **grün** (`assembleDebug` + `testDebugUnitTest`,
+PR #1: https://github.com/kniepertsebastian-spec/equalizer/pull/1). Die
+entsprechenden M0-Checkboxen oben in §10 sind jetzt abgehakt; Details in
+`docs/TEST_MATRIX.md`.
+
+**Nächste konkrete Aufgabe:** Wie in §16 angewiesen, jetzt erst nach Review
+mit dem Session-Attach-Spike fortfahren (`Equalizer` an eine echte
+Test-Audio-Session binden, Bänder/Frequenzen/Gain-Grenzen auslesen,
+`DynamicsProcessing`-Teilkomponenten einzeln testen, Verhalten bei Session
+`0` experimentell dokumentieren). Dafür wird ein Emulator oder ein
+physisches Testgerät benötigt, das in dieser Sandbox nicht verfügbar ist.
+
+### Session 2 (18. September 2026)
+
+PR #1 wurde vom Nutzer gemerged (= Review erfolgt). Zusätzlich: Nutzer hat
+die App manuell auf einem **Google Pixel 10 (Android 16)** installiert und
+getestet; Debug-Effektliste bestätigt `EqualizerBundle` und
+`DynamicsProcessing` als vorhanden (Details in `docs/TEST_MATRIX.md`).
+Außerdem wurde ein optionaler CI-Schritt ergänzt, der die Debug-APK bei
+jedem grünen Build in einen freigegebenen Google-Drive-Ordner hochlädt
+(`docs/DRIVE_UPLOAD.md`, benötigt einmaliges Setup durch den Nutzer).
+
+Begonnen: Session-Attach-Spike. Neuer eigener Testton-Player
+(`TestTonePlayer`) mit eigener, selbst erzeugter Audio-Session (kein Zugriff
+auf fremde Sessions oder Session `0`); `EqualizerSpike` liest Bandanzahl,
+Frequenzen und Gain-Grenzen eines echten `Equalizer` auf dieser Session aus;
+`DynamicsProcessingSpike` testet Input-Gain, Pre-EQ, MBC und Limiter isoliert
+voneinander. Neue UI-Sektion „Show session-attach spike (M0)". Details,
+inklusive dem, was in diesem Durchlauf bewusst noch nicht angegangen wurde
+(Control-Intents, Session-`0`-Experiment, Emulator), in
+`docs/FEASIBILITY.md`.
+
+**Nächste konkrete Aufgabe:** Nutzer testet den neuen Button „Show
+session-attach spike (M0)" auf dem Pixel 10 und meldet das Ergebnis
+(Session-ID, Bänderliste, DynamicsProcessing-Stufen OK/FAIL, ggf.
+Screenshot) zurück. Danach: entsprechende M0-Checkboxen abhaken und mit
+Control-Intents/Session-`0`-Experiment fortfahren.
+
+### Session 3 (18. September 2026)
+
+Nutzer hat den Session-Attach-Spike auf dem Pixel 10 getestet: voller
+Erfolg, 5 Equalizer-Bänder mit vollen Frequenz-/Gain-Daten, alle vier
+DynamicsProcessing-Stufen OK (siehe `docs/TEST_MATRIX.md`). Entsprechende
+M0-Checkboxen oben abgehakt.
+
+PR #2 wurde vom Nutzer gemerged. Ein kleiner Nachzügler-Commit (Testergebnisse
+in `docs/TEST_MATRIX.md`) verpasste den Merge knapp und wurde in PR #3
+nachgereicht und ebenfalls gemergt.
+
+Danach umgesetzt: die letzten zwei code-basierten M0-Spike-Punkte.
+`ControlSessionIntentSpike` registriert einen Receiver für
+`AudioEffect.ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`, sendet die
+Broadcasts testweise selbst und prüft den Round-Trip (validiert nur die
+eigene Empfänger-Logik, nicht das Verhalten echter Drittanbieter-Player).
+`SessionZeroExperiment` prüft rein informativ und read-only, ob sich ein
+`Equalizer` auf Session `0` konstruieren lässt – wird nie aktiviert, kann
+also nie hörbar eingreifen; ein Erfolg ist ausdrücklich keine unterstützte
+Funktion (§2). Details in `docs/FEASIBILITY.md`.
+
+**Nächste konkrete Aufgabe:** Nutzer testet die beiden neuen Buttons
+(„Send test open/close broadcasts", „Probe session 0 (read-only)") auf dem
+Pixel 10 und meldet die Ergebnisse zurück. Danach sind alle code-basierten
+M0-Punkte aus §16 abgeschlossen; es bleibt nur noch der Emulator-Eintrag in
+der Geräte-Matrix offen (in dieser Sandbox nicht möglich), womit M0 dann im
+Wesentlichen abgeschlossen wäre und M1 (Projektfundament) beginnen könnte.
+
+### Session 4 (18. September 2026)
+
+Nutzer hat beide neuen Buttons getestet. Session-0-Experiment: sauberes
+`[FAIL]` ohne Crash, wie erwartet. Control-Intent-Test: „No broadcasts
+received back." Erste Vermutung (zu kurzes 300-ms-Zeitfenster) durch
+aktives Warten (3 s) korrigiert und erneut getestet – **gleiches Ergebnis**.
+Damit ist ein Timing-Problem ausgeschlossen; die beiden Broadcast-Actions
+sind laut AOSP-Quellcode keine `protected broadcasts`, Ursache bleibt ohne
+`adb logcat`-Zugriff nicht abschließend klärbar (evtl. Pixel-spezifische
+Einschränkung außerhalb des öffentlichen AOSP). Als valides, dokumentiertes
+Spike-Ergebnis gewertet (kein offener Bug) – entsprechende M0-Checkboxen
+abgehakt.
+
+**Damit sind alle code-basierten M0-Punkte aus §16 erledigt.** Offen bleibt
+nur der Emulator-Eintrag in der Geräte-Matrix (kein Android-SDK-Zugriff in
+dieser Sandbox).
+
+**Ehrlicher Hinweis zu M0s Abnahmekriterien (§10):** Zwei der vier
+Abnahmekriterien sind noch **nicht** erfüllt:
+- „App kann auf dem Testgerät eine bekannte Session hörbar und reversibel
+  verändern" – die Spikes haben bewusst nie einen Effekt tatsächlich
+  aktiviert/verändert (nur Read-back), um nichts Unbeabsichtigtes hörbar zu
+  verändern. Eine echte hörbare Gain-Änderung wurde noch nicht getestet.
+- „Eine Entscheidung für MVP-Backend und Fallbacks ist schriftlich
+  dokumentiert" – noch nicht als eigenständige Entscheidung in
+  `docs/DECISIONS.md` festgehalten.
+
+M0 ist damit **funktional weitgehend, aber nicht vollständig** abgeschlossen.
+Nächste Wahl: (a) diese zwei Lücken noch schließen, oder (b) mit M1
+(Projektfundament: Hilt, Navigation, Room, DataStore, CI-Ausbau) beginnen
+und die Lücken später nachziehen.
+
+### Session 5 (18. September 2026)
+
+Nutzer entscheidet: weiter mit M1. Vor der Umsetzung von Hilt/Room
+recherchiert und festgestellt: **KSP ist aktuell nicht mit AGP 9s
+eingebautem Kotlin kompatibel** (verifiziert über KSPs eigene
+Build-Konfiguration im offiziellen Repo) und liegt zudem eine Kotlin-Version
+hinter dem Projekt zurück (KSP zielt auf Kotlin 2.3.20, Projekt nutzt
+2.4.20). Zusätzlich ist Detekt mit Kotlin-2.4-Unterstützung nur als Alpha
+verfügbar. Um nicht denselben Fehler wie beim AGP-9-Kotlin-Vorfall zu
+wiederholen (mehrere ungeprüfte Versionskonflikte gleichzeitig einführen),
+M1 bewusst gesplittet:
+
+**Umgesetzt (risikoarmer Teil):**
+- Paketname/Arbeitstitel zentral in `gradle.properties`.
+- `MainViewModel` (+ `MainViewModelFactory`) übernimmt die
+  Repository-Logik aus `MainScreen` – behebt die M1-Abnahmekriterium-Lücke
+  "Keine Geschäftslogik lebt in Composables", ganz ohne Hilt.
+- `AppNavHost` mit Compose Navigation (`home`-Route als Grundgerüst für
+  spätere Feature-Routen).
+- `docs/ARCHITECTURE.md` neu angelegt; `docs/adr/0001-defer-ksp-based-tooling.md`
+  dokumentiert die Versionskonflikte und den geplanten Workaround
+  (`android.builtInKotlin=false` + `kotlin-android` wieder anwenden +
+  Kotlin auf 2.3.20 zurückstufen), **wenn** dieser Schritt später kommt.
+- Log-/Fehlerstrategie als Policy in `docs/ARCHITECTURE.md` dokumentiert.
+- Neuer Unit-Test `MainViewModelTest` (Fake-Repository, testet
+  Toggle-Logik inkl. Dispatcher-Injektion für Determinismus).
+
+**Bewusst zurückgestellt:** Hilt/Room/DataStore-Nutzung/Serialization
+(KSP-Konflikt), Android Lint/ktlint/detekt (Detekt-Alpha-Problem),
+Debug-Menü für Capability-Fakes (aktuell wenig Nutzen ohne echte
+capability-abhängige UI). Details und Begründung in ADR 0001.
+
+**Nächste konkrete Aufgabe:** CI-Ergebnis dieses Durchlaufs abwarten. Bei
+grün: M1-Checkboxen oben endgültig bestätigen. Der Hilt/Room/KSP-Schritt
+und die Detekt-Einrichtung folgen als eigene, isoliert getestete
+Folge-Schritte, sobald gewünscht.
+
+### Session 6 (18. September 2026)
+
+Nutzer hat pauschale Merge-Freigabe erteilt (außer bei Punkten, die
+explizit am Handy getestet werden müssen) – PR #4 direkt gemerged.
+Anschließend eigenständig entschieden, mit dem in ADR 0001 skizzierten
+Hilt/KSP-Workaround weiterzumachen, da er gut recherchiert und isoliert
+umsetzbar war.
+
+Umgesetzt: Kotlin auf `2.3.20` zurückgestuft (KSP-kompatibel),
+`android.builtInKotlin=false`, `org.jetbrains.kotlin.android`
+wiederangewendet, KSP `2.3.12`, Hilt `2.59.2` eingerichtet. `MainViewModel`
+ist jetzt `@HiltViewModel`, `SessionAttachSpikeController` und
+`AndroidAudioEffectRepository` sind `@Inject`-konstruierbar,
+`MainViewModelFactory` entfernt. Neues ADR 0002 dokumentiert die konkret
+verwendeten Versionen. Details in `docs/adr/0002-hilt-ksp-setup.md`,
+`docs/DEPENDENCIES.md`, `docs/ARCHITECTURE.md`.
+
+Bewusst weiterhin zurückgestellt: Room/DataStore-Nutzung/Serialization
+(Gradle-Wiring als möglicher kleiner Folge-Schritt, sobald dieser Umbau
+grün ist), Android Lint/ktlint/detekt.
+
+**Nächste konkrete Aufgabe:** CI-Ergebnis dieses (risikoreicheren, weil
+Kotlin-Versions-Downgrade + neue Plugins gleichzeitig) Durchlaufs sorgfältig
+prüfen, bei Rot Root Cause diagnostizieren statt zu raten (wie beim
+AGP-9-Vorfall). Bei Grün: M1-Checkbox für Hilt/Coroutines endgültig
+abhaken.
+
+
+### Session 7 (19. September 2026)
+
+Wiederaufnahme an der offenen Aufgabe aus Session 6: CI des Hilt/KSP-Umbaus
+prüfen. PR #5 war bereits gemergt, aber sein letzter Lauf `35400854917`
+war **rot**. Der zusätzliche DSL-Schalter hatte nur den ersten Fehler
+beseitigt; danach scheiterte `compileDebugKotlin` an Java-Ziel 17 und
+Kotlin-Ziel 21.
+
+Behoben in PR #6, Commit `007f53f`: explizites
+`kotlin.compilerOptions.jvmTarget = JvmTarget.JVM_17`, passend zu Java.
+JDK 21 für Gradle und alle Dependency-Versionen bleiben unverändert.
+
+**Verifiziert:** [CI-Lauf 35404523035](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35404523035)
+ist grün: Debug-APK gebaut, Unit-Tests erfolgreich, APK-Artefakt hochgeladen.
+Der lokale Windows-Wrapper konnte mangels Java/JAVA_HOME nicht starten;
+keine neue Geräte- oder Hörprüfung durchgeführt. Dokumentation und ADR 0002
+aktualisiert. Die bisherige kombinierte Hilt/Coroutines/DataStore/Room/
+Serialization-Checkbox wurde geteilt, damit nur der verifizierte Teil
+abgehakt wird.
+
+**Nächste konkrete Aufgabe:** M1 mit Android Lint in CI fortsetzen, dann
+Formatierung/detekt nach Kompatibilitätsprüfung ergänzen. Design-System,
+Persistenz-Wiring und Capability-Fakes sind weiterhin offen. M0-Restpunkte
+(Emulator, hörbare Änderung/Bypass, Backend-Entscheidung) bleiben bestehen.
+
+### Session 8 (19. September 2026)
+
+M1 fortgesetzt: Android Lint wird jetzt in CI für Debug und Release ausgeführt,
+vor dem APK-Upload. Die Berichte werden mit `if: always()` als Artefakt
+`android-lint-reports` gespeichert. Keine Baseline, keine unterdrückten
+Prüfungen, keine neuen Abhängigkeiten oder Änderungen am Audioverhalten.
+
+**Verifiziert:** PR #7, Commit `97a887d`,
+[CI-Lauf 35405675078](https://github.com/kniepertsebastian-spec/equalizer/actions/runs/35405675078):
+Build, Unit-Tests und beide Lint-Varianten grün. Heruntergeladene Berichte
+geprüft: jeweils 0 Fehler und 16 Warnungen (13 Dependency-Update-Hinweise,
+Target-SDK-Hinweis und zwei Launcher-Icon-Hinweise). Sie bleiben sichtbar;
+Versions-/Target-SDK-Wechsel benötigen einen getrennten Kompatibilitätscheck.
+Details und lokale Prüfkommandos stehen in `docs/QUALITY.md`.
+
+Keine neue Geräteprüfung; der lokale Rechner hat weiterhin kein Java/Android-SDK.
+Der Nutzer hat selbstständige PRs und Merges bei erfolgreicher Prüfung erlaubt,
+außer wenn vorher ein notwendiger Handytest ansteht.
+
+**Nächste konkrete Aufgabe:** Kotlin-Formatierung und detekt kompatibel zu
+Kotlin 2.3.20 einrichten und vorhandene Befunde gezielt bearbeiten. Offene
+M0-Geräte-/Bypass-Prüfungen bleiben bestehen.
+
+### Session 9 (19. September 2026)
+
+Hinweis zur Parallelarbeit: Während einer Nutzungslimit-Pause dieser Sitzung
+hat eine andere, parallele Sitzung PR #5 (Hilt/KSP) trotz rotem letzten
+CI-Lauf gemergt und den JVM-Ziel-Konflikt (PR #6) sowie Android Lint in CI
+(PR #7) selbstständig repariert bzw. ergänzt. Beides wurde nach Rückkehr
+anhand des echten CI-Laufs (`3dd08a7`, Lauf `35406096046`, Ergebnis
+`success`) verifiziert, nicht nur aus den Dateien übernommen.
+
+M1 fortgesetzt mit dem in `docs/DECISIONS.md` vermerkten nächsten Schritt:
+ktlint (`org.jlleitschuh.gradle.ktlint`, `14.2.0`) eingerichtet und in CI vor
+dem Build aktiv (`ktlintCheck`, Berichte als Artefakt `ktlint-reports`
+gesichert). Der `ktlint_official`-Stil wurde per `ktlint --format` auf den
+gesamten Bestand angewendet (rein mechanische Umformatierung, keine
+Logikänderung) und lokal mit einem heruntergeladenen `ktlint-cli-1.8.0`
+gegengeprüft (0 verbleibende Verstöße). `.editorconfig` erlaubt PascalCase für
+`@Composable`-Funktionen, da ktlints Namensregel diese sonst ablehnt.
+
+detekt bleibt bewusst zurückgestellt: Laut
+[detekt/detekt#9170](https://github.com/detekt/detekt/discussions/9170)
+unterstützt die stabile detekt-Version Kotlin 2.3.20 weiterhin nicht (nur die
+Vorabversion `2.0.0-alpha.6`) – derselbe grundsätzliche Kompatibilitätsblocker
+wie in ADR 0001 für Kotlin 2.4.20, nur jetzt mit einer konkreten Quelle für
+die niedrigere Version. Details und Begründung in
+`docs/adr/0003-ktlint-detekt-deferred.md`.
+
+Da diese Sandbox weiterhin keinen Zugriff auf das Android-SDK (`dl.google.com`)
+hat, konnte `./gradlew ktlintCheck` nicht vollständig lokal laufen (Build
+scheitert schon beim Auflösen von AGP, wie in `docs/DEPENDENCIES.md`
+dokumentiert); der eigenständige `ktlint-cli`-Lauf ersetzt das für die reine
+Stil-Prüfung. Endgültige Bestätigung folgt über CI, siehe `docs/TEST_MATRIX.md`.
+
+**Nächste konkrete Aufgabe:** Design-System-Tokens und Capability-Fakes
+bleiben offen. detekt bei der nächsten Kotlin-Versionsänderung erneut auf
+Kompatibilität prüfen. Offene M0-Geräte-/Bypass-Prüfungen bleiben bestehen.
+
+### Session 10 (19. September 2026)
+
+PR #9 ("Jules", automatisch über einen vom Nutzer gestarteten Task erstellt)
+behauptet, M1 bis M8 vollständig umzusetzen: `AndroidAudioEngine`
+(Equalizer/DynamicsProcessing), `AudioSessionRepository`/`AudioRouteRepository`,
+`EqualizerInterpolator` mit Presets und Makros, Room-Persistenz
+(`PresetEntity`, `DeviceProfileEntity`), `PresetJsonSerializer`,
+Limiter-/Kompressor-Sicherheitsgrenzen, `DiagnosticsScreen`, sowie
+AutoEQ-Import und einen Media3-DSP-Prototyp.
+
+Der PR basierte auf einem älteren `main`-Stand (vor PR #8/ktlint) und hatte
+Merge-Konflikte gegen den aktuellen `main`. Konflikte in `app/build.gradle.kts`,
+`gradle/libs.versions.toml`, `MainScreen.kt`, `MainViewModel.kt`,
+`MainViewModelTest.kt` und dieser Datei wurden per Merge-Commit aufgelöst
+(nicht per Rebase, um die fremde Branch-Historie nicht umzuschreiben); dabei
+wurde bewusst kein bereits vorhandener Test verworfen (`toggling off hides
+the list...` aus `main` wurde in die neue, um `AudioEngine`/`AudioSession`/
+`AudioRoute` erweiterte Konstruktor-Signatur übernommen statt gelöscht).
+
+**Code-Review durchgeführt** (kein Android-SDK in dieser Sandbox, siehe
+`docs/DEPENDENCIES.md` – Review daher per Lesen/Grep/ktlint, nicht per
+Emulator-Lauf). Ergebnis: ein wiederkehrendes Muster aus zu früh als "[x]"
+markierten Punkten, bei denen entweder nur das Datenmodell/die Abhängigkeit
+existiert, aber nichts sie aufruft, oder ein DSP-Stage strukturell aktiviert,
+aber nie konfiguriert wurde. Alle betroffenen Checkboxen oben in M1–M7 wurden
+entsprechend korrigiert (siehe dortige Begründungen).
+
+**Gefundene und in diesem Review behobene Bugs:**
+- `AppNavHost`: Die Diagnose-Route rief `hiltViewModel()` ohne gemeinsamen
+  Scope auf und erzeugte damit eine zweite `MainViewModel`-Instanz. Deren
+  `init{}` setzte Preset/Makros auf ihre Defaults zurück und wandte sie sofort
+  auf die echte, geteilte `AndroidAudioEngine` an – ein Nutzer, der auf
+  "Diagnose & Report" tippt, hätte seinen eingestellten EQ verloren. Beim
+  Zurück-Navigieren stoppte die zweite Instanz zusätzlich dauerhaft
+  `AudioSessionRepository`/`AudioRouteRepository` für den ganzen Prozess.
+  Behoben durch eine einzige, oberhalb von `NavHost` gehaltene
+  `MainViewModel`-Instanz für beide Routen.
+- `AndroidAudioEngine`: `limiterEnabled = false` schaltete den bereits
+  aktiven Limiter nicht ab (kein Code-Pfad dafür) – aktuell ohne UI-Zugriff
+  auf dieses Feld, aber ein latenter Bug für die erste UI, die es exponiert.
+  Behoben.
+- `AndroidAudioEngine`: PreEQ/MBC/PostEQ wurden in der
+  `DynamicsProcessing.Config` strukturell angefordert, aber nirgends
+  konfiguriert – liefen mit unbekannten Geräte-Standardwerten, ein Verstoß
+  gegen das eigene Projektprinzip "Jede DSP-Funktion braucht definierte
+  Grenzen" (§1). Aus der Konfiguration entfernt, bis eine echte Implementierung
+  existiert; `hasMbc` meldet jetzt korrekt `false`.
+- `AndroidAudioEngine`: `attach()`/`detach()`/`apply()` liefen ohne jede
+  Synchronisierung nebeneinander her, obwohl M5 "Schutz vor
+  Parameter-Sprüngen und Race Conditions" als erledigt auswies. Mit einem
+  `Mutex` nachgerüstet (analog zu `SessionAttachSpikeController` aus M0).
+- `MainScreen`: Der M0-Debug-Einstieg für den Session-Attach-Spike
+  (`SessionAttachSpikeSection`) war beim Umbau auf die neue Equalizer-UI
+  ersatzlos verschwunden; der `spikeController`-Parameter war seither
+  toter Code. Wiederhergestellt als Toggle-Button neben den anderen
+  Debug-Werkzeugen.
+- `gradle.properties`: Eine offensichtlich maschinenspezifische
+  `systemProp.http.agent`-Zeile (Gradle/OS/JVM-Version einer fremden
+  Sandbox) war eingecheckt. Entfernt.
+
+**Gefundene, aber nicht in diesem Review behobene Probleme** (siehe die
+jeweiligen Checkboxen oben für Details): M4-Persistenz komplett unverdrahtet
+(Room/DataStore ohne Aufrufer, kein Route-Fingerprint/Profilwechsel, kein
+JSON-Import/-Export in der UI); automatische Input-Gain-Absenkung wird nur
+angezeigt, nie angewendet; kein Onboarding-Kompatibilitätscheck (nicht einmal
+der alte M0-Platzhalter blieb erhalten); große Teile der deutschen UI-Texte
+in `DiagnosticsScreen`/`EqualizerScreen` sind nicht lokalisiert; der
+`AudioSessionRepository`-Broadcast-Mechanismus basiert auf genau den beiden
+Broadcast-Actions, die der M0-Spike bereits als auf dem Testgerät unzuverlässig
+dokumentiert hat (`docs/TEST_MATRIX.md`) – ohne erneuten Gerätetest bleibt
+offen, ob M2 in der Praxis funktioniert.
+
+**Nächste konkrete Aufgabe:** Vor einem Merge sollte der Nutzer diesen Stand
+bewusst gegen die PR-Beschreibung ("M1 bis M6 vollständig") abwägen – die
+Grundgerüste (Equalizer-DSP, Presets, Diagnose-UI, Limiter-Schutz) sind real
+und größtenteils solide, aber "die Roadmap ist durch" trifft nicht zu: M4 ist
+praktisch nicht begonnen, M6 nur teilweise. Empfehlung: PR mergen für den
+soliden Kern (M2/M3-DSP, Diagnose), M4/Lokalisierung/Onboarding als eigene,
+nachvollziehbare Folge-Schritte planen statt als bereits erledigt zu führen.
+
+### Session 11 (19. September 2026)
+
+Nutzer meldet zwei konkrete Probleme mit einem Screenshot: (1) Der Equalizer
+erkennt die Audio-Session nicht, wenn Spotify vor HardBass EQ geöffnet und
+gestartet wird; (2) die Hauptansicht wirkt "bugged" – die Debug-Buttonleiste
+läuft über den Bildschirmrand hinaus. Zusätzliche Frage: lässt sich Uptempo
+Hardcore mit vorhandenen/weiteren Features noch besser abbilden?
+
+**Root Cause (1), keine neue Erkenntnis, sondern Bestätigung eines bereits in
+Session 4 dokumentierten Befunds:** `AudioSessionRepository` registriert den
+`ACTION_OPEN/CLOSE_AUDIO_EFFECT_CONTROL_SESSION`-Empfänger erst, wenn
+`MainViewModel` erzeugt wird (App-UI wird geöffnet). Dieser Broadcast feuert
+laut Android-Doku nur **einmal**, wenn der Player seine Session anlegt – i. d.
+R. beim ersten Wiedergabestart nach Prozessstart des Players. Öffnet der
+Nutzer zuerst Spotify und startet Wiedergabe, bevor HardBass EQ läuft, ist der
+Broadcast unwiderruflich verpasst; es gibt keine öffentliche API, um aktive
+Audio-Sessions anderer Apps nachträglich abzufragen. Der M0-Spike hatte zudem
+bereits gezeigt, dass selbst *selbst gesendete* Broadcasts auf dem Pixel
+10/Android 16 nicht beim eigenen Empfänger ankommen – der Mechanismus ist
+also auch unabhängig vom Timing-Problem nicht zuverlässig. Die einzige robuste
+Lösung wäre ein dauerhaft laufender Foreground-Service, der schon lauscht,
+bevor der Player überhaupt startet – das widerspricht aber bewusst §6/M2
+("keine dauerhaft laufende Foreground-Service-Lösung als Voreinstellung",
+"nicht einführen, bevor sie technisch und Play-Policy-seitig begründet ist").
+Das ist eine Produktentscheidung (Akku, Dauerbenachrichtigung, neue
+Berechtigung) und wurde daher **nicht** eigenmächtig umgesetzt, sondern dem
+Nutzer zur Entscheidung vorgelegt statt still implementiert oder ignoriert.
+Stattdessen ergänzt: ein Hinweis-Card in `EqualizerScreen`, der bei Status
+"Wartet auf Audio-Session" sichtbar wird und erklärt, warum das passiert und
+was hilft (Titel pausieren/erneut abspielen, Player neu starten während
+HardBass EQ offen bleibt).
+
+**Root Cause (2), neuer Fund:** `MainScreen`s Debug-Werkzeugleiste
+(„Diagnose & Report“ / „Audioeffekte anzeigen (Debug)“ / „Session-Attach-Spike
+anzeigen (M0)“) steht in einer normalen `Row` ohne `horizontalScroll` oder
+Umbruch. Mit den (im Screenshot sichtbaren) deutschen Strings aus
+`values-de/strings.xml` passen nicht einmal zwei der drei Buttons vollständig
+auf einen Bildschirm – der dritte Button war komplett unerreichbar, ohne dass
+es einen sichtbaren Hinweis darauf gab. Gleiches latentes Problem in der
+`Presets`-Card in `EqualizerScreen` (FilterChip-`Row` ohne Scroll), akut
+relevant, weil dieser Review ein fünftes Preset ergänzt. Beide Zeilen sind
+jetzt horizontal scrollbar (`Modifier.horizontalScroll(rememberScrollState())`).
+
+**Uptempo-Hardcore-Feature:** Neues Built-in-Preset „Uptempo – Kick Attack“
+(`BuiltInPresets.KickAttack`) ergänzt, gezielt auf den harten, extrem
+transienten Kick und die "Screech"-Charakteristik von Uptempo Hardcore
+zugeschnitten statt auf reinen Bass: strafferer Sub (50 Hz +3 dB), stärkerer
+Kick-Punch (100 Hz +2,5 dB), tieferer Mud-Cut bei 250 Hz (−3 dB) für
+Durchsetzungsfähigkeit im Wall-of-Sound-Mix, Anhebung bei 3,2 kHz (+1,5 dB)
+für Kick-Attack-Definition und Screech-Durchsetzung, plus leichte Absenkung
+bei 6–10 kHz, um die ohnehin meist schon sehr laut/hart gemasterten
+Hardcore-Tracks nicht zusätzlich zu verschärfen. `mbcRatio` bewusst höher
+(3.0) für strafferes Einfangen der repetitiven Kick-Transienten.
+
+**Nicht umgesetzt, dem Nutzer zur Entscheidung vorgelegt:** dauerhafter
+Foreground-Service für zuverlässigere Session-Erkennung (s. o.); ein
+zusätzlicher Makroregler speziell für Kick-Attack/Screech statt nur über
+Presets. Build weiterhin nicht lokal verifizierbar (kein Android-SDK-Zugriff
+in dieser Sandbox, wie in allen vorherigen Sessions) – Verifikation über CI
+und ggf. erneuten Gerätetest durch den Nutzer.
+
+### Session 12 (19. September 2026)
+
+Nutzer bestätigt: Session-11-Fixes wirken (PR #14 gemergt). Neuer Wunsch,
+mit einem Ziel-Mockup-Screenshot belegt: Das Design sei "noch ziemlich
+langweilig" – Icon-Grid mit neun Presets (3×3), dunkler Industrial-/
+Brushed-Metal-Hintergrund mit roten Akzentlinien, abgerundete Karten mit
+Rahmen. Der Screenshot zeigt vier Presets, die im Code noch nicht existieren
+(„Hardcore – Raw Power“, „Frenchcore – Fast Attack“, „Terrorcore – Maximum
+Distortion“, „Uptempo – Final Smash“) – laut Auftrag mit „vorhandener
+Einstellung“, also im Stil der bestehenden Presets, zu ergänzen.
+
+**Umgesetzt:**
+- Vier neue Built-in-Presets nach dem Muster der bestehenden ergänzt
+  (`BuiltInPresets.kt`): „Hardcore – Raw Power“ (grundsolide, weniger extrem
+  als die Uptempo-Presets), „Frenchcore – Fast Attack“ (sehr starker,
+  schneller Kick-Punch + `mbcRatio` 3.2 für knackige Transienten),
+  „Terrorcore – Maximum Distortion“ (bewusst **negative** Härte + niedrigerer
+  MBC-Threshold, weil Terrorcore-Quellmaterial bereits massiv verzerrt ist –
+  hier soll gebändigt statt weiter verschärft werden) und „Uptempo – Final
+  Smash“ (die extremste Uptempo-Variante: max. Sub, max. Kick-Punch, max.
+  Präsenz). `BuiltInPresets.all` jetzt in exakt der Reihenfolge des
+  Mockup-Grids (3×3).
+- `androidx.compose.material:material-icons-extended` als neue Abhängigkeit
+  ergänzt (`libs.versions.toml`/`app/build.gradle.kts`, über die bestehende
+  Compose-BOM versioniert, keine neue KSP-/Annotation-Processor-Baustelle).
+  Bisher gab es nur `material-icons-core` mit ca. 50 Basis-Icons – für die
+  Preset-Icons (Faust, Welle, Blitz, Waage, Power-Symbol, Tacho, Verbotssymbol
+  usw.) reicht das nicht.
+- `EqualizerScreen.kt`: Presets-Zeile (Scroll-Row mit `FilterChip`s) durch ein
+  3-spaltiges Icon-Grid ersetzt (`PresetGrid`/`PresetCard`, statisch in
+  Dreier-Reihen gechunkt, kein `LazyVerticalGrid` nötig bei neun statischen
+  Presets). Ausgewähltes Preset bekommt Akzent-Rahmen/-Hintergrund in
+  Primärfarbe. Alle Cards bekommen einheitlich `RoundedCornerShape(20.dp)`
+  und einen dezenten Rahmen (`HardBassCardBorder`) für den "Industrial-Panel"-
+  Look aus dem Mockup.
+- Neuer dunkler Hintergrund-Textur-Modifier
+  (`ui/theme/Background.kt#hardBassIndustrialBackground`): Gradient plus
+  gezeichnete diagonale "Brushed-Metal"-Streifen und ein paar spärliche
+  orangene Akzentlinien, als Ersatz für das Rasterbild aus dem Mockup (kein
+  Bild-Asset verfügbar/verifizierbar in dieser Sandbox). Angewendet in
+  `MainActivity` (App-weite `Surface`, transparent gemacht) sowie in beiden
+  `Scaffold`s (`MainScreen`, `DiagnosticsScreen`) über `containerColor =
+  Color.Transparent`, damit die Textur durchscheint statt vom
+  Scaffold-Hintergrund überdeckt zu werden.
+
+**Bewusste Abweichung vom Mockup:** Kein Schädel-Icon für „Final Smash“
+verwendet – es gibt keinen Schädel im (nicht-extended, klassischen)
+Material-Icons-Set, das `material-icons-extended` bereitstellt. Stattdessen
+`Icons.Filled.Whatshot` (Flamme) als "Maximum/Extrem"-Symbol. Ebenfalls nicht
+übernommen: das im Mockup doppelt auftauchende "Grafischer EQ (0 Bänder)"-
+Element (einmal in der Makro-Karte, einmal als eigene Karte darunter) – wirkt
+wie ein Mockup-Artefakt und hätte keine sinnvolle Funktion; die reale Struktur
+(ein "Grafischer EQ"-Card mit Bypass-Switch im Header) bleibt unverändert.
+
+**Nicht erneut lokal verifizierbar** (weiterhin kein Android-SDK-Zugriff in
+dieser Sandbox) – insbesondere die neue `drawBehind`-Textur und das Icon-Grid
+sollten auf einem echten Gerät gegen den Mockup-Screenshot geprüft werden.
+Verifikation über CI (Build/Unit-Tests/Lint/ktlint) plus Gerätetest durch den
+Nutzer.
+
+### Session 13 (19. September 2026)
+
+Nutzer meldet: Equalizer klappt auch bei SoundCloud nicht, und bittet darum,
+das diesmal „richtig" zu beheben statt nur mit einem Hinweistext zu arbeiten.
+Bevor umgesetzt wurde: per `AskUserQuestion` explizit die in Session 11/12
+aufgeschobene Entscheidung vorgelegt (dauerhafter Foreground-Service mit
+Dauerbenachrichtigung/Akku-Kosten/neuer Berechtigung vs. nur Doku vs. erst
+Gerätetest) – **Nutzer entscheidet sich für den Foreground-Service.**
+
+**Wichtiger Vorbehalt vorab kommuniziert:** Das SoundCloud-Problem hat
+vermutlich zwei Ursachen, von denen der Service nur eine sicher behebt. (1)
+Timing: Der Broadcast feuert nur einmal beim Sessionstart – wenn HardBass EQ
+noch nicht lief, ist er für immer verpasst. (2) Ungeklärt seit Session 4: Auf
+dem Pixel 10/Android 16 kamen selbst **selbst gesendete** Test-Broadcasts nie
+beim eigenen Empfänger an, auch nicht bei aktivem Warten – das deutet auf ein
+tieferliegendes, möglicherweise geräte-/OS-spezifisches Zustellungsproblem
+hin, das ein Service allein nicht lösen kann. Umgesetzt wird trotzdem, weil es
+den einzig bekannten, seriösen nächsten Schritt darstellt und Punkt (1) real
+behebt.
+
+**Umgesetzt:**
+- Neuer `AudioSessionForegroundService` (`service/AudioSessionForegroundService.kt`,
+  `androidx.lifecycle.LifecycleService` + `@AndroidEntryPoint`, injiziert die
+  bestehenden Singletons `AudioSessionRepository`/`AudioRouteRepository`/
+  `AudioEngine`). Startet `sessionRepository.startListening()` und
+  `routeRepository.startMonitoring()` in `onCreate()` und reagiert per
+  `lifecycleScope`-Collector auf `activeSession`-Wechsel mit
+  `audioEngine.attach()`/`detach()` – exakt die Logik, die vorher in
+  `MainViewModel.init` lag, jetzt aber unabhängig vom UI-Lebenszyklus.
+  `START_STICKY`, damit das System den Dienst nach einem Kill neu startet.
+- `HardBassEqApplication.onCreate()` startet den Service sofort beim
+  Prozessstart (`ContextCompat.startForegroundService`) – nicht erst wenn
+  `MainActivity`/`MainViewModel` erzeugt werden. Das verkleinert das
+  Zeitfenster, in dem ein Player-Broadcast verpasst werden kann, auf "Prozess
+  noch nicht gestartet" statt "UI noch nicht geöffnet".
+- `MainViewModel`: `sessionRepository`-Parameter komplett entfernt (wird nicht
+  mehr gebraucht), `startListening/stopListening` und
+  `routeRepository.startMonitoring/stopMonitoring` sowie der
+  `activeSession`-Collector aus `init{}`/`onCleared()` entfernt – der Service
+  ist jetzt alleiniger Owner dieses Lebenszyklus. `MainViewModelTest`
+  entsprechend angepasst (`FakeAudioSessionRepository` entfernt, da ungenutzt).
+- Persistente Low-Priority-Benachrichtigung (`IMPORTANCE_LOW`, kein Sound/
+  Vibration) erklärt dem Nutzer, warum die App im Hintergrund läuft; Tippen
+  öffnet `MainActivity`. Neues, aus dem vorhandenen App-Icon abgeleitetes
+  monochromes Vektor-Icon (`ic_notification_eq.xml`), da Statusleisten-Icons
+  reine weiße Silhouetten auf Transparenz brauchen.
+- Manifest: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK` und
+  `POST_NOTIFICATIONS` ergänzt; `MainActivity` fragt `POST_NOTIFICATIONS` ab
+  API 33 zur Laufzeit an (der Service funktioniert auch ohne die Berechtigung,
+  nur die Benachrichtigung bliebe sonst unsichtbar).
+  `foregroundServiceType="mediaPlayback"` gewählt, da kein FGS-Typ exakt
+  "lauscht auf fremde Audio-Sessions" abbildet und vergleichbare veröffentlichte
+  System-EQ-Apps (z. B. Wavelet) für genau diesen Zweck `mediaPlayback`
+  verwenden statt der Play-Store-review-pflichtigen `specialUse`-Kategorie.
+- Hinweistext in `EqualizerScreen.kt` aktualisiert: erklärt jetzt, dass die
+  App auch im Hintergrund lauscht, und nennt die verbleibenden Fälle (Player
+  lief schon vor Erstinstallation/letztem Neustart; ungeklärtes
+  Zustellungsproblem), in denen Pausieren/Neustarten des Players weiterhin
+  hilft.
+- `androidx.lifecycle:lifecycle-service` als neue Abhängigkeit ergänzt (über
+  die bereits gepinnte `lifecycle`-Version, kein neuer Versionskonflikt).
+
+**Weiterhin nicht umgesetzt/offen:** Kein `BOOT_COMPLETED`-Empfänger – der
+Service startet erst, wenn der Nutzer die App nach einem Geräteneustart
+mindestens einmal öffnet, nicht automatisch beim Booten (das wäre eine
+weitere, hier nicht angefragte Ausweitung). Ob Punkt (2) oben (mögliches
+Zustellungsproblem) durch den Service behoben ist, lässt sich nur auf einem
+echten Gerät klären – das ist der nächste Test, um den der Nutzer gebeten
+werden sollte. Build weiterhin nicht lokal verifizierbar (kein
+Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI plus
+Gerätetest.
+
+### Session 14 (22. September 2026)
+
+Nutzer meldet nach dem Foreground-Service-Merge: SoundCloud klappt weiterhin
+nicht, und zusätzlich wird die Musik durch HardBass EQ insgesamt **leiser**
+statt druckvoller – während SoundCloud selbst (eigene Lautheits-Normalisierung/
+Mastering) lauter *und* basslastiger klingt.
+
+**Zwei getrennte Themen, nicht dasselbe Problem:**
+
+1. **SoundCloud-Lautheit ist unabhängig von HardBass EQ.** Was der Nutzer bei
+   SoundCloud hört, ist deren eigene, App-/serverseitige Lautheits-
+   Normalisierung bzw. ein eigener Loudness-Maximizer auf ihrer Wiedergabe-
+   Pipeline – das hat nichts mit Androids Session-basiertem `AudioEffect`
+   zu tun, über das HardBass EQ arbeitet. Kein Code-Fund hierzu nötig, reine
+   Erklärung an den Nutzer.
+
+2. **"Equalizer wird leiser" ist ein echter, gefundener Gain-Staging-Bug in
+   `AndroidAudioEngine.applyInternal()`**, unabhängig vom Session-Erkennungs-
+   problem – tritt bei jedem Preset auf, sobald überhaupt eine Session
+   angehängt ist:
+   - Jedes Preset erzwingt einen festen negativen `inputGainDb`
+     (`requestedHeadroomDb`, roadmap-konform 3–5,5 dB „Ziel-Headroom" – **nicht**
+     der Bug, sondern bewusste Spezifikation aus §5).
+   - Die `DynamicsProcessing.MbcBand`-Konfiguration setzte `preGain`/`postGain`
+     aber fest auf `0f, 0f` – der Multiband-Kompressor senkt bei lauten
+     Passagen (bei den Uptempo-/Hardcore-Presets praktisch dauerhaft, da die
+     Schwellen niedrig sind) die Lautstärke weiter ab, **ohne** die übliche
+     Kompressor-Makeup-Gain, die das kompensiert. In Kombination mit dem
+     Input-Gain-Cut ergab das netto fast immer leiseres statt druckvolleres
+     Ergebnis – das genaue Gegenteil vom Ziel der App.
+
+**Fix:** `postGain` je MBC-Band nicht mehr `0f`, sondern eine konservative
+Standard-Kompressor-Makeup-Gain-Heuristik
+(`(-threshold) * (1 - 1/ratio) * 0.5`, gekappt auf 0–4 dB). Der Limiter danach
+bleibt **unverändert** (weiterhin hartes 10:1-Verhältnis, Safe-Threshold ≤ 0
+dBFS) – er fängt etwaige zusätzliche Pegelspitzen aus der Makeup-Gain weiterhin
+ab, „Clipping-Schutz zuerst" bleibt also intakt. Die feste
+`requestedHeadroomDb`-Sicherheitsmarge pro Preset wurde bewusst **nicht**
+angetastet, da sie explizite Produktspezifikation aus §5 ist, nicht der
+gefundene Bug.
+
+**Weiterhin offen, an den Nutzer zurückgespielt:** Ob SoundCloud nach dem
+Foreground-Service (Session 13) jetzt wenigstens den Status „Aktiv
+(Session #…)" erreicht oder weiterhin dauerhaft bei „Wartet auf
+Audio-Session" hängen bleibt, lässt sich nur auf dem Gerät sehen – das würde
+zwischen „Session-Erkennung funktioniert jetzt, nur der Klang war das
+Problem" (durch diesen Fix erledigt) und „Session-Erkennung schlägt bei
+SoundCloud weiterhin grundsätzlich fehl" (das ungeklärte, tiefere
+Zustellungsproblem aus Session 4) unterscheiden. Build weiterhin nicht lokal
+verifizierbar (kein Android-SDK-Zugriff in dieser Sandbox); `AndroidAudioEngine`
+ist laut M7 ohnehin nicht durch reine JVM-Unit-Tests abgedeckt (echte
+Android-Media-Klassen nötig) – Verifikation über CI (Build/Lint) plus
+Gerätetest/Hörprobe durch den Nutzer.
+
+### Session 15 (22. September 2026)
+
+Nutzer testet PR #16 auf dem Gerät und meldet ein eindeutiges, sehr
+aufschlussreiches Ergebnis: Bei **Spotify** zeigt der Status-Chip jetzt
+„Aktiv (Session #…)" – der Foreground-Service aus Session 13 hat das
+Timing-Problem also tatsächlich behoben. Bei **SoundCloud** dagegen bleibt
+der Status durchgehend leer/„Wartet auf Audio-Session" – keine einzige
+Session wird je erkannt.
+
+**Das grenzt die Ursache entscheidend ein:** Der Broadcast-Mechanismus selbst
+funktioniert auf diesem Gerät (widerlegt die pessimistischste Lesart von
+Session 4, dass er grundsätzlich systemweit blockiert wäre) – SoundCloud
+sendet den `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-Broadcast schlicht nie.
+Das ist keine Eigenheit unseres Codes, sondern eine Entscheidung/ein
+Implementierungsdetail von SoundCloud: Der Broadcast ist ein optionales,
+Cooperative-only-Feature aus der Java-`MediaPlayer`-Ära; viele moderne, auf
+ExoPlayer/Media3 aufbauende Player senden ihn nie automatisch, sofern die
+App-Entwickler es nicht explizit nachbauen.
+
+**Versucht, aber verworfen – zweite Session-Quelle über
+`AudioManager.registerAudioPlaybackCallback(...)` /
+`AudioPlaybackConfiguration.getAudioSessionId()`:** Der Plan war, diese vom
+Audio-Framework selbst getriebene, vollständige Liste aller aktuell aktiven
+Wiedergabe-Sessions systemweit zu nutzen, unabhängig davon, ob die abspielende
+App kooperiert. **Fehleinschätzung, durch CI aufgedeckt:**
+`AudioPlaybackConfiguration.getAudioSessionId()` ist entgegen der ursprünglichen
+Annahme **kein Teil der öffentlichen Android-SDK-Stubs** (`compileSdk 37`) –
+der Build schlug mit `Unresolved reference 'audioSessionId'` fehl. Diese
+Methode ist offenbar `@SystemApi`/versteckt und für normale (nicht
+System-/privilegierte) Apps schlicht nicht aufrufbar, auch nicht mit der
+`MODIFY_AUDIO_SETTINGS`-Berechtigung. Die Änderung wurde vollständig
+zurückgenommen (`AudioSessionRepository.kt`/Manifest wieder auf den Stand von
+PR #16), bevor sie gemergt wurde – kein rotes CI im gemergten Code.
+
+**Ehrliche Schlussfolgerung, nicht nur für diese Sitzung:** Damit gibt es
+aktuell **keinen bekannten, im öffentlichen Android-SDK verfügbaren Weg**,
+die Audio-Session einer fremden App zu ermitteln, wenn diese sie nicht selbst
+per `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-Broadcast meldet – und
+SoundCloud tut das nachweislich nicht. MediaProjection/Playback-Capture ist
+laut §2 ausdrücklich ausgeschlossen, Root ist laut §3 „Nicht im MVP". Ohne
+neue Erkenntnis (z. B. falls SoundCloud den Broadcast doch unter bestimmten
+Bedingungen sendet, oder eine andere, tatsächlich öffentliche API existiert)
+sollte SoundCloud ehrlich als „von diesem Player nicht unterstützt"
+dokumentiert werden (roadmap-Prinzip „Ehrliche Kompatibilität", §1.3), statt
+weiter Workarounds zu suchen, die denselben SDK-Sichtbarkeits-Constraint
+treffen dürften.
+
+**Nächste konkrete Aufgabe:** Mit dem Nutzer klären, ob SoundCloud als
+bekannte Einschränkung dokumentiert wird (z. B. im Hinweistext in
+`EqualizerScreen.kt`), oder ob noch weitere Recherche gewünscht ist. Build
+weiterhin nicht lokal verifizierbar (kein Android-SDK-Zugriff in dieser
+Sandbox) – Verifikation über CI (Build/Lint) plus Gerätetest durch den
+Nutzer.
+
+### Session 16 (22. September 2026)
+
+Nutzer meldet, noch bevor PR #17 gemergt ist, den eigentlichen Kern des
+Lautheits-Problems: Die Uptempo-Presets klingen im direkten Vergleich zu
+Flat weder bassiger noch klarer – Flat wirkt sogar lauter, aber "genauso
+klar". Der MBC-Makeup-Gain-Fix aus Session 14 allein reicht also nicht.
+
+**Root Cause, per Handrechnung mit den echten Pixel-10-Bändern (M0-Spike,
+`docs/TEST_MATRIX.md`: 60/230/910/3600/14000 Hz) nachvollzogen:**
+`MainViewModel.automaticInputGainDb()` bildete bisher
+`-maxOf(peakBoostDb, presetHeadroomDb)` – und `presetHeadroomDb` (z. B. 4.0 dB
+bei „Clean Punch") liegt in der Praxis nahe an oder sogar über dem tatsächlich
+interpolierten `peakBoostDb` (für „Clean Punch" bei Band 60 Hz: ≈4.37 dB nach
+Zielkurve + Bass-Makro). Ergebnis: Der verpflichtende Input-Gain-Cut hat die
+EQ-Anhebung am stärksten angehobenen Band nahezu **exakt auf 0 dB netto**
+zurückgerechnet – noch bevor Dynamikverarbeitung überhaupt beginnt. Nur der
+MBC-Makeup-Gain-Fix (Session 14) sorgte danach noch für ein bisschen
+hörbaren Unterschied, aber nur während der Kompressor tatsächlich greift.
+Effektiv: Die Presets klangen kaum anders als Flat, exakt wie gemeldet.
+
+Das ist letztlich dieselbe Baustelle, die roadmap.md §8 selbst schon als
+vorläufig markiert hatte: „Automatischer Headroom basiert konservativ auf dem
+maximalen positiven EQ-Gain; später kann eine präzisere Schätzung folgen" –
+dieses „später" ist jetzt.
+
+**Fix:** `automaticInputGainDb()` cancelt den Peak-Boost nicht mehr
+vollständig, sondern nur noch zur Hälfte (`INPUT_GAIN_SAFETY_RATIO = 0.5f`,
+neue Konstante in `MainViewModel.kt`). Der `presetHeadroomDb`-Floor
+(`maxOf(...)`) entfällt komplett zugunsten des tatsächlich gemessenen
+Peak-Boosts – `Preset.requestedHeadroomDb` bleibt als Datenfeld/anfänglicher
+Platzhalterwert (`withPreset()`, ebenfalls ×0.5 skaliert) und in
+`PresetJsonSerializer` bestehen, spielt aber für die eigentliche
+Gain-Berechnung keine Rolle mehr. Die verbleibende Sicherheit gegen echtes
+Clipping trägt jetzt stärker der **unveränderte** Limiter (hartes
+10:1-Verhältnis, Schwelle ≤ 0 dBFS) – genau seine eigentliche Aufgabe, statt
+dass der Input-Gain-Cut sie ihm vorab komplett abnimmt und die EQ-Kurve dabei
+mit wegrasiert.
+
+Neu-Rechnung für „Clean Punch"/Band 60 Hz: Cut jetzt −2,18 dB statt −4,37 dB
+→ netto **+2,18 dB** vor Dynamikverarbeitung (vorher ±0 dB), plus MBC-Makeup
+während lauter Passagen. Für „Uptempo – Final Smash" (extremster Boost, ≈5,7
+dB an Band 60 Hz) ergibt sich netto bis zu ≈+4,85 dB inklusive MBC-Makeup –
+spürbar mehr Bass, aber der Limiter fängt reale Pegelspitzen weiterhin
+zuverlässig ab.
+
+**Tests angepasst:** `MainViewModelTest` – „manual boost automatically
+reserves matching headroom" umbenannt zu „...reserves half as headroom" mit
+neuem Erwartungswert (`-4f` statt `-8f` bei `setBandGain(gainDb = 8f)`);
+„selectPreset updates active preset and interpolates gains" erwartet jetzt
+`-(peakBoostDb * 0.5f)` statt der alten `maxOf(...)`-Formel.
+
+**Ehrlich zum Trade-off:** Der Limiter muss jetzt öfter/stärker eingreifen
+als vorher, weil weniger Vorab-Absenkung stattfindet – das ist bei einem
+Uptempo-Hardcore-EQ eher erwünschter Charakter (spürbare Kompression/Limiting
+gehört zum Genre-Sound) als ein Risiko, aber ob sich das auf einem echten
+Gerät gut statt übersteuert anhört, lässt sich nur durch Hörprobe klären.
+
+**Nächste konkrete Aufgabe:** Nutzer hört auf dem Gerät gegen, ob die Presets
+jetzt hörbar mehr Bass/Punch liefern als Flat, ohne unangenehm zu pumpen oder
+zu verzerren. Build weiterhin nicht lokal verifizierbar (kein
+Android-SDK-Zugriff in dieser Sandbox) – Verifikation über CI (Build/Unit-Tests)
+plus Gerätetest/Hörprobe durch den Nutzer.
+
+### Session 17 (22. September 2026)
+
+Nutzer testet noch VOR dem Merge von PR #17 (also noch auf altem Code) und
+bestätigt entsprechend erwartungsgemäß keinen Unterschied – wichtiger
+Hinweis dazu direkt an den Nutzer gegeben. Zusätzlich klare Ansage: mehr
+aggressive Kicks, weniger Sicherheitsabsenkung, als eigener nächster Schritt
+(nicht mehr in PR #17 gestapelt, damit einzeln testbar und bei Bedarf
+zurückrollbar).
+
+**Zweiter, unabhängiger Bug beim vollständigen Audit der Kette gefunden:**
+Das „Punch"-Makro (`EqualizerInterpolator.calculateMacroDelta`) hatte ein
+Peak-Fenster von 80–150 Hz und ein Dip-Fenster von 250–350 Hz – auf den
+echten Pixel-10-Bändern (60/230/910/3600/14000 Hz, `docs/TEST_MATRIX.md`)
+liegt **keines der 5 Bänder** in einem dieser Fenster. Der Punch-Regler in
+der UI hatte auf diesem Gerät also **keinerlei hörbaren Effekt**, egal wie
+weit man ihn zieht – unabhängig vom Gain-Staging-Bug aus Session 16. Fenster
+auf 70–160 Hz (Peak) / 220–360 Hz (Dip) verbreitert, sodass Band 1 (230 Hz)
+jetzt im Dip-Fenster liegt und tatsächlich reagiert.
+
+**Umgesetzt (noch nicht gepusht/PR eröffnet – erst nach Merge von PR #17,
+damit die Schritte einzeln testbar bleiben):**
+- `INPUT_GAIN_SAFETY_RATIO` in `MainViewModel.kt`: 0.5 → 0.3 (nur noch 30 %
+  des Peak-Boosts werden vorab abgezogen, nicht mehr die Hälfte). Für „Clean
+  Punch" ergibt das am Sub-Bass-Band jetzt ≈+3,06 dB netto vor
+  Dynamikverarbeitung statt ≈+2,18 dB.
+- Punch-Makro-Fenster verbreitert (s. o.), damit der Regler auf dem echten
+  Testgerät überhaupt etwas bewirkt.
+- `macroPunchDb` in den Kick-fokussierten Presets moderat angehoben (+0,5 dB):
+  Clean Punch 1,5→2,0, Kick Attack 2,0→2,5, Raw Power 1,5→2,0, Fast Attack
+  2,5→3,0, Final Smash 2,5→3,0. **Bewusst unverändert:** Deep Rumble, Balanced
+  (nicht Kick-fokussiert) und Terrorcore – Maximum Distortion (dessen
+  gesamtes Design in Session 12 explizit auf Zähmen statt Verschärfen
+  ausgelegt wurde – noch aggressiver zu machen würde diesem Zweck
+  widersprechen).
+- `MainViewModelTest` entsprechend angepasst (30 % statt 50 % in beiden
+  betroffenen Tests).
+
+**Ehrlich zum Risiko:** Mit 0.3 statt 0.5 muss der Limiter noch öfter/stärker
+eingreifen. Das bleibt eine bewusste, vom Nutzer angefragte Entscheidung
+("kann man immer einen Schritt zurückgehen") – ohne Gerätetest nicht
+abschließend beurteilbar, ob es zu hörbarem Pumping/Verzerrung führt.
+
+**Nächste konkrete Aufgabe:** Sobald PR #17 gemerged ist, diesen Stand als
+eigenen PR gegen `main` öffnen. Nutzer testet danach gezielt: (1) Punch-Regler
+hat jetzt hörbaren Effekt? (2) Presets insgesamt spürbar aggressiver als vorher,
+aber noch sauber (kein Pumping/Verzerren)? Build weiterhin nicht lokal
+verifizierbar (kein Android-SDK-Zugriff in dieser Sandbox) – Verifikation über
+CI (Build/Unit-Tests) plus Gerätetest/Hörprobe durch den Nutzer.
+
+### Session 18 (23. September 2026)
+
+Nutzer bittet: „Mache den Equalizer für Windows und Linux Debian/Ubuntu
+nutzbar." Vor der Umsetzung per `AskUserQuestion` zwei Grundsatzentscheidungen
+geklärt, weil die Aufwände um Größenordnungen auseinanderliegen: (1) Ansatz –
+**Presets für bestehende, bereits system-weit wirkende Engines exportieren**
+(Equalizer APO unter Windows, EasyEffects/PipeWire unter Linux) statt einer
+kompletten eigenen DSP-Engine pro Plattform (eigener Treiber, Codesigning,
+im Grunde ein neues Produkt pro OS); (2) Codebasis – **neues Modul im
+selben Repo** statt separates Projekt. Außerdem explizit gefragt und
+bestätigt bekommen, dass dies auf einem eigenen Branch/PR entsteht, nicht in
+PR #17 (Audio-Engine-Fixes) gemischt wird.
+
+**Modul-Umbau:**
+- Neues, reines Kotlin/JVM-Modul `:core` (kein Android-, kein Compose-
+  Dependency) mit den bereits plattform-unabhängigen Domänenklassen, die
+  vorher unter `:app` lagen: `preset/Preset.kt`, `preset/BuiltInPresets.kt`,
+  `dsp/EqualizerInterpolator.kt`, `audio/EqualizerBandCapabilities.kt`,
+  `data/preset/PresetJsonSerializer.kt` (plus ihre bestehenden Unit-Tests).
+  `:app` hängt jetzt von `:core` ab statt die Dateien selbst zu enthalten;
+  Paketnamen unverändert, daher keine Import-Änderungen nötig. Damit nutzt
+  der Desktop-Client exakt dieselbe Preset-Definition und
+  Interpolationslogik wie die Android-App – ein Preset ist eine Kurve, keine
+  zwei gepflegten Kopien.
+- Neues Modul `:desktop` (Compose Multiplatform 1.12.1, Kotlin 2.3.20 – wie
+  im restlichen Projekt gepinnt, siehe ADR 0001 zur KSP/Kotlin-Version-
+  Kopplung; das betrifft `:desktop` nicht direkt, da hier kein KSP läuft,
+  aber eine einzige Kotlin-Version für das ganze Repo vermeidet
+  Klassenlader-Überraschungen).
+
+**Desktop-App (`desktop/src/main/kotlin/com/hardbasseq/eq/desktop/`):**
+- `App.kt`/`Main.kt`: einfaches Compose-UI – Preset-Liste (alle
+  `BuiltInPresets.all`), drei Macro-Slider (Bass/Punch/Härte), Ziel-
+  Plattform-Umschalter (Auto-Erkennung über `os.name`, manuell überschreibbar
+  für den Fall, dass die Erkennung falschliegt oder zum Testen).
+- `VirtualBands.kt`: 15 log-verteilte Frequenzpunkte (31 Hz–16 kHz) als
+  Ersatz für die festen Hardware-Bänder eines echten Android-Geräts – Desktop-
+  Engines unterstützen beliebige parametrische Filter, aber
+  `EqualizerInterpolator.interpolatePresetToBands` (aus `:core`) erwartet eine
+  konkrete Bandliste. Mehr Auflösung im Bass-/Kick-Bereich als ein
+  typisches 10-Band-Grafik-EQ, weil genau dort die Uptempo-Hardcore-Presets
+  den Löwenanteil ihrer Kurve platzieren.
+- `PresetCurve.kt`: `automaticPreampDb()` – anders als auf Android (wo der
+  Limiter als Sicherheitsnetz den Rest abfängt, siehe Session 16/17) gibt es
+  bei einem reinen parametrischen EQ ohne Compressor/Limiter kein solches
+  Netz. Der Preamp hier annulliert den positiven Spitzenpegel deshalb
+  bewusst **vollständig**, nicht nur anteilig – konservativer als die
+  Android-Lösung, aber richtig für den Kontext.
+- `exporter/EqualizerApoExporter.kt`: erzeugt gültige Equalizer-APO-Filter-
+  Syntax (`Filter N: ON PK Fc … Hz Gain … dB Q …` + `Preamp: … dB`,
+  verifiziert gegen die offizielle Configuration-Reference-Doku). Schreibt
+  **nicht** direkt in `config.txt` – stattdessen eine eigene Include-Datei
+  (`HardBassEQ.txt`) plus eine einmalige, idempotente `Include:`-Zeile in
+  `config.txt`, damit weder eigene Konfiguration des Nutzers überschrieben
+  noch bei wiederholtem Anwenden Zeilen dupliziert werden.
+- `exporter/EasyEffectsExporter.kt`: erzeugt ein EasyEffects-Preset-JSON
+  (`output.equalizer#0` mit `left`/`right`-Bändern, Typ `Bell`). Es gibt
+  keine offizielle Schema-Doku dafür – das Format wurde anhand realer,
+  funktionierender Community-Presets (u. a. github.com/wwmm/easyeffects-
+  Umfeld) nachvollzogen. Schreibt nach
+  `~/.config/easyeffects/output/<Preset-Name>.json`; der Nutzer muss das
+  Preset in EasyEffects noch selbst auswählen, da es keinen dokumentierten,
+  stabilen Weg gibt, es von außen live zu erzwingen.
+- Bewusst **nicht** portiert: MBC-Kompressor/Limiter-Dynamik aus der Android-
+  Engine. Beide Ziel-Engines sind reine parametrische EQs; eine vollwertige
+  Dynamikkette nachzubauen wäre ein eigenes, deutlich größeres Vorhaben und
+  war nicht Teil der Entscheidung in `AskUserQuestion`.
+
+**CI:** `.github/workflows/ci.yml` erweitert – der bestehende
+`ktlintCheck`-Schritt deckt `:core`/`:desktop` automatisch mit ab (Root-
+Aggregat-Task), neuer Schritt `./gradlew :core:test :desktop:test` für die
+JVM-Unit-Tests (Android-spezifisches `testDebugUnitTest` erfasst sie nicht),
+plus Report-Upload für beide.
+
+**Nicht umgesetzt/offen:**
+- Keine gebauten Installer (.msi/.deb) in CI – `compose.desktop.application`
+  ist zwar für beide `TargetFormat`s konfiguriert, aber `jpackage` kann ein
+  MSI nur auf einem Windows-Host bauen und ein DEB nur auf einem Linux-Host
+  (WiX Toolset bzw. dpkg werden vom jeweiligen Betriebssystem-Toolchain
+  vorausgesetzt). Der CI-Runner ist `ubuntu-latest`, daher hier bewusst nur
+  Kompilieren + Testen, kein `packageMsi`/`packageDeb`. Siehe
+  `desktop/README.md` für die lokalen Bau-Befehle pro Plattform.
+- Kein automatischer Live-Reload für EasyEffects (Linux) – das JSON landet
+  im Preset-Ordner, Auswahl in der EasyEffects-UI bleibt ein manueller
+  Schritt.
+- Build weiterhin nicht lokal verifizierbar (Sandbox-Policy blockiert
+  `dl.google.com`, nötig für die Android-Gradle-Plugin-Auflösung, die auch
+  beim reinen `:core`/`:desktop`-Build mitläuft, da beide im selben Root-
+  Projekt liegen) – Verifikation über CI.
+- EasyEffects-JSON-Schema ist nicht offiziell dokumentiert und daher nicht
+  hundertprozentig garantiert stabil über Versionen hinweg – falls ein Import
+  fehlschlägt, ist das der erste Verdächtige.
+
+### Session 19 (25. September 2026)
+
+**Vorbemerkung – Dokumentationslücke:** Zwischen Session 18 und diesem
+Eintrag liegt tatsächlich mehrere Sessions Arbeit, die nie protokolliert
+wurde: die vormals eigenständige Player-App (SoundCloud-Suche/-Login,
+`PlayerActivity`, `AudioPlayerService`) wurde vollständig in dieses Repo
+gemergt (als Library-Modul `:player`, siehe `settings.gradle.kts`), die
+M1-Aufgabe „Zustandsautomat" aus `docs/STATE_MACHINE.md` wurde umgesetzt
+(`AudioEngineState.Listening`/`Retrying`, begrenztes Re-Attach mit Backoff
+in `AndroidAudioEngine.kt`), und drei parallel entstandene PRs (#10, #23,
+#24) wurden zusammengeführt bzw. als überholt geschlossen. Diese Lücke wird
+hier nicht rückwirkend aufgefüllt – nur als Hinweis, dass der Session-Log
+ab hier wieder lückenlos weitergeführt wird, aber davor eine echte Lücke hat.
+
+Setzt roadmap-2026.md M2 „Persistenz und Custom-Workflow" um.
+
+**Repository-Schicht:**
+- `PresetEntity` (Room, Tabelle `custom_presets`) hält nur noch
+  `id`/`name`/`presetJson`/`updatedAtMillis` – der gesamte `Preset` wird als
+  ein einziger, über `PresetJsonSerializer` validierter JSON-Blob
+  gespeichert statt einer Spalte pro Feld. Built-ins werden nie in diese
+  Tabelle geschrieben (bleiben `BuiltInPresets.all`, compile-time), was die
+  M2-Abnahme „Built-ins bleiben unveränderlich" strukturell statt nur per
+  Konvention erfüllt. `RoomPresetRepository` überspringt (und loggt) Zeilen,
+  die `PresetJsonSerializer.importFromJson` nicht validiert – die
+  M2-Abnahme „ein beschädigtes Nutzerpreset kann die App nicht am Start
+  hindern".
+- Neu: `com.hardbasseq.eq.settings` (`AppSettingsRepository`,
+  `DataStoreAppSettingsRepository`) – der komplette Live-Zustand
+  (`activePresetId`, `isDirty`, das volle `ProcessingSettings` inkl.
+  manueller Band-Werte) wird als ein JSON-Blob in Preferences DataStore
+  persistiert, nicht nur benannte Presets. Grund: Die Abnahme verlangt
+  „Alle Einstellungen überleben App-, Prozess- und Geräteneustart", nicht
+  nur gespeicherte Presets – ein manuell verstellter Band-Regler, der nie
+  als eigenes Preset gespeichert wurde, muss einen Neustart trotzdem
+  überleben.
+- `ProcessingSettings` ist jetzt `@Serializable` (kotlinx.serialization);
+  `:app` hat dafür `libs.plugins.kotlin.serialization` und
+  `kotlinx-serialization-json` neu bekommen (`:core` hatte beides schon).
+
+**`AppDatabase`:** `exportSchema = true` (vorher `false`) – die
+`presets`-Tabelle (jetzt `custom_presets`) hatte laut Repo-weiter Suche nach
+`PresetDao`-Aufrufstellen vor dieser Session **nie** einen echten
+Schreibpfad, war also nie wirklich „ausgeliefert". Version bleibt bei 1
+(keine echte Vorversion, von der aus zu migrieren wäre) – `exportSchema`
+wird ab jetzt aktiviert, damit die *nächste* Schemaänderung eine echte
+Baseline zum Migrieren hat.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- **Automatisierte Migrationstests** (M2-Abnahme „Migrationstests decken
+  mindestens die vorherige Schema-Version ab"): `MigrationTestHelper`
+  braucht Robolectric oder eine Instrumentierungsumgebung – keines von
+  beiden ist in diesem Repo eingerichtet (`ci.yml` führt nur
+  `testDebugUnitTest`, reines JVM, auf dem Room/SQLite gar nicht laufen).
+  Das Einrichten von Robolectric ist Voraussetzung für die *nächste*
+  Migration, nicht für diese Session (siehe oben: es gibt noch keine echte
+  Vorversion, von der aus zu testen wäre).
+- **Undo/Redo innerhalb der laufenden Bearbeitung** (M2-Aufgabe) – bewusst
+  zurückgestellt, um diese Session nicht weiter aufzublähen; alle anderen
+  M2-Aktionen (Zurücksetzen, als neues Preset speichern, duplizieren,
+  umbenennen, löschen mit Bestätigung) sind umgesetzt und UI-erreichbar
+  (`EqualizerScreen.kt`/`MainScreen.kt`), nicht nur als totes
+  Repository-Skelett wie es laut Code-Review in Session 10 zuvor bei
+  Room/DataStore der Fall war.
+- Ganzer Verlauf weiterhin nicht lokal mit `./gradlew` verifizierbar (kein
+  Android-SDK in dieser Sandbox) – Ktlint-Konformität wurde stattdessen mit
+  einem lokal heruntergeladenen, eigenständigen `ktlint`-CLI plus portablem
+  JDK 21 gegen exakt die geänderten Dateien geprüft (0 Verstöße außerhalb
+  von `:player`, das weiterhin keine ktlint-Anwendung hat). Kompilieren,
+  Unit-Tests und Android Lint bleiben CI-only.
+
+### Session 20 (26. September 2026)
+
+Nutzer-Chat-Anfrage (kein roadmap-2026.md-Meilenstein): Vergleich mit
+Nothing's In-Ear-Kopfhörern und deren "Dirac Opteo"-EQ-Feature. Daraus zwei
+Erweiterungsideen konkret als neue `:core`-DSP-Bausteine umgesetzt, exakt auf
+demselben Reifegrad wie `BiquadFilterDesigner`: Referenzimplementierung, nur
+offline gegen synthetische Testsignale geprüft, bewusst **nicht** in
+`ProcessingSettings`/`Media3DspPipeline` oder einen echten Wiedergabepfad
+verdrahtet (siehe "Bewusst offen gelassen" unten).
+
+**Neu: `dsp/LoudnessCompensationCurve.kt`** – ISO-226/Fletcher-Munson-
+*inspirierte* (keine echte SPL-kalibrierte ISO-226-Tabelle)
+Lautstärkekompensation: Je weiter der aktuelle Pegel unter einer
+Referenzlautstärke liegt, desto stärker werden Bass und (schwächer) Höhen
+angehoben, geklemmt ab 40 dB Pegelabstand. Liefert eine normale
+`TargetPoint`-Liste, keine Sonderbehandlung im restlichen DSP-Pfad nötig.
+
+**`CurveComposer.combine()` erweitert** um eine n-äre Variante
+(`combine(curves: List<List<TargetPoint>>)`), damit Korrektur-, Voicing- und
+jetzt auch Loudness-Kurve gemeinsam summiert werden können, ohne die
+bestehende Zwei-Kurven-Signatur zu brechen (die jetzt nur noch darauf
+delegiert).
+
+**Neu: `dsp/BassExciter.kt`** – harmonische Bass-Erweiterung ("Bass
+Exciter", vgl. Waves MaxxBass/SRS TruBass – das Funktionsprinzip hinter
+Dirac Opteos "mehr Bass aus kleinen Treibern"): Tiefpass isoliert den
+Bassanteil, Vollweg-Gleichrichtung erzeugt daraus Obertöne (dominant eine
+Oktave höher), Hochpass entfernt den dabei entstehenden DC-Offset, das
+Ergebnis wird mit einstellbarem `mix` zum Original zugemischt statt es zu
+ersetzen. Anders als alles bisherige im `dsp`-Package ist das *nichtlinear*
+– kein reiner Gain-pro-Frequenz-Filter, sondern erzeugt tatsächlich neue
+Frequenzanteile, die ein kleiner Treiber im Original gar nicht abstrahlen
+könnte.
+
+**Neu: `BiquadFilterState`** (in `BiquadFilter.kt`) – `BiquadFilterDesigner`
+konnte bisher nur Koeffizienten designen und die Frequenzantwort analytisch
+auswerten, aber kein einziges Sample tatsächlich filtern. `BassExciter`
+braucht echtes zeitdiskretes IIR-Filtern mit Zustand zwischen aufeinander-
+folgenden `process()`-Aufrufen (Direct Form I) – das war die fehlende
+Voraussetzung dafür.
+
+**Tests:** `LoudnessCompensationCurveTest`, `CurveComposerTest`,
+`BassExciterTest` – letzterer u. a. mit einer Goertzel-Einzelfrequenz-
+Analyse, um nachzuweisen, dass ein reiner 55-Hz-Testton nach dem Exciter
+tatsächlich neue, klar messbare Energie bei 110 Hz hat, die im Bypass-Pfad
+nicht existiert, sowie ein Test, dass ein 5-kHz-Ton (weit außerhalb des
+Bass-Cutoffs) praktisch unverändert bleibt.
+
+**Verifikation:** `./gradlew` schlägt in dieser Sandbox weiterhin schon beim
+Root-Build fehl (AGP-Plugin nicht auflösbar). `:core` hat aber keine
+Android-Abhängigkeit – die neuen/geänderten Dateien wurden deshalb in einem
+eigenständigen Mini-Gradle-Projekt (nur `kotlin-jvm` + `kotlin-serialization`,
+spiegelt exakt `core/build.gradle.kts`) gegen dieselben Quelldateien laufen
+lassen: alle 30 Tests in `:core` (die neuen plus alle bereits vorhandenen)
+grün. Ktlint-Konformität mit einer lokal heruntergeladenen, eigenständigen
+ktlint-1.3.1-CLI geprüft (zwei kleine Autoformat-Korrekturen: Klassen-
+Signatur-Zeilenumbruch, Chain-Continuation) – dieselbe Methode wie in
+Session 19.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- Beide Bausteine sind – wie `BiquadFilterDesigner`/`CurveComposer`/
+  `HeadroomCalculator` selbst – **nicht** in `ProcessingSettings`/
+  `Media3DspPipeline` oder einen echten Wiedergabepfad verdrahtet. Laut
+  roadmap-2026.md M6 "Release-Gate B" ist das bewusst gesperrt, bis die drei
+  Ausführungspfade (Android `DynamicsProcessing`/Herstellereffekte vs.
+  eigener Media3-DSP vs. grafische Approximation) auf echter Hardware
+  verglichen wurden. `BassExciter` würde konkret den eigenen Media3-DSP-Pfad
+  brauchen – Vollweg-Gleichrichtung/harmonische Synthese ist mit
+  System-Effekten wie `Equalizer`/`DynamicsProcessing` nicht möglich.
+- Woher `LoudnessCompensationCurve.forLevel()` den "aktuellen Pegel" bekommt
+  (System-Media-Volume vs. gemessenes Signal-RMS) ist nicht
+  entschieden/implementiert – die Funktion nimmt bewusst nur eine bereits
+  berechnete dB-Differenz entgegen, keine Pegelmessung selbst.
+- Kein eigener ADR- oder Roadmap-Meilenstein-Eintrag für diese beiden
+  Features, da sie aus einem Chat mit dem Nutzer entstanden sind, nicht aus
+  einem bestehenden Meilenstein.
+
+### Session 21 (26. September 2026)
+
+Fortsetzung des Nothing/Dirac-Opteo-Chats: automatische Profilerkennung für
+"Mein Kopfhörer" (Punkt 8 aus dem Chat) - ein Vorschlag statt manuellem
+AutoEQ-Datei-Import, wenn das erkannte Bluetooth-Gerät zu einem bekannten
+Modell passt.
+
+**`AutoEqParser` von `:app` nach `:core` verschoben** (unverändert, nur
+Modul-Wechsel, plus die zugehörige `AutoEqParserTest`): reine Kotlin-Logik
+ohne Android-Abhängigkeit, die jetzt auch `BuiltInAutoEqCatalog` (`:core`)
+zum Parsen der eigenen Katalog-Daten braucht - `:core` kann nicht von `:app`
+abhängen, umgekehrt schon (`app/build.gradle.kts` hatte `project(":core")`
+schon). `:app` selbst (`MainViewModel.kt`s Import) brauchte keine Änderung,
+da Package und API gleich geblieben sind.
+
+**Neu: `dsp`-Nachbar `autoeq/AutoEqCatalogEntry.kt` + `BuiltInAutoEqCatalog.kt`
++ `AutoEqCatalogMatcher.kt`:**
+- `BuiltInAutoEqCatalog` bündelt 10 verbreitete Kopfhörer-/Earbud-Modelle
+  (Sony WH-1000XM4/XM5, WF-1000XM4/XM5, Apple AirPods Max, Bose QuietComfort
+  45, Sennheiser HD 599, Sennheiser Momentum 4 Wireless, Samsung Galaxy
+  Buds2 Pro, Beats Studio Buds) als fertige `CorrectionProfile`s. Datenquelle:
+  echte GraphicEQ-Messwerte aus dem AutoEQ-Projekt
+  (github.com/jaakkopasanen/AutoEq, MIT-lizenziert), Messungen von
+  oratory1990 - per `git show` einzelner `GraphicEQ.txt`-Dateien aus dem
+  öffentlichen Repo gezogen (kein Live-Netzwerkzugriff zur Laufzeit, nur zum
+  Beschaffen der Daten für diese Session). Bewusst nur 10 Modelle, nicht die
+  vollständige AutoEQ-Datenbank (tausende Modelle) - siehe "Bewusst offen
+  gelassen" unten.
+- `AutoEqCatalogMatcher` gleicht einen Gerätenamen-String (z. B.
+  `AudioRoute.name`, das `AndroidAudioRouteRepository` für Bluetooth/USB
+  schon aus `device.productName` befüllt) gegen den Katalog ab: exakte
+  Treffer, Enthaltensein (deckt "Sony WH-1000XM4 Stereo" oder nur
+  "WH-1000XM4" als Bluetooth-Advertising-Name ab) und als Fallback
+  Levenshtein-Ähnlichkeit für knapp daneben liegende Schreibweisen. Liefert
+  unterhalb einer Mindest-Konfidenz (0.6) bewusst `null` statt eines
+  unsicheren Vorschlags.
+
+**Tests:** `AutoEqCatalogMatcherTest`, `BuiltInAutoEqCatalogTest` (u. a. dass
+jeder Katalogeintrag eine nicht-leere, innerhalb der `AutoEqParser`-Grenzen
+liegende Kurve hat) sowie die mitgezogene `AutoEqParserTest`. Verifiziert wie
+in den vorherigen Sessions: alle 44 `:core`-Tests grün im eigenständigen
+Mini-Gradle-Projekt, ktlint sauber.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- **Keine Verdrahtung in `MainViewModel`/`EqualizerScreen`s "Mein
+  Kopfhörer"-Karte** - der Matcher ist fertig und getestet, aber noch nicht
+  an `AudioRouteRepository.activeRoute` angeschlossen und zeigt entsprechend
+  noch keinen Vorschlag in der UI an. Anders als bei `BassExciter`/
+  `LoudnessCompensationCurve` (Session 20) ist das hier *kein* Blocker durch
+  eine ungeklärte technische Richtung (M6) - reine Geräteerkennung/Vorschlag
+  ohne PCM-Processing -, sondern schlicht in dieser Session nicht mehr
+  gemacht. Nächster Schritt: `MainViewModel` bekommt einen
+  `StateFlow<AutoEqCatalogEntry?>`, der bei jedem `activeRoute`-Wechsel
+  `AutoEqCatalogMatcher.findBestMatch(route.name)` aufruft (nur sinnvoll für
+  `BLUETOOTH`/`USB` - `WIRED_HEADPHONES`/`SPEAKER` liefern laut
+  `AndroidAudioRouteRepository` nie einen echten Produktnamen), plus
+  Annehmen/Ablehnen-Aktionen und eine kleine Vorschlagskarte in
+  `EqualizerScreen.kt`.
+- **Kein vollständiger AutoEQ-Katalog** - 10 Modelle sind eine Kuratierung,
+  keine Datenbank-Anbindung. Eine vollständige Abdeckung bräuchte entweder
+  echten Netzwerkzugriff zur Laufzeit (Lizenz-/Attributionshinweis nötig,
+  AutoEQs README empfiehlt dafür ohnehin eher autoeq.app als die
+  `results/`-Dateien direkt) oder einen deutlich größeren mitgelieferten
+  Datensatz - beides eine bewusste Produktentscheidung, kein Teil dieser
+  Session.
+- **Kabelgebundene Kopfhörer bleiben unerreichbar für Auto-Erkennung** -
+  Android liefert dafür so gut wie nie einen Produktnamen (nur den
+  generischen `WIRED_HEADPHONES`-Typ), der manuelle Datei-Import bleibt für
+  diesen (vermutlich größeren) Nutzerkreis der einzige Weg.
+- **Punkt 7 aus dem Chat (YouTube in der Quellenauswahl) bewusst nicht
+  angefasst** - das eigentliche Hindernis ist rechtlich (YouTube bietet keine
+  offizielle Audio-Streaming-API für Drittanbieter-Player; ein inoffizieller
+  Extractor verstößt gegen die Nutzungsbedingungen), keine offene
+  Programmieraufgabe. Nutzer-Rückmeldung (echtes Gerät, außerhalb dieser
+  Sandbox): **YouTube Music funktioniert bereits** - vermutlich über den
+  normalen Session-Attach-Pfad (wie Spotify, Option A), der pfadunabhängig
+  für jede App greift, die den `ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION`-
+  Broadcast sendet, ganz ohne eigenen Code dafür. Das ist unabhängig vom
+  weiterhin kaputten `PlayerSource.YOUTUBE`-Eintrag im eigenen
+  Player-Picker (SC Equalizer Player) - dieser bleibt bewusst unverändert
+  als geplantes, noch nicht funktionsfähiges Feature stehen (siehe
+  `roadmap-2026.md` M1-Umsetzungsstand), da er ein anderer Codepfad ist als
+  "YouTube Music direkt starten". Nutzer-Entscheidung: so lassen, keine
+  Änderung nötig.
+
+**Nachtrag selbe Session - UI-Verdrahtung des Vorschlags:** Der oben als
+offen gelassene nächste Schritt wurde noch in dieser Session nachgeholt.
+
+- `MainViewModel`: neuer `StateFlow<AutoEqCatalogEntry?>`
+  (`suggestedCorrectionProfile`), gespeist von einem zweiten,
+  `hasRestoredState`-unabhängigen Collector auf `routeRepository.activeRoute`
+  (`updateSuggestedCorrectionProfile()`). Kein Vorschlag für
+  `WIRED_HEADPHONES`/`SPEAKER` (liefern nie einen echten Produktnamen), für
+  bereits per `DeviceProfileRepository` gebundene Routen oder für pro Route
+  einmal abgelehnte Vorschläge (`dismissedSuggestionRouteIds` - bewusst nur
+  In-Memory, nicht persistiert, siehe Code-Kommentar). `acceptSuggested-
+  CorrectionProfile()` speichert das Katalog-Profil zuerst in
+  `CorrectionProfileRepository` (genau wie ein AutoEQ-Datei-Import), bevor es
+  ausgewählt wird - sonst würde die von `saveDeviceProfileBinding()`
+  gespeicherte `boundCorrectionProfileId` beim nächsten Routenwechsel ins
+  Leere laufen.
+- `EqualizerScreen.kt`: neue Vorschlags-Karte in der "Mein Kopfhörer"-Card
+  (`AnimatedVisibility`, Gerätename + Quelle + "Übernehmen"/"Nicht jetzt").
+  Zwei neue Composable-Parameter, entsprechend in `MainScreen.kt` verdrahtet.
+- `MainViewModelTest.kt`: sechs neue Tests (kein Vorschlag für die
+  Standard-Speaker-Route, erkannter vs. unbekannter Bluetooth-Gerätename,
+  keine erneute Suggestion bei bereits gebundener Route, Annehmen speichert
+  und wählt aus, Ablehnen räumt nur die Suggestion ab ohne das aktive Profil
+  zu ändern) plus eine Katalog-Fixture-Guard-Assertion.
+- **Verifikation:** `:core`-Anteil wie gehabt (Standalone-Mini-Gradle-Projekt,
+  alle Tests grün). Der `:app`-Anteil (`MainViewModel`/`EqualizerScreen`/
+  `MainScreen`/`MainViewModelTest`) konnte in dieser Sandbox **nicht**
+  kompiliert oder getestet werden (Android Gradle Plugin nicht auflösbar,
+  wie in jeder vorherigen Session) - nur mit der eigenständigen ktlint-CLI
+  geprüft, plus manueller Zeilen-für-Zeilen-Review des Diffs (inkl.
+  Klammern-/Kompilierbarkeits-Handkontrolle). Verifiziert wird das erst
+  durch die reale CI in PR #30.
+- **Nebenbefund:** `EqualizerScreen.kt` hatte als einzige Datei im Repo
+  CRLF-Zeilenenden (vermutlich einmal unter Windows gespeichert) -
+  `ktlint --format` hat das beim Formatieren automatisch auf LF vereinheit-
+  licht (wie der Rest des Repos). Dadurch erscheint der Git-Diff dieser
+  Datei viel größer als der tatsächliche inhaltliche Unterschied (per
+  `diff` nach Zeilenenden-Normalisierung geprüft: ausschließlich die oben
+  beschriebenen Änderungen, sonst nichts).
+
+### Session 22 (26. September 2026)
+
+Fortsetzung des Nothing/Dirac-Opteo-Chats: Nutzer bat darum, die zuvor
+priorisierte 6-Punkte-Liste komplett der Reihe nach umzusetzen. Alle sechs
+Punkte sind jetzt umgesetzt. PR #30 (Session 20/21) war bereits gemergt, der
+Branch wurde deshalb frisch von `main` neu aufgesetzt statt draufzustacken
+(siehe eigene Anweisung dazu: "restart the designated branch from main").
+
+**Punkt 1 - Kopfhörer-Modus-Flag:** `DeviceProfileEntity` bekommt ein neues
+`headphoneAcousticsOverride: Boolean?`-Feld (null = kein expliziter Wunsch,
+Fallback auf `AudioDeviceType.defaultHeadphoneAcoustics()` - neue Extension
+in `AudioRoute.kt`: `WIRED_HEADPHONES`/`BLUETOOTH`/`USB` → true,
+`SPEAKER`/`UNKNOWN` → false). Kein Schema-Versionsbump - dieselbe Begründung
+wie bei `boundCorrectionProfileId` in Session 19: die App hat noch kein
+Release, es gibt keine installierte Version, die das brechen könnte (siehe
+Entity-Kommentar). `MainViewModel.effectiveHeadphoneAcoustics` kombiniert
+`currentRoute` und den geladenen Override; `setHeadphoneAcousticsOverride()`
+schreibt über denselben `saveDeviceProfileBinding()`-Pfad wie Preset-/
+Korrektur-Wechsel (wichtig: `applyDeviceProfileForRoute()` musste dafür
+umgebaut werden, damit der Override *immer* aktualisiert wird, auch wenn für
+die Route noch gar kein vollständiges Binding existiert - sonst hätte ein
+Routenwechsel den Override der vorherigen Route "durchgeschleift"). Kleine
+Switch-UI in der "Mein Kopfhörer"-Karte. Sechs neue `MainViewModelTest`-Fälle,
+u. a. ein Regressionstest, dass ein unabhängiger Presetwechsel den Override
+nicht zurücksetzt (Room-`REPLACE` würde sonst die ganze Zeile überschreiben).
+
+**Punkte 2-6 - fünf neue `:core`-DSP-Bausteine**, alle im selben Reifegrad wie
+`BassExciter`/`LoudnessCompensationCurve` aus Session 20 (getestete
+Referenzimplementierung, nicht an `Media3DspPipeline` angeschlossen):
+
+- `BassMonoSummer` (Punkt 2): Tiefpass pro Kanal + Mittelung zu einem
+  gemeinsamen Mono-Bass, Hochpass entfernt den ursprünglichen Bassanteil pro
+  Kanal, Mono-Bass wird zu beiden Kanälen zurückgemischt.
+- `Compressor` (Punkt 3): nutzt endlich die seit Langem toten
+  `mbcEnabled`/`mbcThresholdDb`/`mbcRatio`-Felder - Feed-Forward-Kompressor,
+  log-Domain-Hüllkurve mit getrennten Attack-/Release-Zeitkonstanten (fix
+  verdrahtet, da im Datenmodell nie vorgesehen), Hard-Knee-Gain-Rechner.
+  "Multiband" im Feldnamen ist Zielbeschreibung, nicht Ist-Zustand - nur ein
+  Threshold/Ratio im gesamten Datenmodell, also Vollband-Kompressor.
+- `LookaheadLimiter` (Punkt 4): Delay-Line + gleitendes Minimum über die
+  gepufferten "benötigter Gain pro Sample"-Werte - dadurch faktisch
+  Attack-Zeit 0 (die Zukunft ist ja schon bekannt), nur die Freigabe danach
+  läuft geglättet. Zusätzlich eine einfache lineare Interpolation zwischen
+  benachbarten Samples als grobe Inter-Sample-Peak-Schätzung (kein echtes
+  4x-Oversampling nach ITU-R BS.1770 - bewusst außerhalb des Rahmens einer
+  Referenzimplementierung). Mathematisch nachweisbar (nicht nur getestet):
+  die Ausgabe kann den Schwellwert nie überschreiten, da die angewandte
+  Verstärkung immer ≤ der für das aktuelle Sample selbst nötigen ist.
+- `Crossfeed` (Punkt 5): tiefpassgefilterter Kreuz-Mix zwischen den Kanälen
+  (bs2b-artig, ~700 Hz Grenzfrequenz), mit Normalisierung, damit ein bereits
+  monofones Signal nicht lauter wird. Bewusst kein Ersatz für
+  `BassMonoSummer` - unterschiedlicher Frequenzbereich, unterschiedlicher
+  Zweck. Kennt `AudioRoute`/`effectiveHeadphoneAcoustics` (Punkt 1) nicht
+  selbst (würde eine Android-Abhängigkeit in `:core` ziehen) - die
+  Gating-Entscheidung ist Sache des Aufrufers.
+- `TransientShaper` (Punkt 6): zwei Hüllkurvenverfolger (schnell/langsam),
+  ihre positive Differenz erkennt echte Attack-Transienten unabhängig vom
+  Frequenzinhalt - ersetzt die schwache EQ-basierte `macroPunchDb`-Notlösung
+  (siehe deren eigener Kommentar in `EqualizerInterpolator.kt` zu Session 17:
+  die Frequenzfenster mussten schon einmal nachjustiert werden, weil es auf
+  echten Geräten kaum wirkte).
+
+**Tests:** 26 neue Fälle über die fünf neuen `:core`-Klassen plus die sechs
+neuen `MainViewModelTest`-Fälle. Zwei bemerkenswerte Stolperfallen beim
+Schreiben der Tests selbst (nicht in der Produktionslogik):
+- `CrossfeedTest`: ein Sample-für-Sample-Vergleich für "Mono bleibt Mono"
+  schlug fehl, weil der Tiefpass im Kreuz-Pfad eine Phasenverschiebung
+  einführt - die Wellenform ändert sich dadurch sichtbar, obwohl der
+  RMS-Pegel (die eigentlich relevante Eigenschaft) erhalten bleibt. Test auf
+  RMS-Vergleich umgestellt.
+- `TransientShaperTest`: mehrere Tests brauchten deutlich mehr
+  Einschwing-Samples als ursprünglich angenommen - die langsame Hüllkurve
+  hat eine Zeitkonstante von ~1440 Samples (30 ms bei 48 kHz), nicht wenige
+  Hundert; zu kurzes "Einschwingen" in den Tests täuschte einen anhaltenden
+  Boost vor, der tatsächlich nur unvollständige Konvergenz war.
+
+**Verifikation:** wie in Session 20/21 - alle 76 `:core`-Tests grün im
+eigenständigen Mini-Gradle-Projekt (mirrort `core/build.gradle.kts`), `:app`
+nur mit der eigenständigen ktlint-1.3.1-CLI und manueller Diff-Durchsicht
+geprüft (Android Gradle Plugin weiterhin in dieser Sandbox nicht auflösbar) -
+echte Verifikation über die CI im neuen PR.
+
+**Bewusst offen gelassen, nicht Teil dieser Session:**
+- Keiner der fünf neuen DSP-Bausteine ist an `ProcessingSettings`/
+  `Media3DspPipeline` angeschlossen - gleiche M6-Release-Gate-B-Begründung
+  wie in Session 20.
+- `Compressor`/`LookaheadLimiter`/`TransientShaper` haben fix verdrahtete
+  Attack-/Release-Zeitkonstanten statt Settings-Feldern dafür - das
+  Datenmodell (`ProcessingSettings`/`Preset`/`LimiterConfig`) hatte nie
+  Felder dafür vorgesehen, das wäre eine eigene, größere Erweiterung.
+- Kein Multiband-Crossover für `Compressor` trotz "MBC" im Feldnamen - siehe
+  oben.
+
+### Session 23 (26. September 2026)
+
+Wichtiger Architektur-Fund, der Session 22 im Nachhinein korrigiert:
+Nutzer-Rückmeldung von einem echten Gerät ("mit ausgeschaltetem Kopfhörer-
+Modus klingt es viel kraftvoller") führte zu einer genaueren Untersuchung des
+tatsächlich laufenden Wiedergabepfads.
+
+**Der Fund:** Session 20-22 gingen implizit davon aus, dass `Media3DspPipeline`
+(oder ein ähnlicher eigener PCM-Pfad) irgendwann der produktive Wiedergabeweg
+werden würde - das ist aber **nicht**, was tatsächlich läuft. Die echte,
+funktionierende Produktions-Pipeline ist `AndroidAudioEngine`: Sie hängt sich
+mit Androids System-Audioeffekten (`android.media.audiofx.Equalizer` +
+`DynamicsProcessing`) an die Session einer fremden App (Spotify, SoundCloud
+über den eigenen Player, potenziell YouTube Music) - das ist Option A/Hybrid
+aus der roadmap-2026.md-Entscheidungsvorlage, nicht der in Session 20-22
+angenommene "eigene Media3-DSP-Pfad". `Media3DspPipeline.kt` ist und bleibt
+komplett unbenutzter, nirgends aufgerufener Code (verifiziert: kein anderer
+Ort im Repo referenziert ihn).
+
+**Konsequenz:** Androids `Equalizer`/`DynamicsProcessing`-Systemeffekte sind
+eine feste, geschlossene API - sie können nur ihre eigenen Parameter
+(Band-Gains, Kompressor/Limiter/MBC) einstellen, aber keinen eigenen
+Algorithmus ausführen. Damit sind **Crossfeed, BassMonoSummer,
+TransientShaper und BassExciter über diesen Pfad strukturell unmöglich**,
+unabhängig davon, wie viel Code dafür geschrieben wird - das ist eine
+Plattformgrenze, keine Fleißaufgabe. Echt hörbar würden sie nur, wenn Audio
+durch einen selbst kontrollierten Media3/ExoPlayer-Pfad liefe (ein echter
+`androidx.media3.common.audio.AudioProcessor`) - technisch nur für SoundCloud
+denkbar (`AudioPlayerService` nutzt bereits `ExoPlayer.Builder(this)` ohne
+eigene `RenderersFactory`/`AudioProcessor`), nicht für Spotify/YouTube Music
+(Session-Attach an eine fremde App kann keinen eigenen PCM-Code einschleusen).
+`Compressor`/`LookaheadLimiter` (Punkte 3/4) sind zudem faktisch redundant zu
+dem, was `DynamicsProcessing` über `AndroidAudioEngine` schon real leistet.
+
+**Nutzer-Entscheidung:** Statt den großen, auf echter Hardware ungetesteten
+Media3-AudioProcessor-Weg zu gehen, soll der "Kopfhörer-Modus"-Schalter
+stattdessen die bereits laufende Band-EQ-Kurve real beeinflussen.
+
+**Umsetzung:**
+- Neu: `dsp/HeadphoneComfortCurve.kt` (`:core`) - eine feste, einfache
+  Bass-Anhebung (+2,5 dB unter 150 Hz) plus leichte Präsenz-Beruhigung
+  (-1,5 dB um 4,5 kHz), begründet mit der üblichen Kopfhörer- vs.
+  Lautsprecher-Hörsituation (kein Raumgewinn für den Bass, mehr
+  Zischlaut-Ermüdung ohne Raumreflexionen). Kein Crossfeed-Nachbau, nur ein
+  sinnvoller fester Tilt - läuft über exakt den Pfad, der schon real
+  funktioniert.
+- `MainViewModel.combinedCurve()` faltet diese Kurve jetzt zusätzlich ein,
+  wenn `effectiveHeadphoneAcoustics` true ist - dieselbe
+  `CurveComposer.combine()`-Stelle wie Korrektur- und Voicing-Kurve. Ein
+  neuer `init`-Collector auf `effectiveHeadphoneAcoustics` ruft
+  `recalculateBandGains()` bei jeder Änderung auf (Schalter-Toggle *und*
+  automatischer Routenwechsel-Default), damit die Kurve auch dann neu
+  berechnet wird, wenn sich sonst nichts an Preset/Korrektur ändert.
+  `EqualizerScreen.kt`s eigene Headroom-Berechnung wurde spiegelbildlich
+  angepasst, sonst hätte die Headroom-Anzeige nicht mehr zur tatsächlich
+  angewandten `inputGainDb` gepasst.
+- UI: kleiner Untertitel unter "Kopfhörer-Modus" ("Etwas mehr Bass, etwas
+  weniger Schärfe in den Höhen"), damit klar ist, was der Schalter jetzt
+  tut - vorher war die Beschriftung für ein Feature geschrieben, das nie
+  hörbar wurde.
+- Neue Tests: `HeadphoneComfortCurveTest` (`:core`) sowie ein neuer
+  `MainViewModelTest`-Fall, der mit dem Flat-Preset (alle Bänder auf 0)
+  nachweist, dass der Schalter tatsächlich `bandGainsDb` verändert (60-Hz-
+  Band höher, 3600-Hz-Band niedriger) - nicht nur ein Datenbank-Flag.
+
+**Verifikation:** wie gehabt - alle `:core`-Tests grün im
+Standalone-Mini-Gradle-Projekt, `:app`-Änderungen nur mit ktlint und
+manuellem Review geprüft (Android Gradle Plugin weiterhin nicht auflösbar).
+
+**Bewusst offen gelassen:**
+- Der eigentliche Media3-AudioProcessor-Weg für SoundCloud (der einzige, der
+  echtes Crossfeed/Bass-Mono-Summing/TransientShaper/BassExciter hörbar
+  machen könnte) ist damit nicht vom Tisch, nur bewusst zurückgestellt -
+  eine explizite Nutzerentscheidung, kein technisches Aufgeben.
+- `Compressor`/`LookaheadLimiter` bleiben unverdrahtete `:core`-Referenz-
+  implementierungen; `AndroidAudioEngine` deckt Kompression/Limiting für den
+  echten Pfad bereits über `DynamicsProcessing` ab.
+
+### Session 24 (26. September 2026)
+
+Reale Rückmeldung nach Beta-3-Rollout (Session 23s "Kopfhörer-Modus wirkt auf
+echte EQ-Kurve"-Fix): der Effekt fühlt sich im Auto kaum an, und mit
+Kopfhörer-Modus aktiv wirkt der Bass sogar eher schwächer und die Musik
+"halliger"/verwaschener - beides das Gegenteil dessen, was der Schalter
+eigentlich tun soll.
+
+**Diagnose (per In-App-Diagnostics-Report, mehrfach vom Nutzer geteilt):**
+- Der Report-Header zeigt nur die *aktuelle* Route zum Export-Zeitpunkt, nicht
+  die Route während der geloggten Events - der einzige `Route changed`-Eintrag
+  stand am Ende, davor lief alles noch auf der vorherigen (Auto-)Route. Für
+  künftige Diagnosen wichtig: die Session-Events selbst nach `Route changed`-
+  Markern lesen, nicht den Header for bare münze nehmen.
+- Auffällig war ein wiederkehrendes Attach/Detach-Muster der Effekt-Session
+  (`Session detached` → `Listening` → erst 20-60s später wieder `attached`),
+  zweimal sogar 47s bzw. fast 2 Minuten Lücke, in denen *keinerlei* Effekt an
+  der Spotify-Session hängt. Ursprünglich als Bluetooth/Auto-spezifisches
+  Problem vermutet - ein zweiter Log-Ausschnitt nach Wechsel auf
+  `SPEAKER` zeigte aber dasselbe ~38s-Muster mit einer neuen Session-ID
+  (25457 statt 25105, d. h. Spotify öffnet bei Routenwechsel tatsächlich eine
+  neue Session). Das relativiert die Bluetooth-Theorie: das Attach/Detach-
+  Timing scheint eine allgemeine Spotify-Eigenheit zu sein, keine
+  auto-spezifische Störung - bewusst nicht weiterverfolgt, da es die
+  eigentliche Beschwerde (schwächer/halliger *mit* Kopfhörer-Modus, nicht nur
+  "wirkungslos") nicht erklärt.
+- Eigentliche Ursache: `HeadphoneComfortCurve` hebt den Bass um bis zu +2,5 dB
+  an, *bevor* das Signal durch Androids `DynamicsProcessing`-Mehrband-
+  Kompressor läuft (`AndroidAudioEngine.applyInternal` hängt EQ vor MBC/
+  Limiter). Das Bass-Band des MBC (bis 120 Hz) hatte mit 180 ms die längste
+  Release-Zeit der drei Bänder. Der zusätzliche Boost drückt Kick-Transienten
+  stärker in die Kompression (mehr Gain Reduction pro Treffer), und die 180 ms
+  lange Erholungsphase danach ist als hörbares "Pumping"/"Breathing" wahrnehm-
+  bar - ein Lautstärke-Nachschwingen, das sich wie Nachhall anfühlt, obwohl
+  keinerlei Hall-/Echo-Effekt im Code existiert (verifiziert: repo-weite Suche
+  nach "Reverb"/"Echo" findet nur einen Test-Fixture-Namen ohne Bezug zur
+  echten Signalkette). Derselbe Mechanismus erklärt beide Symptome zugleich:
+  der Boost wird teils weggedrückt (fühlt sich nach weniger Bass an) und die
+  Erholungsphase klingt nach Hall.
+- Die `bandGainsDb`-Mathematik selbst ist nicht betroffen/nicht der Fehler -
+  weiterhin testverifiziert, dass der Schalter Band 0 (60 Hz) tatsächlich
+  anhebt (`MainViewModelTest`).
+
+**Fix:** Release-Zeit des Bass-MBC-Bands in `AndroidAudioEngine.kt` von
+180 ms auf 100 ms verkürzt. Nicht weiter runter, weil eine Release-Zeit in
+der Größenordnung der Wellenperiode selbst (bei 60-120 Hz: ~8-16 ms) den
+Kompressor dazu bringen kann, innerhalb eines einzelnen Zyklus zu modulieren
+und damit selbst hörbare Verzerrung zu erzeugen - genau der Grund, warum
+dieses Band ursprünglich die längste Release-Zeit der drei MBC-Bänder hatte.
+100 ms bleibt mit gutem Abstand darüber, halbiert aber die hörbare
+Erholungsphase nach jedem Kick. Bewusst als generelle Kompressor-Tuning-
+Änderung umgesetzt (nicht an `effectiveHeadphoneAcoustics` gekoppelt), weil
+das Pumping-Verhalten grundsätzlich bei jedem stark angehobenen Bass-Preset
+auftreten kann, nicht nur mit aktivem Kopfhörer-Modus - der Kopfhörer-Modus
+hat es hier nur durch den zusätzlichen Boost sichtbar gemacht.
+
+**Verifikation:** `AndroidAudioEngine.kt` ist reiner `:app`-Code mit direkter
+`android.media.audiofx`-Abhängigkeit - wie bei allen bisherigen `:app`-
+Änderungen in dieser Sandbox nur mit dem Standalone-ktlint-Check und
+manuellem Review geprüft, nicht kompiliert oder instrumentiert getestet
+(Android Gradle Plugin weiterhin nicht auflösbar). Keine bestehenden Tests
+referenzieren die MBC-Band-Konstanten (sie sind Android-Framework-Objekte,
+außerhalb der `:core`-Testbarkeit).
+
+**Bewusst offen gelassen:**
+- Das Attach/Detach-Session-Churn (20-60s-Zyklen) bleibt unangetastet - wirkt
+  nach aktuellem Stand wie normales Spotify-Verhalten, nicht wie ein Bug in
+  `AndroidAudioEngine`/`AudioSessionRepository`. Falls es doch relevant wird,
+  bräuchte es einen längeren Speaker-only-Vergleichslog, um die Häufigkeit
+  wirklich mit der Auto/Bluetooth-Route zu vergleichen (bisher nur ein
+  einzelnes Speaker-Beispiel).
+- Kein Versuch, den MBC nur bei aktivem Kopfhörer-Modus anders zu
+  konfigurieren (z. B. separate Threshold/Ratio) - `ProcessingSettings`
+  kennt aktuell nur global (pro Preset) einheitliche MBC-Werte für alle drei
+  Bänder, das wäre ein größerer struktureller Umbau gewesen für einen
+  Nutzen, der sich nicht auf den Kopfhörer-Fall beschränkt.
+
+**Aufräumen:** Im selben Zug `core/dsp/Compressor.kt` (Punkt 3 der
+ursprünglichen "6 Punkte"-Liste) + `CompressorTest.kt` gelöscht - war seit
+seiner Einführung unverdrahteter Referenzcode (siehe oben: der echte Pfad
+läuft immer schon über `AndroidAudioEngine`/`DynamicsProcessing`), git-
+Historie hält den Stand fest, falls doch mal gebraucht. Verwaiste
+Kommentar-Referenzen auf "Compressor" in `Crossfeed.kt`/`LookaheadLimiter.kt`/
+`TransientShaper.kt` (jeweils "Wie X/Compressor eine Referenzimplementierung
+...") entsprechend bereinigt. `:core`-Tests weiterhin komplett grün im
+Standalone-Mini-Gradle-Projekt (39 Tests, keine Breakage durch die Löschung).
+
+Im gleichen Gespräch wurde außerdem diskutiert, ob die drei Sicherheits-
+Stufen der echten Dynamics-Kette (breitband `inputGainDb`; MBC-Makeup-Gain,
+der laut eigenem Kommentar bewusst nur einen Teil der durchschnittlichen
+Gain Reduction zurückgibt; und der finale Limiter) in Summe zu konservativ
+für das bass-/kick-lastige Zielgenre sind - explizit auf Nutzerwunsch
+("locker das mal") gelockert:
+- `INPUT_GAIN_SAFETY_RATIO` in `MainViewModel.kt`: 0.3 → 0.2 (nur noch 20 %
+  statt 30 % des Peak-Boosts werden breitband vorab weggenommen). Dritte
+  Senkung in Folge (1.0 → 0.5 → 0.3 → 0.2), immer aus demselben Grund
+  (Session 16/17/24): mehr von dem hörbar lassen, was der EQ eigentlich
+  anhebt.
+- MBC-Makeup-Gain-Formel in `AndroidAudioEngine.kt`: Rückgabe-Anteil der
+  durchschnittlichen Gain Reduction von 0,5 auf 0,7 erhöht, Deckelung von
+  4 dB auf 5 dB angehoben.
+- Der Limiter (10:1, hartes Threshold-Ceiling) blieb bewusst unangetastet -
+  er ist die tatsächliche letzte Instanz gegen Clipping; die beiden
+  gelockerten Werte liegen beide *vor* ihm in der Kette, sodass er weiterhin
+  vollständig greift, falls die zusätzliche Lautheit doch zu Overs führt.
+- Bewusster Trade-off, kein reiner Bugfix: mehr Punch/Lautheit auf Kosten
+  von etwas mehr Limiter-Aktivität (potenziell öfter hörbares Limiting) auf
+  ohnehin schon lauten Presets/Geräten. `MainViewModelTest`s
+  `expectedInputGainDb`/`-2.4f`-Erwartungen entsprechend auf den neuen
+  0,2-Faktor angepasst (30 % → 20 %, `-2.4f` → `-1.6f` im manuellen-Boost-
+  Test).
+
+**Noch weiter gelockert** (derselbe Sitzung, explizit "Gerne noch zusätzlich
+lockern, soll ja knallen"):
+- `INPUT_GAIN_SAFETY_RATIO`: 0,2 → 0,1 - vierte Senkung in Folge
+  (1,0 → 0,5 → 0,3 → 0,2 → 0,1). Bei 0,1 ist diese Stufe fast ein No-Op;
+  praktisch die gesamte verbleibende Sicherheitsarbeit gegen Clipping liegt
+  jetzt beim unveränderten, harten 10:1-Limiter.
+- MBC-Makeup-Gain: Rückgabe-Anteil 0,7 → 0,85, Deckelung 5 dB → 6 dB.
+- Bewusst nicht bis auf 0 bzw. 1,0 durchgezogen (kein völliger Verzicht auf
+  die Input-Gain-Vorstufe) - der Limiter fängt zwar in jedem Fall echtes
+  Clipping ab (harte Ceiling, unabhängig vom Pegel davor), aber je mehr
+  Arbeit er allein leisten muss, desto eher wird er selbst als Limiting
+  hörbar (statt nur gelegentliche Spitzen zu kappen). 0,1/0,85/6 dB ist die
+  aggressivste Einstellung, die noch etwas Vorstufen-Pufferung übrig lässt.
+  `MainViewModelTest` entsprechend erneut angepasst (20 % → 10 %,
+  `-1.6f` → `-0.8f`).
+
+**Und noch der Limiter selbst** ("Kannst du nicht den Limiter bearbeiten,
+damit der mehr zulässt?"): der Limiter hat zwei Parameter mit sehr
+unterschiedlichem Risiko:
+- **Threshold** (`LimiterConfig.thresholdDb`, Default für alle Presets außer
+  "Flat"): −1,0 dB → −0,3 dB angehoben. Das ist die "Decke", ab der er
+  eingreift - üblicher Mastering-True-Peak-Wert, kein willkürlicher Wert.
+- **Ratio** (fest 10:1 in `AndroidAudioEngine.kt`): **bewusst unangetastet**
+  gelassen. Das ist der Teil, der unabhängig vom Eingangspegel tatsächlich
+  garantiert, dass die Decke nicht überschritten wird. Ihn aufzuweichen
+  (z. B. auf 6:1) hätte eine kategorisch andere Risikoklasse als alle
+  bisherigen Lockerungen dieser Sitzung: die vorherigen Änderungen
+  (Input-Gain-Ratio, MBC-Makeup-Gain) blieben immer vom unveränderten
+  Limiter abgesichert - eine weichere Ratio wäre das erste, echte Clipping-
+  Risiko in dieser Kette, kein reines "klingt komprimierter mehr".
+  Ausdrücklich im Chat kommuniziert, bevor umgesetzt wurde.
+- `:core`-Tests weiterhin komplett grün (Default-Threshold-Änderung betrifft
+  keine bestehende Test-Erwartung - `DynamicsProtectionTest` prüft nur
+  `<= 0f`, nicht den exakten Wert).
+
+**CI-Fund (echte Regression, kein Flake):** Der Limiter-Threshold-Commit hat
+tatsächlich CI rot gemacht - `build-and-test` (`:desktop:test`) schlug fehl:
+`EasyEffectsExporterTest > enabled dynamics follow the equalizer in
+processing order` hatte den alten Default `-1.0` hart einprogrammiert
+(`assertEquals(-1.0, limiter["threshold"]!!...)`, Zeile 61, für
+`BuiltInPresets.CleanPunch`, das den Default nicht überschreibt). Wichtiger
+Fund nebenbei: **`:desktop:test` läuft in echter CI** (reines Kotlin/JVM-
+Modul, keine AGP-Abhängigkeit) - im Gegensatz zu `:app` also tatsächlich vom
+CI abgedeckt, nur eben nicht in dieser Sandbox lauffähig
+(`compose.desktop`/JetBrains-Compose-Plugin-Repos hinter dem Proxy nicht
+erreichbar, gleiches Problem wie bei AGP). Für künftige Sessions merken:
+Änderungen an `:core`-Defaults, die von `:desktop`-Exportern 1:1
+durchgereicht werden, können dort brechen, ohne dass die Standalone-
+`core-verify`-Tests das auffangen.
+
+Fix: Testerwartung auf `-0.3` korrigiert, mit Kommentar auf den neuen
+Default verwiesen. Nicht durch Ausführung verifiziert (Sandbox-Limit wie
+oben), aber durch Lesen von `EasyEffectsExporter.kt` bestätigt:
+`threshold` wird dort als reiner Pass-Through (`profile.limiter.thresholdDb
+.coerceIn(-48f, 0f).toDouble()`) gesetzt, `-0.3` bleibt vom `coerceIn`
+unberührt - der neue erwartete Wert ist exakt, keine Schätzung.
+
+### Session 25 (26. September 2026)
+
+Neue Nutzer-Idee für die Preset-Auswahl: statt einer flachen Liste von
+9 Presets ein zweiachsiges System - **Genre** (Terror, Uptempo, Gabber,
+Early, Frenchcore, Dance, Pop, Flat) **x Intensität** (Super Soft, Soft,
+Moderate, Aggressive, Very Aggressive). Zwei UI-Ideen zur Auswahl gestellt
+(Dropdown+feste Intensitäts-Buttons vs. kaskadierende Genre-Buttons) und
+zwei Architektur-Optionen (40 einzeln abgestimmte Presets vs. 8 Genre-
+Basiskurven + 5 Intensitäts-Makro-Stufen) - per `AskUserQuestion` geklärt:
+**Dropdown+Buttons (Idee 1)** und **Genre-Basis + Intensitäts-Makro**
+(empfohlen, da 13 statt 40 Dinge zu pflegen und Kombinationen automatisch
+konsistent bleiben).
+
+**Nutzer-Definition von "aggressiv"** (wichtig für die Makro-Wahl): "mehr
+Wumms, viel Bass, Lautstärke ändert sich hingegen kaum, Qualität steigend
+bei den Bässen" - explizit **nicht** über mehr Härte/Höhen definiert.
+
+**Neu in `:core`:**
+- `PresetIntensity` (Enum, 5 Stufen) - jede Stufe ist ein additives Delta
+  auf `macroBassDb`/`macroPunchDb` (nicht `macroHaerteDb` - siehe
+  Nutzer-Definition oben) plus ein Delta auf `mbcThresholdDb`/`mbcRatio`,
+  das den Bass-Kompressor bei höherer Intensität enger/bei niedrigerer
+  Intensität lockerer stellt - das ist die konkrete Umsetzung von "Qualität
+  steigend bei den Bässen" (mehr Bass wird straffer/kontrollierter
+  komprimiert statt nur roh lauter). Zusammen mit dem längst vorhandenen
+  Headroom-basierten Input-Gain-Cut (der bei größerem Peak-Boost ohnehin
+  automatisch stärker gegenhält) ergibt sich "Lautstärke ändert sich kaum"
+  als Nebeneffekt, ganz ohne neue Loudness-Matching-Logik.
+- `GenrePreset` (data class: id, displayName, `base`-Preset,
+  `allowsIntensity`) und `BuiltInGenrePresets` (die 8 Genre-Basen, jeweils
+  die "Moderate"-Abstimmung). Terror/Uptempo/Early/Frenchcore/Dance
+  übernehmen die längst abgestimmten Kurven von MaximumDistortion/
+  CleanPunch/RawPower/FastAttack/Balanced (die als eigenständige Presets in
+  `BuiltInPresets` unverändert bestehen bleiben, aus Kompatibilitätsgründen
+  mit allem, was schon auf ihre alten IDs gebunden ist). Gabber und Pop sind
+  neu entworfen (Gabber: Mitten-Bass-"Doorlussen"-Kick um 120 Hz statt
+  tiefem Sub-Bass, mit Scoop drüber; Pop: sanfte "Smile"-Kurve, niedrige
+  Makros, hoher MBC-Threshold). Flat setzt `allowsIntensity = false` - eine
+  "very aggressive" neutrale Referenzkurve wäre widersinnig.
+- `PresetIntensityResolver.resolve(genre, intensity): Preset` - erzeugt aus
+  Genre+Intensität ein konkretes `Preset` mit einer ID nach dem Schema
+  `"${genre.id}__${intensity.id}"`. Das war die Design-Entscheidung mit dem
+  größten Hebel: dadurch braucht `DeviceProfileEntity`/`boundPresetId`
+  **keine Schema-Änderung**, um sich Genre+Intensität pro Route zu merken -
+  die aufgelöste ID kodiert beides bereits, und `findPresetById` findet sie
+  unverändert wieder, weil `BuiltInPresets.all` jetzt zusätzlich
+  `BuiltInGenrePresets.allResolvedPresets` (alle 8x5 minus die 4 nicht
+  existenten Flat-Intensitäten = 36 Presets) enthält.
+  `PresetIntensityResolver.parse(id, genres)` macht das umgekehrt - zerlegt
+  eine aufgelöste ID wieder in (Genre, Intensität), damit die neue Auswahl-UI
+  ihren eigenen Zustand aus `activePreset` ableiten kann, ohne ihn ein
+  zweites Mal zu speichern.
+
+**Geändert:**
+- `BuiltInPresets.all` faltet `BuiltInGenrePresets.allResolvedPresets` mit
+  ein (Lookup-Kompatibilität), die ursprünglichen 9 Presets bleiben
+  unangetastet bestehen.
+- `MainViewModel`: neue `customPresetsOnly`-StateFlow (== `customPresetsState`,
+  öffentlich gemacht) und `selectedGenreIntensity`-StateFlow (aus
+  `activePreset` per `PresetIntensityResolver.parse` abgeleitet, `null` für
+  jedes Preset, das kein aufgelöster Genre-Kombo ist - z. B. ein Custom-
+  Preset oder eines der alten 9). Neue Funktion `selectGenreIntensity(genre,
+  intensity)` löst nur auf und ruft das längst bestehende `selectPreset()`
+  auf - keine zweite Persistenz-/Headroom-Pipeline zum Pflegen.
+- `EqualizerScreen`: neue `GenreIntensitySelector`-Komposable (Dropdown +
+  Zeile mit 5 Intensitäts-Buttons, Idee 1) ersetzt den alten `PresetGrid`-
+  Aufruf für die eingebauten Presets. `PresetGrid` bleibt bestehen, zeigt
+  aber jetzt nur noch **eigene** Presets (`customPresets`, vorher
+  fälschlich `allPresets` inklusive aller 45 Presets - wäre ein unbedienbar
+  großes Grid geworden). Der Intensitäts-Button-Reihe bleibt sichtbar, aber
+  deaktiviert, wenn das gewählte Genre `allowsIntensity = false` ist (Flat)
+  - kein Springen im Layout beim Genre-Wechsel.
+- `PresetDesign.forPreset` bekam keine Codeänderung, aber `genre_dance`
+  bekam bewusst `metadata.genre = "hard-dance"` (nicht `"dance"`), damit es
+  denselben visuellen Design-Bucket trifft wie `Balanced`, dessen Kurve es
+  übernimmt.
+
+**Tests:** `PresetIntensityResolverTest` (7 Fälle: Moderate=Basis-Werte
+unverändert, Aggressive addiert Bass/Punch, Härte bleibt unberührt, MBC wird
+bei höherer Intensität enger/bei niedrigerer lockerer, alle Kombinationen
+bleiben innerhalb der Engine-Sicherheitsgrenzen, Flat ignoriert Intensität,
+`parse`/`resolve` sind Round-Trip-konsistent, `parse` liefert `null` für
+Nicht-Kombo-IDs), `BuiltInGenrePresetsTest` (5 Fälle: genau 8 Genres, nur
+Flat ohne Intensität, 36 aufgelöste Presets mit eindeutigen IDs,
+`BuiltInPresets.all` enthält alle davon, keine ID-Kollision mit den alten 9),
+`PresetDesignTest` erweitert (alter Test auf die alten 9 IDs eingegrenzt statt
+strikt auf ganz `BuiltInPresets.all`, neuer Test prüft den Design-Bucket
+jedes Genres über alle Intensitäten hinweg), vier neue `MainViewModelTest`-
+Fälle (Auswahl wendet die aufgelösten Makro-/MBC-Werte an, `isDirty` bleibt
+`false`, `selectedGenreIntensity` spiegelt die Auswahl wider bzw. wird `null`
+bei einem Alt-Preset, Flat ignoriert Intensität End-to-End bis zu
+`bandGainsDb`).
+
+**Verifikation:** `:core`-Änderungen komplett grün im Standalone-Mini-
+Gradle-Projekt (alle neuen + alle bestehenden Tests). `:app`-Änderungen
+(MainViewModel/MainScreen/EqualizerScreen/MainViewModelTest) wie immer nur
+mit ktlint + manuellem Review geprüft, nicht kompiliert (Android Gradle
+Plugin weiterhin nicht auflösbar) - insbesondere die neue Compose-UI
+(`GenreIntensitySelector`) ist ungetestet auf echtem Compile/Layout-Verhalten
+und sollte vor dem Release einmal real im Emulator/Gerät angeschaut werden.
+
+**Bewusst offen gelassen:**
+- Die alten 9 Presets (`CleanPunch`, `DeepRumble`, `KickAttack`, `Balanced`,
+  `RawPower`, `FastAttack`, `MaximumDistortion`, `FinalSmash`, plus `Flat`)
+  bleiben im Code, sind aber aus der Haupt-Auswahl-UI komplett verschwunden -
+  fänden sich nur wieder, wenn ein Gerät schon vor diesem Update daran
+  gebunden war. Kein Migrationscode, der bestehende Bindungen auf die neuen
+  Genre-Kombos umhängt.
+- `desktop/App.kt`s Preset-Liste (eine Spalte von Buttons) zeigt jetzt alle
+  45 Presets statt 9 - nicht Teil dieser Anfrage (die drehte sich um die
+  Mobile-App-UI), bewusst nicht angefasst, aber inzwischen unhandlich lang.
+- Keine neuen AutoEQ-/Korrekturprofil-Anpassungen - dieses Feature betrifft
+  nur die Preset-(Voicing-)Seite, nicht Korrekturprofile.
+
+### Session 26 (27. September 2026)
+
+Nutzerfrage: "kann man für den sound auf kopfhörern noch quality changes
+machen?" - vier Optionen zur Auswahl gestellt (Korrekturprofil-Check ohne
+Code, Dynamik für Kopfhörer sanfter, die unbenutzte LoudnessCompensationCurve
+für Kopfhörer-Modus verdrahten, oder doch den großen Media3-Crossfeed-Weg
+angehen). Per `AskUserQuestion` gewählt: **Dynamik für Kopfhörer sanfter**.
+
+**Begründung:** Kopfhörer sitzen direkt am Ohr; im Auto/über Lautsprecher
+maskiert Umgebungslärm einen Teil der hörbaren Kompressor-Arbeit, die über
+Kopfhörer eher als Pumping/Ermüdung auffällt (verwandtes Thema zu Session
+24s MBC-Pumping-Fund, nur diesmal als bewusste, generelle Milderung statt als
+Bugfix für einen Spezialfall).
+
+**Neu in `:core`:** `HeadphoneDynamicsEasing` - zwei reine Funktionen:
+- `easedThresholdDb(base)`: hebt den MBC-Threshold um pauschal +2 dB an
+  (Kompressor greift später ein), `coerceAtMost(0f)`.
+- `easedRatio(base)`: zieht die Ratio proportional Richtung 1 (transparent) -
+  `1 + (base - 1) * 0.75` statt einer festen Subtraktion, damit eine bereits
+  niedrige Ratio nicht instabil wird und eine hohe Ratio nicht unverhältnis-
+  mäßig weniger abbekommt als eine niedrige.
+- Der Limiter (Ratio 10:1 in `AndroidAudioEngine`, Threshold-Default aus
+  Session 24) bleibt **bewusst unangetastet** - der ist die tatsächliche
+  Clipping-Bremse, kein musikalischer/Charakter-Parameter, den Kopfhörer-Modus
+  aufweichen sollte.
+
+**Verdrahtet in `MainViewModel.recalculateBandGains()`:** `mbcThresholdDb`/
+`mbcRatio` werden bei jedem Aufruf frisch aus dem kanonischen
+`_activePreset.value` (das schon die Genre+Intensitäts-Auflösung trägt) plus
+Kopfhörer-Easing berechnet - nicht inkrementell aus dem aktuellen
+`processingSettings`-Wert, sonst hätte wiederholtes Ein-/Ausschalten des
+Kopfhörer-Modus sich aufschaukeln können. Da `recalculateBandGains()` schon
+über den bestehenden `effectiveHeadphoneAcoustics`-Collector bei jedem
+Schalter-Toggle *und* bei jedem Preset-/Makro-Wechsel läuft, greift die
+Milderung überall automatisch, ohne einen zweiten Auslöse-Pfad zu brauchen.
+
+**Tests:** `HeadphoneDynamicsEasingTest` (5 Fälle: Threshold-Anhebung,
+0-dBFS-Deckelung, proportionale Ratio-Annäherung, höhere Basis-Ratio bleibt
+nach Easing höher als eine niedrigere, Ratio 1 bleibt 1) - grün im
+Standalone-Mini-Gradle-Projekt. Zwei neue `MainViewModelTest`-Fälle (Easing
+ist beim Umschalten hörbar unterschiedlich und beim Zurückschalten exakt
+wieder der Ausgangswert; zweimaliges An/Aus-Umschalten schaukelt sich nicht
+auf) - wie bei allen `:app`-Änderungen dieser Sitzung nur mit ktlint +
+manuellem Review geprüft, nicht kompiliert.
+
+**Bewusst offen gelassen:** Die anderen drei aus der Frage angebotenen
+Optionen (Korrekturprofil-Check, Loudness-Kompensation, echtes Crossfeed)
+sind damit nicht vom Tisch - nur diese eine wurde für diese Sitzung gewählt.
+
+### Session 27 (27. September 2026)
+
+Nutzerfrage: "wie nutze ich den EQ mit allen vollen funktionen auf win11?".
+Antwort ehrlich vorweg: Equalizer APO (Windows) bekommt vom `:desktop`-Modul
+bisher nur die reine EQ-Kurve, keinen Mehrband-Kompressor/Limiter (steht auch
+schon so im README) - Equalizer APO selbst hat dafür keine eingebaute
+Funktion. Auf Nachfrage ("kann man den MBC/Limiter auch für Windows nutzbar
+machen?") per Web-Recherche geprüft, was technisch möglich wäre, bevor
+irgendwas Halbgares umgesetzt wurde.
+
+**Rechercheergebnis:** Equalizer APO kann laut mehreren unabhängig
+bestätigten Nutzerberichten VST2-Plugins laden (`VST:`/`VSTPlugin:
+Library ...`-Direktiven) und deren Parameter sogar per Text in der Config
+setzen - keine reine GUI-Sache. **ReaComp** (Cockos, Teil der kostenlosen,
+frei weitergebbaren ReaPlugs VST FX Suite, keine Installation nötig) ist ein
+in der Praxis von anderen Nutzern erfolgreich mit Equalizer APO kombinierter
+Kompressor. Gefundene Beispiel-Configs zeigen aber **uneinheitliche
+Wertskalen** zwischen verschiedenen Quellen (mal wirken die Zahlen wie
+Rohwerte in ms/dB, mal wie normalisierte 0..1-Werte) - das ist offenbar nicht
+offiziell dokumentiert, sondern von Nutzern per Trial-and-Error (Regler in
+der Plugin-GUI stellen, gespeicherte config.txt auslesen) herausgefunden.
+
+**Entscheidung (per `AskUserQuestion`):** Code schreiben, User testet live -
+statt nur eine manuelle Anleitung ohne Automatisierung zu geben. Gegeben die
+reale Unsicherheit bei der genauen Syntax/Parameterskalierung (ein falscher
+Wert könnte Equalizer APO dazu bringen, `config.txt` gar nicht mehr zu
+parsen - stumme Systemaudioausgabe, ein kategorisch anderes Risiko als
+"kompiliert nicht") wurde das **sicher by design** umgesetzt: alles
+automatisch Generierte ist standardmäßig auskommentiert, keine aktiv
+wirksame Zeile ohne expliziten manuellen Schritt des Nutzers.
+
+**Neu in `EqualizerApoExporter.kt` (`:desktop`):**
+- `generateDynamicsConfig(preset)` erzeugt eine reine Referenz-/Kommentar-
+  Datei: die aus dem Preset berechneten Soll-Werte (Threshold/Ratio/Attack/
+  Release für Kompressor und Limiter) stehen als `#`-Kommentar drin, gefolgt
+  von der besten Vermutung für die tatsächliche `VST:`/`VSTPlugin:`-Zeile -
+  aber ebenfalls auskommentiert. ReaComp ist Einzelband; der echte 3-Band-MBC
+  wird nur als eine Breitband-Stufe angenähert (Attack/Release des mittleren
+  Bands aus `AndroidAudioEngine.kt` als Mittelweg). Für den Limiter gibt's
+  keinen echten Brickwall-Modus in ReaComp - feste Ratio 20:1 nähert das an.
+- `installDynamicsTo(configDir, preset)` schreibt das in eine **eigene**
+  Include-Datei (`HardBassEQ-Dynamics.txt`, eigene `Include:`-Zeile) statt in
+  `HardBassEQ.txt` mit reinzufalten - damit lässt sich das Experiment
+  jederzeit einzeln rausnehmen, ohne die längst bewährte EQ-Kurven-Datei
+  anzufassen. `ensureIncludeWired` dafür generalisiert (nimmt jetzt die
+  Include-Zeile als Parameter statt sie fest zu verdrahten), bestehendes
+  Verhalten/Signatur von `installTo`/`generateConfig` unverändert.
+- Desktop-UI (`App.kt`): neue, standardmäßig **deaktivierte** Checkbox
+  "Experimentell: Kompressor/Limiter-Referenz (ReaComp-VST)" im Windows-Panel;
+  nur wenn angehakt, wird `installDynamicsTo` zusätzlich zum normalen
+  `installTo`-Aufruf ausgeführt.
+- `desktop/README.md`: neuer Abschnitt "Experimentelle Windows-Dynamik" mit
+  dem konkreten Verifikationsweg (ReaPlugs installieren, Plugin einmal über
+  Equalizer APOs eigenen Configuration Editor per GUI hinzufügen, die von der
+  GUI tatsächlich geschriebene `config.txt`-Zeile mit unserer generierten
+  vergleichen, erst danach ggf. einkommentieren).
+
+**Tests:** 5 neue Fälle in `EqualizerApoExporterTest.kt` (Referenzwerte im
+Kommentar entsprechen den Preset-Werten; jede VST-Automatisierungszeile ist
+auskommentiert; Flat mit deaktiviertem MBC/Limiter erzeugt gar keine
+Automatisierungszeilen; eigene Include-Datei getrennt von der EQ-Kurven-
+Datei; wiederholte Aufrufe verdrahten die Include-Zeile nur einmal).
+
+**Verifikation - wichtiger Unterschied zu allen bisherigen `:app`-Änderungen
+dieser Sitzung:** `:desktop:test` läuft laut Session-24-Fund tatsächlich in
+echter CI (reines Kotlin/JVM-Modul). Diese Änderung wird also, anders als
+alle `:app`-Compose-Änderungen, tatsächlich vom nächsten CI-Lauf kompiliert
+und getestet - hier nur mit ktlint + manuellem Review vorab geprüft (gleiche
+Sandbox-Einschränkung wie immer bei `:desktop`/`:app`), aber CI deckt es
+danach wirklich ab.
+
+**Bewusst offen gelassen:**
+- Die eigentliche Automatisierung bleibt bis zur Nutzer-Verifikation
+  auskommentiert - ob die generierte `VSTPlugin:`-Syntax/Parameter-Namen
+  überhaupt zur tatsächlich installierten ReaComp-Version passen, ist
+  unbekannt, bis der Nutzer das auf seinem Windows-11-Rechner geprüft hat.
+- Keine echte Multiband-Näherung für Windows (nur eine Breitband-Stufe) -
+  eine dreifache ReaComp-Verkettung mit passenden Sidechain-Filtern wäre
+  möglich, aber deutlich mehr Risiko/Komplexität für eine ungetestete
+  Funktion, bewusst nicht in diesem ersten Schritt versucht.
+
+### Session 28 (28. September 2026)
+
+**Vorfall: PR #36 war nach dem Merge unvollständig.** Beim Live-Test der
+Session-27-Funktion auf dem echten Windows-11-Rechner des Nutzers fehlte die
+neue Checkbox trotz korrekt aussehendem `git log`/`git status`. Nach
+mehreren falschen Fährten (Gradle-Cache, Git-Skip-Worktree-Flags) zeigte ein
+direkter Abgleich mit GitHub selbst (`get_file_contents`/`list_commits`/
+`list_pull_requests` auf den tatsächlichen Merge-Commit) die wahre Ursache:
+PR #36 hatte durch eine Race Condition beim Mergen nur den vorletzten Commit
+(`f288a22`) übernommen, nicht den zuletzt gepushten (`c7b91e1`) - **mein
+eigener Fehler**, weil ich "gemergt" vorher nur an einem grünen CI-Lauf
+festgemacht hatte, statt den tatsächlichen Dateiinhalt zu prüfen (CI beweist
+nur, dass das, was gemerged wurde, kompiliert - nicht, dass alles Beabsichtigte
+auch drin ist). Behoben mit PR #37 (genau der fehlende Commit), die ich
+diesmal selbst gemergt habe, um den Nutzer nicht noch länger im Kreis
+debuggen zu lassen. Der Nutzer konnte die Checkbox danach sehen und hat die
+ReaComp-Verifikation aus Session 27 erfolgreich durchgeführt (2 VST-Instanzen
+über Equalizer APOs eigenen Configuration Editor angelegt, per Analysepanel
+bestätigt); ein Screenshot zeigte dabei eine versehentlich doppelte
+`Include: HardBassEQ.txt`-Zeile und zwei deaktivierte Plugin-Zeilen, beides
+vor Ort behoben (die doppelte Einbindung hätte die komplette EQ-Kurve
+verdoppelt, da sich kaskadierte Filter-dB-Werte addieren).
+
+**Nutzer-Feedback zu "Uptempo – Aggressive":** Bass "schon was stark" -
+Wechsel auf "Uptempo – Moderate" hat gereicht. Erwartet: macroBassDb ist
+additiv (Uptempo-Basis +1,5 dB + Aggressive-Delta +2,5 dB = +4,0 dB
+gesamt), kein Bug.
+
+**Eigentliche Aufgabe dieser Sitzung:** "kann man die presets für aggressive
+und very aggressive jeweils so anpassen, dass man sie auch noch gut nutzen
+kann und nicht übersteuert?" Diagnose: `automaticPreampDb()` in
+`desktop/PresetCurve.kt` hat den Preamp bisher nur so weit abgesenkt, dass
+der höchste **einzelne** Bandgain (naive `max()` über die 15 diskreten
+Bänder) auf 0 dB fällt. Das übersieht, dass Equalizer APO echte kaskadierte
+Peaking-Biquad-Filter (Q=1,4) anwendet, deren dB-Antworten sich **addieren**:
+bei den dicht gepackten, stark angehobenen Bassbändern (31/45/63/90/125/
+175 Hz), wie sie Aggressive/Very-Aggressive-Intensitäten erzeugen, kann der
+tatsächliche kombinierte Peak spürbar über dem höchsten Einzelbandgain
+liegen - der Preamp hat dann zu wenig abgesenkt, und Windows hat (anders als
+Android mit seinem Limiter) keinen Sicherheitsnetz-Limiter dahinter. Genau
+das war die Ursache des "Übersteuerns".
+
+**Fix - neue Funktion `HeadroomCalculator.fromCascadedPeakingFilters()`
+(`:core`):** entwirft für jedes Band mit Gain ≠ 0 einen echten
+`BiquadFilterDesigner`-PEAK-Filter (RBJ-Cookbook, exakt dieselbe Formel wie
+die App selbst verwendet) und summiert an 120 logarithmisch verteilten
+Punkten (20 Hz - 20 kHz) die analytischen `magnitudeResponseDb()`-Werte aller
+Filter (kaskadierte Filter addieren sich in dB) - dieselbe Sample-Auflösung
+wie die bereits bestehende `fromCombinedCurve()`. Liefert den numerisch
+korrekten, tatsächlichen kombinierten Peak statt einer Schätzung.
+`automaticPreampDb()` in `desktop/PresetCurve.kt` nutzt das jetzt statt der
+naiven `max()`-Berechnung; Signatur unverändert, alle Aufrufer
+(`EqualizerApoExporter.generateConfig()`) unverändert.
+
+`EasyEffectsExporter.kt` (Linux) wurde geprüft und braucht diesen Fix nicht:
+dort läuft `HeadroomCalculator.fromCombinedCurve()` bereits auf der glatten
+Zielkurve statt auf diskretisierten Bändern, die Band-Q wird pro Band
+dynamisch so gewählt, dass benachbarte Bässe sich nicht stark stapeln
+(`bandQ()`, "Keep adjacent bass bells from stacking far above the requested
+curve"), und ein echter Limiter fängt dahinter zusätzlich ab (der Preamp
+zieht dort bewusst nur `-0.3 * peak` ab, nicht den vollen Peak) - Windows
+hatte beide dieser Absicherungen nicht.
+
+**Tests:**
+- `HeadroomCalculatorTest.kt` (neu, `:core`): Einzelband-Peak entspricht
+  exakt dem eigenen Gain an der Mittenfrequenz (Eigenschaft der RBJ-Formel,
+  unabhängig von Q); weit auseinanderliegende Bänder überlappen kaum;
+  eng benachbarte Bässe (90/125 Hz) kombinieren nachweisbar zu einem Peak
+  über dem Einzelbandgain; nur negative Gains oder fehlende Bänder in der
+  Gain-Map lösen keinen Headroom-Abzug aus.
+- `EqualizerApoExporterTest.kt`: bestehender Test auf naiven Max-Vergleich
+  umgestellt auf den echten kaskadierten Peak; neuer Test beweist, dass
+  Uptempo/Very-Aggressive tatsächlich einen kombinierten Peak über dem
+  höchsten Einzelbandgain erzeugt (der Bug, den dieser Fix behebt); neuer
+  Test bestätigt, dass der volle (Preamp + Peak) für Aggressive/Very
+  Aggressive exakt 0 dB ergibt (kein Clipping-Risiko mehr).
+
+**Verifikation:** `:core`-Tests inkl. der neuen Fälle über das
+Standalone-`core-verify`-Miniprojekt gelaufen (alle grün), ktlint auf alle
+geänderten Dateien sauber. `:desktop:test` läuft laut Session-24-Fund
+tatsächlich in echter CI und deckt die dortige Änderung ab; `:app` ist davon
+nicht betroffen.
+
+**Bewusst offen gelassen:**
+- Die tatsächliche Sample-Rate von Equalizer APO wird nicht ausgelesen -
+  `fromCascadedPeakingFilters()` nimmt einen festen Default von 48 kHz an.
+  Bei anderen Sample-Raten (44,1 kHz etc.) verschiebt sich die genaue
+  Biquad-Antwort geringfügig; für die hier relevante Bass-Region (< 200 Hz)
+  ist der Unterschied vernachlässigbar.
+- Keine Loudness-Angleichung über Intensitätsstufen hinweg - der Preamp
+  verhindert nur Clipping, gleicht aber nicht die gefühlte Lautstärke
+  zwischen z. B. Moderate und Very Aggressive an (war laut Nutzerdefinition
+  ohnehin nicht das Ziel: "Lautstärke ändert sich hingegen kaum" ergibt sich
+  bereits aus dem bestehenden additiven Makro-Modell plus diesem Preamp-Fix).
+
+### Session 29 (28. September 2026)
+
+Nutzerfrage: "was wäre der nächste schritt für einen guten EQ mit
+kopfhörern" - zwei Optionen angeboten: echtes Crossfeed (die `Crossfeed`-
+DSP-Klasse in `:core` liegt fertig getestet, aber unbenutzt herum) oder die
+ebenfalls schon vorhandene, aber unbenutzte `LoudnessCompensationCurve` für
+den Kopfhörer-Modus verdrahten. Nutzer wählte zunächst "definitiv
+Crossfeed".
+
+**Klarstellung vor der Umsetzung:** Wie in Session 23 bereits festgehalten,
+ist echtes Crossfeed über den tatsächlich laufenden Wiedergabepfad
+(`AndroidAudioEngine`: Androids System-Audioeffekte `Equalizer`/
+`DynamicsProcessing`, angehängt an fremde App-Sessions wie Spotify/YouTube
+Music) strukturell unmöglich - diese Systemeffekte können nur ihre eigenen
+Parameter setzen, keinen eigenen PCM-Algorithmus ausführen. Hörbar würde
+Crossfeed nur über einen selbst kontrollierten Media3/ExoPlayer-Pfad, was
+aktuell technisch nur beim eigenen SoundCloud-Player (`:player`-Modul,
+`AudioPlayerService`, nutzt bereits `ExoPlayer.Builder(this)` ohne eigene
+`RenderersFactory`/`AudioProcessor`) möglich wäre - nicht bei Spotify/
+YouTube Music. Per `AskUserQuestion` noch einmal explizit bestätigt statt
+stillschweigend umgesetzt, da das ein spürbarer Scope-Unterschied zum Rest
+des Kopfhörer-Feature-Sets ist (die anderen Kopfhörer-Verbesserungen wirken
+alle plattformweit, auch bei Spotify). **Nutzer-Entscheidung:** zu wenig
+Nutzen für den Aufwand - stattdessen `LoudnessCompensationCurve` verdrahten,
+die über den bereits funktionierenden Pfad läuft und damit auch bei Spotify
+wirkt.
+
+**Umsetzung** (gleiches Muster wie Session 23/24 - eine `:core`-Referenz-
+kurve wird real hörbar gemacht, indem sie über den echten `AndroidAudioEngine`-
+EQ-Pfad läuft, statt einen eigenen PCM-Pfad zu brauchen):
+- Neu: `audio/SystemVolumeRepository.kt` (`:app`) - liest
+  `AudioManager.STREAM_MUSIC`s aktuellen/maximalen Lautstärke-Index aus und
+  bildet das Verhältnis über `20*log10(fraction)` auf eine dB-artige Größe
+  ab (keine echte SPL-Kalibrierung, die diese App nicht hat - nur die
+  *relative* Distanz zur Referenzlautstärke, die `LoudnessCompensationCurve`
+  ohnehin braucht). Reagiert per registriertem `BroadcastReceiver` auf
+  `"android.media.VOLUME_CHANGED_ACTION"` (kein öffentliches SDK-Symbol,
+  aber ein geschützter Systembroadcast - inklusive Hardware-Lautstärketasten)
+  live auf Lautstärkeänderungen, gleiches `startMonitoring()`/
+  `stopMonitoring()`-Muster wie `AndroidAudioRouteRepository`.
+- `AudioSessionForegroundService` startet/stoppt das neue Repository jetzt
+  mit, damit es für die gesamte Prozesslaufzeit läuft statt nur solange die
+  UI offen ist (wie schon bei Route-Monitoring/Session-Listening).
+- `MainViewModel.combinedCurve()` faltet `LoudnessCompensationCurve.forLevel()`
+  jetzt zusätzlich ein, ausschließlich wenn `effectiveHeadphoneAcoustics`
+  true ist (genau wie schon `HeadphoneComfortCurve`) - ein neuer
+  `init`-Collector auf `volumeRepository.currentLevelDb` ruft
+  `recalculateBandGains()` bei jeder Lautstärkeänderung auf, aber nur
+  während Kopfhörer-Modus aktiv ist. `EqualizerScreen.kt`s eigene, separate
+  Headroom-Berechnung wurde spiegelbildlich um denselben Fold-in ergänzt
+  (neuer `currentLevelDb: Float`-Parameter, durchgereicht von
+  `MainScreen.kt`), aus demselben Grund wie in Session 23: sonst würde die
+  Headroom-Anzeige nicht mehr zur tatsächlich angewandten `inputGainDb`
+  passen.
+- `di/AudioModule.kt`: neue Hilt-Bindung `SystemVolumeRepository` ->
+  `AndroidSystemVolumeRepository`.
+
+**Tests:** `LoudnessCompensationCurve`s eigene Mathematik (Clamping,
+Bass/Höhen-Verhältnis, Referenzpegel) war schon vorher vollständig durch
+`LoudnessCompensationCurveTest` in `:core` abgedeckt (nur nie verdrahtet) -
+hier deshalb nur zwei neue `MainViewModelTest`-Fälle für die Verdrahtung
+selbst: mit dem Flat-Preset zeigt eine sinkende Lautstärke bei aktivem
+Kopfhörer-Modus einen wachsenden Bass-Boost (60-Hz-Band); bei
+ausgeschaltetem Kopfhörer-Modus bleibt der Boost unabhängig von der
+Lautstärke bei exakt 0. `AndroidSystemVolumeRepository` selbst bleibt wie
+`AndroidAudioRouteRepository` ungetestet - diese Sandbox hat kein
+Robolectric/Instrumentation-Setup für echte `AudioManager`/`Context`-
+Klassen, und dieses Repo hatte davor schon keinen Test für das strukturell
+identische Route-Repository.
+
+**Verifikation:** keine `:core`-Änderungen in dieser Sitzung, also kein
+`core-verify`-Lauf nötig. Alle geänderten `:app`-Dateien mit der
+eigenständigen ktlint-CLI geprüft (ein Import-Reihenfolge- und ein
+Kettenfortsetzungs-Fehler automatisch mit `ktlint --format` behoben, Diff
+danach manuell gegengelesen) - Android Gradle Plugin weiterhin nicht
+auflösbar, echte Kompilierprüfung über CI im PR.
+
+**Bewusst offen gelassen:**
+- Echtes Crossfeed bleibt eine fertige, getestete, aber unbenutzte
+  `:core`-Referenzimplementierung - technisch nur für den eigenen
+  SoundCloud-Player über einen echten Media3-`AudioProcessor` erreichbar,
+  bewusst zurückgestellt (Nutzerentscheidung, kein technisches Aufgeben,
+  wie schon in Session 23 für Crossfeed/BassMonoSummer/TransientShaper
+  festgehalten).
+- Kein Debouncing der Lautstärke-getriebenen Neuberechnung - jeder
+  Lautstärkeschritt (z. B. schnelles mehrfaches Drücken der Hardware-Taste)
+  löst sofort eine neue `recalculateBandGains()` aus. Bewusst nicht
+  gedrosselt, da das Muster (Slider-Drag, Routenwechsel) im Rest dieses
+  ViewModels genauso funktioniert und Android-Lautstärkestufen ohnehin grob
+  gerastert sind (typischerweise 15-25 Stufen).
