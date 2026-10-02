@@ -1,5 +1,7 @@
 package com.soundcloud.equalizer.player.playback
 
+import com.soundcloud.equalizer.player.R
+import com.soundcloud.equalizer.player.PlayerText
 import android.content.Context
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
@@ -47,7 +49,7 @@ class LinkResolver(
                 when (ShareLink.classify(url)) {
                     LinkSource.YOUTUBE -> "https://www.youtube.com/oembed?format=json&url="
                     LinkSource.SPOTIFY -> "https://open.spotify.com/oembed?url="
-                    else -> throw IOException("Dieser Link wird nicht unterstützt")
+                    else -> throw IOException(PlayerText.get(R.string.err_link_unsupported_host))
                 } + URLEncoder.encode(url, "UTF-8")
             val request =
                 Request
@@ -59,14 +61,14 @@ class LinkResolver(
                 if (!response.isSuccessful) {
                     throw IOException(
                         if (response.code in NO_DETAILS_CODES) {
-                            "Zu diesem Link gibt es keine Angaben (Video privat, gesperrt oder nicht einbettbar)"
+                            PlayerText.get(R.string.err_no_details)
                         } else {
-                            "Der Anbieter antwortet nicht (HTTP ${response.code})"
+                            PlayerText.get(R.string.err_provider_no_answer, response.code)
                         },
                     )
                 }
                 val json = JSONObject(response.body?.string().orEmpty())
-                val title = json.optString("title").takeIf { it.isNotBlank() } ?: throw IOException("Der Link enthält keinen Titel")
+                val title = json.optString("title").takeIf { it.isNotBlank() } ?: throw IOException(PlayerText.get(R.string.err_link_no_title))
                 val author = if (json.isNull("author_name")) null else json.optString("author_name").takeIf { it.isNotBlank() }
                 ExternalTrackInfo(title = title, author = author)
             }
@@ -94,9 +96,9 @@ class LinkResolver(
                 if (!response.isSuccessful) {
                     throw IOException(
                         if (response.code in NO_DETAILS_CODES) {
-                            "Der Titel oder die Playlist ist nicht öffentlich oder existiert nicht"
+                            PlayerText.get(R.string.err_not_public)
                         } else {
-                            "Spotify antwortet nicht (HTTP ${response.code})"
+                            PlayerText.get(R.string.err_spotify_page_http, response.code)
                         },
                     )
                 }

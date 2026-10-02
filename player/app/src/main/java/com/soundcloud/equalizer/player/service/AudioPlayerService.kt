@@ -1,5 +1,6 @@
 package com.soundcloud.equalizer.player.service
 
+import com.soundcloud.equalizer.player.R
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -363,9 +364,9 @@ class AudioPlayerService : Service() {
             isPreviewStream = resolved?.isPreview == true
             if (isPreviewStream) {
                 val hint = if (token == null) {
-                    "Nur Vorschau - melde dich im Player mit deinem SoundCloud-Go-Konto an"
+                    getString(R.string.svc_preview_signin)
                 } else {
-                    "Nur Vorschau - SoundCloud liefert für diesen Titel mit deinem Konto keine volle Länge"
+                    getString(R.string.svc_preview_account)
                 }
                 Toast.makeText(this@AudioPlayerService, hint, Toast.LENGTH_LONG).show()
             }
@@ -416,7 +417,7 @@ class AudioPlayerService : Service() {
     private fun onTrackUnplayable() {
         isLoadingTrack = false
         if (currentTitle.isNotEmpty()) {
-            Toast.makeText(this, "Nicht abspielbar: $currentTitle", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.svc_not_playable, currentTitle), Toast.LENGTH_SHORT).show()
         }
         val next = if (queueIndex < 0) null else QueueNavigation.next(queueIndex, PlaybackQueueState.queue.value.size)
         if (next != null) playIndex(next) else publishNowPlaying()
@@ -495,8 +496,8 @@ class AudioPlayerService : Service() {
         when (intent?.action) {
             ACTION_PLAY -> {
                 val url = intent.getStringExtra(EXTRA_STREAM_URL)
-                val title = intent.getStringExtra(EXTRA_TRACK_TITLE) ?: "SoundCloud Track"
-                val artist = intent.getStringExtra(EXTRA_ARTIST_NAME) ?: "Artist"
+                val title = intent.getStringExtra(EXTRA_TRACK_TITLE) ?: getString(R.string.svc_default_title)
+                val artist = intent.getStringExtra(EXTRA_ARTIST_NAME) ?: getString(R.string.svc_default_artist)
                 if (!url.isNullOrEmpty()) {
                     playTrack(url, title, artist)
                 }
@@ -531,7 +532,7 @@ class AudioPlayerService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "SoundCloud Equalizer Playback",
+                getString(R.string.svc_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -570,13 +571,13 @@ class AudioPlayerService : Service() {
             .setContentIntent(pendingIntent)
             .setOngoing(isPlaying)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(android.R.drawable.ic_media_previous, "Zurück", actionIntent(ACTION_PREVIOUS, 1))
+            .addAction(android.R.drawable.ic_media_previous, getString(R.string.svc_action_previous), actionIntent(ACTION_PREVIOUS, 1))
             .addAction(
                 if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                if (isPlaying) "Pause" else "Abspielen",
+                if (isPlaying) getString(R.string.svc_action_pause) else getString(R.string.svc_action_play),
                 actionIntent(ACTION_TOGGLE_PLAYBACK, 2)
             )
-            .addAction(android.R.drawable.ic_media_next, "Weiter", actionIntent(ACTION_NEXT, 3))
+            .addAction(android.R.drawable.ic_media_next, getString(R.string.svc_action_next), actionIntent(ACTION_NEXT, 3))
         mediaSession?.let { session ->
             builder.setStyle(MediaStyleNotificationHelper.MediaStyle(session).setShowActionsInCompactView(0, 1, 2))
         }

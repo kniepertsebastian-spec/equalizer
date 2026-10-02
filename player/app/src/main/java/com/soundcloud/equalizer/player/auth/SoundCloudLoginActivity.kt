@@ -1,5 +1,6 @@
 package com.soundcloud.equalizer.player.auth
 
+import com.soundcloud.equalizer.player.R
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Context
@@ -93,7 +94,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
         // doesn't apply) and paste the resulting oauth_token cookie in here.
         val manualEntryButton =
             Button(this).apply {
-                text = "Token manuell eingeben"
+                text = getString(R.string.login_manual_token)
                 setOnClickListener { showManualTokenDialog() }
             }
         val root =
@@ -224,17 +225,12 @@ class SoundCloudLoginActivity : AppCompatActivity() {
             }
 
         AlertDialog.Builder(this)
-            .setTitle("SoundCloud-Token einfügen")
+            .setTitle(getString(R.string.login_token_title))
             .setMessage(
-                "1. Öffne Chrome und melde dich auf soundcloud.com mit Google an.\n" +
-                    "2. Lege ein Lesezeichen mit dieser Adresse an: javascript:prompt('Cookie',document.cookie)\n" +
-                    "3. Öffne das Lesezeichen, während du auf soundcloud.com eingeloggt bist - " +
-                    "im Popup erscheinen deine Cookies.\n" +
-                    "4. Kopiere daraus den Wert nach \"oauth_token=\" bis zum nächsten \";\" " +
-                    "und füge ihn unten ein.",
+                getString(R.string.login_token_help),
             )
             .setView(input)
-            .setPositiveButton("Speichern") { _, _ ->
+            .setPositiveButton(getString(R.string.action_save)) { _, _ ->
                 val token = input.text.toString().trim()
                 if (token.isNotEmpty()) {
                     polling = false
@@ -243,7 +239,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                     finish()
                 }
             }
-            .setNegativeButton("Abbrechen", null)
+            .setNegativeButton(getString(R.string.action_cancel), null)
             .show()
     }
 

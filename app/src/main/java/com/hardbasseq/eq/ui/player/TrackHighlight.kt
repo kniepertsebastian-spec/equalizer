@@ -17,7 +17,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.ui.theme.PlayerTextMutedColor
 import com.hardbasseq.eq.ui.theme.PlayerTitleColor
 
@@ -58,12 +60,17 @@ fun Modifier.glowWhenCurrent(state: TrackPlayState): Modifier {
 fun TrackStateIcon(state: TrackPlayState) {
     when (state) {
         TrackPlayState.CURRENT ->
-            Icon(Icons.Default.GraphicEq, contentDescription = "Läuft gerade", tint = PlayerTitleColor, modifier = Modifier.size(20.dp))
+            Icon(
+                Icons.Default.GraphicEq,
+                contentDescription = stringResource(R.string.track_state_current),
+                tint = PlayerTitleColor,
+                modifier = Modifier.size(20.dp),
+            )
 
         TrackPlayState.PLAYED ->
             Icon(
                 Icons.Default.Check,
-                contentDescription = "Schon gespielt",
+                contentDescription = stringResource(R.string.track_state_played),
                 tint = PlayerTextMutedColor,
                 modifier = Modifier.size(18.dp).alpha(0.8f),
             )

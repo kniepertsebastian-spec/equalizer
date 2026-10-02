@@ -8,6 +8,7 @@ import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.SpotifyPlaylist
+import com.hardbasseq.eq.text.FakeTextProvider
 import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -49,7 +50,7 @@ class DiscoveryViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = DiscoveryViewModel(repository, DiscoveryUpdater(repository, source), controller)
+    private fun viewModel() = DiscoveryViewModel(repository, DiscoveryUpdater(repository, source), controller, FakeTextProvider())
 
     private fun DiscoveryViewModel.playlistIds(): List<Long> {
         val playlist = state.value.playlist

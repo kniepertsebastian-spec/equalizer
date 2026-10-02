@@ -63,7 +63,7 @@ class PlayerActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         if (intent?.getStringExtra(EXTRA_SOURCE) == SOURCE_YOUTUBE) {
-            Toast.makeText(this, "YouTube isn't supported yet - pick SoundCloud for now", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.player_youtube_unsupported), Toast.LENGTH_LONG).show()
             finish()
             return
         }
@@ -97,7 +97,7 @@ class PlayerActivity : AppCompatActivity() {
         val savedToken = SoundCloudLoginActivity.getSavedToken(this)
         if (savedToken != null) {
             soundCloudClient.setUserAuthToken(savedToken)
-            binding.btnLogin.text = "Logged In (Go)"
+            binding.btnLogin.text = getString(R.string.player_logged_in_go)
         }
 
         binding.btnLogin.setOnClickListener {
@@ -115,10 +115,10 @@ class PlayerActivity : AppCompatActivity() {
             audioService?.let { service ->
                 if (service.isPlaying()) {
                     service.pauseTrack()
-                    binding.btnPlayPause.text = "Play"
+                    binding.btnPlayPause.text = getString(R.string.player_play)
                 } else {
                     service.resumeTrack()
-                    binding.btnPlayPause.text = "Pause"
+                    binding.btnPlayPause.text = getString(R.string.player_pause)
                 }
             }
         }
@@ -132,7 +132,7 @@ class PlayerActivity : AppCompatActivity() {
         val savedToken = SoundCloudLoginActivity.getSavedToken(this)
         if (savedToken != null) {
             soundCloudClient.setUserAuthToken(savedToken)
-            binding.btnLogin.text = "Logged In (Go)"
+            binding.btnLogin.text = getString(R.string.player_logged_in_go)
         }
     }
 
@@ -143,10 +143,10 @@ class PlayerActivity : AppCompatActivity() {
                 if (tracks.isNotEmpty()) {
                     trackAdapter.submitList(tracks)
                 } else {
-                    Toast.makeText(this@PlayerActivity, "No tracks found", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@PlayerActivity, getString(R.string.player_no_tracks), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@PlayerActivity, "Search error: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@PlayerActivity, getString(R.string.player_search_error, e.message), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -164,7 +164,7 @@ class PlayerActivity : AppCompatActivity() {
         binding.cardNowPlaying.visibility = View.VISIBLE
         binding.tvNowPlayingTitle.text = track.title
         binding.tvNowPlayingArtist.text = track.artist
-        binding.btnPlayPause.text = "Pause"
+        binding.btnPlayPause.text = getString(R.string.player_pause)
     }
 
     override fun onDestroy() {

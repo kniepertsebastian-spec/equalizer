@@ -58,7 +58,14 @@ object SpotifyImportPlan {
         title: String,
         partNumber: Int,
         totalParts: Int,
-    ): String = if (totalParts <= 1) "$title (von Spotify)" else "$title – Teil $partNumber von $totalParts (von Spotify)"
+        fromSpotify: String = "von Spotify",
+        partOfTotal: (Int, Int) -> String = { part, total -> "Teil $part von $total" },
+    ): String =
+        if (totalParts <= 1) {
+            "$title ($fromSpotify)"
+        } else {
+            "$title – ${partOfTotal(partNumber, totalParts)} ($fromSpotify)"
+        }
 
     // Which block (1-based) the next one to look up is.
     fun nextPartNumber(state: SpotifyImportState): Int = state.nextIndex / BATCH_SIZE + 1

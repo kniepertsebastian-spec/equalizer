@@ -577,8 +577,10 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
 - **Player-Bereiche** als Tabs: **Suchen** (neue In-App-SoundCloud-Suche + Neuerscheinungen),
   **Playlists** (Import, eigene/importierte Playlists, Konten, Bibliothek), **Warteschlange** (Anzahl,
   laufender Titel, Leerzustand mit nächster Aktion). Ein geteilter Link öffnet den Tab „Playlists“.
-- **Quellenwähler** „SoundCloud ▾“ im Player-Kopf: SoundCloud (eingebauter Player), YouTube (öffnet den
-  YouTube-Player), „Anderer Player“ (Erklärung zu Spotify & Co.).
+- **Quellenwähler** „SoundCloud ▾“ im Player-Kopf: SoundCloud (eingebauter Player), „YouTube-App“ (öffnet die
+  YouTube-App, der EQ hängt sich an, wenn sie ihre Audio-Session meldet – nicht garantiert; der eingebaute Player
+  spielt weiterhin kein YouTube), „Anderer Player“ (Erklärung zu Spotify & Co.). Die UX-Roadmap nennt YouTube als
+  funktionierend; im Code ist der eingebaute YouTube-Pfad bewusst nicht vorhanden – hier gilt der ehrliche Wortlaut.
 - **EQ-Status im Player** („EQ aktiv für SoundCloud“, sonst Status + nächste Handlung) über `EqStatus`:
   nur `AudioEngineState.Active` bei eingeschaltetem, nicht umgangenem EQ gilt als aktiv. Tippen öffnet den
   Equalizer. Im Equalizer-Bereich zeigt der Mini-Player Titel/Steuerung und „Zum Player“.
@@ -631,3 +633,21 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
   zurücksetzen. Von beiden Orten führt ein Link zum jeweils anderen.
 - Grenzen: Klangziel und Kopfhörer-Power gelten weiter global, nicht je Ausgang; die Anwendung beim Wechsel hängt
   vom Audiopfad ab (Systemeffekte). **Nicht verifiziert** auf dem Gerät.
+
+### UX-Roadmap Schritt 6: Vollständige englische Lokalisierung (2. Oktober 2026)
+
+- **Sprachen:** `values/` (Standard) ist Englisch, `values-de/` Deutsch – in der App und im `:player`-Modul
+  (`player/app/src/main/res`). Alle sichtbaren Texte stehen dort: Oberflächen, Dialoge, Hinweise, Fehler-, Lade-,
+  Leer- und Offline-Zustände, Benachrichtigungen, Barrierefreiheits-Beschriftungen, Layouts des alten Players.
+- **Texte ohne Context** (ViewModels, Repositories): `TextProvider` (Hilt, `AndroidTextProvider`); im `:player`-Modul
+  `PlayerText` (vom `Application` einmal initialisiert). Tests nutzen `FakeTextProvider` und prüfen Text-IDs mit
+  Argumenten statt deutscher Sätze. Der Kern (`:core`) liefert keine Anzeigetexte mehr: `AgeFormat.daysSince` gibt Tage,
+  der Bildschirm bildet „heute/gestern/vor n Tagen“.
+- **Gespeicherte Namen** (Playlist-Titel „… (von Spotify)“, „(Nachtrag)“, Kopien) entstehen in der Sprache zum
+  Zeitpunkt des Anlegens; Korrekturprofile mit den alten deutschen Standardbezeichnungen („Manuell“, „Keine Korrektur“)
+  werden in der aktuellen Sprache angezeigt (`CorrectionLabels`).
+- **Bewusste Ausnahmen:** der Diagnosebericht und das Entwicklerwerkzeug „Session-Attach-Spike“ sind englische
+  Entwicklertexte; technische Fehlerdetails aus `:core` (Parser, Validierung) sind jetzt englisch; Gerätenamen, Interpreten,
+  Genre- und Presetnamen (Eigennamen) bleiben unübersetzt. Die Warnüberschriften der Headroom-Anzeige („DANGER!“) sind
+  Stilmittel der Designs und englisch.
+- **Nicht verifiziert** (kein Gerät): Layouts mit längeren englischen/deutschen Texten, großer Schrift und schmalen Displays.

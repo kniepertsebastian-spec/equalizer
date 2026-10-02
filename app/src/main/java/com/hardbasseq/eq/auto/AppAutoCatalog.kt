@@ -1,10 +1,12 @@
 package com.hardbasseq.eq.auto
 
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.discovery.DiscoveryRepository
 import com.hardbasseq.eq.integration.LoadResult
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedTrack
+import com.hardbasseq.eq.text.TextProvider
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.AutoCatalog
 import com.soundcloud.equalizer.player.playback.AutoNode
@@ -24,17 +26,20 @@ class AppAutoCatalog(
     private val likesLoader: suspend () -> List<TrackItem>,
     // A plain SoundCloud search (voice commands for something that is in no playlist).
     private val searchLoader: suspend (String) -> List<TrackItem>,
+    private val texts: TextProvider,
 ) : AutoCatalog {
     @Inject
     constructor(
         playlistRepository: PlaylistRepository,
         discoveryRepository: DiscoveryRepository,
         controller: PlayerController,
+        texts: TextProvider,
     ) : this(
         playlistRepository,
         discoveryRepository,
         { (controller.loadLikedTracks() as? LoadResult.Ok)?.value.orEmpty() },
         { query -> (controller.searchSoundCloud(query, SEARCH_LIMIT) as? LoadResult.Ok)?.value.orEmpty() },
+        texts,
     )
 
     // The likes are loaded from the network once per browse; starting a track reuses them.
@@ -48,7 +53,14 @@ class AppAutoCatalog(
                     .first()
                     .sortedByDescending { it.createdAtMs }
                     .take(MAX_ENTRIES)
-                    .map { AutoNode(AutoMediaId.playlistFolder(it.id), it.title, "${it.tracks.size} Titel", playable = false) }
+                    .map {
+                        AutoNode(
+                            AutoMediaId.playlistFolder(it.id),
+                            it.title,
+                            texts.get(R.string.tracks_count, it.tracks.size),
+                            playable = false,
+                        )
+                    }
 
             AutoMediaId.DiscoveryFolder ->
                 discoveryRepository
@@ -120,9 +132,9 @@ class AppAutoCatalog(
 
     private fun rootFolders() =
         listOf(
-            AutoNode(AutoMediaId.PLAYLISTS, "Meine Playlists", playable = false),
-            AutoNode(AutoMediaId.DISCOVERY, "Interesting new uploads", playable = false),
-            AutoNode(AutoMediaId.LIKES, "Likes", playable = false),
+            AutoNode(AutoMediaId.PLAYLISTS, texts.get(R.string.auto_my_playlists), playable = false),
+            AutoNode(AutoMediaId.DISCOVERY, texts.get(R.string.discovery_title), playable = false),
+            AutoNode(AutoMediaId.LIKES, texts.get(R.string.library_likes_title), playable = false),
         )
 
     private suspend fun loadLikes(): List<TrackItem> {

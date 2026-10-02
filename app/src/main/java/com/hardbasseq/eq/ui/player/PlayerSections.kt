@@ -106,7 +106,7 @@ fun SourceSelector(onSelectSource: (PlayerSource) -> Unit) {
                 },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.source_youtube)) },
+                text = { Text(stringResource(R.string.source_youtube_app)) },
                 onClick = {
                     menuOpen = false
                     onSelectSource(PlayerSource.YOUTUBE)

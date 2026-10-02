@@ -23,10 +23,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioCapabilities
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
@@ -64,7 +66,7 @@ fun DiagnosticsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Systemdiagnose",
+                        text = stringResource(R.string.diag_title),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         fontWeight = FontWeight.Bold,
@@ -76,7 +78,7 @@ fun DiagnosticsScreen(
                             clipboardManager.setText(AnnotatedString(reportText))
                         },
                     ) {
-                        Text("Kopieren")
+                        Text(stringResource(R.string.action_copy))
                     }
                 },
             )
@@ -111,7 +113,7 @@ fun DiagnosticsScreen(
                 onClick = onBackClicked,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Zurück zum Equalizer")
+                Text(stringResource(R.string.diag_back))
             }
         }
     }

@@ -255,7 +255,7 @@ fun PlayerScreen(
                     )
                     if (playing?.isPreview == true) {
                         Text(
-                            text = "Nur 30-Sekunden-Vorschau",
+                            text = stringResource(R.string.preview_only),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error,
                         )
@@ -272,7 +272,11 @@ fun PlayerScreen(
                         horizontalArrangement = Arrangement.spacedBy(spacing.medium),
                     ) {
                         IconButton(onClick = viewModel::previous, enabled = playing != null) {
-                            Icon(Icons.Default.SkipPrevious, contentDescription = "Zurück", modifier = Modifier.size(36.dp))
+                            Icon(
+                                Icons.Default.SkipPrevious,
+                                contentDescription = stringResource(R.string.player_previous),
+                                modifier = Modifier.size(36.dp),
+                            )
                         }
                         IconButton(onClick = viewModel::togglePlayback, enabled = playing != null, modifier = Modifier.size(64.dp)) {
                             if (playing?.isLoading == true) {
@@ -280,19 +284,30 @@ fun PlayerScreen(
                             } else {
                                 Icon(
                                     imageVector = if (playing?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                    contentDescription = if (playing?.isPlaying == true) "Pause" else "Abspielen",
+                                    contentDescription =
+                                        if (playing?.isPlaying ==
+                                            true
+                                        ) {
+                                            stringResource(R.string.player_pause)
+                                        } else {
+                                            stringResource(R.string.player_play)
+                                        },
                                     modifier = Modifier.size(48.dp),
                                 )
                             }
                         }
                         IconButton(onClick = viewModel::next, enabled = playing != null) {
-                            Icon(Icons.Default.SkipNext, contentDescription = "Weiter", modifier = Modifier.size(36.dp))
+                            Icon(
+                                Icons.Default.SkipNext,
+                                contentDescription = stringResource(R.string.player_next),
+                                modifier = Modifier.size(36.dp),
+                            )
                         }
                         IconButton(
                             onClick = { viewModel.currentTrack()?.let { playlistDialog = PlaylistDialogRequest(it) } },
                             enabled = viewModel.currentTrack() != null,
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Zur Playlist hinzufügen")
+                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = stringResource(R.string.queue_add_to_playlist))
                         }
                     }
                 }
@@ -345,8 +360,7 @@ fun PlayerScreen(
                             )
                             Text(
                                 text =
-                                    "Link einfügen oder teilen: SoundCloud-Titel/-Playlist, einzelne YouTube-/Spotify-Titel oder eine " +
-                                        "öffentliche Spotify-Playlist (wird auf SoundCloud gesucht).",
+                                    stringResource(R.string.playlists_import_hint),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = PlayerTextMutedColor,
                             )
@@ -385,7 +399,7 @@ fun PlayerScreen(
                                     },
                                     enabled = linkText.isNotBlank() && !importState.isLoading,
                                 ) {
-                                    Text("Hinzufügen")
+                                    Text(stringResource(R.string.playlists_add_button))
                                 }
                             }
                             // A long Spotify import that stopped (app closed, no connection): go on or drop it.
@@ -393,27 +407,33 @@ fun PlayerScreen(
                             pendingImport?.takeIf { !importState.isLoading }?.let { pending ->
                                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = "Spotify-Import „${pending.title}“ angehalten: ${pending.nextIndex} von ${pending.total}",
+                                        text =
+                                            stringResource(
+                                                R.string.spotify_import_paused,
+                                                pending.title,
+                                                pending.nextIndex,
+                                                pending.total,
+                                            ),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = PlayerTextMutedColor,
                                         modifier = Modifier.weight(1f),
                                     )
-                                    TextButton(onClick = viewModel::resumeSpotifyImport) { Text("Fortsetzen") }
-                                    TextButton(onClick = viewModel::discardSpotifyImport) { Text("Verwerfen") }
+                                    TextButton(onClick = viewModel::resumeSpotifyImport) { Text(stringResource(R.string.action_resume)) }
+                                    TextButton(onClick = viewModel::discardSpotifyImport) { Text(stringResource(R.string.action_discard)) }
                                 }
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 TextButton(onClick = { playlistDialog = PlaylistDialogRequest(null) }) {
                                     Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
                                     Spacer(modifier = Modifier.size(spacing.small))
-                                    Text("Neue Playlist")
+                                    Text(stringResource(R.string.playlists_new_button))
                                 }
                                 if (playlists.size >= 2) {
-                                    TextButton(onClick = { mergeDialogOpen = true }) { Text("Zusammenführen") }
+                                    TextButton(onClick = { mergeDialogOpen = true }) { Text(stringResource(R.string.playlists_merge)) }
                                 }
                                 if (playlists.isNotEmpty()) {
                                     TextButton(onClick = { viewModel.syncToSoundCloud(playlists) }, enabled = !importState.isLoading) {
-                                        Text("Alle zu SoundCloud")
+                                        Text(stringResource(R.string.playlists_all_to_soundcloud))
                                     }
                                 }
                             }
@@ -456,19 +476,19 @@ fun PlayerScreen(
                             Column(modifier = Modifier.padding(spacing.medium)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = "Auf SoundCloud gefunden: ${bridge.label}",
+                                        text = stringResource(R.string.bridge_found_title, bridge.label),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.weight(1f),
                                     )
-                                    TextButton(onClick = viewModel::dismissBridge) { Text("Schließen") }
+                                    TextButton(onClick = viewModel::dismissBridge) { Text(stringResource(R.string.action_close)) }
                                 }
                                 Text(
                                     text =
                                         if (bridge.startedAutomatically) {
-                                            "Der beste Treffer läuft. Nicht der richtige? Wähl einen anderen:"
+                                            stringResource(R.string.bridge_best_playing)
                                         } else {
-                                            "Kein sicherer Treffer - wähle den passenden Titel:"
+                                            stringResource(R.string.bridge_no_sure_match)
                                         },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = PlayerTextMutedColor,
@@ -500,7 +520,7 @@ fun PlayerScreen(
                             Column(modifier = Modifier.padding(spacing.medium)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = "Meine SoundCloud-Bibliothek",
+                                        text = stringResource(R.string.library_title),
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.weight(1f),
@@ -509,7 +529,7 @@ fun PlayerScreen(
                                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                                     } else {
                                         IconButton(onClick = viewModel::loadLibrary) {
-                                            Icon(Icons.Default.Refresh, contentDescription = "Bibliothek neu laden")
+                                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.library_reload))
                                         }
                                     }
                                 }
@@ -521,8 +541,8 @@ fun PlayerScreen(
                                     )
                                 }
                                 LibraryRow(
-                                    title = "Likes",
-                                    subtitle = "Alle Titel, die du geliked hast",
+                                    title = stringResource(R.string.library_likes_title),
+                                    subtitle = stringResource(R.string.library_likes_desc),
                                     onPlay = viewModel::playLikedTracks,
                                 )
                             }
@@ -530,21 +550,33 @@ fun PlayerScreen(
                     }
                     libraryState.library?.let { library ->
                         if (library.own.isNotEmpty()) {
-                            item { Text("Meine Playlists", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                            item {
+                                Text(
+                                    stringResource(R.string.library_my_playlists),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                             items(library.own, key = { "own-${it.id}" }) { playlist ->
                                 LibraryRow(
                                     title = playlist.title,
-                                    subtitle = "${playlist.trackCount} Titel",
+                                    subtitle = stringResource(R.string.tracks_count, playlist.trackCount),
                                     onPlay = { viewModel.playLibraryPlaylist(playlist) },
                                 )
                             }
                         }
                         if (library.liked.isNotEmpty()) {
-                            item { Text("Gelikte Playlists", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
+                            item {
+                                Text(
+                                    stringResource(R.string.library_liked_playlists),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
                             items(library.liked, key = { "liked-${it.id}" }) { playlist ->
                                 LibraryRow(
                                     title = playlist.title,
-                                    subtitle = "${playlist.trackCount} Titel",
+                                    subtitle = stringResource(R.string.tracks_count, playlist.trackCount),
                                     onPlay = { viewModel.playLibraryPlaylist(playlist) },
                                 )
                             }
@@ -623,7 +655,10 @@ fun PlayerScreen(
                                 )
                             }
                             IconButton(onClick = { playlistDialog = PlaylistDialogRequest(track) }) {
-                                Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = "Zur Playlist hinzufügen")
+                                Icon(
+                                    Icons.AutoMirrored.Filled.PlaylistAdd,
+                                    contentDescription = stringResource(R.string.queue_add_to_playlist),
+                                )
                             }
                         }
                     }
@@ -640,9 +675,13 @@ fun PlayerScreen(
                     border = BorderStroke(1.dp, HardBassCardBorder),
                 ) {
                     Column(modifier = Modifier.padding(spacing.medium)) {
-                        Text("Klangmodus", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Text(
-                            text = "Bleibt an, auch wenn du das Preset wechselst.",
+                            stringResource(R.string.context_mode_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = stringResource(R.string.context_mode_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = PlayerTextMutedColor,
                         )
@@ -729,7 +768,7 @@ internal fun LibraryRow(
             Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = PlayerTextMutedColor)
         }
         IconButton(onClick = onPlay) {
-            Icon(Icons.Default.PlayArrow, contentDescription = "Abspielen")
+            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.player_play))
         }
     }
 }
@@ -767,25 +806,27 @@ private fun PlaylistRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${playlist.tracks.size} Titel" + if (playlist.soundCloudId != null) " · bei SoundCloud" else "",
+                    text =
+                        stringResource(R.string.playlist_row_count, playlist.tracks.size) +
+                            if (playlist.soundCloudId != null) stringResource(R.string.playlist_row_on_soundcloud) else "",
                     style = MaterialTheme.typography.bodySmall,
                     color = PlayerTextMutedColor,
                 )
             }
             IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
-                Icon(Icons.Default.CloudUpload, contentDescription = "Zu SoundCloud übertragen")
+                Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.playlist_to_soundcloud))
             }
             IconButton(onClick = onPlay, enabled = playlist.tracks.isNotEmpty()) {
-                Icon(Icons.Default.PlayArrow, contentDescription = "Playlist abspielen")
+                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play))
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Playlist löschen")
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.playlist_delete))
             }
         }
         if (expanded) {
             if (playlist.tracks.isEmpty()) {
                 Text(
-                    text = "Noch leer – füge Titel über das Playlist-Symbol im Player oder in der Warteschlange hinzu.",
+                    text = stringResource(R.string.playlist_empty_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = PlayerTextMutedColor,
                 )
@@ -796,13 +837,17 @@ private fun PlaylistRow(
                     value = search,
                     onValueChange = { search = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("In dieser Playlist suchen") },
+                    placeholder = { Text(stringResource(R.string.playlist_search_hint)) },
                     singleLine = true,
                 )
             }
             val hits = PlaylistSearch.filter(playlist.tracks, search)
             if (hits.isEmpty() && playlist.tracks.isNotEmpty()) {
-                Text(text = "Kein Titel passt zu „$search“.", style = MaterialTheme.typography.bodySmall, color = PlayerTextMutedColor)
+                Text(
+                    text = stringResource(R.string.playlist_search_none, search),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = PlayerTextMutedColor,
+                )
             }
             hits.forEach { hit ->
                 val track = hit.track
@@ -835,11 +880,11 @@ private fun PlaylistRow(
                         )
                     }
                     IconButton(onClick = { onPlayTrack(hit.index) }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = "Ab diesem Titel abspielen")
+                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play_from_here))
                     }
                     if (playlist.sourceUrl == null) {
                         IconButton(onClick = { onRemoveTrack(track.id) }) {
-                            Icon(Icons.Default.Close, contentDescription = "Aus Playlist entfernen")
+                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.playlist_remove_track))
                         }
                     }
                 }
@@ -868,14 +913,14 @@ private fun MergePlaylistsDialog(
     var chosenIds by remember { mutableStateOf(setOf<String>()) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Playlists zusammenführen") },
+        title = { Text(stringResource(R.string.merge_title)) },
         text = {
             Column {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Name der neuen Playlist") },
+                    label = { Text(stringResource(R.string.merge_name_hint)) },
                     singleLine = true,
                 )
                 playlists.forEach { playlist ->
@@ -902,9 +947,9 @@ private fun MergePlaylistsDialog(
             TextButton(
                 onClick = { onMerge(playlists.filter { it.id in chosenIds }, name) },
                 enabled = chosenIds.size >= 2 && name.isNotBlank(),
-            ) { Text("Zusammenführen") }
+            ) { Text(stringResource(R.string.playlists_merge)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -921,7 +966,17 @@ private fun PlaylistDialog(
     val local = playlists.filter { it.sourceUrl == null }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (track != null) "Zur Playlist hinzufügen" else "Neue Playlist") },
+        title = {
+            Text(
+                if (track !=
+                    null
+                ) {
+                    stringResource(R.string.playlist_dialog_add_title)
+                } else {
+                    stringResource(R.string.playlists_new_button)
+                },
+            )
+        },
         text = {
             Column {
                 if (track != null) {
@@ -942,17 +997,17 @@ private fun PlaylistDialog(
                     value = name,
                     onValueChange = { name = it },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Name der neuen Playlist") },
+                    label = { Text(stringResource(R.string.merge_name_hint)) },
                     singleLine = true,
                 )
             }
         },
         confirmButton = {
             TextButton(onClick = { onCreate(name) }, enabled = name.isNotBlank()) {
-                Text(if (track != null) "Neu anlegen und hinzufügen" else "Anlegen")
+                Text(if (track != null) stringResource(R.string.playlist_create_and_add) else stringResource(R.string.action_create))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
 
@@ -981,7 +1036,12 @@ private fun ArtworkImage(
     }
     val loaded = bitmap
     if (loaded != null) {
-        Image(bitmap = loaded, contentDescription = "Cover", contentScale = ContentScale.Crop, modifier = modifier)
+        Image(
+            bitmap = loaded,
+            contentDescription = stringResource(R.string.artwork_description),
+            contentScale = ContentScale.Crop,
+            modifier = modifier,
+        )
     } else {
         Box(
             modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),

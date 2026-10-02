@@ -46,10 +46,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.discovery.DiscoveryState
 import com.hardbasseq.eq.discovery.DiscoveryTrack
 import com.hardbasseq.eq.discovery.GenreMode
@@ -123,7 +125,7 @@ fun LazyListScope.discoveryItems(
                                 item.track.artist,
                                 item.genre,
                                 PlayerFormat.duration(item.track.durationMs),
-                                AgeFormat.daysAgo(nowMs, item.uploadedAtMs),
+                                ageLabel(AgeFormat.daysSince(nowMs, item.uploadedAtMs)),
                             ).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
                         color = PlayerArtistColor,
@@ -132,7 +134,7 @@ fun LazyListScope.discoveryItems(
                     )
                 }
                 IconButton(onClick = { onDismiss(item) }) {
-                    Icon(Icons.Default.Close, contentDescription = "Nicht mehr vorschlagen", tint = PlayerTextMutedColor)
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.discovery_dismiss), tint = PlayerTextMutedColor)
                 }
             }
         }
@@ -156,7 +158,7 @@ private fun DiscoveryHeader(
     Column(modifier = Modifier.padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "Interesting new uploads",
+                text = stringResource(R.string.discovery_title),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
@@ -165,14 +167,13 @@ private fun DiscoveryHeader(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
                 IconButton(onClick = onRefresh) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Jetzt aktualisieren")
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.discovery_refresh))
                 }
             }
         }
         Text(
             text =
-                "Neue Uploads deiner Künstler - auch von anderen hochgeladen. " +
-                    "15-20 Titel, wechselt jeden Montag. Wisch einen Titel weg, dann kommt er nie wieder.",
+                stringResource(R.string.discovery_intro),
             style = MaterialTheme.typography.bodySmall,
             color = PlayerTextMutedColor,
         )
@@ -182,7 +183,7 @@ private fun DiscoveryHeader(
                 value = artistText,
                 onValueChange = { artistText = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Künstlername, z. B. Angerfist") },
+                placeholder = { Text(stringResource(R.string.discovery_artist_hint)) },
                 singleLine = true,
             )
             Spacer(modifier = Modifier.size(8.dp))
@@ -193,7 +194,7 @@ private fun DiscoveryHeader(
                 },
                 enabled = artistText.isNotBlank(),
             ) {
-                Text("Merken")
+                Text(stringResource(R.string.discovery_remember))
             }
         }
         if (state.artists.isNotEmpty()) {
@@ -214,7 +215,11 @@ private fun DiscoveryHeader(
                         ) {
                             Text(text = artist, style = MaterialTheme.typography.labelMedium, color = PlayerTextColor)
                             IconButton(onClick = { onRemoveArtist(artist) }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "$artist entfernen", modifier = Modifier.size(16.dp))
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.discovery_remove_artist, artist),
+                                    modifier = Modifier.size(16.dp),
+                                )
                             }
                         }
                     }
@@ -246,11 +251,11 @@ private fun DiscoveryHeader(
             TextButton(onClick = onPlayAll) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(modifier = Modifier.size(4.dp))
-                Text("Alles abspielen (${state.playlist.size} Titel)")
+                Text(stringResource(R.string.discovery_play_all, state.playlist.size))
             }
         } else if (state.artists.isEmpty()) {
             Text(
-                text = "Noch keine Künstler - trag oben einen Namen ein.",
+                text = stringResource(R.string.discovery_no_artists),
                 style = MaterialTheme.typography.bodySmall,
                 color = PlayerTextMutedColor,
             )
@@ -270,12 +275,20 @@ private fun GenreSection(
     onRemoveGenre: (String) -> Unit,
 ) {
     Spacer(modifier = Modifier.height(12.dp))
-    Text(text = "Genre muss passen", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+    Text(
+        text = stringResource(R.string.discovery_genre_must_match),
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.Bold,
+    )
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        listOf(GenreMode.AUTO to "Wie meine Musik", GenreMode.MANUAL to "Eigene", GenreMode.OFF to "Aus").forEach { (mode, label) ->
+        listOf(
+            GenreMode.AUTO to stringResource(R.string.discovery_mode_auto),
+            GenreMode.MANUAL to stringResource(R.string.discovery_mode_manual),
+            GenreMode.OFF to stringResource(R.string.discovery_mode_off),
+        ).forEach { (mode, label) ->
             val selected = state.genreMode == mode
             Surface(
                 shape = RoundedCornerShape(50),
@@ -295,7 +308,7 @@ private fun GenreSection(
     when (state.genreMode) {
         GenreMode.OFF ->
             Text(
-                "Alles wird vorgeschlagen, egal in welchem Genre.",
+                stringResource(R.string.discovery_genre_off_desc),
                 style = MaterialTheme.typography.bodySmall,
                 color = PlayerTextMutedColor,
             )
@@ -304,9 +317,9 @@ private fun GenreSection(
             Text(
                 text =
                     if (state.autoGenres.isEmpty()) {
-                        "Noch keine Vorlieben erkannt. Melde dich an und like ein paar Titel - oder wähl „Eigene“."
+                        stringResource(R.string.discovery_no_taste)
                     } else {
-                        "Erkannt aus deinen Likes: ${state.autoGenres.joinToString(", ")}"
+                        stringResource(R.string.discovery_taste_detected, state.autoGenres.joinToString(", "))
                     },
                 style = MaterialTheme.typography.bodySmall,
                 color = PlayerTextMutedColor,
@@ -318,11 +331,11 @@ private fun GenreSection(
                     value = genreText,
                     onValueChange = onGenreTextChange,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("z. B. Uptempo Hardcore") },
+                    placeholder = { Text(stringResource(R.string.discovery_genre_example)) },
                     singleLine = true,
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Button(onClick = onAddGenre, enabled = genreText.isNotBlank()) { Text("Dazu") }
+                Button(onClick = onAddGenre, enabled = genreText.isNotBlank()) { Text(stringResource(R.string.discovery_add)) }
             }
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -337,7 +350,11 @@ private fun GenreSection(
                         Row(modifier = Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text(text = genre, style = MaterialTheme.typography.labelMedium, color = PlayerTextColor)
                             IconButton(onClick = { onRemoveGenre(genre) }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Close, contentDescription = "$genre entfernen", modifier = Modifier.size(16.dp))
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.discovery_remove_genre, genre),
+                                    modifier = Modifier.size(16.dp),
+                                )
                             }
                         }
                     }
@@ -397,3 +414,11 @@ private fun SwipeAwayRow(
         }
     }
 }
+
+@Composable
+private fun ageLabel(days: Long): String =
+    when (days) {
+        0L -> stringResource(R.string.age_today)
+        1L -> stringResource(R.string.age_yesterday)
+        else -> stringResource(R.string.age_days_ago, days)
+    }

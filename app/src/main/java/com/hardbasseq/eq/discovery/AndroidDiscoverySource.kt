@@ -1,6 +1,7 @@
 package com.hardbasseq.eq.discovery
 
 import android.content.Context
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.integration.LoadResult
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.DiscoveryLoader
@@ -21,7 +22,7 @@ class AndroidDiscoverySource
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoadResult.Error("Likes konnten nicht gelesen werden: ${e.message ?: "unbekannter Fehler"}")
+                LoadResult.Error(context.getString(R.string.likes_read_failed, e.message ?: context.getString(R.string.unknown_error)))
             }
 
         override suspend fun recentUploads(artist: String): LoadResult<List<TrackItem>> =
@@ -30,6 +31,12 @@ class AndroidDiscoverySource
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoadResult.Error("Suche nach \"$artist\" fehlgeschlagen: ${e.message ?: "unbekannter Fehler"}")
+                LoadResult.Error(
+                    context.getString(
+                        R.string.artist_search_failed,
+                        artist,
+                        e.message ?: context.getString(R.string.unknown_error),
+                    ),
+                )
             }
     }

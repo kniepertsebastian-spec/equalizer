@@ -1,5 +1,6 @@
 package com.soundcloud.equalizer.player.spotify
 
+import com.soundcloud.equalizer.player.R
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
@@ -24,7 +25,7 @@ class SpotifyLoginActivity : Activity() {
         }
         scope.launch {
             val error = SpotifyApiClient.get(applicationContext).completeLogin(redirect)
-            Toast.makeText(applicationContext, error ?: "Mit Spotify angemeldet", Toast.LENGTH_LONG).show()
+            Toast.makeText(applicationContext, error ?: getString(R.string.spotify_signed_in), Toast.LENGTH_LONG).show()
             packageManager.getLaunchIntentForPackage(packageName)?.let {
                 startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
             }

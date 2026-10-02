@@ -36,6 +36,7 @@ import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
+import com.hardbasseq.eq.text.FakeTextProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -469,6 +470,7 @@ class MainViewModelTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     correctionProfileRepository = FakeCorrectionProfileRepository(),
                     deviceProfileRepository = FakeDeviceProfileRepository(),
+                    texts = FakeTextProvider(),
                     backgroundDispatcher = dispatcher,
                 )
             dispatcher.scheduler.advanceUntilIdle()
@@ -1414,6 +1416,7 @@ class MainViewModelTest {
             appSettingsRepository = appSettingsRepository,
             correctionProfileRepository = correctionProfileRepository,
             deviceProfileRepository = deviceProfileRepository,
+            texts = FakeTextProvider(),
             backgroundDispatcher = dispatcher,
         )
 

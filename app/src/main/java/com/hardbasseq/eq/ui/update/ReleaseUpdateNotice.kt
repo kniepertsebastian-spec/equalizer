@@ -21,7 +21,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.hardbasseq.eq.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -49,8 +51,8 @@ fun ReleaseUpdateNotice() {
 
     Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
         Column(modifier = Modifier.padding(12.dp)) {
-            Text("Neue Version ${available.versionName} verfügbar", style = MaterialTheme.typography.titleMedium)
-            if (downloading) Text(progress.ifEmpty { "APK wird geladen …" })
+            Text(stringResource(R.string.update_available, available.versionName), style = MaterialTheme.typography.titleMedium)
+            if (downloading) Text(progress.ifEmpty { stringResource(R.string.update_downloading) })
             errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Row {
                 Button(
@@ -64,7 +66,7 @@ fun ReleaseUpdateNotice() {
                                     Uri.parse("package:${context.packageName}"),
                                 ),
                             )
-                            errorMessage = "Installation für HardBass EQ erlauben und dann erneut auf Update tippen."
+                            errorMessage = context.getString(R.string.update_allow_install)
                         } else {
                             downloading = true
                             scope.launch {
@@ -73,16 +75,25 @@ fun ReleaseUpdateNotice() {
                                         client.download(available) { downloaded, total ->
                                             val currentMb = downloaded / 1_000_000
                                             progress =
-                                                if (total > 0L) "$currentMb / ${total / 1_000_000} MB geladen" else "$currentMb MB geladen"
+                                                if (total >
+                                                    0L
+                                                ) {
+                                                    context.getString(R.string.update_progress_total, currentMb, total / 1_000_000)
+                                                } else {
+                                                    context.getString(R.string.update_progress, currentMb)
+                                                }
                                         }
                                     context.startActivity(client.installIntent(file))
-                                }.onFailure { errorMessage = it.message ?: "Update fehlgeschlagen" }
+                                }.onFailure { errorMessage = it.message ?: context.getString(R.string.update_failed) }
                                 downloading = false
                             }
                         }
                     },
-                ) { Text("Update") }
-                TextButton(onClick = { dismissedTag = available.tag }, enabled = !downloading) { Text("Später") }
+                ) { Text(stringResource(R.string.update_action)) }
+                TextButton(
+                    onClick = { dismissedTag = available.tag },
+                    enabled = !downloading,
+                ) { Text(stringResource(R.string.action_later)) }
             }
         }
     }

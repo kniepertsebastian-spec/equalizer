@@ -27,8 +27,9 @@ sealed interface RefreshResult {
         val filteredByGenre: Int = 0,
     ) : RefreshResult
 
+    // message is null when the source gave no reason (the screen then says so in its own words).
     data class Failed(
-        val message: String,
+        val message: String?,
     ) : RefreshResult
 }
 
@@ -103,7 +104,7 @@ class DiscoveryUpdater
                 }
                 // Nothing could be asked at all (offline, SoundCloud down): keep what is
                 // there and try again later instead of replacing it with an empty week.
-                if (failures == state.artists.size) return@withLock RefreshResult.Failed(firstError ?: "Keine Antwort von SoundCloud")
+                if (failures == state.artists.size) return@withLock RefreshResult.Failed(firstError)
 
                 var count = 0
                 repository.update { current ->

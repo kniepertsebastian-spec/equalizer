@@ -37,14 +37,14 @@ object PortableSoundProfileJson {
     }
 
     fun import(text: String): PortableSoundProfile {
-        require(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "Profil ist größer als 100 KB" }
+        require(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "Profile is larger than 100 KB" }
         return json.decodeFromString(PortableSoundProfile.serializer(), text).also(::validate)
     }
 
     private fun validate(profile: PortableSoundProfile) {
-        require(profile.version == 1) { "Unbekannte Profilversion: ${profile.version}" }
-        require(profile.preset.name.isNotBlank()) { "Preset-Name fehlt" }
-        require(profile.preset.targetCurve.isNotEmpty()) { "Preset-Kurve fehlt" }
+        require(profile.version == 1) { "Unknown profile version: ${profile.version}" }
+        require(profile.preset.name.isNotBlank()) { "Preset name is missing" }
+        require(profile.preset.targetCurve.isNotEmpty()) { "Preset curve is missing" }
         require(profile.macroBassDb.isFinite() && profile.macroBassDb in -6f..6f)
         require(profile.macroPunchDb.isFinite() && profile.macroPunchDb in -6f..6f)
         require(profile.macroHaerteDb.isFinite() && profile.macroHaerteDb in -2f..2f)

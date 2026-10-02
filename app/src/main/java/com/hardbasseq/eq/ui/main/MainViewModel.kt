@@ -2,6 +2,7 @@ package com.hardbasseq.eq.ui.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.AudioEffectRepository
@@ -53,6 +54,7 @@ import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
+import com.hardbasseq.eq.text.TextProvider
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -131,6 +133,7 @@ class MainViewModel
         private val appSettingsRepository: AppSettingsRepository,
         private val correctionProfileRepository: CorrectionProfileRepository,
         private val deviceProfileRepository: DeviceProfileRepository,
+        private val texts: TextProvider,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -654,7 +657,7 @@ class MainViewModel
                     _importError.value = null
                 },
                 onFailure = { e ->
-                    _importError.value = e.message ?: "Import fehlgeschlagen: unbekannter Fehler"
+                    _importError.value = e.message ?: texts.get(R.string.import_failed_unknown)
                     _pendingImportPreview.value = null
                 },
             )
@@ -741,7 +744,7 @@ class MainViewModel
                 val copy =
                     preset.copy(
                         id = UUID.randomUUID().toString(),
-                        name = "${preset.name} (Kopie)",
+                        name = texts.get(R.string.preset_copy_name, preset.name),
                         metadata = preset.metadata.copy(builtIn = false),
                     )
                 presetRepository.save(copy)

@@ -543,3 +543,9 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | D3 | Spotify Client-ID speichern und verbinden | wie bisher; „Erneut verbinden“ und „Trennen“ vorhanden |
 | D4 | Equalizer → Bereich „Klangprofile“ | Hinweis „keine Konten“, aktueller Ausgang und gespeichertes Profil; Link zu „Verknüpfte Dienste“ |
 | D5 | Ausgang wechseln (Kopfhörer ↔ Lautsprecher) | Profilanzeige und Klang folgen dem Ausgang, soweit der Audiopfad es erlaubt |
+| E1 | Systemsprache Englisch: alle Bereiche durchgehen (Player-Tabs, Playlists, Dienste, Equalizer, Klangziele, Dialoge, Updatehinweis) | keine deutschen Texte, keine abgeschnittenen Beschriftungen |
+| E2 | Systemsprache Deutsch: dieselben Bereiche | keine englischen Texte außer den dokumentierten Ausnahmen (Diagnose, Spike) |
+| E3 | Englisch: Fehlerfälle (Link ohne Treffer, Suche ohne Netz, SoundCloud nicht angemeldet, Update-Fehler) | verständliche englische Meldungen mit nächster Handlung |
+| E4 | TalkBack in Englisch/Deutsch: Wiedergabesteuerung, Tabs, Quellenwähler, Regler | sinnvolle Beschriftungen in der Sprache der App |
+| E5 | Android Auto / Benachrichtigung / Notification-Kanal | Texte in der Systemsprache |
+| E6 | Große Schrift (Systemeinstellung) und schmales Gerät in Englisch | Texte umbrechen, nichts unlesbar |

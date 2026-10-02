@@ -63,6 +63,7 @@ import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
+import com.hardbasseq.eq.ui.equalizer.localizedSourceLabel
 import com.hardbasseq.eq.ui.equalizer.styleFor
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
@@ -131,7 +132,9 @@ fun MainScreen(
             if (text.isNullOrBlank()) {
                 return@rememberLauncherForActivityResult
             }
-            val sourceName = uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.') ?: "Importiertes Profil"
+            val sourceName =
+                uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
+                    ?: context.getString(R.string.imported_profile_default)
             viewModel.previewCorrectionProfileImport(sourceName, text)
         }
 
@@ -144,8 +147,8 @@ fun MainScreen(
                         .openOutputStream(uri)
                         ?.bufferedWriter()
                         ?.use { it.write(profileJson) }
-                        ?: error("Datei konnte nicht geöffnet werden")
-                }.onFailure { Toast.makeText(context, "Export fehlgeschlagen: ${it.message}", Toast.LENGTH_LONG).show() }
+                        ?: error(context.getString(R.string.export_file_open_failed))
+                }.onFailure { Toast.makeText(context, context.getString(R.string.export_failed, it.message), Toast.LENGTH_LONG).show() }
             }
         }
 
@@ -158,7 +161,7 @@ fun MainScreen(
 
     if (showSaveAsNewDialog) {
         PresetNameDialog(
-            title = "Als neues Preset speichern",
+            title = stringResource(R.string.preset_save_as_new),
             initialName = "",
             onConfirm = { name ->
                 viewModel.saveAsNewPreset(name)
@@ -170,7 +173,7 @@ fun MainScreen(
 
     renameTarget?.let { target ->
         PresetNameDialog(
-            title = "Preset umbenennen",
+            title = stringResource(R.string.preset_rename_title),
             initialName = target.name,
             onConfirm = { name ->
                 viewModel.renamePreset(target, name)
@@ -183,16 +186,16 @@ fun MainScreen(
     pendingDeletePreset?.let { target ->
         AlertDialog(
             onDismissRequest = { viewModel.cancelDeletePreset() },
-            title = { Text("Preset löschen?") },
-            text = { Text("\"${target.name}\" wird dauerhaft gelöscht.") },
+            title = { Text(stringResource(R.string.preset_delete_title)) },
+            text = { Text(stringResource(R.string.preset_delete_text, target.name)) },
             confirmButton = {
                 TextButton(onClick = { viewModel.confirmDeletePreset() }) {
-                    Text("Löschen")
+                    Text(stringResource(R.string.preset_delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.cancelDeletePreset() }) {
-                    Text("Abbrechen")
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
@@ -207,17 +210,21 @@ fun MainScreen(
             title = { Text(preview.profile.name) },
             text = {
                 Column {
-                    Text("Quelle: ${preview.profile.sourceLabel}")
+                    Text(stringResource(R.string.import_preview_source, localizedSourceLabel(preview.profile.sourceLabel)))
                     Text(
-                        "Frequenzbereich: ${preview.minFreqHz.toInt()}–${preview.maxFreqHz.toInt()} Hz, " +
-                            "${preview.profile.curve.size} Punkte",
+                        stringResource(
+                            R.string.import_preview_range,
+                            preview.minFreqHz.toInt(),
+                            preview.maxFreqHz.toInt(),
+                            preview.profile.curve.size,
+                        ),
                     )
-                    Text("Maximaler Boost: +${String.format("%.1f", preview.maxBoostDb)} dB")
-                    Text("Benötigter Headroom: ${String.format("%.1f", preview.requiredHeadroomDb)} dB")
+                    Text(stringResource(R.string.import_preview_boost, String.format("%.1f", preview.maxBoostDb)))
+                    Text(stringResource(R.string.import_preview_headroom, String.format("%.1f", preview.requiredHeadroomDb)))
                     if (preview.isExtremeBoost) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            "Dieser Boost ist ungewöhnlich stark - bitte prüfen, bevor du importierst.",
+                            stringResource(R.string.import_preview_extreme),
                             color = MaterialTheme.colorScheme.error,
                             fontWeight = FontWeight.Bold,
                         )
@@ -226,12 +233,12 @@ fun MainScreen(
             },
             confirmButton = {
                 TextButton(onClick = { viewModel.confirmCorrectionProfileImport() }) {
-                    Text("Importieren")
+                    Text(stringResource(R.string.action_import))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.cancelCorrectionProfileImport() }) {
-                    Text("Abbrechen")
+                    Text(stringResource(R.string.action_cancel))
                 }
             },
         )
@@ -240,11 +247,11 @@ fun MainScreen(
     importError?.let { message ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissImportError() },
-            title = { Text("Import fehlgeschlagen") },
+            title = { Text(stringResource(R.string.import_failed_title)) },
             text = { Text(message) },
             confirmButton = {
                 TextButton(onClick = { viewModel.dismissImportError() }) {
-                    Text("OK")
+                    Text(stringResource(R.string.action_ok))
                 }
             },
         )
@@ -321,7 +328,7 @@ fun MainScreen(
                             putExtra(Intent.EXTRA_TEXT, viewModel.exportCorrectionProfileJson(profile))
                             putExtra(Intent.EXTRA_SUBJECT, profile.name)
                         }
-                    context.startActivity(Intent.createChooser(shareIntent, "Korrekturprofil teilen"))
+                    context.startActivity(Intent.createChooser(shareIntent, stringResource(R.string.share_correction_profile)))
                 },
                 onResetToActivePreset = { viewModel.resetToActivePreset() },
                 onSaveAsNewRequest = { showSaveAsNewDialog = true },
@@ -347,11 +354,11 @@ fun MainScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 OutlinedButton(onClick = onNavigateToDiagnostics) {
-                    Text("Diagnose & Report")
+                    Text(stringResource(R.string.diagnostics_button))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 OutlinedButton(onClick = { exportDesktopProfileLauncher.launch("HardBassEQ-Desktop.json") }) {
-                    Text("Desktop-Profil exportieren")
+                    Text(stringResource(R.string.export_desktop_profile))
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 OutlinedButton(onClick = { viewModel.toggleDebugEffects() }) {
@@ -402,16 +409,16 @@ private fun PlayerSourcePickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Play from...") },
-        text = { Text("No audio session found yet. Start the player so HardBass EQ has something to process.") },
+        title = { Text(stringResource(R.string.source_picker_title)) },
+        text = { Text(stringResource(R.string.source_picker_text)) },
         confirmButton = {
             TextButton(onClick = { onSourceChosen(PlayerSource.SOUNDCLOUD) }) {
-                Text("SoundCloud")
+                Text(stringResource(R.string.source_soundcloud))
             }
         },
         dismissButton = {
             TextButton(onClick = { onSourceChosen(PlayerSource.YOUTUBE) }) {
-                Text("YouTube")
+                Text(stringResource(R.string.source_youtube))
             }
         },
     )
@@ -436,7 +443,7 @@ private fun PresetNameDialog(
                 value = name,
                 onValueChange = { name = it },
                 singleLine = true,
-                label = { Text("Name") },
+                label = { Text(stringResource(R.string.field_name)) },
             )
         },
         confirmButton = {
@@ -444,12 +451,12 @@ private fun PresetNameDialog(
                 onClick = { onConfirm(name.trim()) },
                 enabled = name.isNotBlank(),
             ) {
-                Text("Speichern")
+                Text(stringResource(R.string.action_save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Abbrechen")
+                Text(stringResource(R.string.action_cancel))
             }
         },
     )
@@ -504,7 +511,14 @@ private fun NowPlayingBar(
                 IconButton(onClick = onTogglePlayback) {
                     Icon(
                         imageVector = if (nowPlaying.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (nowPlaying.isPlaying) "Pause" else "Abspielen",
+                        contentDescription =
+                            if (nowPlaying.isPlaying) {
+                                stringResource(
+                                    R.string.player_pause,
+                                )
+                            } else {
+                                stringResource(R.string.player_play)
+                            },
                     )
                 }
             }

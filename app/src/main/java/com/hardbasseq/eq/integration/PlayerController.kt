@@ -2,6 +2,7 @@ package com.hardbasseq.eq.integration
 
 import android.content.Context
 import android.content.Intent
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.link.SpotifyPlaylist
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
 import com.soundcloud.equalizer.player.model.ExternalTrackInfo
@@ -174,7 +175,9 @@ class AndroidPlayerController
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LinkImportResult.Failed("Link konnte nicht geladen werden: ${e.message ?: "unbekannter Fehler"}")
+                LinkImportResult.Failed(
+                    context.getString(R.string.link_load_failed, e.message ?: context.getString(R.string.unknown_error)),
+                )
             }
 
         override fun isSoundCloudSignedIn(): Boolean = SoundCloudLoginActivity.getSavedToken(context) != null
@@ -211,7 +214,7 @@ class AndroidPlayerController
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoadResult.Error("Das hat nicht geklappt: ${e.message ?: "unbekannter Fehler"}")
+                LoadResult.Error(context.getString(R.string.generic_failed, e.message ?: context.getString(R.string.unknown_error)))
             }
 
         override fun openSoundCloudSignIn() {
@@ -231,12 +234,12 @@ class AndroidPlayerController
         override fun isSpotifySignedIn(): Boolean = spotifyApi.isSignedIn()
 
         override fun openSpotifySignIn(): String? {
-            val intent = spotifyApi.loginIntent() ?: return "Trag zuerst die Client-ID deiner Spotify-App ein"
+            val intent = spotifyApi.loginIntent() ?: return context.getString(R.string.spotify_enter_client_id)
             return try {
                 context.startActivity(intent)
                 null
             } catch (e: android.content.ActivityNotFoundException) {
-                "Kein Browser gefunden, der die Spotify-Anmeldung öffnen kann"
+                context.getString(R.string.spotify_no_browser)
             }
         }
 
@@ -248,7 +251,7 @@ class AndroidPlayerController
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                LoadResult.Error(e.message ?: "Spotify hat nicht geantwortet")
+                LoadResult.Error(e.message ?: context.getString(R.string.spotify_no_answer))
             }
 
         private fun send(
