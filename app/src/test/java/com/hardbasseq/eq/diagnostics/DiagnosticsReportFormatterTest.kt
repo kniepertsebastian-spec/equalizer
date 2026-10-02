@@ -35,6 +35,30 @@ class DiagnosticsReportFormatterTest {
     }
 
     @Test
+    fun generateReport_statesEqStatusSessionPlayerAndLastError() {
+        val active =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Active(123),
+                capabilities = capabilities,
+                route = route,
+                playerSource = "SOUNDCLOUD",
+            )
+        assertTrue(active.contains("EQ Status: ACTIVE"))
+        assertTrue(active.contains("Audio Session: attached to session 123"))
+        assertTrue(active.contains("Player: SOUNDCLOUD"))
+        assertTrue(active.contains("Last Error: none"))
+
+        val failed =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Error("effect rejected"),
+                capabilities = capabilities,
+                route = route,
+            )
+        assertTrue(failed.contains("EQ Status: ERROR"))
+        assertTrue(failed.contains("Last Error: effect rejected"))
+    }
+
+    @Test
     fun generateReport_usesRealAppVersionInsteadOfAHardcodedString() {
         val report =
             DiagnosticsReportFormatter.generateReport(

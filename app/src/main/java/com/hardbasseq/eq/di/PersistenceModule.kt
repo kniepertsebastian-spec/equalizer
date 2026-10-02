@@ -10,8 +10,10 @@ import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SpotifyImportRepository
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.RoomPresetRepository
+import com.hardbasseq.eq.profile.DeviceAliasStore
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.profile.RoomDeviceProfileRepository
+import com.hardbasseq.eq.profile.SharedPreferencesDeviceAliasStore
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.DataStoreAppSettingsRepository
 import dagger.Binds
@@ -38,6 +40,10 @@ abstract class PersistenceModule {
     @Binds
     @Singleton
     abstract fun bindDeviceProfileRepository(impl: RoomDeviceProfileRepository): DeviceProfileRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindDeviceAliasStore(impl: SharedPreferencesDeviceAliasStore): DeviceAliasStore
 
     @Binds
     @Singleton

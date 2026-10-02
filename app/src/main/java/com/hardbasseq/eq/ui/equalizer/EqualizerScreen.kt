@@ -5,6 +5,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,6 +38,7 @@ import androidx.compose.material.icons.filled.SportsMma
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -47,6 +50,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
@@ -70,10 +74,13 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -128,6 +135,7 @@ fun EqualizerScreen(
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
     onOpenServices: () -> Unit,
+    onRenameRoute: (String) -> Unit = {},
     activeGoal: SoundGoal,
     onGoalSelected: (SoundGoal) -> Unit,
     pathLabel: String?,
@@ -491,7 +499,21 @@ fun EqualizerScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        TextButton(onClick = onOpenServices) { Text(stringResource(R.string.profiles_open_services)) }
+                        var showRenameRoute by rememberSaveable { mutableStateOf(false) }
+                        Row {
+                            TextButton(onClick = onOpenServices) { Text(stringResource(R.string.profiles_open_services)) }
+                            TextButton(onClick = { showRenameRoute = true }) { Text(stringResource(R.string.route_rename)) }
+                        }
+                        if (showRenameRoute) {
+                            RenameRouteDialog(
+                                currentName = route.name,
+                                onConfirm = {
+                                    showRenameRoute = false
+                                    onRenameRoute(it)
+                                },
+                                onDismiss = { showRenameRoute = false },
+                            )
+                        }
                     }
 
                     // M3 "Mein Kopfhörer" Card: which headphone/speaker correction curve is
@@ -1469,6 +1491,73 @@ private fun HeadphonePowerCard(
 // Preset name, reset, and the Original/EQ comparison. While comparing, both sides are matched in
 // loudness (the louder one is turned down by an estimate), so a mere volume difference does not
 // pass for a better sound.
+// Gives the current output device a name of the user's own ("My headphones"); empty = reset.
+@Composable
+private fun RenameRouteDialog(
+    currentName: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf(currentName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.route_rename_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.route_rename_hint), style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true)
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text(stringResource(R.string.action_save)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
+
+// Quick A/B: the original sound plays while the button is held, the EQ again on release.
+@Composable
+private fun HoldToCompareButton(
+    onPress: () -> Unit,
+    onRelease: () -> Unit,
+    style: EqualizerDesignStyle,
+    modifier: Modifier = Modifier,
+) {
+    var pressed by remember { mutableStateOf(false) }
+    val label = stringResource(R.string.compare_hold)
+    Surface(
+        modifier =
+            modifier
+                .heightIn(min = 48.dp)
+                .semantics {
+                    contentDescription = label
+                    role = Role.Button
+                }.pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            pressed = true
+                            onPress()
+                            try {
+                                tryAwaitRelease()
+                            } finally {
+                                pressed = false
+                                onRelease()
+                            }
+                        },
+                    )
+                },
+        shape = RoundedCornerShape(style.cardCorner),
+        color = if (pressed) style.accent else MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, style.border),
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = stringResource(if (pressed) R.string.compare_hold_active else R.string.compare_hold),
+                color = if (pressed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
 @Composable
 private fun CompareCard(
     presetName: String,
@@ -1520,6 +1609,12 @@ private fun CompareCard(
                     TextButton(onClick = onEnd) { Text(stringResource(R.string.compare_done)) }
                 }
             }
+            HoldToCompareButton(
+                modifier = Modifier.fillMaxWidth().padding(vertical = spacing.small),
+                onPress = { onSide(CompareSide.ORIGINAL) },
+                onRelease = onEnd,
+                style = style,
+            )
             Text(
                 text =
                     if (compare == null) {

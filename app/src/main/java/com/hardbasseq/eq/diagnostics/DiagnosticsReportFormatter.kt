@@ -19,6 +19,7 @@ object DiagnosticsReportFormatter {
         route: AudioRoute,
         processingSettings: ProcessingSettings? = null,
         recentEvents: List<DiagnosticsEvent> = emptyList(),
+        playerSource: String? = null,
     ): String =
         buildString {
             appendLine("=== HardBass EQ Diagnostic Report ===")
@@ -29,6 +30,10 @@ object DiagnosticsReportFormatter {
             appendLine("Audio Output Route Type: ${route.type.name}")
             appendLine("Audio Output Name: ${route.name}")
             appendLine("Engine State: $engineState")
+            appendLine("EQ Status: ${eqStatusLine(engineState, processingSettings)}")
+            appendLine("Audio Session: ${sessionLine(engineState)}")
+            appendLine("Player: ${playerSource ?: "unknown"}")
+            appendLine("Last Error: ${lastError(engineState) ?: "none"}")
             appendLine()
             appendLine("--- Capabilities ---")
             appendLine("Has Equalizer: ${capabilities.hasEqualizer}")
@@ -62,5 +67,36 @@ object DiagnosticsReportFormatter {
                 }
             }
             appendLine("====================================")
+        }
+
+    private fun eqStatusLine(
+        state: AudioEngineState,
+        settings: ProcessingSettings?,
+    ): String =
+        when {
+            settings != null && (!settings.masterEnabled || settings.bypass) -> "OFF (switched off or bypassed)"
+            state is AudioEngineState.Active -> "ACTIVE (effect confirmed on the audio path)"
+            state is AudioEngineState.Detached || state is AudioEngineState.Listening -> "WAITING (no audio session yet)"
+            state is AudioEngineState.Attaching -> "CONNECTING"
+            state is AudioEngineState.LostControl || state is AudioEngineState.Retrying -> "LOST (reconnecting)"
+            state is AudioEngineState.Unsupported -> "UNSUPPORTED (no compatible audio session)"
+            else -> "ERROR"
+        }
+
+    private fun sessionLine(state: AudioEngineState): String =
+        when (state) {
+            is AudioEngineState.Attaching -> "attaching to session ${state.sessionId}"
+            is AudioEngineState.Active -> "attached to session ${state.sessionId}"
+            is AudioEngineState.LostControl -> "lost session ${state.sessionId}"
+            is AudioEngineState.Retrying -> "retrying session ${state.sessionId} (attempt ${state.attempt})"
+            else -> "none"
+        }
+
+    private fun lastError(state: AudioEngineState): String? =
+        when (state) {
+            is AudioEngineState.LostControl -> state.reason
+            is AudioEngineState.Unsupported -> state.reason
+            is AudioEngineState.Error -> state.message
+            else -> null
         }
 }

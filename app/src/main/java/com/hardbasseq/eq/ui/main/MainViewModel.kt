@@ -52,7 +52,9 @@ import com.hardbasseq.eq.preset.PresetMetadata
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.preset.TargetPoint
+import com.hardbasseq.eq.profile.DeviceAliasStore
 import com.hardbasseq.eq.profile.DeviceProfileRepository
+import com.hardbasseq.eq.profile.InMemoryDeviceAliasStore
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
 import com.hardbasseq.eq.text.TextProvider
@@ -139,6 +141,7 @@ class MainViewModel
         private val correctionProfileRepository: CorrectionProfileRepository,
         private val deviceProfileRepository: DeviceProfileRepository,
         private val texts: TextProvider,
+        private val deviceAliases: DeviceAliasStore = InMemoryDeviceAliasStore(),
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -155,6 +158,18 @@ class MainViewModel
         val engineState: StateFlow<AudioEngineState> = audioEngine.state
         val capabilities = audioEngine.capabilities
         val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
+
+        // The route as shown to the user: the device's own name unless the user gave it one.
+        val displayRoute: StateFlow<AudioRoute> =
+            combine(currentRoute, deviceAliases.aliases) { route, aliases ->
+                aliases[route.id]?.let { route.copy(name = it) } ?: route
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, routeRepository.activeRoute.value)
+
+        // Blank resets to the device's own name.
+        fun renameCurrentRoute(name: String) {
+            deviceAliases.setAlias(currentRoute.value.id, name)
+        }
+
         val diagnosticsEvents = diagnosticsRecorder.events
 
         // Chat feature: "quality changes for headphones" - loudness compensation.
@@ -874,8 +889,13 @@ class MainViewModel
             }
         }
 
+        // Last player the user started from here - reported in the diagnostics report.
+        private val _lastPlayerSource = MutableStateFlow<PlayerSource?>(null)
+        val lastPlayerSource: StateFlow<PlayerSource?> = _lastPlayerSource
+
         fun choosePlayerSource(source: PlayerSource) {
             _showSourcePicker.value = false
+            _lastPlayerSource.value = source
             playerBridge.launchPlayer(source)
         }
 
@@ -905,6 +925,7 @@ class MainViewModel
         }
 
         fun reopenPlayer() {
+            _lastPlayerSource.value = PlayerSource.SOUNDCLOUD
             playerBridge.launchPlayer(PlayerSource.SOUNDCLOUD)
         }
 
