@@ -336,7 +336,7 @@ fun MainScreen(
                             putExtra(Intent.EXTRA_TEXT, viewModel.exportCorrectionProfileJson(profile))
                             putExtra(Intent.EXTRA_SUBJECT, profile.name)
                         }
-                    context.startActivity(Intent.createChooser(shareIntent, stringResource(R.string.share_correction_profile)))
+                    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_correction_profile)))
                 },
                 onResetToActivePreset = { viewModel.resetToActivePreset() },
                 onSaveAsNewRequest = { showSaveAsNewDialog = true },
