@@ -132,6 +132,7 @@ fun AppNavHost(
                 val route by viewModel.currentRoute.collectAsStateWithLifecycle()
                 val processingSettings by viewModel.processingSettings.collectAsStateWithLifecycle()
                 val diagnosticsEvents by viewModel.diagnosticsEvents.collectAsStateWithLifecycle()
+                val lastPlayerSource by viewModel.lastPlayerSource.collectAsStateWithLifecycle()
 
                 DiagnosticsScreen(
                     state = state,
@@ -139,6 +140,7 @@ fun AppNavHost(
                     route = route,
                     processingSettings = processingSettings,
                     recentEvents = diagnosticsEvents,
+                    playerSource = lastPlayerSource?.name,
                     onBackClicked = { navController.popBackStack() },
                 )
             }

@@ -49,8 +49,8 @@ class SpotifyImportPlanTest {
         assertEquals(1, SpotifyImportPlan.totalParts(100))
         assertEquals(2, SpotifyImportPlan.totalParts(101))
         assertEquals(4, SpotifyImportPlan.totalParts(400))
-        assertEquals("Mix (von Spotify)", SpotifyImportPlan.playlistName("Mix", 1, 1))
-        assertEquals("Mix – Teil 2 von 4 (von Spotify)", SpotifyImportPlan.playlistName("Mix", 2, 4))
+        assertEquals("Mix (from Spotify)", SpotifyImportPlan.playlistName("Mix", 1, 1))
+        assertEquals("Mix – Part 2 of 4 (from Spotify)", SpotifyImportPlan.playlistName("Mix", 2, 4))
     }
 
     @Test

@@ -45,6 +45,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,7 +92,7 @@ fun MainScreen(
 
     val engineState by viewModel.engineState.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
-    val route by viewModel.currentRoute.collectAsStateWithLifecycle()
+    val route by viewModel.displayRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
     val customPresetsOnly by viewModel.customPresetsOnly.collectAsStateWithLifecycle()
@@ -114,6 +115,7 @@ fun MainScreen(
     // Leaving the equalizer ends a running Original/EQ comparison, so the next track is not heard "as original" by accident.
     DisposableEffect(Unit) { onDispose { viewModel.endCompare() } }
     var showSpikeSection by remember { mutableStateOf(false) }
+    var showMoreTools by rememberSaveable { mutableStateOf(false) }
     var showSaveAsNewDialog by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Preset?>(null) }
 
@@ -299,6 +301,7 @@ fun MainScreen(
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
                 effectiveHeadphoneAcoustics = effectiveHeadphoneAcoustics,
                 onOpenServices = onOpenServices,
+                onRenameRoute = { viewModel.renameCurrentRoute(it) },
                 pathLabel = if (nowPlaying != null) stringResource(R.string.source_soundcloud) else null,
                 compare = compare,
                 onStartCompare = { viewModel.startCompare() },
@@ -354,38 +357,45 @@ fun MainScreen(
                 modifier = Modifier.weight(1f),
             )
 
-            // Diagnostics and Debug Tools bar. Horizontally scrollable because the
-            // German labels (e.g. "Session-Attach-Spike anzeigen (M0)") don't fit
-            // three buttons on a single screen width - without scrolling, the third
-            // button was pushed off-screen and unreachable.
-            Row(
-                modifier =
-                    Modifier
-                        .horizontalScroll(rememberScrollState())
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+            // Diagnostics and debug tools stay out of the way: one collapsed entry, opened on
+            // demand (Settings -> Diagnostics). The bar is horizontally scrollable because
+            // the buttons don't fit one screen width.
+            TextButton(
+                onClick = { showMoreTools = !showMoreTools },
+                modifier = Modifier.padding(horizontal = 8.dp),
             ) {
-                OutlinedButton(onClick = onNavigateToDiagnostics) {
-                    Text(stringResource(R.string.diagnostics_button))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedButton(onClick = { exportDesktopProfileLauncher.launch("HardBassEQ-Desktop.json") }) {
-                    Text(stringResource(R.string.export_desktop_profile))
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedButton(onClick = { viewModel.toggleDebugEffects() }) {
-                    Text(
-                        stringResource(
-                            if (showDebugEffects) R.string.hide_debug_effects else R.string.show_debug_effects,
-                        ),
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                OutlinedButton(onClick = { showSpikeSection = !showSpikeSection }) {
-                    Text(
-                        stringResource(
-                            if (showSpikeSection) R.string.hide_spike_section else R.string.show_spike_section,
-                        ),
-                    )
+                Text(stringResource(if (showMoreTools) R.string.more_tools_hide else R.string.more_tools_show))
+            }
+            if (showMoreTools) {
+                Row(
+                    modifier =
+                        Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    OutlinedButton(onClick = onNavigateToDiagnostics) {
+                        Text(stringResource(R.string.diagnostics_button))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(onClick = { exportDesktopProfileLauncher.launch("HardBassEQ-Desktop.json") }) {
+                        Text(stringResource(R.string.export_desktop_profile))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(onClick = { viewModel.toggleDebugEffects() }) {
+                        Text(
+                            stringResource(
+                                if (showDebugEffects) R.string.hide_debug_effects else R.string.show_debug_effects,
+                            ),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    OutlinedButton(onClick = { showSpikeSection = !showSpikeSection }) {
+                        Text(
+                            stringResource(
+                                if (showSpikeSection) R.string.hide_spike_section else R.string.show_spike_section,
+                            ),
+                        )
+                    }
                 }
             }
 

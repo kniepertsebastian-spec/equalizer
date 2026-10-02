@@ -18,7 +18,7 @@ object BuiltInContextPresets {
     val Car =
         Preset(
             id = "context_car",
-            name = "Auto",
+            name = "Car",
             targetCurve =
                 listOf(
                     TargetPoint(50f, 1.0f),
@@ -49,7 +49,7 @@ object BuiltInContextPresets {
     val BluetoothSpeaker =
         Preset(
             id = "context_bluetooth_speaker",
-            name = "Bluetooth-Box",
+            name = "Bluetooth speaker",
             targetCurve =
                 listOf(
                     TargetPoint(60f, 1.5f),

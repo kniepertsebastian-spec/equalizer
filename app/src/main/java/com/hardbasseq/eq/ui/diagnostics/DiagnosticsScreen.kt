@@ -47,6 +47,7 @@ fun DiagnosticsScreen(
     modifier: Modifier = Modifier,
     processingSettings: ProcessingSettings? = null,
     recentEvents: List<DiagnosticsEvent> = emptyList(),
+    playerSource: String? = null,
 ) {
     val spacing = MaterialTheme.spacing
     val clipboardManager = LocalClipboardManager.current
@@ -57,6 +58,7 @@ fun DiagnosticsScreen(
             route = route,
             processingSettings = processingSettings,
             recentEvents = recentEvents,
+            playerSource = playerSource,
         )
 
     Scaffold(

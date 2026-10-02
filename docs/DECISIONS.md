@@ -584,7 +584,7 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
 - **EQ-Status im Player** („EQ aktiv für SoundCloud“, sonst Status + nächste Handlung) über `EqStatus`:
   nur `AudioEngineState.Active` bei eingeschaltetem, nicht umgangenem EQ gilt als aktiv. Tippen öffnet den
   Equalizer. Im Equalizer-Bereich zeigt der Mini-Player Titel/Steuerung und „Zum Player“.
-- Neue Texte stehen von Anfang an in `values/` (Englisch, Standard) und `values-de/`.
+- Neue Texte stehen in `values/` (Englisch). Seit Oktober 2026 ist die App ausschließlich Englisch (`values-de/` entfernt, `localeFilters = en`).
 - **Nicht verifiziert** (kein Gerät/Emulator): Aussehen und Bedienung auf dem Telefon.
 
 ### UX-Roadmap Schritt 3: EQ-Status und lautheitsangeglichener Original/EQ-Vergleich (2. Oktober 2026)
@@ -636,7 +636,7 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
 
 ### UX-Roadmap Schritt 6: Vollständige englische Lokalisierung (2. Oktober 2026)
 
-- **Sprachen:** `values/` (Standard) ist Englisch, `values-de/` Deutsch – in der App und im `:player`-Modul
+- **Sprachen:** `values/` ist Englisch und die einzige Sprache (`values-de/` entfällt seit der Umstellung auf Englisch-only) – in der App und im `:player`-Modul
   (`player/app/src/main/res`). Alle sichtbaren Texte stehen dort: Oberflächen, Dialoge, Hinweise, Fehler-, Lade-,
   Leer- und Offline-Zustände, Benachrichtigungen, Barrierefreiheits-Beschriftungen, Layouts des alten Players.
 - **Texte ohne Context** (ViewModels, Repositories): `TextProvider` (Hilt, `AndroidTextProvider`); im `:player`-Modul
@@ -691,3 +691,7 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
 **Offen, weil Menschen/Geräte nötig sind:** Verständlichkeitstest mit Nutzern (Protokoll: `docs/USABILITY_TEST.md`),
 Prüfung mit TalkBack und größter Schrift auf dem Gerät. Beobachtete Probleme fließen danach in Beschriftungen und
 Navigation zurück.
+
+## Englisch-only und Textkontrast (Oktober 2026)
+- Die App ist komplett Englisch (App, Player, Desktop). `values-de/` wurde entfernt, `androidResources.localeFilters = en`.
+- Kontrast: Der Equalizer setzt `LocalContentColor` auf die Textfarbe des Preset-Designs (vorher schwarzer Text auf dunklem Uptempo/Terror-Hintergrund). Gabber nutzt dunkle Textfarben auf hellen Flächen; Akzentfarben für Text liegen bei mindestens 4,5:1 (WCAG AA).

@@ -381,4 +381,11 @@
     <string name="dsp_cutoff_description">Mono bass cutoff frequency</string>
     <string name="eq_master_switch">Equalizer on or off</string>
     <string name="macro_title">Macro controls</string>
+    <string name="more_tools_show">Settings &amp; diagnostics ▾</string>
+    <string name="more_tools_hide">Settings &amp; diagnostics ▴</string>
+    <string name="compare_hold">Hold to hear the original</string>
+    <string name="compare_hold_active">Original – release for EQ</string>
+    <string name="route_rename">Rename device</string>
+    <string name="route_rename_title">Name this device</string>
+    <string name="route_rename_hint">For example “My headphones”. Leave empty to use the device’s own name.</string>
 </resources>
