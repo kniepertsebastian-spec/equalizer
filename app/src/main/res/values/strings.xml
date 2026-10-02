@@ -364,4 +364,16 @@
     <string name="upd_err_query">Release query failed</string>
     <string name="upd_err_data_big">Release data is too large</string>
     <string name="context_subsonic_title">Subsonic filter</string>
+    <string name="curve_preview_caption">Resulting curve, 20 Hz to 20 kHz, ±%1$s dB</string>
+    <string name="feedback_saved">Saved as \"%1$s\"</string>
+    <string name="feedback_duplicated">Duplicated as \"%1$s\"</string>
+    <string name="feedback_renamed">Renamed to \"%1$s\"</string>
+    <string name="feedback_deleted">Deleted \"%1$s\"</string>
+    <string name="feedback_reset">Reset to \"%1$s\"</string>
+    <string name="feedback_profile_applied">Correction profile \"%1$s\" applied</string>
+    <string name="feedback_profile_imported">Correction profile \"%1$s\" imported and selected</string>
+    <string name="profile_for_device">For %1$s</string>
+    <string name="signal_confirmed">Applied and confirmed by the audio path.</string>
+    <string name="signal_not_confirmed">Set, but not applied yet: no audio path has confirmed it.</string>
+    <string name="signal_explain">A strong boost lowers the input level so nothing clips. If that is not enough, the limiter catches the peaks - then punch sounds a little flatter. The values below are settings and estimates, not measurements.</string>
 </resources>

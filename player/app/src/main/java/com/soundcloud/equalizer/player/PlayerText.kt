@@ -16,6 +16,6 @@ object PlayerText {
 
     fun get(
         @StringRes id: Int,
-        vararg args: Any,
+        vararg args: Any?,
     ): String = appContext?.getString(id, *args) ?: "string#$id"
 }

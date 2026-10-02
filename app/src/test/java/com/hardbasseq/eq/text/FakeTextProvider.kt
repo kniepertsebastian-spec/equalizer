@@ -5,6 +5,6 @@ package com.hardbasseq.eq.text
 class FakeTextProvider : TextProvider {
     override fun get(
         id: Int,
-        vararg args: Any,
+        vararg args: Any?,
     ): String = "text$id" + if (args.isEmpty()) "" else args.joinToString(prefix = "(", postfix = ")", separator = "|")
 }

@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui.main
 
+import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioCapabilities
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
@@ -43,7 +44,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -1341,6 +1345,25 @@ class MainViewModelTest {
             viewModel.setSoundGoal(SoundGoal.BALANCED)
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(null, repo.savedSettings.last().activeGoal)
+        }
+
+    @Test
+    fun `preset actions confirm themselves with a short message`() =
+        runTest {
+            val texts = FakeTextProvider()
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val messages = mutableListOf<String>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.feedback.toList(messages) }
+
+            viewModel.setMacroBass(2f)
+            viewModel.saveAsNewPreset("Mine")
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.resetToActivePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(texts.get(R.string.feedback_saved, "Mine"), messages.first())
+            assertEquals(texts.get(R.string.feedback_reset, "Mine"), messages.last())
         }
 
     @Test

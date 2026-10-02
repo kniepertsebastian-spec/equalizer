@@ -15,7 +15,7 @@ import javax.inject.Singleton
 interface TextProvider {
     fun get(
         @StringRes id: Int,
-        vararg args: Any,
+        vararg args: Any?,
     ): String
 }
 
@@ -27,7 +27,7 @@ class AndroidTextProvider
     ) : TextProvider {
         override fun get(
             id: Int,
-            vararg args: Any,
+            vararg args: Any?,
         ): String = context.getString(id, *args)
     }
 

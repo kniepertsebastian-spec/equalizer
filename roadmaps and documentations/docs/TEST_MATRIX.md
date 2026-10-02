@@ -549,3 +549,7 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | E4 | TalkBack in Englisch/Deutsch: Wiedergabesteuerung, Tabs, Quellenwähler, Regler | sinnvolle Beschriftungen in der Sprache der App |
 | E5 | Android Auto / Benachrichtigung / Notification-Kanal | Texte in der Systemsprache |
 | E6 | Große Schrift (Systemeinstellung) und schmales Gerät in Englisch | Texte umbrechen, nichts unlesbar |
+| H5 | Starkes Preset wählen (Deep Rumble + „Mehr Power“) | Signal-Bereich erklärt Absenkung/Limiter; Hinweis zeigt Headroom-Stufe; Status „bestätigt“ nur bei aktivem Audiopfad |
+| H6 | AutoEQ-Datei importieren | Dialog zeigt Quelle, Bereich, Boost, Headroom und die Kurve; „Abbrechen“ speichert nichts |
+| H7 | AutoEQ-Vorschlag „Übernehmen“ | Profil gewählt, Meldung erscheint, Chip zeigt Herkunft und „Für <Gerät>“ |
+| H8 | Preset speichern/duplizieren/umbenennen/löschen/zurücksetzen | jeweils kurze Bestätigung am unteren Rand |

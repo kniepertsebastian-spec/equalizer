@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui.main
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hardbasseq.eq.R
@@ -59,9 +60,12 @@ import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
@@ -90,6 +94,7 @@ import javax.inject.Inject
 // unchanged, hard 10:1 ceiling, so it always holds the line, but it may need to work
 // noticeably harder/more audibly on already-loud presets or devices than before.
 private const val INPUT_GAIN_SAFETY_RATIO = 0.1f
+private const val FEEDBACK_BUFFER = 8
 
 // roadmap-2026.md M5: "Extreme Boosts werden nicht still angewandt, sondern
 // begrenzt oder bestätigt" - an imported correction curve peaking above this
@@ -619,10 +624,12 @@ class MainViewModel
         fun acceptSuggestedCorrectionProfile() {
             val entry = _suggestedCorrectionProfile.value ?: return
             _suggestedCorrectionProfile.value = null
+            val profile = entry.profile.copy(deviceName = entry.displayName)
             viewModelScope.launch {
-                correctionProfileRepository.save(entry.profile)
+                correctionProfileRepository.save(profile)
             }
-            selectCorrectionProfile(entry.profile)
+            selectCorrectionProfile(profile)
+            feedback(R.string.feedback_profile_applied, profile.name)
         }
 
         fun dismissSuggestedCorrectionProfile() {
@@ -674,6 +681,7 @@ class MainViewModel
                 correctionProfileRepository.save(preview.profile)
             }
             selectCorrectionProfile(preview.profile)
+            feedback(R.string.feedback_profile_imported, preview.profile.name)
         }
 
         fun cancelCorrectionProfileImport() {
@@ -727,7 +735,22 @@ class MainViewModel
         }
 
         // Discards manual edits, re-applying activePreset fresh.
-        fun resetToActivePreset() = selectPreset(_activePreset.value)
+        fun resetToActivePreset() {
+            selectPreset(_activePreset.value)
+            feedback(R.string.feedback_reset, _activePreset.value.name)
+        }
+
+        // Short confirmations of preset actions ("saved", "duplicated", ...), shown by the screen as a
+        // message; nothing is stored. Dropped when nobody is listening.
+        private val _feedback = MutableSharedFlow<String>(extraBufferCapacity = FEEDBACK_BUFFER)
+        val feedback: SharedFlow<String> = _feedback.asSharedFlow()
+
+        private fun feedback(
+            @StringRes id: Int,
+            vararg args: Any,
+        ) {
+            _feedback.tryEmit(texts.get(id, *args))
+        }
 
         fun saveAsNewPreset(name: String) {
             viewModelScope.launch {
@@ -736,6 +759,7 @@ class MainViewModel
                 _activePreset.value = newPreset
                 _isDirty.value = false
                 persistLiveSettings()
+                feedback(R.string.feedback_saved, newPreset.name)
             }
         }
 
@@ -749,6 +773,7 @@ class MainViewModel
                     )
                 presetRepository.save(copy)
                 selectPreset(copy)
+                feedback(R.string.feedback_duplicated, copy.name)
             }
         }
 
@@ -766,6 +791,7 @@ class MainViewModel
                     _activePreset.value = renamed
                     persistLiveSettings()
                 }
+                feedback(R.string.feedback_renamed, newName)
             }
         }
 
@@ -786,6 +812,7 @@ class MainViewModel
                 if (_activePreset.value.id == preset.id) {
                     selectPreset(BuiltInPresets.CleanPunch)
                 }
+                feedback(R.string.feedback_deleted, preset.name)
             }
         }
 

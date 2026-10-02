@@ -651,3 +651,21 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
   Genre- und Presetnamen (Eigennamen) bleiben unübersetzt. Die Warnüberschriften der Headroom-Anzeige („DANGER!“) sind
   Stilmittel der Designs und englisch.
 - **Nicht verifiziert** (kein Gerät): Layouts mit längeren englischen/deutschen Texten, großer Schrift und schmalen Displays.
+
+### UX-Roadmap Schritt 7: Headroom-Erklärung, AutoEQ-Vorschau, Herkunft, Rückmeldung (2. Oktober 2026)
+
+- **Headroom verständlich:** der Bereich „Signal & Sicherheit“ erklärt in einem Absatz, wann ein starker Boost den
+  Eingangspegel senkt und wann der Limiter eingreift (Druck klingt dann etwas flacher), und kennzeichnet, ob die Werte
+  vom Audiopfad **bestätigt** angewandt sind oder nur **eingestellt** (kein Audiopfad hat sie bestätigt). Werte
+  bleiben ausdrücklich Einstellungen/Schätzungen, keine Messungen. Der Headroom-Hinweis aus der kombinierten Kurve
+  (inkl. Klangziel, Kopfhörer-Kurve, Loudness) bleibt dauerhaft sichtbar.
+- **AutoEQ-Import:** der Vorschau-Dialog zeigt jetzt zusätzlich die **resultierende Kurve** (`CurvePreview`,
+  logarithmische Frequenzachse, ±dB-Bereich) neben Quelle, Frequenzbereich, Maximalboost und benötigtem Headroom;
+  nichts wird vor der Bestätigung gespeichert.
+- **Herkunft und Gerät:** `CorrectionProfile.deviceName` (optional, ältere Daten bleiben lesbar); beim Übernehmen
+  eines AutoEQ-Vorschlags steht der Katalogname des Geräts am Profil und wird unter der Herkunft angezeigt („Für …“).
+- **Rückmeldung bei Preset-Aktionen:** Speichern, Duplizieren, Umbenennen, Löschen, Zurücksetzen und das
+  Übernehmen/Importieren eines Korrekturprofils bestätigen sich mit einer kurzen Meldung (Snackbar).
+- **Bewusst noch nicht:** Band- und Kurvenbearbeitung als Fortgeschrittenenansicht (die Roadmap verlangt zuerst die
+  Verifikation der unterstützten Audiopfade – steht auf dem Gerät aus); Klangziel/Kopfhörer-Power je Ausgang (bräuchte
+  eine Room-Schemaerweiterung der Geräteprofile).

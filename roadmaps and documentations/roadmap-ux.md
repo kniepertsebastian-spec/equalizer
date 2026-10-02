@@ -15,7 +15,7 @@
 | 4 | P1 Klangziele („Gesang vorne“ …) und Beschreibungen | umgesetzt (Gerätetest offen) |
 | 5 | P1 Verknüpfte Dienste getrennt von Klangprofilen | umgesetzt (Gerätetest offen) |
 | 6 | P1 Vollständige englische Lokalisierung | umgesetzt (Gerätetest offen) |
-| 7 | P2 Headroom/AutoEQ-Vorschau, Geräteprofile | offen |
+| 7 | P2 Headroom/AutoEQ-Vorschau, Geräteprofile | umgesetzt, Fortgeschrittenenansicht bewusst zurückgestellt (Gerätetest offen) |
 | 8 | P2 Mikrofon-Entscheidung, Zugänglichkeit | offen |
 
 ## Zielbild

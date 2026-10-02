@@ -364,4 +364,16 @@
     <string name="upd_err_query">Release-Abfrage fehlgeschlagen</string>
     <string name="upd_err_data_big">Release-Daten sind zu groß</string>
     <string name="context_subsonic_title">Subsonic-Filter</string>
+    <string name="curve_preview_caption">Resultierende Kurve, 20 Hz bis 20 kHz, ±%1$s dB</string>
+    <string name="feedback_saved">Gespeichert als „%1$s“</string>
+    <string name="feedback_duplicated">Dupliziert als „%1$s“</string>
+    <string name="feedback_renamed">Umbenannt in „%1$s“</string>
+    <string name="feedback_deleted">„%1$s“ gelöscht</string>
+    <string name="feedback_reset">Auf „%1$s“ zurückgesetzt</string>
+    <string name="feedback_profile_applied">Korrekturprofil „%1$s“ übernommen</string>
+    <string name="feedback_profile_imported">Korrekturprofil „%1$s“ importiert und ausgewählt</string>
+    <string name="profile_for_device">Für %1$s</string>
+    <string name="signal_confirmed">Angewandt und vom Audiopfad bestätigt.</string>
+    <string name="signal_not_confirmed">Eingestellt, aber noch nicht angewandt: Kein Audiopfad hat es bestätigt.</string>
+    <string name="signal_explain">Ein starker Boost senkt den Eingangspegel, damit nichts übersteuert. Reicht das nicht, fängt der Limiter die Spitzen ab - dann klingt der Druck etwas flacher. Die Werte unten sind Einstellungen und Schätzungen, keine Messungen.</string>
 </resources>

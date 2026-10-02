@@ -100,6 +100,7 @@ import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.ui.eq.EqStatus
+import com.hardbasseq.eq.ui.eq.EqStatusKind
 import com.hardbasseq.eq.ui.eq.EqStatusLine
 import com.hardbasseq.eq.ui.main.CompareSide
 import com.hardbasseq.eq.ui.main.CompareState
@@ -339,6 +340,23 @@ fun EqualizerScreen(
                             text = stringResource(R.string.signal_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text =
+                                stringResource(
+                                    if (EqStatus.kind(state, settings) == EqStatusKind.ACTIVE) {
+                                        R.string.signal_confirmed
+                                    } else {
+                                        R.string.signal_not_confirmed
+                                    },
+                                ),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = stringResource(R.string.signal_explain),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Spacer(modifier = Modifier.height(spacing.small))
 
@@ -1130,6 +1148,13 @@ private fun CorrectionProfileRow(
                             style = MaterialTheme.typography.bodySmall,
                             color = contentColor,
                         )
+                        profile.deviceName?.let { device ->
+                            Text(
+                                text = stringResource(R.string.profile_for_device, device),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = contentColor,
+                            )
+                        }
                     }
                     // M5 "Import, Export und Teilen ... integrieren" - only for
                     // imported/custom profiles, mirroring PresetCard's own

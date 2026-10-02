@@ -35,10 +35,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,6 +65,7 @@ import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
+import com.hardbasseq.eq.ui.equalizer.CurvePreview
 import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.equalizer.localizedSourceLabel
 import com.hardbasseq.eq.ui.equalizer.styleFor
@@ -221,6 +225,7 @@ fun MainScreen(
                     )
                     Text(stringResource(R.string.import_preview_boost, String.format("%.1f", preview.maxBoostDb)))
                     Text(stringResource(R.string.import_preview_headroom, String.format("%.1f", preview.requiredHeadroomDb)))
+                    CurvePreview(curve = preview.profile.curve, modifier = Modifier.padding(top = 8.dp))
                     if (preview.isExtremeBoost) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -257,7 +262,10 @@ fun MainScreen(
         )
     }
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) { viewModel.feedback.collect { snackbarHostState.showSnackbar(it) } }
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         // The navigation bar of the app shell below handles the bottom inset.
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         containerColor = styleFor(PresetDesign.forPreset(activePreset)).background,

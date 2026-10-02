@@ -14,6 +14,9 @@ data class CorrectionProfile(
     val curve: List<TargetPoint> = emptyList(),
     val sourceLabel: String = "Manual",
     val builtIn: Boolean = false,
+    // The headphone / output this correction was made for (for example the AutoEQ catalog entry), shown
+    // next to its origin; null when unknown. Defaulted so profiles saved before still decode.
+    val deviceName: String? = null,
 )
 
 object BuiltInCorrectionProfiles {
