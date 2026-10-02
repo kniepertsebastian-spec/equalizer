@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -117,6 +118,8 @@ fun MainScreen(
     var renameTarget by remember { mutableStateOf<Preset?>(null) }
 
     val context = LocalContext.current
+
+    val resources = LocalResources.current
     // M5 "Import, Export und Teilen ... über Android Storage Access Framework/
     // Share Sheet integrieren" - OpenDocument shows the system file picker (any
     // storage provider, no runtime storage permission needed) and hands back a
@@ -138,7 +141,7 @@ fun MainScreen(
             }
             val sourceName =
                 uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
-                    ?: context.getString(R.string.imported_profile_default)
+                    ?: resources.getString(R.string.imported_profile_default)
             viewModel.previewCorrectionProfileImport(sourceName, text)
         }
 
@@ -151,8 +154,8 @@ fun MainScreen(
                         .openOutputStream(uri)
                         ?.bufferedWriter()
                         ?.use { it.write(profileJson) }
-                        ?: error(context.getString(R.string.export_file_open_failed))
-                }.onFailure { Toast.makeText(context, context.getString(R.string.export_failed, it.message), Toast.LENGTH_LONG).show() }
+                        ?: error(resources.getString(R.string.export_file_open_failed))
+                }.onFailure { Toast.makeText(context, resources.getString(R.string.export_failed, it.message), Toast.LENGTH_LONG).show() }
             }
         }
 
@@ -336,7 +339,7 @@ fun MainScreen(
                             putExtra(Intent.EXTRA_TEXT, viewModel.exportCorrectionProfileJson(profile))
                             putExtra(Intent.EXTRA_SUBJECT, profile.name)
                         }
-                    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_correction_profile)))
+                    context.startActivity(Intent.createChooser(shareIntent, resources.getString(R.string.share_correction_profile)))
                 },
                 onResetToActivePreset = { viewModel.resetToActivePreset() },
                 onSaveAsNewRequest = { showSaveAsNewDialog = true },

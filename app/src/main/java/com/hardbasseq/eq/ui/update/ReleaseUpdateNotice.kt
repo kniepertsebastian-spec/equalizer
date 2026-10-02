@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
@@ -31,6 +32,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun ReleaseUpdateNotice() {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val client = remember(context) { ReleaseUpdateClient(context.applicationContext) }
     val scope = rememberCoroutineScope()
     var update by remember { mutableStateOf<AvailableUpdate?>(null) }
@@ -66,7 +68,7 @@ fun ReleaseUpdateNotice() {
                                     Uri.parse("package:${context.packageName}"),
                                 ),
                             )
-                            errorMessage = context.getString(R.string.update_allow_install)
+                            errorMessage = resources.getString(R.string.update_allow_install)
                         } else {
                             downloading = true
                             scope.launch {
@@ -78,13 +80,13 @@ fun ReleaseUpdateNotice() {
                                                 if (total >
                                                     0L
                                                 ) {
-                                                    context.getString(R.string.update_progress_total, currentMb, total / 1_000_000)
+                                                    resources.getString(R.string.update_progress_total, currentMb, total / 1_000_000)
                                                 } else {
-                                                    context.getString(R.string.update_progress, currentMb)
+                                                    resources.getString(R.string.update_progress, currentMb)
                                                 }
                                         }
                                     context.startActivity(client.installIntent(file))
-                                }.onFailure { errorMessage = it.message ?: context.getString(R.string.update_failed) }
+                                }.onFailure { errorMessage = it.message ?: resources.getString(R.string.update_failed) }
                                 downloading = false
                             }
                         }
