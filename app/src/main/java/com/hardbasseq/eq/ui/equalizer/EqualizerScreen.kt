@@ -122,6 +122,7 @@ fun EqualizerScreen(
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
+    onOpenServices: () -> Unit,
     activeGoal: SoundGoal,
     onGoalSelected: (SoundGoal) -> Unit,
     pathLabel: String?,
@@ -432,6 +433,39 @@ fun EqualizerScreen(
                             }
                         }
                     }
+                }
+
+                Column {
+                    Text(
+                        text = stringResource(R.string.profiles_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = stringResource(R.string.profiles_intro),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = stringResource(R.string.profiles_output, route.name),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Text(
+                        text =
+                            stringResource(
+                                R.string.profiles_saved_for_output,
+                                activePreset.name,
+                                if (activeCorrectionProfile.id == "correction_none") {
+                                    stringResource(R.string.profiles_correction_none)
+                                } else {
+                                    activeCorrectionProfile.name
+                                },
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextButton(onClick = onOpenServices) { Text(stringResource(R.string.profiles_open_services)) }
                 }
 
                 // M3 "Mein Kopfhörer" Card: which headphone/speaker correction curve is

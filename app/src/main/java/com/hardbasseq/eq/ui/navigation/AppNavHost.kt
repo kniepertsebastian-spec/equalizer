@@ -27,12 +27,14 @@ import com.hardbasseq.eq.ui.MainScreen
 import com.hardbasseq.eq.ui.diagnostics.DiagnosticsScreen
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.player.DiscoveryViewModel
+import com.hardbasseq.eq.ui.player.LinkedServicesScreen
 import com.hardbasseq.eq.ui.player.PlayerScreen
 import com.hardbasseq.eq.ui.player.PlayerViewModel
 
 const val ROUTE_HOME = "home"
 const val ROUTE_DIAGNOSTICS = "diagnostics"
 const val ROUTE_PLAYER = "player"
+const val ROUTE_SERVICES = "services"
 
 @Composable
 fun AppNavHost(
@@ -97,6 +99,7 @@ fun AppNavHost(
                     spikeController = spikeController,
                     onNavigateToDiagnostics = { navController.navigate(ROUTE_DIAGNOSTICS) },
                     onOpenFullPlayer = { navigateTo(ROUTE_PLAYER) },
+                    onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
                 )
             }
             composable(ROUTE_PLAYER) {
@@ -112,7 +115,15 @@ fun AppNavHost(
                     eqState = engineState,
                     processingSettings = processingSettings,
                     onOpenEqualizer = { navigateTo(ROUTE_HOME) },
+                    onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
                     onSelectSource = { viewModel.choosePlayerSource(it) },
+                )
+            }
+            composable(ROUTE_SERVICES) {
+                LinkedServicesScreen(
+                    viewModel = playerViewModel,
+                    onBack = { navController.popBackStack() },
+                    onOpenSoundProfiles = { navigateTo(ROUTE_HOME) },
                 )
             }
             composable(ROUTE_DIAGNOSTICS) {

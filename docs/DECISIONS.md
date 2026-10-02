@@ -617,3 +617,17 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
 - Hörvergleich und Zurücksetzen für Ziele: der Original/EQ-Vergleich (Schritt 3) gilt für die ganze Kette.
 - **Nicht verifiziert:** wie die Ziele auf echten Geräten und Kopfhörern klingen (Frequenzwerte sind
   Erfahrungswerte, keine gemessenen Zielkurven).
+
+### UX-Roadmap Schritt 5: Verknüpfte Dienste getrennt von Klangprofilen (2. Oktober 2026)
+
+- **Verknüpfte Dienste** (`LinkedServicesScreen`, Route `services`): eigener Bildschirm, erreichbar über das
+  Link-Symbol im Player-Kopf. Je Dienst Status (Verbunden / Nicht verbunden), Erklärung und die Aktionen
+  **Verbinden**, **Erneut verbinden**, **Trennen** (SoundCloud; Spotify mit Client-ID-Feld). Die Konto-Karten sind
+  aus dem Playlists-Tab verschwunden.
+- **Klangprofile** bleiben im Equalizer, jetzt unter eigener Überschrift mit dem Hinweis, dass sie keine Konten
+  sind, dem aktuellen Ausgang und dem für ihn gespeicherten Klangstil/Korrekturprofil. Die bestehende Bindung je
+  Ausgang (`DeviceProfileRepository`: Klangstil, Korrekturprofil, Kopfhörer-Modus) wird beim Gerätewechsel
+  angewandt; manuelle Änderungen erscheinen als „<Preset> (angepasst)“ und lassen sich speichern, duplizieren,
+  zurücksetzen. Von beiden Orten führt ein Link zum jeweils anderen.
+- Grenzen: Klangziel und Kopfhörer-Power gelten weiter global, nicht je Ausgang; die Anwendung beim Wechsel hängt
+  vom Audiopfad ab (Systemeffekte). **Nicht verifiziert** auf dem Gerät.

@@ -538,3 +538,8 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | G3 | „Weniger scharf“ bei Hi-Hats | Höhen sanfter |
 | G4 | Ziel wählen, App neu starten | Ziel bleibt; „Ausgewogen“ entfernt die Kurve |
 | G5 | „Feinanpassung“ anzeigen/ausblenden | Makro-Regler (mit Erklärung) und Bänder erscheinen/verschwinden; Vorgabe ausgeblendet |
+| D1 | Player → Link-Symbol | Bildschirm „Verknüpfte Dienste“ mit SoundCloud und Spotify, Status sichtbar |
+| D2 | SoundCloud verbinden / erneut verbinden / trennen | Anmeldung öffnet, Status wechselt, Bibliothek im Playlists-Tab erscheint/verschwindet |
+| D3 | Spotify Client-ID speichern und verbinden | wie bisher; „Erneut verbinden“ und „Trennen“ vorhanden |
+| D4 | Equalizer → Bereich „Klangprofile“ | Hinweis „keine Konten“, aktueller Ausgang und gespeichertes Profil; Link zu „Verknüpfte Dienste“ |
+| D5 | Ausgang wechseln (Kopfhörer ↔ Lautsprecher) | Profilanzeige und Klang folgen dem Ausgang, soweit der Audiopfad es erlaubt |

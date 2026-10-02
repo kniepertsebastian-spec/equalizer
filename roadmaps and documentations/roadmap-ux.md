@@ -13,7 +13,7 @@
 | 2 | P0 Playlist-Import, Playlists, Warteschlange auffindbar | umgesetzt (Gerätetest offen) |
 | 3 | P0 Echter EQ-Status, lautheitsangepasster A/B-Vergleich | umgesetzt (Gerätetest offen) |
 | 4 | P1 Klangziele („Gesang vorne“ …) und Beschreibungen | umgesetzt (Gerätetest offen) |
-| 5 | P1 Verknüpfte Dienste getrennt von Klangprofilen | offen |
+| 5 | P1 Verknüpfte Dienste getrennt von Klangprofilen | umgesetzt (Gerätetest offen) |
 | 6 | P1 Vollständige englische Lokalisierung | offen |
 | 7 | P2 Headroom/AutoEQ-Vorschau, Geräteprofile | offen |
 | 8 | P2 Mikrofon-Entscheidung, Zugänglichkeit | offen |

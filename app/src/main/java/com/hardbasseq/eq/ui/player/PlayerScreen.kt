@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -108,6 +109,7 @@ fun PlayerScreen(
     eqState: AudioEngineState,
     processingSettings: ProcessingSettings,
     onOpenEqualizer: () -> Unit,
+    onOpenServices: () -> Unit,
     onSelectSource: (PlayerSource) -> Unit,
     dspViewModel: PlayerDspViewModel = hiltViewModel(),
 ) {
@@ -121,7 +123,6 @@ fun PlayerScreen(
     val importState by viewModel.importState.collectAsStateWithLifecycle()
     val pendingImport by viewModel.pendingImport.collectAsStateWithLifecycle()
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
-    val spotifyAccount by viewModel.spotifyAccount.collectAsStateWithLifecycle()
     val libraryState by viewModel.libraryState.collectAsStateWithLifecycle()
     val bridgeState by viewModel.bridgeState.collectAsStateWithLifecycle()
     val discoveryState by discovery.state.collectAsStateWithLifecycle()
@@ -200,6 +201,9 @@ fun PlayerScreen(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f),
                     )
+                    IconButton(onClick = onOpenServices) {
+                        Icon(Icons.Default.Link, contentDescription = stringResource(R.string.player_open_services))
+                    }
                     SourceSelector(
                         onSelectSource = { source ->
                             if (source == PlayerSource.SOUNDCLOUD) tab = PlayerTab.SEARCH else onSelectSource(source)
@@ -543,94 +547,6 @@ fun PlayerScreen(
                                     subtitle = "${playlist.trackCount} Titel",
                                     onPlay = { viewModel.playLibraryPlaylist(playlist) },
                                 )
-                            }
-                        }
-                    }
-                }
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, HardBassCardBorder),
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(spacing.medium),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("SoundCloud-Konto", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(
-                                    text =
-                                        if (signedIn) {
-                                            "Angemeldet. Mit einem Go-Abo laufen Titel in voller Länge."
-                                        } else {
-                                            "Nicht angemeldet. Melde dich mit deinem Go-Konto an, damit Go-Titel in voller Länge laufen."
-                                        },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = PlayerTextMutedColor,
-                                )
-                            }
-                            if (signedIn) {
-                                TextButton(onClick = viewModel::signOut) { Text("Abmelden") }
-                            } else {
-                                Button(onClick = viewModel::signIn) { Text("Anmelden") }
-                            }
-                        }
-                    }
-                }
-                item {
-                    // Reading long Spotify playlists needs the user's own Spotify developer app: its client
-                    // id goes here, then one sign-in. Only playlists that belong to the user are readable.
-                    var clientIdText by remember(spotifyAccount.clientId) { mutableStateOf(spotifyAccount.clientId) }
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, HardBassCardBorder),
-                    ) {
-                        Column(modifier = Modifier.padding(spacing.medium)) {
-                            Text(
-                                "Spotify-Konto (für lange Playlists)",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text =
-                                    if (spotifyAccount.signedIn) {
-                                        "Angemeldet. Deine eigenen Spotify-Playlists werden jetzt vollständig gelesen, auch über 100 Titel."
-                                    } else {
-                                        "Ohne Anmeldung liest die App nur die ersten ~100 Titel. Lege in Spotifys " +
-                                            "Entwicklerportal eine App an (Redirect-URI: hardbasseq://spotify-callback), " +
-                                            "trage hier ihre Client-ID ein und melde dich an. Es werden nur Playlists gelesen, die dir gehören."
-                                    },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = PlayerTextMutedColor,
-                            )
-                            OutlinedTextField(
-                                value = clientIdText,
-                                onValueChange = { clientIdText = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Client-ID") },
-                                singleLine = true,
-                            )
-                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(
-                                    onClick = { viewModel.saveSpotifyClientId(clientIdText) },
-                                    enabled = clientIdText.trim() != spotifyAccount.clientId,
-                                ) { Text("Speichern") }
-                                Spacer(modifier = Modifier.weight(1f))
-                                if (spotifyAccount.signedIn) {
-                                    TextButton(onClick = viewModel::signOutSpotify) { Text("Abmelden") }
-                                } else {
-                                    Button(
-                                        onClick = {
-                                            viewModel.saveSpotifyClientId(clientIdText)
-                                            viewModel.signInSpotify()
-                                        },
-                                        enabled = clientIdText.isNotBlank(),
-                                    ) { Text("Anmelden") }
-                                }
                             }
                         }
                     }

@@ -78,6 +78,7 @@ fun MainScreen(
     spikeController: SessionAttachSpikeController,
     onNavigateToDiagnostics: () -> Unit = {},
     onOpenFullPlayer: () -> Unit = {},
+    onOpenServices: () -> Unit = {},
 ) {
     val showDebugEffects by viewModel.showDebugEffects.collectAsStateWithLifecycle()
     val descriptors by viewModel.effectDescriptors.collectAsStateWithLifecycle()
@@ -279,6 +280,7 @@ fun MainScreen(
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
                 effectiveHeadphoneAcoustics = effectiveHeadphoneAcoustics,
+                onOpenServices = onOpenServices,
                 pathLabel = if (nowPlaying != null) stringResource(R.string.source_soundcloud) else null,
                 compare = compare,
                 onStartCompare = { viewModel.startCompare() },
