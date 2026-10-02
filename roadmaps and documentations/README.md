@@ -7,7 +7,7 @@ Sammelordner für alle Roadmaps und Dokumentationen von HardBass EQ (Stand 2. Ok
 | `roadmap-ux.md` | **UX- und Produkt-Roadmap** (aktueller Arbeitsplan, Fortschrittstabelle am Anfang) |
 | `roadmap-2026.md` | Produkt- und Technik-Roadmap 2026 |
 | `roadmap.md` | Entwicklungs-Session-Log |
-| `docs/` | Architektur, Entscheidungen (`DECISIONS.md`), Testmatrix, Updates, ADRs, … |
+| `docs/` | Architektur, Entscheidungen (`DECISIONS.md`), Testmatrix, Verständlichkeitstest (`USABILITY_TEST.md`), Updates, ADRs, … |
 | `desktop-README.md` | Hinweise zum Desktop-Modul |
 
 **Hinweis zu Kopien:** Die Originale (`docs/`, `roadmap*.md` im Repository-Root, `desktop/README.md`)

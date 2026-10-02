@@ -553,3 +553,6 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | H6 | AutoEQ-Datei importieren | Dialog zeigt Quelle, Bereich, Boost, Headroom und die Kurve; „Abbrechen“ speichert nichts |
 | H7 | AutoEQ-Vorschlag „Übernehmen“ | Profil gewählt, Meldung erscheint, Chip zeigt Herkunft und „Für <Gerät>“ |
 | H8 | Preset speichern/duplizieren/umbenennen/löschen/zurücksetzen | jeweils kurze Bestätigung am unteren Rand |
+| Z1 | TalkBack an: Equalizer durchgehen | Schalter und Regler werden mit Namen vorgelesen („Bypass, Schalter, aus“; „Bass: +1,5 dB, Regler“) |
+| Z2 | Größte Systemschrift, Deutsch und Englisch | nichts abgeschnitten, alles bedienbar, Touch-Ziele erreichbar |
+| Z3 | Kernabläufe nach `docs/USABILITY_TEST.md` mit Testpersonen | Ergebnisse notieren, Beschriftungen/Navigation anpassen |

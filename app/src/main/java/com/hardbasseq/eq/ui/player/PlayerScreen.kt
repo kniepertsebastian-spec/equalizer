@@ -67,6 +67,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -720,7 +722,9 @@ private fun SeekBar(
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val fraction = dragFraction ?: PlayerFormat.progress(positionMs, durationMs)
     Column(modifier = Modifier.fillMaxWidth()) {
+        val seekDescription = stringResource(R.string.seek_description)
         Slider(
+            modifier = Modifier.semantics { contentDescription = seekDescription },
             value = fraction,
             onValueChange = { dragFraction = it },
             onValueChangeFinished = {

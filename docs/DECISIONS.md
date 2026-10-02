@@ -669,3 +669,25 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
 - **Bewusst noch nicht:** Band- und Kurvenbearbeitung als Fortgeschrittenenansicht (die Roadmap verlangt zuerst die
   Verifikation der unterstützten Audiopfade – steht auf dem Gerät aus); Klangziel/Kopfhörer-Power je Ausgang (bräuchte
   eine Room-Schemaerweiterung der Geräteprofile).
+
+### UX-Roadmap Schritt 8: Mikrofon-Entscheidung und Zugänglichkeit (2. Oktober 2026)
+
+**Mikrofonverbesserung – Entscheidung: keine Mikrofonverarbeitung in HardBass EQ (vorerst).**
+- Der Musik-EQ bearbeitet die **Wiedergabe**. Der Equalizer-Bereich sagt das ausdrücklich („Verändert den Klang der
+  Wiedergabe, nicht dein Mikrofon.“).
+- Es gibt kein eigenes Aufnahme-/Monitoring-Szenario in der App; ohne ein solches wird kein Bereich „Mikrofon / Stimme“
+  geplant. Falls das später gewünscht ist, wäre es ein getrenntes Produkt mit eigener Rauschminderung/De-Esser und
+  eigenem Aufnahmepfad – EQ allein entfernt weder Hall noch Aufnahmefehler und wird so nicht beworben.
+- Mikrofonverarbeitung in **fremden Apps** ist unter Android für eine gewöhnliche App nicht möglich (der Eingang einer
+  anderen App lässt sich nicht einfach bearbeiten); es wird nichts dergleichen angeboten oder versprochen.
+
+**Zugänglichkeit (umgesetzt):**
+- Touch-Ziele mindestens 48 dp (Export-Symbol am Korrekturprofil von 28 auf 48 dp).
+- Kontraste der Textfarben auf den Flächen nachgerechnet (WCAG, 5,4:1 bis 12,8:1, Ziel 4,5:1) – keine Änderung nötig.
+- TalkBack: alle Regler (Bänder, Makros, Kopfhörer-Power, Positionsleiste, Mono-Bass-Grenze) und alle Schalter tragen
+  eine Beschriftung; Tabs, Chips, Wiedergabesteuerung und Statuszeilen sind beschriftet; Texte in beiden Sprachen.
+- Schrift: Texte stehen in `sp`-Textstilen des Themes (skalieren mit der Systemschrift); keine feste Schriftgröße im Code.
+
+**Offen, weil Menschen/Geräte nötig sind:** Verständlichkeitstest mit Nutzern (Protokoll: `docs/USABILITY_TEST.md`),
+Prüfung mit TalkBack und größter Schrift auf dem Gerät. Beobachtete Probleme fließen danach in Beschriftungen und
+Navigation zurück.

@@ -71,6 +71,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -260,6 +262,11 @@ fun EqualizerScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                                 Text(
+                                    text = stringResource(R.string.eq_playback_only_note),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
                                     text = style.name,
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Black,
@@ -280,7 +287,9 @@ fun EqualizerScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
+                                val masterDescription = stringResource(R.string.eq_master_switch)
                                 Switch(
+                                    modifier = Modifier.semantics { contentDescription = masterDescription },
                                     checked = settings.masterEnabled,
                                     onCheckedChange = onMasterToggled,
                                 )
@@ -592,7 +601,9 @@ fun EqualizerScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
+                            val headphoneModeDescription = stringResource(R.string.headphone_mode_title)
                             Switch(
+                                modifier = Modifier.semantics { contentDescription = headphoneModeDescription },
                                 checked = effectiveHeadphoneAcoustics,
                                 onCheckedChange = onHeadphoneAcousticsChanged,
                             )
@@ -776,16 +787,15 @@ fun EqualizerScreen(
                             Spacer(modifier = Modifier.height(spacing.small))
 
                             // Bass Macro
-                            Text(
-                                text = stringResource(R.string.macro_bass_label, String.format("%+.1f", settings.macroBassDb)),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            val bassLabel = stringResource(R.string.macro_bass_label, String.format("%+.1f", settings.macroBassDb))
+                            Text(text = bassLabel, style = MaterialTheme.typography.bodySmall)
                             Text(
                                 text = stringResource(R.string.macro_bass_desc),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Slider(
+                                modifier = Modifier.semantics { contentDescription = bassLabel },
                                 value = settings.macroBassDb,
                                 onValueChange = onMacroBassChanged,
                                 valueRange = -6f..6f,
@@ -793,16 +803,15 @@ fun EqualizerScreen(
                             )
 
                             // Punch Macro
-                            Text(
-                                text = stringResource(R.string.macro_punch_label, String.format("%+.1f", settings.macroPunchDb)),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            val punchLabel = stringResource(R.string.macro_punch_label, String.format("%+.1f", settings.macroPunchDb))
+                            Text(text = punchLabel, style = MaterialTheme.typography.bodySmall)
                             Text(
                                 text = stringResource(R.string.macro_punch_desc),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Slider(
+                                modifier = Modifier.semantics { contentDescription = punchLabel },
                                 value = settings.macroPunchDb,
                                 onValueChange = onMacroPunchChanged,
                                 valueRange = -6f..6f,
@@ -814,16 +823,15 @@ fun EqualizerScreen(
                             )
 
                             // Härte Macro
-                            Text(
-                                text = stringResource(R.string.macro_haerte_label, String.format("%+.1f", settings.macroHaerteDb)),
-                                style = MaterialTheme.typography.bodySmall,
-                            )
+                            val haerteLabel = stringResource(R.string.macro_haerte_label, String.format("%+.1f", settings.macroHaerteDb))
+                            Text(text = haerteLabel, style = MaterialTheme.typography.bodySmall)
                             Text(
                                 text = stringResource(R.string.macro_haerte_desc),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Slider(
+                                modifier = Modifier.semantics { contentDescription = haerteLabel },
                                 value = settings.macroHaerteDb,
                                 onValueChange = onMacroHaerteChanged,
                                 valueRange = -2f..2f,
@@ -853,7 +861,9 @@ fun EqualizerScreen(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(text = stringResource(R.string.bypass_label), style = MaterialTheme.typography.bodySmall)
                                     Spacer(modifier = Modifier.width(spacing.extraSmall))
+                                    val bypassDescription = stringResource(R.string.bypass_label)
                                     Switch(
+                                        modifier = Modifier.semantics { contentDescription = bypassDescription },
                                         checked = settings.bypass,
                                         onCheckedChange = onBypassToggled,
                                     )
@@ -880,6 +890,7 @@ fun EqualizerScreen(
                                     }
                                     val bandColor = style.bandColors[band.index % style.bandColors.size]
                                     Slider(
+                                        modifier = Modifier.semantics { contentDescription = freqLabel },
                                         value = gainDb,
                                         onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
                                         valueRange = band.minGainDb..band.maxGainDb,
@@ -1053,7 +1064,11 @@ private fun ContextFeatureSwitch(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            modifier = Modifier.semantics { contentDescription = title },
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }
 
@@ -1163,7 +1178,7 @@ private fun CorrectionProfileRow(
                     if (!profile.builtIn) {
                         IconButton(
                             onClick = { onExportProfile(profile) },
-                            modifier = Modifier.size(28.dp),
+                            modifier = Modifier.size(48.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Share,
@@ -1396,25 +1411,23 @@ private fun HeadphonePowerCard(
                 Button(onClick = { onPowerChanged(HeadphonePower.KNALL) }) { Text(stringResource(R.string.hp_power_knall)) }
             }
             Spacer(modifier = Modifier.height(spacing.small))
-            Text(
-                text = stringResource(R.string.hp_power_bass, "%.1f".format(power.bassDb)),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            val bassLabel = stringResource(R.string.hp_power_bass, "%.1f".format(power.bassDb))
+            Text(text = bassLabel, style = MaterialTheme.typography.bodyMedium)
             Slider(
+                modifier = Modifier.semantics { contentDescription = bassLabel },
                 value = power.bassDb,
                 onValueChange = { onPowerChanged(power.copy(bassDb = it)) },
                 valueRange = 0f..HeadphonePower.MAX_BASS_DB,
             )
-            Text(
-                text =
-                    if (power.loudnessMaxDb > 0f) {
-                        stringResource(R.string.hp_power_loudness_on, "%.1f".format(power.loudnessMaxDb))
-                    } else {
-                        stringResource(R.string.hp_power_loudness_off)
-                    },
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            val loudnessLabel =
+                if (power.loudnessMaxDb > 0f) {
+                    stringResource(R.string.hp_power_loudness_on, "%.1f".format(power.loudnessMaxDb))
+                } else {
+                    stringResource(R.string.hp_power_loudness_off)
+                }
+            Text(text = loudnessLabel, style = MaterialTheme.typography.bodyMedium)
             Slider(
+                modifier = Modifier.semantics { contentDescription = loudnessLabel },
                 value = power.loudnessMaxDb,
                 onValueChange = { onPowerChanged(power.copy(loudnessMaxDb = it)) },
                 valueRange = 0f..HeadphonePower.MAX_LOUDNESS_DB,
@@ -1432,7 +1445,9 @@ private fun HeadphonePowerCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                val dynamicsDescription = stringResource(R.string.hp_power_dynamics)
                 Switch(
+                    modifier = Modifier.semantics { contentDescription = dynamicsDescription },
                     checked = power.easeDynamics,
                     onCheckedChange = { onPowerChanged(power.copy(easeDynamics = it)) },
                 )

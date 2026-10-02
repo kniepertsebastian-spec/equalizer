@@ -376,4 +376,8 @@
     <string name="signal_confirmed">Angewandt und vom Audiopfad bestätigt.</string>
     <string name="signal_not_confirmed">Eingestellt, aber noch nicht angewandt: Kein Audiopfad hat es bestätigt.</string>
     <string name="signal_explain">Ein starker Boost senkt den Eingangspegel, damit nichts übersteuert. Reicht das nicht, fängt der Limiter die Spitzen ab - dann klingt der Druck etwas flacher. Die Werte unten sind Einstellungen und Schätzungen, keine Messungen.</string>
+    <string name="eq_playback_only_note">Verändert den Klang der Wiedergabe, nicht dein Mikrofon.</string>
+    <string name="seek_description">Wiedergabeposition</string>
+    <string name="dsp_cutoff_description">Grenzfrequenz des Mono-Basses</string>
+    <string name="eq_master_switch">Equalizer ein oder aus</string>
 </resources>

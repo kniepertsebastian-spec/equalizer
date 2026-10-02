@@ -17,6 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
@@ -55,7 +57,9 @@ fun PlayerDspCard(
                 onCheckedChange = onMonoBass,
             )
             if (settings.monoBassEnabled) {
+                val cutoffDescription = stringResource(R.string.dsp_cutoff_description)
                 Slider(
+                    modifier = Modifier.semantics { contentDescription = cutoffDescription },
                     value = settings.monoBassCutoffHz,
                     onValueChange = onCutoff,
                     valueRange = BassMonoSummerSettings.MIN_CUTOFF_HZ..BassMonoSummerSettings.MAX_CUTOFF_HZ,
@@ -91,6 +95,10 @@ private fun DspSwitchRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            modifier = Modifier.semantics { contentDescription = title },
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
     }
 }

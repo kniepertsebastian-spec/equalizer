@@ -376,4 +376,8 @@
     <string name="signal_confirmed">Applied and confirmed by the audio path.</string>
     <string name="signal_not_confirmed">Set, but not applied yet: no audio path has confirmed it.</string>
     <string name="signal_explain">A strong boost lowers the input level so nothing clips. If that is not enough, the limiter catches the peaks - then punch sounds a little flatter. The values below are settings and estimates, not measurements.</string>
+    <string name="eq_playback_only_note">Changes the sound of playback, not your microphone.</string>
+    <string name="seek_description">Playback position</string>
+    <string name="dsp_cutoff_description">Mono bass cutoff frequency</string>
+    <string name="eq_master_switch">Equalizer on or off</string>
 </resources>

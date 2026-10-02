@@ -16,7 +16,7 @@
 | 5 | P1 Verknüpfte Dienste getrennt von Klangprofilen | umgesetzt (Gerätetest offen) |
 | 6 | P1 Vollständige englische Lokalisierung | umgesetzt (Gerätetest offen) |
 | 7 | P2 Headroom/AutoEQ-Vorschau, Geräteprofile | umgesetzt, Fortgeschrittenenansicht bewusst zurückgestellt (Gerätetest offen) |
-| 8 | P2 Mikrofon-Entscheidung, Zugänglichkeit | offen |
+| 8 | P2 Mikrofon-Entscheidung, Zugänglichkeit | umgesetzt/entschieden; Nutzertest und TalkBack-Gerätetest offen (Protokoll liegt bei) |
 
 ## Zielbild
 
