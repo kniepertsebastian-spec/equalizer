@@ -48,6 +48,7 @@ import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetMetadata
 import com.hardbasseq.eq.preset.PresetRepository
+import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
@@ -274,6 +275,16 @@ class MainViewModel
         private val _compare = MutableStateFlow<CompareState?>(null)
         val compare: StateFlow<CompareState?> = _compare.asStateFlow()
 
+        // Sound goal ("Gesang vorne", "Mehr Power", ...): a small curve on top of the genre preset.
+        private val _activeGoal = MutableStateFlow(SoundGoal.BALANCED)
+        val activeGoal: StateFlow<SoundGoal> = _activeGoal.asStateFlow()
+
+        fun setSoundGoal(goal: SoundGoal) {
+            _activeGoal.value = goal
+            recalculateBandGains()
+            persistLiveSettings()
+        }
+
         // "Kopfhörer-Power": wirkt nur im Kopfhörer-Modus.
         private val _headphonePower = MutableStateFlow(HeadphonePower())
         val headphonePower: StateFlow<HeadphonePower> = _headphonePower.asStateFlow()
@@ -377,6 +388,7 @@ class MainViewModel
                 _activeContext.value = saved.activeContext?.let { name -> SoundContext.entries.firstOrNull { it.name == name } }
                 contextSetAutomatically = saved.activeContextAutomatic
                 _headphonePower.value = saved.headphonePower.sanitized()
+                _activeGoal.value = SoundGoal.fromId(saved.activeGoal)
                 // A saved activePresetId/activeCorrectionProfileId that no longer
                 // resolves (its custom entry was deleted from another install, say)
                 // just keeps this ViewModel's own compiled-in default - not an
@@ -527,6 +539,7 @@ class MainViewModel
                         activeContext = _activeContext.value?.name,
                         activeContextAutomatic = contextSetAutomatically,
                         headphonePower = _headphonePower.value,
+                        activeGoal = _activeGoal.value.id.takeIf { _activeGoal.value != SoundGoal.BALANCED },
                     ),
                 )
             }
@@ -943,6 +956,7 @@ class MainViewModel
                     _activePreset.value.targetCurve,
                     headphoneCurve,
                     loudnessCurve,
+                    _activeGoal.value.curve,
                     _activeContext.value?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
                     contextCurve(),
                 ),

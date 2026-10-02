@@ -57,6 +57,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,6 +98,7 @@ import com.hardbasseq.eq.preset.GenrePreset
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
+import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.ui.eq.EqStatus
 import com.hardbasseq.eq.ui.eq.EqStatusLine
 import com.hardbasseq.eq.ui.main.CompareSide
@@ -120,6 +122,8 @@ fun EqualizerScreen(
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
     effectiveHeadphoneAcoustics: Boolean,
+    activeGoal: SoundGoal,
+    onGoalSelected: (SoundGoal) -> Unit,
     pathLabel: String?,
     compare: CompareState?,
     onStartCompare: () -> Unit,
@@ -192,6 +196,7 @@ fun EqualizerScreen(
                 activePreset.targetCurve,
                 headphoneCurve,
                 loudnessCurve,
+                activeGoal.curve,
                 activeContext?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
                 contextCurve,
             ),
@@ -614,6 +619,8 @@ fun EqualizerScreen(
                     }
                 }
 
+                SoundGoalCard(active = activeGoal, onSelect = onGoalSelected, style = style)
+
                 // Klangstil (Voicing) Selector Card
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -680,109 +687,158 @@ fun EqualizerScreen(
                     }
                 }
 
-                // Macro Controls Card
-                Card(
+                var fineTuneOpen by rememberSaveable { mutableStateOf(false) }
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(style.cardCorner),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, style.border),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(modifier = Modifier.padding(spacing.medium)) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else "Makro-Regler",
+                            text = stringResource(R.string.fine_tune_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = style.accent,
                         )
-                        Spacer(modifier = Modifier.height(spacing.small))
-
-                        // Bass Macro
-                        Text(text = "Bass: ${String.format("%+.1f", settings.macroBassDb)} dB", style = MaterialTheme.typography.bodySmall)
-                        Slider(
-                            value = settings.macroBassDb,
-                            onValueChange = onMacroBassChanged,
-                            valueRange = -6f..6f,
-                            colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
-                        )
-
-                        // Punch Macro
                         Text(
-                            text = "Punch: ${String.format("%+.1f", settings.macroPunchDb)} dB",
+                            text = stringResource(R.string.fine_tune_subtitle),
                             style = MaterialTheme.typography.bodySmall,
-                        )
-                        Slider(
-                            value = settings.macroPunchDb,
-                            onValueChange = onMacroPunchChanged,
-                            valueRange = -6f..6f,
-                            colors = SliderDefaults.colors(thumbColor = style.secondaryAccent, activeTrackColor = style.secondaryAccent),
-                        )
-
-                        // Härte Macro
-                        Text(
-                            text = "Härte: ${String.format("%+.1f", settings.macroHaerteDb)} dB",
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Slider(
-                            value = settings.macroHaerteDb,
-                            onValueChange = onMacroHaerteChanged,
-                            valueRange = -2f..2f,
-                            colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    TextButton(onClick = { fineTuneOpen = !fineTuneOpen }) {
+                        Text(stringResource(if (fineTuneOpen) R.string.fine_tune_hide else R.string.fine_tune_show))
+                    }
                 }
-
-                // Dynamic Equalizer Bands Card
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(style.cardCorner),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, style.border),
-                ) {
-                    Column(modifier = Modifier.padding(spacing.medium)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
+                if (fineTuneOpen) {
+                    // Macro Controls Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(style.cardCorner),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, style.border),
+                    ) {
+                        Column(modifier = Modifier.padding(spacing.medium)) {
                             Text(
-                                text = "Grafischer EQ (${bands.size} Bänder)",
+                                text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else "Makro-Regler",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
+                                color = style.accent,
                             )
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(text = "Bypass", style = MaterialTheme.typography.bodySmall)
-                                Spacer(modifier = Modifier.width(spacing.extraSmall))
-                                Switch(
-                                    checked = settings.bypass,
-                                    onCheckedChange = onBypassToggled,
-                                )
-                            }
+                            Spacer(modifier = Modifier.height(spacing.small))
+
+                            // Bass Macro
+                            Text(
+                                text = "Bass: ${String.format("%+.1f", settings.macroBassDb)} dB",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                text = stringResource(R.string.macro_bass_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Slider(
+                                value = settings.macroBassDb,
+                                onValueChange = onMacroBassChanged,
+                                valueRange = -6f..6f,
+                                colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                            )
+
+                            // Punch Macro
+                            Text(
+                                text = "Punch: ${String.format("%+.1f", settings.macroPunchDb)} dB",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                text = stringResource(R.string.macro_punch_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Slider(
+                                value = settings.macroPunchDb,
+                                onValueChange = onMacroPunchChanged,
+                                valueRange = -6f..6f,
+                                colors =
+                                    SliderDefaults.colors(
+                                        thumbColor = style.secondaryAccent,
+                                        activeTrackColor = style.secondaryAccent,
+                                    ),
+                            )
+
+                            // Härte Macro
+                            Text(
+                                text = "Härte: ${String.format("%+.1f", settings.macroHaerteDb)} dB",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Text(
+                                text = stringResource(R.string.macro_haerte_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Slider(
+                                value = settings.macroHaerteDb,
+                                onValueChange = onMacroHaerteChanged,
+                                valueRange = -2f..2f,
+                                colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                            )
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(spacing.small))
-
-                        bands.forEach { band ->
-                            val gainDb = settings.bandGainsDb[band.index] ?: 0f
-                            val freqLabel = formatFrequency(band.centerFreqHz)
-
-                            Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Text(text = freqLabel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                                    Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
+                    // Dynamic Equalizer Bands Card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(style.cardCorner),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, style.border),
+                    ) {
+                        Column(modifier = Modifier.padding(spacing.medium)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "Grafischer EQ (${bands.size} Bänder)",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = "Bypass", style = MaterialTheme.typography.bodySmall)
+                                    Spacer(modifier = Modifier.width(spacing.extraSmall))
+                                    Switch(
+                                        checked = settings.bypass,
+                                        onCheckedChange = onBypassToggled,
+                                    )
                                 }
-                                val bandColor = style.bandColors[band.index % style.bandColors.size]
-                                Slider(
-                                    value = gainDb,
-                                    onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
-                                    valueRange = band.minGainDb..band.maxGainDb,
-                                    colors = SliderDefaults.colors(thumbColor = bandColor, activeTrackColor = bandColor),
-                                )
                             }
+
+                            Spacer(modifier = Modifier.height(spacing.small))
+
+                            bands.forEach { band ->
+                                val gainDb = settings.bandGainsDb[band.index] ?: 0f
+                                val freqLabel = formatFrequency(band.centerFreqHz)
+
+                                Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(
+                                            text = freqLabel,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    val bandColor = style.bandColors[band.index % style.bandColors.size]
+                                    Slider(
+                                        value = gainDb,
+                                        onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
+                                        valueRange = band.minGainDb..band.maxGainDb,
+                                        colors = SliderDefaults.colors(thumbColor = bandColor, activeTrackColor = bandColor),
+                                    )
+                                }
+                            }
+                            EqualizerCurve(bands = bands, gains = settings.bandGainsDb, style = style)
                         }
-                        EqualizerCurve(bands = bands, gains = settings.bandGainsDb, style = style)
                     }
                 }
                 val clippingRisk = headroom.isClippingRisk && settings.masterEnabled

@@ -600,3 +600,20 @@ Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and doc
   Vergleich unverändert; Begrenzung der Angleichung auf ±15 dB. Der bisherige Bypass-Schalter bleibt als
   harter Ein/Aus ohne Angleichung.
 - Aktueller Preset-Name und „Zurücksetzen“ stehen jetzt in derselben Karte.
+
+### UX-Roadmap Schritt 4: Klangziele und verständliche Beschreibungen (2. Oktober 2026)
+
+- **Klangziele** (`SoundGoal`, core): Ausgewogen, Gesang vorne, Mehr Power, Mehr Druck, Weniger scharf, Bass
+  zurücknehmen. Ein Ziel ist eine kleine additive Kurve (max. ±4 dB) über dem gewählten Genre-Preset, also
+  genreunabhängig; gespeichert in `LiveSettings.activeGoal` (null = Ausgewogen, ältere Daten bleiben lesbar).
+  Die Kurve läuft durch denselben Weg wie alle anderen Kurven (`CurveComposer` → Bänder → Headroom-Schutz), die
+  Headroom-Anzeige im Equalizer rechnet das Ziel mit.
+- **Gesang vorne** ist bewusst dezent: etwas mehr Präsenz (2–4 kHz), weniger Mitten-Maskierung (~300–400 Hz),
+  nichts über 5 kHz (keine Zischlaute). Die Beschreibung sagt ausdrücklich, dass der EQ keinen Gesang aus dem
+  Mix löst und keine schlechte Aufnahme repariert.
+- Neues Genre **Rap** (neben Pop), damit Pop und Rap jeweils Ausgewogen/Gesang vorne/Mehr Power wählen können.
+- Der Equalizer führt Einsteiger zuerst über „Klangziel“ und die Makro-Regler; Frequenzbänder und Makros stehen
+  unter einer aufklappbaren **Feinanpassung**. Jeder Makro-Regler hat eine Ein-Satz-Erklärung.
+- Hörvergleich und Zurücksetzen für Ziele: der Original/EQ-Vergleich (Schritt 3) gilt für die ganze Kette.
+- **Nicht verifiziert:** wie die Ziele auf echten Geräten und Kopfhörern klingen (Frequenzwerte sind
+  Erfahrungswerte, keine gemessenen Zielkurven).

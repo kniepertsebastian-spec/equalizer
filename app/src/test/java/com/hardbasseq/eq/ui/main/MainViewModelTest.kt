@@ -32,6 +32,7 @@ import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetRepository
+import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
@@ -1312,6 +1313,32 @@ class MainViewModelTest {
 
             assertTrue(fakeEngine.currentSettings.value.inputGainDb <= live.inputGainDb)
             assertEquals(CompareSide.EQ, viewModel.compare.value?.side)
+        }
+
+    @Test
+    fun `a sound goal changes the band gains and is persisted and restored`() =
+        runTest {
+            val repo = FakeAppSettingsRepository()
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = repo)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.bandGainsDb
+
+            viewModel.setSoundGoal(SoundGoal.LESS_BASS)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundGoal.LESS_BASS, viewModel.activeGoal.value)
+            assertTrue(viewModel.processingSettings.value.bandGainsDb != before)
+            assertEquals(SoundGoal.LESS_BASS.id, repo.savedSettings.last().activeGoal)
+
+            val restored = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(repo.savedSettings.last()))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundGoal.LESS_BASS, restored.activeGoal.value)
+
+            viewModel.setSoundGoal(SoundGoal.BALANCED)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(null, repo.savedSettings.last().activeGoal)
         }
 
     @Test

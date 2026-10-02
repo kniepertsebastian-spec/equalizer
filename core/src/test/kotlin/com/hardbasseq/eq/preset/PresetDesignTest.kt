@@ -37,6 +37,7 @@ class PresetDesignTest {
                 "genre_frenchcore" to PresetDesign.GABBER,
                 "genre_dance" to PresetDesign.HARD_DANCE,
                 "genre_pop" to PresetDesign.FLAT,
+                "genre_rap" to PresetDesign.FLAT,
                 "genre_flat" to PresetDesign.FLAT,
             )
 

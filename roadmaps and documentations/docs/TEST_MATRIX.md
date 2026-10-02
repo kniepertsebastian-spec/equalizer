@@ -533,3 +533,8 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | V2 | Vergleich aktiv, Equalizer-Bereich verlassen | Vergleich endet, EQ wirkt normal |
 | V3 | Starker Bass-Boost (z. B. Deep Rumble) | Hinweis zeigt die geschätzte Differenz; EQ-Seite wird leiser gestellt |
 | V4 | EQ aus / Bypass / keine Wiedergabe / Wiedergabe | Statuszeile „EQ ist aus“ / „Wartet auf Wiedergabe“ / „EQ aktiv für …“ ohne falsches „aktiv“ |
+| G1 | Equalizer → Klangziel „Gesang vorne“ bei Pop/Rap | Stimme etwas präsenter, nicht zischelnd; Beschreibung unter den Chips |
+| G2 | „Mehr Power“ / „Mehr Druck“ / „Bass zurücknehmen“ | hörbar mehr/weniger Tiefbass bzw. direkterer Kick; kein Übersteuern (Eingangspegel sinkt) |
+| G3 | „Weniger scharf“ bei Hi-Hats | Höhen sanfter |
+| G4 | Ziel wählen, App neu starten | Ziel bleibt; „Ausgewogen“ entfernt die Kurve |
+| G5 | „Feinanpassung“ anzeigen/ausblenden | Makro-Regler (mit Erklärung) und Bänder erscheinen/verschwinden; Vorgabe ausgeblendet |

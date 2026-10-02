@@ -77,4 +77,25 @@
     <string name="compare_done">Fertig</string>
     <string name="compare_hint_idle">Tippe auf „Original“, um zu vergleichen. Die Lautstärke wird angeglichen, damit ein lauterer Klang nicht wie ein besserer wirkt.</string>
     <string name="compare_hint_active">Lautstärke angeglichen (Schätzung): Der EQ liegt %1$s dB zum Original; die lautere Seite wird leiser gestellt.</string>
+    <string name="goal_title">Klangziel</string>
+    <string name="goal_subtitle">Wähle, was du hören willst. Es wirkt zusätzlich zum Genre-Klang weiter unten.</string>
+    <string name="goal_balanced_name">Ausgewogen</string>
+    <string name="goal_balanced_desc">Der Klang des Genres wie vorgesehen, ohne Zusatzänderung.</string>
+    <string name="goal_vocals_forward_name">Gesang vorne</string>
+    <string name="goal_vocals_forward_desc">Macht Stimmen etwas präsenter und lichtet den dumpfen Bereich um 300 Hz. Dezent: Es holt keine Stimme aus dem Mix und repariert keine schlechte Aufnahme.</string>
+    <string name="goal_more_power_name">Mehr Power</string>
+    <string name="goal_more_power_desc">Mehr Tiefbass und Körper. Drückt stärker in der Brust; der Eingangspegel sinkt automatisch, damit nichts übersteuert.</string>
+    <string name="goal_more_punch_name">Mehr Druck</string>
+    <string name="goal_more_punch_desc">Strafferer Kick und mehr Klick. Drums und Bass kommen direkter.</string>
+    <string name="goal_less_harsh_name">Weniger scharf</string>
+    <string name="goal_less_harsh_desc">Entschärft stechende Höhen und Hi-Hats um 3-8 kHz. Angenehmer bei hoher Lautstärke.</string>
+    <string name="goal_less_bass_name">Bass zurücknehmen</string>
+    <string name="goal_less_bass_desc">Nimmt den Tiefbass zurück, hilfreich bei kleinen Lautsprechern oder dröhnenden Räumen.</string>
+    <string name="fine_tune_title">Feinanpassung</string>
+    <string name="fine_tune_subtitle">Makro-Regler und Frequenzbänder für genaue Änderungen.</string>
+    <string name="fine_tune_show">Anzeigen</string>
+    <string name="fine_tune_hide">Ausblenden</string>
+    <string name="macro_bass_desc">Hebt oder senkt den Tiefbass (unter etwa 120 Hz).</string>
+    <string name="macro_punch_desc">Anschlag von Kick und Snare (um 100 Hz und 2-4 kHz).</string>
+    <string name="macro_haerte_desc">Kante und Aggressivität in den oberen Mitten und Höhen. Höher heißt schärfer.</string>
 </resources>

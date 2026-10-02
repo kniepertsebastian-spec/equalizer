@@ -94,6 +94,7 @@ fun MainScreen(
     val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
     val effectiveHeadphoneAcoustics by viewModel.effectiveHeadphoneAcoustics.collectAsStateWithLifecycle()
     val headphonePower by viewModel.headphonePower.collectAsStateWithLifecycle()
+    val activeGoal by viewModel.activeGoal.collectAsStateWithLifecycle()
     val currentLevelDb by viewModel.currentLevelDb.collectAsStateWithLifecycle()
     val activeContext by viewModel.activeContext.collectAsStateWithLifecycle()
     val pendingImportPreview by viewModel.pendingImportPreview.collectAsStateWithLifecycle()
@@ -284,6 +285,8 @@ fun MainScreen(
                 onCompareSide = { viewModel.setCompareSide(it) },
                 onEndCompare = { viewModel.endCompare() },
                 headphonePower = headphonePower,
+                activeGoal = activeGoal,
+                onGoalSelected = { viewModel.setSoundGoal(it) },
                 activeContext = activeContext,
                 currentLevelDb = currentLevelDb,
                 isDirty = isDirty,

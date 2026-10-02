@@ -77,4 +77,25 @@
     <string name="compare_done">Done</string>
     <string name="compare_hint_idle">Tap “Original” to compare. The volume is matched so a louder sound does not pass for a better one.</string>
     <string name="compare_hint_active">Volume matched (estimate): the EQ is %1$s dB compared to the original; the louder side is turned down.</string>
+    <string name="goal_title">Sound goal</string>
+    <string name="goal_subtitle">Pick what you want to hear. It works on top of the genre sound below.</string>
+    <string name="goal_balanced_name">Balanced</string>
+    <string name="goal_balanced_desc">The genre\'s sound as designed, no extra change.</string>
+    <string name="goal_vocals_forward_name">Vocals forward</string>
+    <string name="goal_vocals_forward_desc">Makes voices a bit more present and clears the muddy range around 300 Hz. Subtle: it cannot pull a voice out of the mix or fix a poor recording.</string>
+    <string name="goal_more_power_name">More power</string>
+    <string name="goal_more_power_desc">More low end and body. Hits harder in the chest; the input level drops automatically to avoid clipping.</string>
+    <string name="goal_more_punch_name">More punch</string>
+    <string name="goal_more_punch_desc">Tighter kick and more click. Drums and bass hit more directly.</string>
+    <string name="goal_less_harsh_name">Less harsh</string>
+    <string name="goal_less_harsh_desc">Softens piercing highs and hi-hats around 3-8 kHz. Easier on the ears at high volume.</string>
+    <string name="goal_less_bass_name">Less bass</string>
+    <string name="goal_less_bass_desc">Pulls the low end back, useful for small speakers or boomy rooms.</string>
+    <string name="fine_tune_title">Fine-tuning</string>
+    <string name="fine_tune_subtitle">Macro sliders and frequency bands for exact changes.</string>
+    <string name="fine_tune_show">Show</string>
+    <string name="fine_tune_hide">Hide</string>
+    <string name="macro_bass_desc">Raises or lowers the low end (below about 120 Hz).</string>
+    <string name="macro_punch_desc">Attack of kick and snare (around 100 Hz and 2-4 kHz).</string>
+    <string name="macro_haerte_desc">Edge and aggression in the upper mids and highs. Higher means harsher.</string>
 </resources>
