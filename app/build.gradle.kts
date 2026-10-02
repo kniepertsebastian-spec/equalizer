@@ -32,6 +32,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // English-only app: also drops translations bundled with libraries.
+    androidResources {
+        localeFilters += "en"
+    }
+
     signingConfigs {
         if (hasReleaseSigning) {
             create("hardbassRelease") {

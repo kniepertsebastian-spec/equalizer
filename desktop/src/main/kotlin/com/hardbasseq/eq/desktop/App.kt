@@ -72,9 +72,9 @@ fun App() {
             ) {
                 Text("HardBass EQ – Desktop", style = MaterialTheme.typography.headlineSmall)
                 Text(
-                    "Erkanntes System: ${detectedPlatform.label()}. " +
-                        "Presets werden für Equalizer APO (Windows) oder EasyEffects (Linux) exportiert – " +
-                        "beide Tools müssen separat installiert sein.",
+                    "Detected system: ${detectedPlatform.label()}. " +
+                        "Presets are exported for Equalizer APO (Windows) or EasyEffects (Linux) – " +
+                        "both tools must be installed separately.",
                     style = MaterialTheme.typography.bodySmall,
                 )
 
@@ -91,15 +91,15 @@ fun App() {
                 Text("Macros", style = MaterialTheme.typography.titleMedium)
                 MacroSlider("Bass", macroBassDb) { macroBassDb = it }
                 MacroSlider("Punch", macroPunchDb) { macroPunchDb = it }
-                MacroSlider("Härte", macroHaerteDb) { macroHaerteDb = it }
+                MacroSlider("Hardness", macroHaerteDb) { macroHaerteDb = it }
 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Profil vom Handy übernehmen", style = MaterialTheme.typography.titleMedium)
+                        Text("Import profile from phone", style = MaterialTheme.typography.titleMedium)
                         OutlinedTextField(
                             value = phoneProfilePath,
                             onValueChange = { phoneProfilePath = it },
-                            label = { Text("Pfad zu HardBassEQ-Desktop.json") },
+                            label = { Text("Path to HardBassEQ-Desktop.json") },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Button(
@@ -112,17 +112,17 @@ fun App() {
                                         macroBassDb = imported.macroBassDb
                                         macroPunchDb = imported.macroPunchDb
                                         macroHaerteDb = imported.macroHaerteDb
-                                        "Handy-Profil geladen: ${imported.preset.name}"
-                                    }.getOrElse { "Import fehlgeschlagen: ${it.message}" }
+                                        "Phone profile loaded: ${imported.preset.name}"
+                                    }.getOrElse { "Import failed: ${it.message}" }
                             },
-                        ) { Text("Datei laden") }
+                        ) { Text("Load file") }
                         if (phoneProfile != null) {
-                            Text("Aktive Handy-Einstellungen einschließlich Korrektur und Dynamik werden für EasyEffects exportiert.")
+                            Text("The active phone settings, including correction and dynamics, are exported for EasyEffects.")
                         }
                     }
                 }
 
-                Text("Ziel-Plattform", style = MaterialTheme.typography.titleMedium)
+                Text("Target platform", style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = { targetPlatform = DesktopPlatform.WINDOWS },
@@ -153,9 +153,9 @@ fun App() {
                                                 macroHaerteDb,
                                             )
                                         var message =
-                                            "Geschrieben nach ${file.absolutePath} " +
-                                                "(config.txt in diesem Ordner enthält jetzt " +
-                                                "automatisch die Include-Zeile)."
+                                            "Written to ${file.absolutePath} " +
+                                                "(config.txt in this folder now contains " +
+                                                "the Include line automatically)."
                                         if (includeExperimentalDynamics) {
                                             val dynamicsFile =
                                                 EqualizerApoExporter.installDynamicsTo(File(equalizerApoDir), activePreset)
@@ -165,7 +165,7 @@ fun App() {
                                                 "alle VST-Zeilen darin sind auskommentiert, siehe README."
                                         }
                                         message
-                                    }.getOrElse { "Fehler: ${it.message}" }
+                                    }.getOrElse { "Error: ${it.message}" }
                             },
                         )
                     DesktopPlatform.LINUX, DesktopPlatform.OTHER ->
@@ -191,9 +191,9 @@ fun App() {
                                                 macroPunchDb,
                                                 macroHaerteDb,
                                             )
-                                        "Geschrieben nach ${file.absolutePath}. " +
-                                            "In EasyEffects unter Presets auswählen, um es zu aktivieren."
-                                    }.getOrElse { "Fehler: ${it.message}" }
+                                        "Written to ${file.absolutePath}. " +
+                                            "Select it under Presets in EasyEffects to activate it."
+                                    }.getOrElse { "Error: ${it.message}" }
                             },
                         )
                 }
@@ -232,21 +232,21 @@ private fun EqualizerApoPanel(
         OutlinedTextField(
             value = configDir,
             onValueChange = onConfigDirChange,
-            label = { Text("Equalizer APO config-Ordner") },
+            label = { Text("Equalizer APO config folder") },
             modifier = Modifier.fillMaxWidth(),
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Checkbox(checked = includeExperimentalDynamics, onCheckedChange = onIncludeExperimentalDynamicsChange)
             Column {
-                Text("Experimentell: Kompressor/Limiter-Referenz (ReaComp-VST)")
+                Text("Experimental: compressor/limiter reference (ReaComp-VST)")
                 Text(
-                    "Ungetestet - schreibt nur auskommentierte Referenzwerte, ändert deinen " +
-                        "Sound nicht automatisch. Siehe README vor dem Aktivieren der VST-Zeilen.",
+                    "Untested - only writes commented-out reference values, does not change your " +
+                        "sound automatically. See the README before enabling the VST lines.",
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
-        Button(onClick = onApply) { Text("Preset installieren") }
+        Button(onClick = onApply) { Text("Install preset") }
     }
 }
 
@@ -260,10 +260,10 @@ private fun EasyEffectsPanel(
         OutlinedTextField(
             value = presetDir,
             onValueChange = onPresetDirChange,
-            label = { Text("EasyEffects Preset-Ordner") },
+            label = { Text("EasyEffects preset folder") },
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = onApply) { Text("Preset exportieren") }
+        Button(onClick = onApply) { Text("Export preset") }
     }
 }
 
@@ -271,5 +271,5 @@ private fun DesktopPlatform.label(): String =
     when (this) {
         DesktopPlatform.WINDOWS -> "Windows"
         DesktopPlatform.LINUX -> "Linux"
-        DesktopPlatform.OTHER -> "Unbekannt"
+        DesktopPlatform.OTHER -> "Unknown"
     }

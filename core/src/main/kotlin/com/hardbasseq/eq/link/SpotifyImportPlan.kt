@@ -53,13 +53,13 @@ object SpotifyImportPlan {
 
     fun totalParts(trackCount: Int): Int = if (trackCount <= 0) 0 else (trackCount + BATCH_SIZE - 1) / BATCH_SIZE
 
-    // "Mix (von Spotify)" for a list that fits one block, "Mix – Teil 2 von 4 (von Spotify)" otherwise.
+    // "Mix (from Spotify)" for a list that fits one block, "Mix – Part 2 of 4 (from Spotify)" otherwise.
     fun playlistName(
         title: String,
         partNumber: Int,
         totalParts: Int,
-        fromSpotify: String = "von Spotify",
-        partOfTotal: (Int, Int) -> String = { part, total -> "Teil $part von $total" },
+        fromSpotify: String = "from Spotify",
+        partOfTotal: (Int, Int) -> String = { part, total -> "Part $part of $total" },
     ): String =
         if (totalParts <= 1) {
             "$title ($fromSpotify)"
