@@ -1092,7 +1092,7 @@ class PlayerViewModelTest {
             vm.playLibraryPlaylist(playlistItem(1, "Leer"))
             dispatcher.scheduler.advanceUntilIdle()
             assertTrue(vm.libraryState.value.isError)
-            assertEquals("Leer ist leer", vm.libraryState.value.message)
+            assertEquals(t(R.string.import_name_empty, "Leer"), vm.libraryState.value.message)
 
             controller.playlistTracksResult = LoadResult.Error("Netzwerkfehler")
             vm.playLibraryPlaylist(playlistItem(2))
