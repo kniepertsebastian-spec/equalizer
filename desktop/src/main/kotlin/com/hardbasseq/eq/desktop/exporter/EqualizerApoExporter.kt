@@ -1,11 +1,10 @@
 package com.hardbasseq.eq.desktop.exporter
 
 import com.hardbasseq.eq.desktop.DESKTOP_FILTER_Q
+import com.hardbasseq.eq.desktop.DESKTOP_SUBSONIC_Q
+import com.hardbasseq.eq.desktop.ResolvedSound
 import com.hardbasseq.eq.desktop.VirtualBands
-import com.hardbasseq.eq.desktop.automaticPreampDb
-import com.hardbasseq.eq.desktop.resolveBandGains
-import com.hardbasseq.eq.dsp.CurveComposer
-import com.hardbasseq.eq.dsp.EqualizerInterpolator
+import com.hardbasseq.eq.desktop.resolveSound
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.preset.PortableSoundProfile
 import com.hardbasseq.eq.preset.Preset
@@ -51,78 +50,40 @@ object EqualizerApoExporter {
     private const val LIMITER_ATTACK_MS = 1f
     private const val LIMITER_RELEASE_MS = 40f
 
-    // Butterworth Q of the subsonic high-pass, same as SubsonicFilterCurve.
-    private const val SUBSONIC_Q = 0.7071f
-
     fun generateConfig(
         preset: Preset,
         macroBassDb: Float = preset.macroBassDb,
         macroPunchDb: Float = preset.macroPunchDb,
         macroHaerteDb: Float = preset.macroHaerteDb,
-    ): String =
-        render(
-            title = preset.name,
-            bandGains = resolveBandGains(preset, macroBassDb, macroPunchDb, macroHaerteDb),
-            subsonicCutoffHz = preset.subsonicCutoffHz,
-        )
+    ): String = render(resolveSound(preset, macroBassDb, macroPunchDb, macroHaerteDb))
 
-    /**
-     * Config for a profile exported from the phone, so correction profiles and
-     * manual band edits (`appliedEqCurve`) reach Windows too. Mirrors
-     * [EasyEffectsExporter.generatePresetJson]: live Android bands already
-     * contain the original macros, so only macro changes made after the
-     * import are applied on top.
-     */
+    /** Config for a profile exported from the phone, see [resolveSound]. */
     fun generateConfig(
         profile: PortableSoundProfile,
         macroBassDb: Float = profile.macroBassDb,
         macroPunchDb: Float = profile.macroPunchDb,
         macroHaerteDb: Float = profile.macroHaerteDb,
-    ): String {
-        val usingAppliedCurve = profile.appliedEqCurve.isNotEmpty()
-        val curve =
-            if (usingAppliedCurve) {
-                profile.appliedEqCurve
-            } else {
-                CurveComposer.combine(profile.correction.curve, profile.preset.targetCurve)
-            }
-        val bass = if (usingAppliedCurve) macroBassDb - profile.macroBassDb else macroBassDb
-        val punch = if (usingAppliedCurve) macroPunchDb - profile.macroPunchDb else macroPunchDb
-        val haerte = if (usingAppliedCurve) macroHaerteDb - profile.macroHaerteDb else macroHaerteDb
-        return render(
-            title = profile.preset.name,
-            bandGains = EqualizerInterpolator.interpolateCurveToBands(curve, VirtualBands.bands, bass, punch, haerte),
-            // The live Android bands already carry the subsonic roll-off as a curve; a true
-            // high-pass on top would cut twice.
-            subsonicCutoffHz = if (usingAppliedCurve) 0f else profile.preset.subsonicCutoffHz,
-        )
-    }
+    ): String = render(resolveSound(profile, macroBassDb, macroPunchDb, macroHaerteDb))
 
-    private fun render(
-        title: String,
-        bandGains: Map<Int, Float>,
-        subsonicCutoffHz: Float,
-    ): String {
-        val preampDb = automaticPreampDb(bandGains)
-        return buildString {
-            appendLine("# HardBass EQ - generated preset: $title")
+    private fun render(sound: ResolvedSound): String =
+        buildString {
+            appendLine("# HardBass EQ - generated preset: ${sound.title}")
             appendLine("# Regenerate from the HardBass EQ desktop app instead of editing by hand.")
-            appendLine("Preamp: ${formatDb(preampDb)} dB")
+            appendLine("Preamp: ${formatDb(sound.preampDb)} dB")
             VirtualBands.bands.forEachIndexed { position, band ->
-                val gainDb = bandGains[band.index] ?: 0f
+                val gainDb = sound.bandGainsDb[band.index] ?: 0f
                 appendLine(
                     "Filter ${position + 1}: ON PK Fc ${band.centerFreqHz} Hz " +
                         "Gain ${formatDb(gainDb)} dB Q ${formatDb(DESKTOP_FILTER_Q)}",
                 )
             }
-            if (subsonicCutoffHz > 0f) {
-                val cutoff = subsonicCutoffHz.coerceIn(SubsonicFilterCurve.MIN_CUTOFF_HZ, SubsonicFilterCurve.MAX_CUTOFF_HZ)
+            if (sound.subsonicCutoffHz > 0f) {
+                val cutoff = sound.subsonicCutoffHz.coerceIn(SubsonicFilterCurve.MIN_CUTOFF_HZ, SubsonicFilterCurve.MAX_CUTOFF_HZ)
                 appendLine(
-                    "Filter ${VirtualBands.bands.size + 1}: ON HPQ Fc ${formatDb(cutoff)} Hz Q ${formatDb(SUBSONIC_Q)}",
+                    "Filter ${VirtualBands.bands.size + 1}: ON HPQ Fc ${formatDb(cutoff)} Hz Q ${formatDb(DESKTOP_SUBSONIC_Q)}",
                 )
             }
         }
-    }
 
     /**
      * Writes the include file into [configDir] (Equalizer APO's own

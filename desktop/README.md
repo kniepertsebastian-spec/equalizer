@@ -126,6 +126,25 @@ Werten des mittleren Bands aus `AndroidAudioEngine.kt` als Mittelweg). Für
 den Limiter gibt's in ReaComp keinen echten Brickwall-Modus - eine harte
 Ratio (20:1) nähert das an.
 
+## Eigener Player mit Limiter
+
+Equalizer APO kennt weder Limiter noch Kompressor (siehe Abschnitt oben). Die
+Desktop-App enthält deshalb einen kleinen **eigenen Player**: er spielt eine
+Datei durch dieselbe Kette wie der APO-Export (Preamp, optionaler echter
+Subsonic-Highpass, 15 Peaking-Bänder) und danach durch den Lookahead-Limiter
+aus `:core` (`PlayerDspPcm16`).
+
+- Wirkt **nur auf Audio, das dieser Player selbst abspielt**, nicht
+  systemweit.
+- Presets, Makro-Slider und ein importiertes Handy-Profil wirken sofort auch
+  während der Wiedergabe.
+- Ohne zusätzliche Bibliotheken liest die JVM WAV, AIFF und AU. MP3 oder FLAC
+  brauchen einen JavaX-Sound-Service-Provider im Klassenpfad.
+- Der Mehrband-Kompressor ist hier **noch nicht** enthalten, nur der Limiter.
+- Das DSP ist offline gegen Testsignale geprüft (`DesktopDspChainTest`). Die
+  Ausgabe auf echter Audiohardware ist in der Entwicklungs-Sandbox nicht
+  getestet worden.
+
 ## Installer selbst bauen
 
 CI baut nur Kompilierung + Tests, keine fertigen Installer – `jpackage`

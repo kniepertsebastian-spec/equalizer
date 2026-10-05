@@ -17,6 +17,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +27,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.desktop.exporter.EasyEffectsExporter
 import com.hardbasseq.eq.desktop.exporter.EqualizerApoExporter
+import com.hardbasseq.eq.desktop.player.DesktopDspChain
+import com.hardbasseq.eq.desktop.player.DesktopPlayer
 import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.PortableSoundProfile
 import com.hardbasseq.eq.preset.PortableSoundProfileJson
@@ -51,6 +54,16 @@ fun App() {
     // comment on why the generated dynamics file is reference-only/commented out.
     var includeExperimentalDynamics by remember { mutableStateOf(false) }
 
+    val player = remember { DesktopPlayer() }
+    var playerFilePath by remember { mutableStateOf("") }
+    var isPlaying by remember { mutableStateOf(false) }
+
+    fun currentChain(): DesktopDspChain =
+        DesktopDspChain(
+            phoneProfile?.let { resolveSound(it, macroBassDb, macroPunchDb, macroHaerteDb) }
+                ?: resolveSound(activePreset, macroBassDb, macroPunchDb, macroHaerteDb),
+        )
+
     fun selectPreset(preset: Preset) {
         activePreset = preset
         phoneProfile = null
@@ -58,6 +71,12 @@ fun App() {
         macroPunchDb = preset.macroPunchDb
         macroHaerteDb = preset.macroHaerteDb
         statusMessage = ""
+    }
+
+    // Sliders and preset changes reach the running player, but only when one of
+    // them actually changed - a new chain restarts the filters.
+    LaunchedEffect(activePreset, phoneProfile, macroBassDb, macroPunchDb, macroHaerteDb) {
+        if (isPlaying) player.setChain(currentChain())
     }
 
     MaterialTheme {
@@ -206,6 +225,29 @@ fun App() {
                         )
                 }
 
+                Text("Player with limiter", style = MaterialTheme.typography.titleMedium)
+                DesktopPlayerPanel(
+                    filePath = playerFilePath,
+                    onFilePathChange = { playerFilePath = it },
+                    isPlaying = isPlaying,
+                    onPlay = {
+                        val file = File(playerFilePath)
+                        if (!file.isFile) {
+                            statusMessage = "File not found: $playerFilePath"
+                        } else {
+                            isPlaying = true
+                            statusMessage = "Playing ${file.name}"
+                            player.play(file, currentChain()) { error ->
+                                isPlaying = false
+                                if (error != null) statusMessage = "Playback failed: ${error.message}"
+                            }
+                        }
+                    },
+                    onStop = {
+                        player.stop()
+                        isPlaying = false
+                    },
+                )
                 if (statusMessage.isNotEmpty()) {
                     Card(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         Text(statusMessage, modifier = Modifier.padding(12.dp))
@@ -272,6 +314,33 @@ private fun EasyEffectsPanel(
             modifier = Modifier.fillMaxWidth(),
         )
         Button(onClick = onApply) { Text("Export preset") }
+    }
+}
+
+@Composable
+private fun DesktopPlayerPanel(
+    filePath: String,
+    onFilePathChange: (String) -> Unit,
+    isPlaying: Boolean,
+    onPlay: () -> Unit,
+    onStop: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Plays a file through the same EQ curve plus a lookahead limiter. " +
+                "Only affects audio played here, not other apps. WAV, AIFF and AU are supported.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            value = filePath,
+            onValueChange = onFilePathChange,
+            label = { Text("Audio file path") },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onPlay, enabled = !isPlaying) { Text("Play") }
+            Button(onClick = onStop, enabled = isPlaying) { Text("Stop") }
+        }
     }
 }
 
