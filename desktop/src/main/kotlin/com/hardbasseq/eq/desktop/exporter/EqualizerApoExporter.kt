@@ -1,9 +1,12 @@
 package com.hardbasseq.eq.desktop.exporter
 
 import com.hardbasseq.eq.desktop.DESKTOP_FILTER_Q
+import com.hardbasseq.eq.desktop.DESKTOP_SUBSONIC_Q
+import com.hardbasseq.eq.desktop.ResolvedSound
 import com.hardbasseq.eq.desktop.VirtualBands
-import com.hardbasseq.eq.desktop.automaticPreampDb
-import com.hardbasseq.eq.desktop.resolveBandGains
+import com.hardbasseq.eq.desktop.resolveSound
+import com.hardbasseq.eq.dsp.SubsonicFilterCurve
+import com.hardbasseq.eq.preset.PortableSoundProfile
 import com.hardbasseq.eq.preset.Preset
 import java.io.File
 import java.util.Locale
@@ -52,23 +55,35 @@ object EqualizerApoExporter {
         macroBassDb: Float = preset.macroBassDb,
         macroPunchDb: Float = preset.macroPunchDb,
         macroHaerteDb: Float = preset.macroHaerteDb,
-    ): String {
-        val bandGains = resolveBandGains(preset, macroBassDb, macroPunchDb, macroHaerteDb)
-        val preampDb = automaticPreampDb(bandGains)
+    ): String = render(resolveSound(preset, macroBassDb, macroPunchDb, macroHaerteDb))
 
-        return buildString {
-            appendLine("# HardBass EQ - generated preset: ${preset.name}")
+    /** Config for a profile exported from the phone, see [resolveSound]. */
+    fun generateConfig(
+        profile: PortableSoundProfile,
+        macroBassDb: Float = profile.macroBassDb,
+        macroPunchDb: Float = profile.macroPunchDb,
+        macroHaerteDb: Float = profile.macroHaerteDb,
+    ): String = render(resolveSound(profile, macroBassDb, macroPunchDb, macroHaerteDb))
+
+    private fun render(sound: ResolvedSound): String =
+        buildString {
+            appendLine("# HardBass EQ - generated preset: ${sound.title}")
             appendLine("# Regenerate from the HardBass EQ desktop app instead of editing by hand.")
-            appendLine("Preamp: ${formatDb(preampDb)} dB")
+            appendLine("Preamp: ${formatDb(sound.preampDb)} dB")
             VirtualBands.bands.forEachIndexed { position, band ->
-                val gainDb = bandGains[band.index] ?: 0f
+                val gainDb = sound.bandGainsDb[band.index] ?: 0f
                 appendLine(
                     "Filter ${position + 1}: ON PK Fc ${band.centerFreqHz} Hz " +
                         "Gain ${formatDb(gainDb)} dB Q ${formatDb(DESKTOP_FILTER_Q)}",
                 )
             }
+            if (sound.subsonicCutoffHz > 0f) {
+                val cutoff = sound.subsonicCutoffHz.coerceIn(SubsonicFilterCurve.MIN_CUTOFF_HZ, SubsonicFilterCurve.MAX_CUTOFF_HZ)
+                appendLine(
+                    "Filter ${VirtualBands.bands.size + 1}: ON HPQ Fc ${formatDb(cutoff)} Hz Q ${formatDb(DESKTOP_SUBSONIC_Q)}",
+                )
+            }
         }
-    }
 
     /**
      * Writes the include file into [configDir] (Equalizer APO's own
@@ -85,6 +100,20 @@ object EqualizerApoExporter {
         configDir.mkdirs()
         val includeFile = File(configDir, INCLUDE_FILE_NAME)
         includeFile.writeText(generateConfig(preset, macroBassDb, macroPunchDb, macroHaerteDb))
+        ensureIncludeWired(File(configDir, CONFIG_FILE_NAME), includeLine)
+        return includeFile
+    }
+
+    fun installTo(
+        configDir: File,
+        profile: PortableSoundProfile,
+        macroBassDb: Float = profile.macroBassDb,
+        macroPunchDb: Float = profile.macroPunchDb,
+        macroHaerteDb: Float = profile.macroHaerteDb,
+    ): File {
+        configDir.mkdirs()
+        val includeFile = File(configDir, INCLUDE_FILE_NAME)
+        includeFile.writeText(generateConfig(profile, macroBassDb, macroPunchDb, macroHaerteDb))
         ensureIncludeWired(File(configDir, CONFIG_FILE_NAME), includeLine)
         return includeFile
     }

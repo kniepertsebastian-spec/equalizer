@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.desktop.exporter
 
+import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.desktop.DESKTOP_FILTER_Q
 import com.hardbasseq.eq.desktop.VirtualBands
 import com.hardbasseq.eq.desktop.automaticPreampDb
@@ -7,8 +8,11 @@ import com.hardbasseq.eq.desktop.resolveBandGains
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.BuiltInPresets
+import com.hardbasseq.eq.preset.PortableSoundProfile
+import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.PresetIntensityResolver
+import com.hardbasseq.eq.preset.TargetPoint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -178,5 +182,77 @@ class EqualizerApoExporterTest {
         val expectedLine = "Include: ${EqualizerApoExporter.INCLUDE_FILE_NAME_DYNAMICS}"
         val includeLines = File(dir, "config.txt").readLines().filter { it.trim() == expectedLine }
         assertEquals(1, includeLines.size)
+    }
+
+    private fun flatCurve(gainDb: Float) =
+        VirtualBands.bands.map { band ->
+            TargetPoint(band.centerFreqHz.toFloat(), gainDb)
+        }
+
+    private fun profile(
+        preset: Preset,
+        applied: List<TargetPoint> = emptyList(),
+    ) = PortableSoundProfile(
+        preset = preset,
+        correction = BuiltInCorrectionProfiles.None,
+        appliedEqCurve = applied,
+        macroBassDb = preset.macroBassDb,
+        macroPunchDb = preset.macroPunchDb,
+        macroHaerteDb = preset.macroHaerteDb,
+        inputGainDb = 0f,
+        mbcEnabled = false,
+        mbcThresholdDb = -8f,
+        mbcRatio = 2.5f,
+        limiter = preset.limiter,
+        processingEnabled = true,
+    )
+
+    @Test
+    fun `subsonic cutoff becomes a true high-pass filter line`() {
+        val preset = BuiltInPresets.CleanPunch.copy(subsonicCutoffHz = 35f)
+
+        val config = EqualizerApoExporter.generateConfig(preset)
+
+        assertTrue(config.lines().any { it.matches(Regex("""Filter 16: ON HPQ Fc 35\.00 Hz Q 0\.71""")) })
+    }
+
+    @Test
+    fun `no high-pass line when subsonic is off`() {
+        val config = EqualizerApoExporter.generateConfig(BuiltInPresets.CleanPunch)
+
+        assertTrue(config.lines().none { it.contains("HPQ") })
+    }
+
+    @Test
+    fun `profile export uses the applied phone curve instead of the preset curve`() {
+        val applied = flatCurve(3f)
+
+        val config = EqualizerApoExporter.generateConfig(profile(BuiltInPresets.Flat, applied))
+
+        val gains = config.lines().filter { it.startsWith("Filter") }
+        assertEquals(15, gains.size)
+        assertTrue(gains.all { it.contains("Gain 3.00 dB") })
+    }
+
+    @Test
+    fun `profile export does not add a second high-pass on top of the applied curve`() {
+        val preset = BuiltInPresets.Flat.copy(subsonicCutoffHz = 35f)
+        val applied = flatCurve(0f)
+
+        val withApplied = EqualizerApoExporter.generateConfig(profile(preset, applied))
+        val withoutApplied = EqualizerApoExporter.generateConfig(profile(preset))
+
+        assertTrue(withApplied.lines().none { it.contains("HPQ") })
+        assertTrue(withoutApplied.lines().any { it.contains("HPQ") })
+    }
+
+    @Test
+    fun `profile export of an unmodified preset matches the preset export`() {
+        val preset = BuiltInPresets.CleanPunch
+
+        assertEquals(
+            EqualizerApoExporter.generateConfig(preset),
+            EqualizerApoExporter.generateConfig(profile(preset)),
+        )
     }
 }
