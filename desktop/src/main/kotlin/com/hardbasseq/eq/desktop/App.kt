@@ -145,7 +145,15 @@ fun App() {
                                 statusMessage =
                                     runCatching {
                                         val file =
-                                            EqualizerApoExporter.installTo(
+                                            phoneProfile?.let {
+                                                EqualizerApoExporter.installTo(
+                                                    File(equalizerApoDir),
+                                                    it,
+                                                    macroBassDb,
+                                                    macroPunchDb,
+                                                    macroHaerteDb,
+                                                )
+                                            } ?: EqualizerApoExporter.installTo(
                                                 File(equalizerApoDir),
                                                 activePreset,
                                                 macroBassDb,
