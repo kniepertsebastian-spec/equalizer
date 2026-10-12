@@ -11,6 +11,8 @@ import com.hardbasseq.eq.audio.AudioEngine
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
+import com.hardbasseq.eq.audio.AudioSession
+import com.hardbasseq.eq.audio.AudioSessionRepository
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.audio.SystemVolumeRepository
@@ -142,6 +144,7 @@ class MainViewModel
         private val deviceProfileRepository: DeviceProfileRepository,
         private val texts: TextProvider,
         private val deviceAliases: DeviceAliasStore = InMemoryDeviceAliasStore(),
+        private val sessionRepository: AudioSessionRepository = NoAudioSessionRepository,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -156,6 +159,14 @@ class MainViewModel
         val effectDescriptors: StateFlow<List<AudioEffectDescriptor>> = _effectDescriptors.asStateFlow()
 
         val engineState: StateFlow<AudioEngineState> = audioEngine.state
+
+        // Every app currently holding an audio effect session, and the one the EQ is bound to.
+        val audioSessions: StateFlow<List<AudioSession>> = sessionRepository.sessions
+        val activeAudioSession: StateFlow<AudioSession?> = sessionRepository.activeSession
+
+        fun selectAudioSession(session: AudioSession) {
+            sessionRepository.setActiveSession(session)
+        }
         val capabilities = audioEngine.capabilities
         val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
 
@@ -1225,3 +1236,14 @@ class MainViewModel
             recalculateBandGains()
         }
     }
+
+private object NoAudioSessionRepository : AudioSessionRepository {
+    override val sessions: StateFlow<List<AudioSession>> = MutableStateFlow(emptyList())
+    override val activeSession: StateFlow<AudioSession?> = MutableStateFlow(null)
+
+    override fun startListening() = Unit
+
+    override fun stopListening() = Unit
+
+    override fun setActiveSession(session: AudioSession?) = Unit
+}

@@ -89,6 +89,7 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
+import com.hardbasseq.eq.audio.AudioSession
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
@@ -173,6 +174,9 @@ fun EqualizerScreen(
     onMacroHaerteChanged: (Float) -> Unit,
     onBandGainChanged: (bandIndex: Int, gainDb: Float) -> Unit,
     onRetryAttach: () -> Unit,
+    audioSessions: List<AudioSession> = emptyList(),
+    activeAudioSession: AudioSession? = null,
+    onSelectAudioSession: (AudioSession) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
@@ -318,6 +322,13 @@ fun EqualizerScreen(
                                 kind = EqStatus.kind(state, settings),
                                 pathLabel = pathLabel,
                                 onClick = {},
+                            )
+
+                            AudioSourceList(
+                                sessions = audioSessions,
+                                activeSession = activeAudioSession,
+                                onSelect = onSelectAudioSession,
+                                modifier = Modifier.padding(top = spacing.small),
                             )
 
                             // "Fehler: konkrete nächste Handlung anbieten" (roadmap-2026.md M1) -

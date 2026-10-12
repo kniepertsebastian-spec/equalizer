@@ -69,6 +69,7 @@ import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.ui.equalizer.CurvePreview
 import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
+import com.hardbasseq.eq.ui.equalizer.appLabelFor
 import com.hardbasseq.eq.ui.equalizer.localizedSourceLabel
 import com.hardbasseq.eq.ui.equalizer.styleFor
 import com.hardbasseq.eq.ui.main.MainViewModel
@@ -91,6 +92,9 @@ fun MainScreen(
     val descriptors by viewModel.effectDescriptors.collectAsStateWithLifecycle()
 
     val engineState by viewModel.engineState.collectAsStateWithLifecycle()
+    val audioSessions by viewModel.audioSessions.collectAsStateWithLifecycle()
+    val activeAudioSession by viewModel.activeAudioSession.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val route by viewModel.displayRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
@@ -302,7 +306,12 @@ fun MainScreen(
                 effectiveHeadphoneAcoustics = effectiveHeadphoneAcoustics,
                 onOpenServices = onOpenServices,
                 onRenameRoute = { viewModel.renameCurrentRoute(it) },
-                pathLabel = if (nowPlaying != null) stringResource(R.string.source_soundcloud) else null,
+                pathLabel =
+                    activeAudioSession?.let { appLabelFor(context, it.packageName) }
+                        ?: if (nowPlaying != null) stringResource(R.string.source_soundcloud) else null,
+                audioSessions = audioSessions,
+                activeAudioSession = activeAudioSession,
+                onSelectAudioSession = { viewModel.selectAudioSession(it) },
                 compare = compare,
                 onStartCompare = { viewModel.startCompare() },
                 onCompareSide = { viewModel.setCompareSide(it) },

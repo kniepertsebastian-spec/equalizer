@@ -33,6 +33,10 @@
     <string name="action_to_player">Go to player</string>
     <string name="action_to_equalizer">Go to equalizer</string>
     <string name="eq_status_active_for">EQ active for %1$s</string>
+    <string name="audio_sources_title">Audio sources</string>
+    <string name="audio_sources_hint">Tap the app the EQ should work on.</string>
+    <string name="audio_sources_selected">EQ applied here</string>
+    <string name="audio_sources_unknown_app">Unknown app</string>
     <string name="eq_status_active">EQ active</string>
     <string name="eq_status_waiting">Waiting for playback</string>
     <string name="eq_status_connecting">Connecting…</string>
