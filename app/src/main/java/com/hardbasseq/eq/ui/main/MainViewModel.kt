@@ -167,6 +167,7 @@ class MainViewModel
         fun selectAudioSession(session: AudioSession) {
             sessionRepository.setActiveSession(session)
         }
+
         val capabilities = audioEngine.capabilities
         val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
 
