@@ -2,7 +2,6 @@ package com.hardbasseq.eq.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -35,16 +34,12 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsMma
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -68,11 +63,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -111,6 +102,7 @@ import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.SoundGoal
+import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.ui.eq.EqStatus
 import com.hardbasseq.eq.ui.eq.EqStatusKind
 import com.hardbasseq.eq.ui.eq.EqStatusLine
@@ -227,18 +219,43 @@ fun EqualizerScreen(
             macroHaerteDb = settings.macroHaerteDb,
         )
 
+    val warningLevel = HeadroomWarningLevelCalculator.fromHeadroom(headroom)
+    val clippingRisk = headroom.isClippingRisk && settings.masterEnabled
+    val statusKind = EqStatus.kind(state, settings)
+    // The hero draws what the EQ is actually set to: the applied band gains (preset,
+    // macros and manual band edits included). Before the device has reported its bands
+    // there are none, so it falls back to the combined target curve.
+    val bandPoints =
+        bands
+            .sortedBy { it.centerFreqHz }
+            .map { band -> TargetPoint(band.centerFreqHz.toFloat(), settings.bandGainsDb[band.index] ?: 0f) }
+    val curvePoints = if (bandPoints.isEmpty()) combinedCurve else bandPoints
+    val curvePeak = CurveGeometry.strongestChange(curvePoints)
+    val curveDescription =
+        if (curvePeak != null) {
+            stringResource(
+                R.string.eq_curve_description,
+                String.format("%+.1f", curvePeak.gainDb),
+                CurveGeometry.formatFrequency(curvePeak.frequencyHz),
+            )
+        } else {
+            stringResource(R.string.eq_curve_flat)
+        }
+
     MaterialTheme(colorScheme = style.colorScheme) {
         Box(
             modifier =
                 modifier
                     .fillMaxSize()
-                    .background(Brush.verticalGradient(listOf(style.background, style.backgroundEnd))),
+                    .neonBackdrop(style),
         ) {
             style.backgroundRes?.let { backgroundRes ->
+                // The genre artwork stays as a faint texture; the glow and the curve carry the look.
                 Image(
                     painter = painterResource(backgroundRes),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
+                    alpha = 0.12f,
                     modifier = Modifier.matchParentSize(),
                 )
             }
@@ -251,215 +268,277 @@ fun EqualizerScreen(
                             .padding(spacing.medium),
                     verticalArrangement = Arrangement.spacedBy(spacing.medium),
                 ) {
-                    // Top Header Card: Master Switch, Status, Active Route
-                    Card(
+                    // Header: route, app name, genre, source picker and the master switch.
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(style.cardCorner),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, style.border),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Column(modifier = Modifier.padding(spacing.medium)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column {
-                                    Text(
-                                        text = stringResource(R.string.app_name),
-                                        style = MaterialTheme.typography.headlineSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.route_label, route.name),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.eq_playback_only_note),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    Text(
-                                        text = style.name,
-                                        style = MaterialTheme.typography.labelMedium,
-                                        fontWeight = FontWeight.Black,
-                                        color = style.accent,
-                                    )
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    // Independent of the master switch below - that one only
-                                    // offers the source picker when flipped on with nothing
-                                    // attached yet (see MainViewModel.setMasterEnabled), so
-                                    // switching/reopening a source with the EQ already on, or
-                                    // something else already attached, needed disabling and
-                                    // re-enabling the master bar just to see the dialog again.
-                                    IconButton(onClick = onOpenSourcePicker) {
-                                        Icon(
-                                            imageVector = Icons.Default.LibraryMusic,
-                                            contentDescription = stringResource(R.string.eq_pick_source),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                    val masterDescription = stringResource(R.string.eq_master_switch)
-                                    Switch(
-                                        modifier = Modifier.semantics { contentDescription = masterDescription },
-                                        checked = settings.masterEnabled,
-                                        onCheckedChange = onMasterToggled,
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(spacing.small))
-
-                            // Engine Status Chip - docs/STATE_MACHINE.md §5 UI-status mapping.
-                            // Detached/Listening/Attaching/LostControl/Retrying all share the
-                            // "Wartet" category (surfaceVariant); Unsupported and Error get
-                            // their own distinct categories so all 4 required statuses are
-                            // visually distinguishable.
-                            EqStatusLine(
-                                kind = EqStatus.kind(state, settings),
-                                pathLabel = pathLabel,
-                                onClick = {},
+                        Column(modifier = Modifier.weight(1f)) {
+                            NeonLabel(text = stringResource(R.string.route_label, route.name), color = style.secondaryAccent)
+                            Text(
+                                text = stringResource(R.string.app_name),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = style.text,
                             )
-
-                            AudioSourceList(
-                                sessions = audioSessions,
-                                activeSession = activeAudioSession,
-                                onSelect = onSelectAudioSession,
-                                modifier = Modifier.padding(top = spacing.small),
+                            NeonLabel(text = style.name, color = style.accent)
+                        }
+                        // Independent of the master switch - that one only offers the source
+                        // picker when flipped on with nothing attached yet (see
+                        // MainViewModel.setMasterEnabled).
+                        IconButton(onClick = onOpenSourcePicker) {
+                            Icon(
+                                imageVector = Icons.Default.LibraryMusic,
+                                contentDescription = stringResource(R.string.eq_pick_source),
+                                tint = style.mutedText,
                             )
+                        }
+                        NeonPowerButton(
+                            checked = settings.masterEnabled,
+                            onCheckedChange = onMasterToggled,
+                            description = stringResource(R.string.eq_master_switch),
+                            style = style,
+                        )
+                    }
 
-                            // "Fehler: konkrete nächste Handlung anbieten" (roadmap-2026.md M1) -
-                            // resets the retry budget and re-attempts the last known session.
-                            AnimatedVisibility(visible = state is AudioEngineState.Error) {
-                                OutlinedButton(
-                                    onClick = onRetryAttach,
-                                    modifier = Modifier.padding(top = spacing.extraSmall),
-                                ) {
-                                    Text(stringResource(R.string.action_retry))
-                                }
+                    // Engine status - docs/STATE_MACHINE.md §5 UI-status mapping.
+                    Column(verticalArrangement = Arrangement.spacedBy(spacing.extraSmall)) {
+                        EqStatusLine(
+                            kind = statusKind,
+                            pathLabel = pathLabel,
+                            onClick = {},
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Text(
+                            text = stringResource(R.string.eq_playback_only_note),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = style.mutedText,
+                        )
+                        AudioSourceList(
+                            sessions = audioSessions,
+                            activeSession = activeAudioSession,
+                            onSelect = onSelectAudioSession,
+                        )
+                        // "Fehler: konkrete nächste Handlung anbieten" (roadmap-2026.md M1) -
+                        // resets the retry budget and re-attempts the last known session.
+                        AnimatedVisibility(visible = state is AudioEngineState.Error) {
+                            OutlinedButton(onClick = onRetryAttach) {
+                                Text(stringResource(R.string.action_retry))
                             }
                         }
                     }
 
-                    CompareCard(
-                        presetName = activePreset.name,
-                        isDirty = isDirty,
-                        compare = compare,
-                        onStart = onStartCompare,
-                        onSide = onCompareSide,
-                        onEnd = onEndCompare,
-                        onReset = onResetToActivePreset,
-                        style = style,
-                    )
-
-                    // M4 "Angewandten Input-Gain permanent anzeigen" / "Limiter-Status und
-                    // verwendeten Threshold anzeigen" / "Warnstufen definieren" / MBC-
-                    // Transparenz. Always visible (unlike the clipping banner above), since M4
-                    // explicitly asks for the applied input gain to be shown *permanently*,
-                    // not just when there's a clipping risk.
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(style.cardCorner),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, style.border),
-                    ) {
-                        Column(modifier = Modifier.padding(spacing.medium)) {
-                            Text(
-                                text = stringResource(R.string.signal_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text =
-                                    stringResource(
-                                        if (EqStatus.kind(state, settings) == EqStatusKind.ACTIVE) {
-                                            R.string.signal_confirmed
+                    // Hero: the curve, its limiting tag and the Original/EQ comparison.
+                    NeonPanel(style = style, glow = true, contentPadding = 14.dp) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                NeonLabel(text = stringResource(R.string.compare_current_preset), color = style.mutedText)
+                                Text(
+                                    text =
+                                        if (isDirty) {
+                                            stringResource(R.string.compare_preset_custom, activePreset.name)
                                         } else {
-                                            R.string.signal_not_confirmed
+                                            activePreset.name
+                                        },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = style.text,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            if (settings.masterEnabled) {
+                                when (warningLevel) {
+                                    HeadroomWarningLevel.HEAVY_LIMITING ->
+                                        NeonTag(text = stringResource(R.string.tag_limiting_heavy), color = NeonHotColor)
+                                    HeadroomWarningLevel.OCCASIONAL_LIMITING ->
+                                        NeonTag(text = stringResource(R.string.tag_limiting_sometimes), color = LimiterAmber)
+                                    HeadroomWarningLevel.SUFFICIENT -> Unit
+                                }
+                            }
+                            if (isDirty) {
+                                TextButton(onClick = onResetToActivePreset) { Text(stringResource(R.string.compare_reset)) }
+                            }
+                        }
+                        NeonCurve(
+                            points = curvePoints,
+                            nodes = bandPoints,
+                            style = style,
+                            hot = settings.masterEnabled && warningLevel == HeadroomWarningLevel.HEAVY_LIMITING,
+                            description = curveDescription,
+                            modifier = Modifier.padding(vertical = spacing.small),
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            NeonChip(
+                                text = stringResource(R.string.compare_original),
+                                selected = compare?.side == CompareSide.ORIGINAL,
+                                onClick = { onCompareSide(CompareSide.ORIGINAL) },
+                                style = style,
+                            )
+                            NeonChip(
+                                text = stringResource(R.string.compare_eq),
+                                selected = compare == null || compare.side == CompareSide.EQ,
+                                onClick = { if (compare == null) onStartCompare() else onCompareSide(CompareSide.EQ) },
+                                style = style,
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            if (compare != null) {
+                                TextButton(onClick = onEndCompare) { Text(stringResource(R.string.compare_done)) }
+                            }
+                        }
+                        HoldToCompareButton(
+                            modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
+                            onPress = { onCompareSide(CompareSide.ORIGINAL) },
+                            onRelease = onEndCompare,
+                            style = style,
+                        )
+                        Text(
+                            text =
+                                if (compare == null) {
+                                    stringResource(R.string.compare_hint_idle)
+                                } else {
+                                    stringResource(R.string.compare_hint_active, String.format("%+.1f", compare.eqLevelDeltaDb))
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = style.mutedText,
+                            modifier = Modifier.padding(top = spacing.small),
+                        )
+                    }
+
+                    // M4: applied input gain, limiter status and threshold, warning levels and
+                    // MBC transparency - always visible, as LED chains plus the exact values.
+                    // All of it is derived from the settings; nothing here is a measurement.
+                    NeonPanel(style = style) {
+                        NeonSectionHeader(
+                            title = stringResource(R.string.meters_title),
+                            style = style,
+                            info = stringResource(R.string.signal_explain),
+                        )
+                        if (statusKind != EqStatusKind.ACTIVE) {
+                            Text(
+                                text = stringResource(R.string.signal_not_confirmed),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = style.mutedText,
+                            )
+                            Spacer(modifier = Modifier.height(spacing.small))
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                        ) {
+                            LedMeter(
+                                label = stringResource(R.string.meter_boost),
+                                value = String.format("%+.1f", headroom.maxPositiveGainDb.coerceAtLeast(0f)),
+                                fraction = headroom.maxPositiveGainDb / METER_RANGE_DB,
+                                scale = LedScale.LEVEL,
+                                style = style,
+                            )
+                            LedMeter(
+                                label = stringResource(R.string.meter_input),
+                                value = String.format("%+.1f", settings.inputGainDb),
+                                fraction = -settings.inputGainDb / METER_RANGE_DB,
+                                scale = LedScale.REDUCTION,
+                                style = style,
+                            )
+                            LedMeter(
+                                label = stringResource(R.string.meter_limit),
+                                value =
+                                    stringResource(
+                                        when (warningLevel) {
+                                            HeadroomWarningLevel.SUFFICIENT -> R.string.meter_limit_low
+                                            HeadroomWarningLevel.OCCASIONAL_LIMITING -> R.string.meter_limit_some
+                                            HeadroomWarningLevel.HEAVY_LIMITING -> R.string.meter_limit_heavy
                                         },
                                     ),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = stringResource(R.string.signal_explain),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(modifier = Modifier.height(spacing.small))
-
-                            Text(
-                                text = stringResource(R.string.signal_input_gain, String.format("%+.1f", settings.inputGainDb)),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Text(
-                                text =
-                                    if (settings.limiterEnabled) {
-                                        stringResource(R.string.signal_limiter_on, String.format("%.1f", settings.limiterThresholdDb))
-                                    } else {
-                                        stringResource(R.string.signal_limiter_off)
+                                fraction =
+                                    when (warningLevel) {
+                                        HeadroomWarningLevel.SUFFICIENT -> 0.07f
+                                        HeadroomWarningLevel.OCCASIONAL_LIMITING -> 0.5f
+                                        HeadroomWarningLevel.HEAVY_LIMITING -> 1f
                                     },
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            Text(
-                                text =
-                                    if (settings.mbcEnabled) {
-                                        stringResource(R.string.signal_mbc_on)
-                                    } else {
-                                        stringResource(R.string.signal_mbc_off)
-                                    },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-
-                            Spacer(modifier = Modifier.height(spacing.extraSmall))
-
-                            val warningLevel = HeadroomWarningLevelCalculator.fromHeadroom(headroom)
-                            val (warningText, warningColor) =
-                                when (warningLevel) {
-                                    HeadroomWarningLevel.SUFFICIENT ->
-                                        stringResource(R.string.headroom_ok) to MaterialTheme.colorScheme.onSurfaceVariant
-                                    HeadroomWarningLevel.OCCASIONAL_LIMITING ->
-                                        stringResource(R.string.headroom_limiter_sometimes) to MaterialTheme.colorScheme.tertiary
-                                    HeadroomWarningLevel.HEAVY_LIMITING ->
-                                        stringResource(R.string.headroom_limiter_heavy) to MaterialTheme.colorScheme.error
-                                }
-                            Text(
-                                text = warningText,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = warningColor,
+                                scale = LedScale.HOT,
+                                style = style,
                             )
                         }
+                        Spacer(modifier = Modifier.height(spacing.small))
+                        Text(
+                            text =
+                                if (settings.limiterEnabled) {
+                                    stringResource(R.string.signal_limiter_on, String.format("%.1f", settings.limiterThresholdDb))
+                                } else {
+                                    stringResource(R.string.signal_limiter_off)
+                                },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = style.text,
+                        )
+                        Text(
+                            text =
+                                if (settings.mbcEnabled) {
+                                    stringResource(R.string.signal_mbc_on)
+                                } else {
+                                    stringResource(R.string.signal_mbc_off)
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = style.mutedText,
+                        )
+                        val (warningText, warningColor) =
+                            when (warningLevel) {
+                                HeadroomWarningLevel.SUFFICIENT ->
+                                    stringResource(R.string.headroom_ok) to style.mutedText
+                                HeadroomWarningLevel.OCCASIONAL_LIMITING ->
+                                    stringResource(R.string.headroom_limiter_sometimes) to LimiterAmber
+                                HeadroomWarningLevel.HEAVY_LIMITING ->
+                                    stringResource(R.string.headroom_limiter_heavy) to NeonHotColor
+                            }
+                        Text(
+                            text = warningText,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = warningColor,
+                        )
+                        Text(
+                            text =
+                                if (clippingRisk) {
+                                    stringResource(
+                                        R.string.clipping_danger,
+                                        String.format("%.1f", headroom.maxPositiveGainDb),
+                                        String.format("%.1f", headroom.recommendedInputGainDb),
+                                    )
+                                } else if (settings.limiterEnabled) {
+                                    stringResource(R.string.clipping_protected, String.format("%+.1f", settings.inputGainDb))
+                                } else {
+                                    stringResource(R.string.clipping_limiter_off, String.format("%+.1f", settings.inputGainDb))
+                                },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (clippingRisk) NeonHotColor else style.mutedText,
+                        )
+                        Text(
+                            text = stringResource(R.string.meters_estimate_note),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = style.mutedText,
+                            modifier = Modifier.padding(top = spacing.extraSmall),
+                        )
                     }
 
-                    // No-session guidance: AudioSessionForegroundService now listens for the
-                    // OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast in the background, independent
-                    // of whether this screen is open, so the "app wasn't running yet" case is
-                    // covered. But that broadcast only fires once per player session and still
-                    // won't arrive at all for a session that was already open before the service
-                    // started (e.g. right after install) or - per the M0 spike's unresolved
-                    // finding (roadmap.md Session 4) - possibly not at all on some devices. Explain
-                    // what to try instead of leaving the user staring at "Wartet auf Audio-Session".
+                    // No-session guidance: the foreground service listens for new sessions in
+                    // the background, but a player that was already running before it started
+                    // (or, per the M0 spike, some devices) never announces one. Explain what to
+                    // try instead of leaving the user staring at "waiting for an audio session".
                     // Detached and Listening both mean "no session" - see AudioEngineState.
                     AnimatedVisibility(visible = state is AudioEngineState.Detached || state is AudioEngineState.Listening) {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(style.cardCorner),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                            border = BorderStroke(1.dp, style.border),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(spacing.medium),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
+                        NeonPanel(style = style) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Default.Info,
                                     contentDescription = stringResource(R.string.hint_icon),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    tint = style.secondaryAccent,
                                 )
                                 Spacer(modifier = Modifier.width(spacing.small))
                                 Column {
@@ -467,48 +546,198 @@ fun EqualizerScreen(
                                         text = stringResource(R.string.no_session_title),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = style.text,
                                     )
                                     Text(
-                                        text =
-                                            stringResource(R.string.no_session_text),
+                                        text = stringResource(R.string.no_session_text),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = style.mutedText,
                                     )
                                 }
                             }
                         }
                     }
 
-                    Column {
-                        Text(
-                            text = stringResource(R.string.profiles_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                    // Genre x intensity: genre cards with their own mini curve, then the
+                    // intensity as one stepped slider.
+                    NeonPanel(style = style) {
+                        NeonSectionHeader(
+                            title = stringResource(R.string.genre_title),
+                            style = style,
+                            trailing = {
+                                // M2: only once a band/macro edit has actually moved away from
+                                // what activePreset alone would produce.
+                                AnimatedVisibility(visible = isDirty) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        TextButton(onClick = onResetToActivePreset) {
+                                            Text(stringResource(R.string.compare_reset))
+                                        }
+                                        TextButton(onClick = onSaveAsNewRequest) {
+                                            Text(stringResource(R.string.action_save))
+                                        }
+                                    }
+                                }
+                            },
                         )
-                        Text(
-                            text = stringResource(R.string.profiles_intro),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        GenreCards(
+                            genres = genrePresets,
+                            selected = selectedGenreIntensity?.first,
+                            onSelect = { genre ->
+                                // Keep the chosen intensity when the new genre has one, otherwise
+                                // land on MODERATE - picking another genre should not silently
+                                // reset an already chosen "Aggressive".
+                                val intensity =
+                                    selectedGenreIntensity?.second?.takeIf { genre.allowsIntensity } ?: PresetIntensity.MODERATE
+                                onGenreIntensitySelected(genre, intensity)
+                            },
+                            style = style,
+                        )
+                        Spacer(modifier = Modifier.height(spacing.medium))
+                        val selectedGenre = selectedGenreIntensity?.first
+                        val selectedIntensity = selectedGenreIntensity?.second
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            NeonLabel(
+                                text = stringResource(R.string.intensity_title),
+                                color = style.mutedText,
+                                modifier = Modifier.weight(1f),
+                            )
+                            if (selectedGenre != null && selectedIntensity != null && selectedGenre.allowsIntensity) {
+                                NeonLabel(text = selectedIntensity.displayName, color = style.accent)
+                            }
+                        }
+                        IntensityStepper(
+                            labels = intensities.map { it.displayName },
+                            selectedIndex = selectedIntensity?.let { intensities.indexOf(it) }?.takeIf { it >= 0 },
+                            enabled = selectedGenre?.allowsIntensity == true,
+                            onSelect = { index -> selectedGenre?.let { onGenreIntensitySelected(it, intensities[index]) } },
+                            style = style,
+                        )
+                        if (intensities.isNotEmpty()) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(
+                                    text = intensities.first().displayName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = style.mutedText,
+                                )
+                                Text(
+                                    text = intensities.last().displayName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = style.mutedText,
+                                )
+                            }
+                        }
+                        if (customPresets.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(spacing.medium))
+                            NeonLabel(text = stringResource(R.string.presets_custom), color = style.accent)
+                            Spacer(modifier = Modifier.height(spacing.small))
+                            PresetGrid(
+                                presets = customPresets,
+                                activePresetId = activePreset.id,
+                                onPresetSelected = onPresetSelected,
+                                onDuplicatePreset = onDuplicatePreset,
+                                onRenamePresetRequest = onRenamePresetRequest,
+                                onDeletePresetRequest = onDeletePresetRequest,
+                                spacing = spacing,
+                                style = style,
+                                design = design,
+                            )
+                        }
+                    }
+
+                    SoundGoalCard(active = activeGoal, onSelect = onGoalSelected, style = style)
+
+                    // Listening context (car / Bluetooth speaker) plus the three stages it
+                    // uses as tiles. A mode is an overlay on the active genre preset
+                    // (MainViewModel.activeContext), so it stays on when the genre changes; a
+                    // detected car/speaker route turns it on by itself.
+                    NeonPanel(style = style) {
+                        NeonSectionHeader(
+                            title = stringResource(R.string.context_title),
+                            style = style,
+                            info =
+                                listOf(
+                                    stringResource(R.string.context_default_desc),
+                                    stringResource(R.string.context_loudness_desc),
+                                    if (settings.subsonicCutoffHz > 0f) {
+                                        stringResource(R.string.context_subsonic_on, settings.subsonicCutoffHz.toInt())
+                                    } else {
+                                        stringResource(R.string.context_subsonic_off)
+                                    },
+                                    stringResource(R.string.context_virtual_bass_desc),
+                                ).joinToString("\n"),
+                        )
+                        val detectedRoute =
+                            when (route.type) {
+                                AudioDeviceType.CAR -> stringResource(R.string.context_car_detected, route.name)
+                                AudioDeviceType.BLUETOOTH_SPEAKER -> stringResource(R.string.context_speaker_detected, route.name)
+                                else -> null
+                            }
+                        if (detectedRoute != null) {
+                            NeonLabel(text = detectedRoute, color = style.secondaryAccent)
+                        }
+                        Spacer(modifier = Modifier.height(spacing.small))
+                        ContextModeChips(
+                            activeContext = activeContext,
+                            onContextModeChanged = onContextModeChanged,
+                            accent = style.accent,
+                            border = style.border,
+                        )
+                        Spacer(modifier = Modifier.height(spacing.medium))
+                        Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                            SignalModuleTile(
+                                title = stringResource(R.string.module_loudness),
+                                detail = stringResource(if (settings.loudnessMaxBoostDb > 0f) R.string.module_on else R.string.module_off),
+                                checked = settings.loudnessMaxBoostDb > 0f,
+                                onCheckedChange = onLoudnessCompensationChanged,
+                                style = style,
+                                modifier = Modifier.weight(1f),
+                            )
+                            SignalModuleTile(
+                                title = stringResource(R.string.module_subsonic),
+                                detail =
+                                    if (settings.subsonicCutoffHz > 0f) {
+                                        "< ${settings.subsonicCutoffHz.toInt()} Hz"
+                                    } else {
+                                        stringResource(R.string.module_off)
+                                    },
+                                checked = settings.subsonicCutoffHz > 0f,
+                                onCheckedChange = onSubsonicFilterChanged,
+                                style = style,
+                                modifier = Modifier.weight(1f),
+                            )
+                            SignalModuleTile(
+                                title = stringResource(R.string.module_virtual_bass),
+                                detail = stringResource(if (settings.virtualBassMix > 0f) R.string.module_on else R.string.module_off),
+                                checked = settings.virtualBassMix > 0f,
+                                onCheckedChange = onVirtualBassChanged,
+                                style = style,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+
+                    // Sound profiles: which preset and correction belong to this output.
+                    NeonPanel(style = style) {
+                        NeonSectionHeader(
+                            title = stringResource(R.string.profiles_title),
+                            style = style,
+                            info =
+                                stringResource(R.string.profiles_intro) + "\n" +
+                                    stringResource(
+                                        R.string.profiles_saved_for_output,
+                                        activePreset.name,
+                                        if (activeCorrectionProfile.id == "correction_none") {
+                                            stringResource(R.string.profiles_correction_none)
+                                        } else {
+                                            activeCorrectionProfile.localizedName()
+                                        },
+                                    ),
                         )
                         Text(
                             text = stringResource(R.string.profiles_output, route.name),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
-                        )
-                        Text(
-                            text =
-                                stringResource(
-                                    R.string.profiles_saved_for_output,
-                                    activePreset.name,
-                                    if (activeCorrectionProfile.id == "correction_none") {
-                                        stringResource(R.string.profiles_correction_none)
-                                    } else {
-                                        activeCorrectionProfile.localizedName()
-                                    },
-                                ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = style.text,
                         )
                         var showRenameRoute by rememberSaveable { mutableStateOf(false) }
                         Row {
@@ -527,123 +756,99 @@ fun EqualizerScreen(
                         }
                     }
 
-                    // M3 "Mein Kopfhörer" Card: which headphone/speaker correction curve is
-                    // combined with the voicing preset below (Klangstil card).
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(style.cardCorner),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, style.border),
-                    ) {
-                        Column(modifier = Modifier.padding(spacing.medium)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.correction_title),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                // M5 "Vorhandenen AutoEQ-Parser in einen vollständigen
-                                // Importflow integrieren" - opens the SAF file picker; the
-                                // actual parsing/preview happens back in MainViewModel once
-                                // the picked file's text is read (MainScreen owns the
-                                // ContentResolver access this needs).
+                    // M3 "Mein Kopfhörer": which headphone/speaker correction curve is combined
+                    // with the voicing preset.
+                    NeonPanel(style = style) {
+                        NeonSectionHeader(
+                            title = stringResource(R.string.correction_title),
+                            style = style,
+                            trailing = {
+                                // M5: opens the SAF file picker; parsing and preview happen in
+                                // MainViewModel once MainScreen has read the picked file.
                                 TextButton(onClick = onImportCorrectionProfileRequested) {
                                     Text(stringResource(R.string.action_import))
                                 }
-                            }
-                            Spacer(modifier = Modifier.height(spacing.small))
+                            },
+                        )
 
-                            // Chat feature (not a roadmap-2026.md milestone): a
-                            // suggestion only, never applied silently - see
-                            // MainViewModel.updateSuggestedCorrectionProfile()/
-                            // AutoEqCatalogMatcher for why (name matching is never
-                            // certain enough for a quiet auto-import).
-                            AnimatedVisibility(visible = suggestedCorrectionProfile != null) {
-                                if (suggestedCorrectionProfile != null) {
-                                    Column(
-                                        modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(MaterialTheme.colorScheme.secondaryContainer)
-                                                .padding(spacing.small),
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.correction_detected, suggestedCorrectionProfile.displayName),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        )
-                                        Text(
-                                            text =
-                                                stringResource(
-                                                    R.string.correction_suggestion,
-                                                    localizedSourceLabel(suggestedCorrectionProfile.profile.sourceLabel),
-                                                ),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        )
-                                        Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                                            TextButton(onClick = onDismissSuggestedCorrectionProfile) {
-                                                Text(stringResource(R.string.action_not_now))
-                                            }
-                                            TextButton(onClick = onAcceptSuggestedCorrectionProfile) {
-                                                Text(stringResource(R.string.action_apply))
-                                            }
+                        // A suggestion only, never applied silently - see
+                        // MainViewModel.updateSuggestedCorrectionProfile()/AutoEqCatalogMatcher.
+                        AnimatedVisibility(visible = suggestedCorrectionProfile != null) {
+                            if (suggestedCorrectionProfile != null) {
+                                Column(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = spacing.small)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(style.accent.copy(alpha = 0.12f))
+                                            .padding(spacing.small),
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.correction_detected, suggestedCorrectionProfile.displayName),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = style.text,
+                                    )
+                                    Text(
+                                        text =
+                                            stringResource(
+                                                R.string.correction_suggestion,
+                                                localizedSourceLabel(suggestedCorrectionProfile.profile.sourceLabel),
+                                            ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = style.mutedText,
+                                    )
+                                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                                        TextButton(onClick = onDismissSuggestedCorrectionProfile) {
+                                            Text(stringResource(R.string.action_not_now))
+                                        }
+                                        TextButton(onClick = onAcceptSuggestedCorrectionProfile) {
+                                            Text(stringResource(R.string.action_apply))
                                         }
                                     }
                                 }
                             }
+                        }
 
-                            CorrectionProfileRow(
-                                profiles = allCorrectionProfiles,
-                                activeProfileId = activeCorrectionProfile.id,
-                                onProfileSelected = onCorrectionProfileSelected,
-                                onExportProfile = onExportCorrectionProfile,
-                                spacing = spacing,
-                                style = style,
-                            )
+                        CorrectionProfileRow(
+                            profiles = allCorrectionProfiles,
+                            activeProfileId = activeCorrectionProfile.id,
+                            onProfileSelected = onCorrectionProfileSelected,
+                            onExportProfile = onExportCorrectionProfile,
+                            spacing = spacing,
+                            style = style,
+                        )
 
-                            Spacer(modifier = Modifier.height(spacing.small))
+                        Spacer(modifier = Modifier.height(spacing.small))
 
-                            // Chat feature (item 1 of "setz alle Punkte um"): true
-                            // Crossfeed/Bass-Mono-Summing (items 2/5) can't run over
-                            // the currently working playback path (Android's system
-                            // Equalizer/DynamicsProcessing effects, session-attached to
-                            // Spotify/SoundCloud/etc. - no room for custom algorithms
-                            // there). This switch instead folds HeadphoneComfortCurve
-                            // into the real, already-applied band-EQ curve
-                            // (MainViewModel.combinedCurve()) - a fixed bass/presence
-                            // tilt, not a literal crossfeed simulation. Defaults from
-                            // the route type (MainViewModel.effectiveHeadphoneAcoustics)
-                            // until explicitly overridden here.
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Column {
-                                    Text(
-                                        text = stringResource(R.string.headphone_mode_title),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.headphone_mode_desc),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                val headphoneModeDescription = stringResource(R.string.headphone_mode_title)
-                                Switch(
-                                    modifier = Modifier.semantics { contentDescription = headphoneModeDescription },
-                                    checked = effectiveHeadphoneAcoustics,
-                                    onCheckedChange = onHeadphoneAcousticsChanged,
+                        // Folds HeadphoneComfortCurve into the applied band-EQ curve
+                        // (MainViewModel.combinedCurve()) - a fixed bass/presence tilt, not a
+                        // literal crossfeed simulation, which the session-attached system
+                        // effects cannot run. Defaults from the route type until overridden here.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = spacing.small)) {
+                                Text(
+                                    text = stringResource(R.string.headphone_mode_title),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = style.text,
+                                )
+                                Text(
+                                    text = stringResource(R.string.headphone_mode_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = style.mutedText,
                                 )
                             }
+                            val headphoneModeDescription = stringResource(R.string.headphone_mode_title)
+                            Switch(
+                                modifier = Modifier.semantics { contentDescription = headphoneModeDescription },
+                                checked = effectiveHeadphoneAcoustics,
+                                onCheckedChange = onHeadphoneAcousticsChanged,
+                            )
                         }
                     }
 
@@ -653,135 +858,6 @@ fun EqualizerScreen(
                             onPowerChanged = onHeadphonePowerChanged,
                             style = style,
                         )
-                    }
-
-                    // Listening-context card (car / Bluetooth speaker): the mode switches plus
-                    // individual switches for the three features the modes use. A mode is an
-                    // overlay on the active genre preset (MainViewModel.activeContext), so it
-                    // stays on when the genre changes; a detected car/speaker route turns it
-                    // on by itself.
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(style.cardCorner),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, style.border),
-                    ) {
-                        Column(modifier = Modifier.padding(spacing.medium)) {
-                            Text(
-                                text = stringResource(R.string.context_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text =
-                                    when (route.type) {
-                                        AudioDeviceType.CAR -> stringResource(R.string.context_car_detected, route.name)
-                                        AudioDeviceType.BLUETOOTH_SPEAKER -> stringResource(R.string.context_speaker_detected, route.name)
-                                        else -> stringResource(R.string.context_default_desc)
-                                    },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(modifier = Modifier.height(spacing.small))
-                            ContextModeChips(
-                                activeContext = activeContext,
-                                onContextModeChanged = onContextModeChanged,
-                                accent = style.accent,
-                                border = style.border,
-                            )
-                            Spacer(modifier = Modifier.height(spacing.small))
-                            ContextFeatureSwitch(
-                                title = stringResource(R.string.context_loudness_title),
-                                subtitle = stringResource(R.string.context_loudness_desc),
-                                checked = settings.loudnessMaxBoostDb > 0f,
-                                onCheckedChange = onLoudnessCompensationChanged,
-                            )
-                            ContextFeatureSwitch(
-                                title = stringResource(R.string.context_subsonic_title),
-                                subtitle =
-                                    if (settings.subsonicCutoffHz > 0f) {
-                                        stringResource(R.string.context_subsonic_on, settings.subsonicCutoffHz.toInt())
-                                    } else {
-                                        stringResource(R.string.context_subsonic_off)
-                                    },
-                                checked = settings.subsonicCutoffHz > 0f,
-                                onCheckedChange = onSubsonicFilterChanged,
-                            )
-                            ContextFeatureSwitch(
-                                title = stringResource(R.string.virtual_bass_title),
-                                subtitle = stringResource(R.string.context_virtual_bass_desc),
-                                checked = settings.virtualBassMix > 0f,
-                                onCheckedChange = onVirtualBassChanged,
-                            )
-                        }
-                    }
-
-                    SoundGoalCard(active = activeGoal, onSelect = onGoalSelected, style = style)
-
-                    // Klangstil (Voicing) Selector Card
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(style.cardCorner),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, style.border),
-                    ) {
-                        Column(modifier = Modifier.padding(spacing.medium)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.presets_title, style.name),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = style.accent,
-                                )
-                                // M2: "manuelle Änderung eines Presets automatisch als Custom
-                                // markieren" - only shown once a band/macro edit has actually
-                                // moved away from what activePreset alone would produce.
-                                AnimatedVisibility(visible = isDirty) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        TextButton(onClick = onResetToActivePreset) {
-                                            Text(stringResource(R.string.compare_reset))
-                                        }
-                                        TextButton(onClick = onSaveAsNewRequest) {
-                                            Text(stringResource(R.string.action_save))
-                                        }
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(spacing.small))
-                            GenreIntensitySelector(
-                                genres = genrePresets,
-                                intensities = intensities,
-                                selected = selectedGenreIntensity,
-                                onSelected = onGenreIntensitySelected,
-                                spacing = spacing,
-                                style = style,
-                            )
-                            if (customPresets.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(spacing.medium))
-                                Text(
-                                    text = stringResource(R.string.presets_custom),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = style.accent,
-                                )
-                                Spacer(modifier = Modifier.height(spacing.small))
-                                PresetGrid(
-                                    presets = customPresets,
-                                    activePresetId = activePreset.id,
-                                    onPresetSelected = onPresetSelected,
-                                    onDuplicatePreset = onDuplicatePreset,
-                                    onRenamePresetRequest = onRenamePresetRequest,
-                                    onDeletePresetRequest = onDeletePresetRequest,
-                                    spacing = spacing,
-                                    style = style,
-                                    design = design,
-                                )
-                            }
-                        }
                     }
 
                     var fineTuneOpen by rememberSaveable { mutableStateOf(false) }
@@ -794,11 +870,12 @@ fun EqualizerScreen(
                                 text = stringResource(R.string.fine_tune_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
+                                color = style.text,
                             )
                             Text(
                                 text = stringResource(R.string.fine_tune_subtitle),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = style.mutedText,
                             )
                         }
                         TextButton(onClick = { fineTuneOpen = !fineTuneOpen }) {
@@ -806,189 +883,116 @@ fun EqualizerScreen(
                         }
                     }
                     if (fineTuneOpen) {
-                        // Macro Controls Card
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(style.cardCorner),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, style.border),
-                        ) {
-                            Column(modifier = Modifier.padding(spacing.medium)) {
+                        NeonPanel(style = style) {
+                            Text(
+                                text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else stringResource(R.string.macro_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = style.accent,
+                            )
+                            Spacer(modifier = Modifier.height(spacing.small))
+
+                            val bassLabel = stringResource(R.string.macro_bass_label, String.format("%+.1f", settings.macroBassDb))
+                            Text(text = bassLabel, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = stringResource(R.string.macro_bass_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = style.mutedText,
+                            )
+                            Slider(
+                                modifier = Modifier.semantics { contentDescription = bassLabel },
+                                value = settings.macroBassDb,
+                                onValueChange = onMacroBassChanged,
+                                valueRange = -6f..6f,
+                                colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                            )
+
+                            val punchLabel = stringResource(R.string.macro_punch_label, String.format("%+.1f", settings.macroPunchDb))
+                            Text(text = punchLabel, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = stringResource(R.string.macro_punch_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = style.mutedText,
+                            )
+                            Slider(
+                                modifier = Modifier.semantics { contentDescription = punchLabel },
+                                value = settings.macroPunchDb,
+                                onValueChange = onMacroPunchChanged,
+                                valueRange = -6f..6f,
+                                colors =
+                                    SliderDefaults.colors(
+                                        thumbColor = style.secondaryAccent,
+                                        activeTrackColor = style.secondaryAccent,
+                                    ),
+                            )
+
+                            val haerteLabel =
+                                stringResource(R.string.macro_haerte_label, String.format("%+.1f", settings.macroHaerteDb))
+                            Text(text = haerteLabel, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                text = stringResource(R.string.macro_haerte_desc),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = style.mutedText,
+                            )
+                            Slider(
+                                modifier = Modifier.semantics { contentDescription = haerteLabel },
+                                value = settings.macroHaerteDb,
+                                onValueChange = onMacroHaerteChanged,
+                                valueRange = -2f..2f,
+                                colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
+                            )
+                        }
+
+                        NeonPanel(style = style) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
                                 Text(
-                                    text = if (design == PresetDesign.GABBER) "EARLY HARDCORE" else stringResource(R.string.macro_title),
+                                    text = stringResource(R.string.bands_title, bands.size),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = style.accent,
                                 )
-                                Spacer(modifier = Modifier.height(spacing.small))
-
-                                // Bass Macro
-                                val bassLabel = stringResource(R.string.macro_bass_label, String.format("%+.1f", settings.macroBassDb))
-                                Text(text = bassLabel, style = MaterialTheme.typography.bodySmall)
-                                Text(
-                                    text = stringResource(R.string.macro_bass_desc),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Slider(
-                                    modifier = Modifier.semantics { contentDescription = bassLabel },
-                                    value = settings.macroBassDb,
-                                    onValueChange = onMacroBassChanged,
-                                    valueRange = -6f..6f,
-                                    colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
-                                )
-
-                                // Punch Macro
-                                val punchLabel = stringResource(R.string.macro_punch_label, String.format("%+.1f", settings.macroPunchDb))
-                                Text(text = punchLabel, style = MaterialTheme.typography.bodySmall)
-                                Text(
-                                    text = stringResource(R.string.macro_punch_desc),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Slider(
-                                    modifier = Modifier.semantics { contentDescription = punchLabel },
-                                    value = settings.macroPunchDb,
-                                    onValueChange = onMacroPunchChanged,
-                                    valueRange = -6f..6f,
-                                    colors =
-                                        SliderDefaults.colors(
-                                            thumbColor = style.secondaryAccent,
-                                            activeTrackColor = style.secondaryAccent,
-                                        ),
-                                )
-
-                                // Härte Macro
-                                val haerteLabel =
-                                    stringResource(R.string.macro_haerte_label, String.format("%+.1f", settings.macroHaerteDb))
-                                Text(text = haerteLabel, style = MaterialTheme.typography.bodySmall)
-                                Text(
-                                    text = stringResource(R.string.macro_haerte_desc),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Slider(
-                                    modifier = Modifier.semantics { contentDescription = haerteLabel },
-                                    value = settings.macroHaerteDb,
-                                    onValueChange = onMacroHaerteChanged,
-                                    valueRange = -2f..2f,
-                                    colors = SliderDefaults.colors(thumbColor = style.accent, activeTrackColor = style.accent),
-                                )
-                            }
-                        }
-
-                        // Dynamic Equalizer Bands Card
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(style.cardCorner),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, style.border),
-                        ) {
-                            Column(modifier = Modifier.padding(spacing.medium)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.bands_title, bands.size),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(text = stringResource(R.string.bypass_label), style = MaterialTheme.typography.bodySmall)
+                                    Spacer(modifier = Modifier.width(spacing.extraSmall))
+                                    val bypassDescription = stringResource(R.string.bypass_label)
+                                    Switch(
+                                        modifier = Modifier.semantics { contentDescription = bypassDescription },
+                                        checked = settings.bypass,
+                                        onCheckedChange = onBypassToggled,
                                     )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(text = stringResource(R.string.bypass_label), style = MaterialTheme.typography.bodySmall)
-                                        Spacer(modifier = Modifier.width(spacing.extraSmall))
-                                        val bypassDescription = stringResource(R.string.bypass_label)
-                                        Switch(
-                                            modifier = Modifier.semantics { contentDescription = bypassDescription },
-                                            checked = settings.bypass,
-                                            onCheckedChange = onBypassToggled,
-                                        )
-                                    }
                                 }
-
-                                Spacer(modifier = Modifier.height(spacing.small))
-
-                                bands.forEach { band ->
-                                    val gainDb = settings.bandGainsDb[band.index] ?: 0f
-                                    val freqLabel = formatFrequency(band.centerFreqHz)
-
-                                    Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                        ) {
-                                            Text(
-                                                text = freqLabel,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.SemiBold,
-                                            )
-                                            Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
-                                        }
-                                        val bandColor = style.bandColors[band.index % style.bandColors.size]
-                                        Slider(
-                                            modifier = Modifier.semantics { contentDescription = freqLabel },
-                                            value = gainDb,
-                                            onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
-                                            valueRange = band.minGainDb..band.maxGainDb,
-                                            colors = SliderDefaults.colors(thumbColor = bandColor, activeTrackColor = bandColor),
-                                        )
-                                    }
-                                }
-                                EqualizerCurve(bands = bands, gains = settings.bandGainsDb, style = style)
                             }
-                        }
-                    }
-                    val clippingRisk = headroom.isClippingRisk && settings.masterEnabled
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(style.cardCorner),
-                        colors = CardDefaults.cardColors(containerColor = style.warningBackground),
-                        border = BorderStroke(1.dp, if (clippingRisk) style.accent else style.border),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(spacing.medium),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(
-                                imageVector = if (clippingRisk) Icons.Default.Warning else Icons.Default.Info,
-                                contentDescription = null,
-                                tint = style.warningText,
-                            )
-                            Spacer(modifier = Modifier.width(spacing.small))
-                            Column {
-                                Text(
-                                    text =
-                                        if (clippingRisk) {
-                                            when (design) {
-                                                PresetDesign.TERRORCORE -> "DANGER!"
-                                                PresetDesign.UPTEMPO_HARDCORE -> "WARNING! SYSTEM OVERLOAD!"
-                                                PresetDesign.HARD_DANCE -> "ATTENTION!"
-                                                else -> "WARNING!"
-                                            }
-                                        } else {
-                                            "SAFETY FIRST!"
-                                        },
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Black,
-                                    color = style.warningText,
-                                )
-                                Text(
-                                    text =
-                                        if (clippingRisk) {
-                                            stringResource(
-                                                R.string.clipping_danger,
-                                                String.format("%.1f", headroom.maxPositiveGainDb),
-                                                String.format("%.1f", headroom.recommendedInputGainDb),
-                                            )
-                                        } else if (settings.limiterEnabled) {
-                                            stringResource(R.string.clipping_protected, String.format("%+.1f", settings.inputGainDb))
-                                        } else {
-                                            stringResource(R.string.clipping_limiter_off, String.format("%+.1f", settings.inputGainDb))
-                                        },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = style.warningText,
-                                )
+
+                            Spacer(modifier = Modifier.height(spacing.small))
+
+                            bands.forEach { band ->
+                                val gainDb = settings.bandGainsDb[band.index] ?: 0f
+                                val freqLabel = formatFrequency(band.centerFreqHz)
+
+                                Column(modifier = Modifier.padding(vertical = spacing.extraSmall)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Text(
+                                            text = freqLabel,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                        )
+                                        Text(text = "${String.format("%+.1f", gainDb)} dB", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    val bandColor = style.bandColors[band.index % style.bandColors.size]
+                                    Slider(
+                                        modifier = Modifier.semantics { contentDescription = freqLabel },
+                                        value = gainDb,
+                                        onValueChange = { newGain -> onBandGainChanged(band.index, newGain) },
+                                        valueRange = band.minGainDb..band.maxGainDb,
+                                        colors = SliderDefaults.colors(thumbColor = bandColor, activeTrackColor = bandColor),
+                                    )
+                                }
                             }
                         }
                     }
@@ -998,115 +1002,58 @@ fun EqualizerScreen(
     }
 }
 
-// Chat feature: genre x intensity preset redesign. A dropdown for the genre
-// (8 entries, always visible) plus a fixed row of 5 intensity buttons below it
-// - Idee 1 from the chat request, chosen over the cascading-buttons
-// alternative (Idee 2) for being the simpler one to build and to reach any
-// genre from in a single tap. The intensity row stays visible but disabled for
-// a genre that doesn't use it (Flat) rather than hiding it, so the layout
-// doesn't jump around as the user browses genres.
+// Size of the LED meters' scale: 12 dB fills a chain.
+private const val METER_RANGE_DB = 12f
+
+// Amber for "the limiter works now and then", between the calm and the red state.
+private val LimiterAmber = Color(0xFFFFB020)
+
+// Genre picker: one card per genre with its own curve, scrolling sideways. Replaces the
+// dropdown so every genre is visible and one tap away.
 @Composable
-private fun GenreIntensitySelector(
+private fun GenreCards(
     genres: List<GenrePreset>,
-    intensities: List<PresetIntensity>,
-    selected: Pair<GenrePreset, PresetIntensity>?,
-    onSelected: (GenrePreset, PresetIntensity) -> Unit,
-    spacing: Spacing,
+    selected: GenrePreset?,
+    onSelect: (GenrePreset) -> Unit,
     style: EqualizerDesignStyle,
 ) {
-    var showGenreMenu by remember { mutableStateOf(false) }
-    val selectedGenre = selected?.first
-    val selectedIntensity = selected?.second
-
-    Column {
-        Box {
-            OutlinedButton(onClick = { showGenreMenu = true }, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = selectedGenre?.displayName ?: stringResource(R.string.genre_pick),
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            DropdownMenu(expanded = showGenreMenu, onDismissRequest = { showGenreMenu = false }) {
-                genres.forEach { genre ->
-                    DropdownMenuItem(
-                        text = { Text(genre.displayName) },
-                        onClick = {
-                            showGenreMenu = false
-                            // Landing intensity when switching genre: keep the current
-                            // one if the new genre still has it, otherwise MODERATE -
-                            // picking "Terror" shouldn't silently reset an already
-                            // chosen "Aggressive" back to the middle for no reason.
-                            val intensity =
-                                selectedIntensity?.takeIf { genre.allowsIntensity } ?: PresetIntensity.MODERATE
-                            onSelected(genre, intensity)
-                        },
+    Row(
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        genres.forEach { genre ->
+            val isSelected = genre.id == selected?.id
+            Surface(
+                onClick = { onSelect(genre) },
+                modifier =
+                    Modifier
+                        .width(128.dp)
+                        .height(92.dp)
+                        .semantics { contentDescription = genre.displayName },
+                shape = RoundedCornerShape(18.dp),
+                color = if (isSelected) style.accent.copy(alpha = 0.14f) else style.text.copy(alpha = 0.04f),
+                border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) style.accent else style.border.copy(alpha = 0.6f)),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(12.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    MiniCurve(
+                        points = genre.base.targetCurve,
+                        color = if (isSelected) style.accent else style.secondaryAccent,
+                        modifier = Modifier.fillMaxWidth().height(30.dp),
+                    )
+                    Text(
+                        text = genre.displayName,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = style.text,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
         }
-        Spacer(modifier = Modifier.height(spacing.small))
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(spacing.extraSmall),
-        ) {
-            intensities.forEach { intensity ->
-                val isSelected = selectedGenre != null && intensity == selectedIntensity
-                val enabled = selectedGenre != null && selectedGenre.allowsIntensity
-                val containerColor =
-                    if (isSelected) style.accent.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant
-                val contentColor =
-                    when {
-                        !enabled -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                        isSelected -> style.accent
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                Surface(
-                    shape = RoundedCornerShape(50),
-                    color = containerColor,
-                    border = BorderStroke(1.dp, if (isSelected) style.accent else style.border),
-                ) {
-                    TextButton(
-                        onClick = { selectedGenre?.let { onSelected(it, intensity) } },
-                        enabled = enabled,
-                    ) {
-                        Text(
-                            text = intensity.displayName,
-                            color = contentColor,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-// One labelled on/off row inside the context card.
-@Composable
-private fun ContextFeatureSwitch(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(text = title, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Switch(
-            modifier = Modifier.semantics { contentDescription = title },
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-        )
     }
 }
 
@@ -1349,48 +1296,6 @@ private fun presetIcon(presetId: String): ImageVector =
         else -> Icons.Filled.Equalizer
     }
 
-@Composable
-private fun EqualizerCurve(
-    bands: List<EqualizerBandCapabilities>,
-    gains: Map<Int, Float>,
-    style: EqualizerDesignStyle,
-) {
-    Canvas(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(88.dp)
-                .clip(RoundedCornerShape(style.presetCorner))
-                .background(style.surfaceVariant),
-    ) {
-        val middle = size.height / 2f
-        listOf(0.25f, 0.5f, 0.75f).forEach { fraction ->
-            drawLine(
-                color = style.border.copy(alpha = 0.55f),
-                start = Offset(0f, size.height * fraction),
-                end = Offset(size.width, size.height * fraction),
-                strokeWidth = 1.dp.toPx(),
-            )
-        }
-
-        val path = Path().apply { moveTo(0f, middle) }
-        val count = bands.size.coerceAtLeast(1)
-        bands.forEachIndexed { position, band ->
-            val maximum = maxOf(kotlin.math.abs(band.minGainDb), kotlin.math.abs(band.maxGainDb)).coerceAtLeast(1f)
-            val gain = gains[band.index] ?: 0f
-            val x = size.width * (position + 1) / (count + 1)
-            val y = middle - (gain / maximum).coerceIn(-1f, 1f) * size.height * 0.36f
-            path.lineTo(x, y)
-        }
-        path.lineTo(size.width, middle)
-        drawPath(
-            path = path,
-            brush = Brush.horizontalGradient(listOf(style.accent, style.secondaryAccent, style.accent)),
-            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
-        )
-    }
-}
-
 private fun formatFrequency(centerFreqHz: Int): String =
     if (centerFreqHz >= 1000) {
         "${centerFreqHz / 1000} kHz"
@@ -1425,13 +1330,8 @@ private fun HeadphonePowerCard(
     style: EqualizerDesignStyle,
 ) {
     val spacing = MaterialTheme.spacing
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(style.cardCorner),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, style.border),
-    ) {
-        Column(modifier = Modifier.padding(spacing.medium)) {
+    NeonPanel(style = style) {
+        Column {
             Text(
                 text = stringResource(R.string.hp_power_title),
                 style = MaterialTheme.typography.titleMedium,
@@ -1564,77 +1464,6 @@ private fun HoldToCompareButton(
                 text = stringResource(if (pressed) R.string.compare_hold_active else R.string.compare_hold),
                 color = if (pressed) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompareCard(
-    presetName: String,
-    isDirty: Boolean,
-    compare: CompareState?,
-    onStart: () -> Unit,
-    onSide: (CompareSide) -> Unit,
-    onEnd: () -> Unit,
-    onReset: () -> Unit,
-    style: EqualizerDesignStyle,
-) {
-    val spacing = MaterialTheme.spacing
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(style.cardCorner),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, style.border),
-    ) {
-        Column(modifier = Modifier.padding(spacing.medium)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.compare_current_preset),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = if (isDirty) stringResource(R.string.compare_preset_custom, presetName) else presetName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-                TextButton(onClick = onReset, enabled = isDirty) { Text(stringResource(R.string.compare_reset)) }
-            }
-            Spacer(modifier = Modifier.height(spacing.small))
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), verticalAlignment = Alignment.CenterVertically) {
-                FilterChip(
-                    selected = compare?.side == CompareSide.ORIGINAL,
-                    onClick = { onSide(CompareSide.ORIGINAL) },
-                    label = { Text(stringResource(R.string.compare_original)) },
-                )
-                FilterChip(
-                    selected = compare == null || compare.side == CompareSide.EQ,
-                    onClick = { if (compare == null) onStart() else onSide(CompareSide.EQ) },
-                    label = { Text(stringResource(R.string.compare_eq)) },
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                if (compare != null) {
-                    TextButton(onClick = onEnd) { Text(stringResource(R.string.compare_done)) }
-                }
-            }
-            HoldToCompareButton(
-                modifier = Modifier.fillMaxWidth().padding(vertical = spacing.small),
-                onPress = { onSide(CompareSide.ORIGINAL) },
-                onRelease = onEnd,
-                style = style,
-            )
-            Text(
-                text =
-                    if (compare == null) {
-                        stringResource(R.string.compare_hint_idle)
-                    } else {
-                        stringResource(R.string.compare_hint_active, String.format("%+.1f", compare.eqLevelDeltaDb))
-                    },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }

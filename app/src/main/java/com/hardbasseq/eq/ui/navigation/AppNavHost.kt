@@ -1,13 +1,17 @@
 package com.hardbasseq.eq.ui.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,8 +27,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
+import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.ui.MainScreen
 import com.hardbasseq.eq.ui.diagnostics.DiagnosticsScreen
+import com.hardbasseq.eq.ui.equalizer.chromeStyleFor
+import com.hardbasseq.eq.ui.equalizer.neonBackdrop
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.player.DiscoveryViewModel
 import com.hardbasseq.eq.ui.player.LinkedServicesScreen
@@ -49,6 +56,9 @@ fun AppNavHost(
     // settings to their defaults and stop those (singleton) listeners the
     // moment the second instance's onCleared() ran.
     val viewModel: MainViewModel = hiltViewModel()
+    // The navigation bar and the player take the active genre's accent, like the equalizer.
+    val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
+    val chromeStyle = chromeStyleFor(PresetDesign.forPreset(activePreset))
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val navigateTo: (String) -> Unit = { route ->
@@ -66,23 +76,34 @@ fun AppNavHost(
             playerViewModel.consumeShowPlayerRequest()
         }
     }
+    val navItemColors =
+        NavigationBarItemDefaults.colors(
+            selectedIconColor = chromeStyle.background,
+            selectedTextColor = chromeStyle.accent,
+            indicatorColor = chromeStyle.accent,
+            unselectedIconColor = chromeStyle.mutedText,
+            unselectedTextColor = chromeStyle.mutedText,
+        )
     Scaffold(
         // The screens inside handle the status bar themselves; only the bar below needs the navigation bar inset.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        containerColor = chromeStyle.background,
         bottomBar = {
             if (currentRoute == ROUTE_HOME || currentRoute == ROUTE_PLAYER) {
-                NavigationBar {
+                NavigationBar(containerColor = chromeStyle.surface, contentColor = chromeStyle.text) {
                     NavigationBarItem(
                         selected = currentRoute == ROUTE_PLAYER,
                         onClick = { navigateTo(ROUTE_PLAYER) },
                         icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
                         label = { Text(stringResource(R.string.nav_player)) },
+                        colors = navItemColors,
                     )
                     NavigationBarItem(
                         selected = currentRoute == ROUTE_HOME,
                         onClick = { navigateTo(ROUTE_HOME) },
                         icon = { Icon(Icons.Default.GraphicEq, contentDescription = null) },
                         label = { Text(stringResource(R.string.nav_equalizer)) },
+                        colors = navItemColors,
                     )
                 }
             }
@@ -107,17 +128,24 @@ fun AppNavHost(
                 val discoveryViewModel: DiscoveryViewModel = hiltViewModel()
                 val engineState by viewModel.engineState.collectAsStateWithLifecycle()
                 val processingSettings by viewModel.processingSettings.collectAsStateWithLifecycle()
-                PlayerScreen(
-                    viewModel = playerViewModel,
-                    discovery = discoveryViewModel,
-                    activeContext = activeContext,
-                    onContextModeChanged = { viewModel.setContextMode(it) },
-                    eqState = engineState,
-                    processingSettings = processingSettings,
-                    onOpenEqualizer = { navigateTo(ROUTE_HOME) },
-                    onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
-                    onSelectSource = { viewModel.choosePlayerSource(it) },
-                )
+                MaterialTheme(colorScheme = chromeStyle.colorScheme) {
+                    Box(modifier = Modifier.fillMaxSize().neonBackdrop(chromeStyle)) {
+                        PlayerScreen(
+                            viewModel = playerViewModel,
+                            discovery = discoveryViewModel,
+                            activeContext = activeContext,
+                            onContextModeChanged = { viewModel.setContextMode(it) },
+                            eqState = engineState,
+                            processingSettings = processingSettings,
+                            onOpenEqualizer = { navigateTo(ROUTE_HOME) },
+                            onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
+                            onSelectSource = { viewModel.choosePlayerSource(it) },
+                            soundName = activePreset.name,
+                            soundCurve = activePreset.targetCurve,
+                            design = PresetDesign.forPreset(activePreset),
+                        )
+                    }
+                }
             }
             composable(ROUTE_SERVICES) {
                 LinkedServicesScreen(
