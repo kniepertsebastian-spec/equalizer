@@ -94,7 +94,6 @@ fun MainScreen(
     val engineState by viewModel.engineState.collectAsStateWithLifecycle()
     val audioSessions by viewModel.audioSessions.collectAsStateWithLifecycle()
     val activeAudioSession by viewModel.activeAudioSession.collectAsStateWithLifecycle()
-    val context = LocalContext.current
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val route by viewModel.displayRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
