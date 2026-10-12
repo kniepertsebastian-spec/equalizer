@@ -127,7 +127,6 @@
     <string name="profiles_correction_none">none</string>
     <string name="profiles_open_services">Linked services</string>
     <string name="eq_pick_source">Choose source</string>
-    <string name="signal_title">Signal &amp; safety</string>
     <string name="signal_input_gain">Input gain: %1$s dB</string>
     <string name="signal_limiter_on">Limiter: on, threshold %1$s dB</string>
     <string name="signal_limiter_off">Limiter: off</string>
@@ -162,7 +161,6 @@
     <string name="clipping_danger">Clipping risk: +%1$s dB. Recommended reduction: %2$s dB.</string>
     <string name="clipping_protected">Clipping protection ready. Input gain: %1$s dB.</string>
     <string name="clipping_limiter_off">Limiter off. Input gain: %1$s dB.</string>
-    <string name="genre_pick">Choose genre</string>
     <string name="profile_export">Export: %1$s</string>
     <string name="preset_more_actions">More actions for %1$s</string>
     <string name="preset_delete">Delete</string>
@@ -185,7 +183,6 @@
     <string name="hp_power_knall">Boom</string>
     <string name="route_label">Route: %1$s</string>
     <string name="virtual_bass_title">Virtual bass</string>
-    <string name="presets_title">Presets: %1$s</string>
     <string name="imported_profile_default">Imported profile</string>
     <string name="export_file_open_failed">Could not open the file</string>
     <string name="export_failed">Export failed: %1$s</string>
@@ -377,7 +374,6 @@
     <string name="feedback_profile_applied">Correction profile \"%1$s\" applied</string>
     <string name="feedback_profile_imported">Correction profile \"%1$s\" imported and selected</string>
     <string name="profile_for_device">For %1$s</string>
-    <string name="signal_confirmed">Applied and confirmed by the audio path.</string>
     <string name="signal_not_confirmed">Set, but not applied yet: no audio path has confirmed it.</string>
     <string name="signal_explain">A strong boost lowers the input level so nothing clips. If that is not enough, the limiter catches the peaks - then punch sounds a little flatter. The values below are settings and estimates, not measurements.</string>
     <string name="eq_playback_only_note">Changes the sound of playback, not your microphone.</string>
@@ -392,4 +388,27 @@
     <string name="route_rename">Rename device</string>
     <string name="route_rename_title">Name this device</string>
     <string name="route_rename_hint">For example “My headphones”. Leave empty to use the device’s own name.</string>
+    <!-- Neon redesign -->
+    <string name="eq_curve_description">EQ curve. Strongest change: %1$s dB at %2$s.</string>
+    <string name="eq_curve_flat">EQ curve: flat.</string>
+    <string name="tag_limiting_sometimes">Limiter at times</string>
+    <string name="tag_limiting_heavy">Heavy limiting</string>
+    <string name="meters_title">Signal chain</string>
+    <string name="meters_estimate_note">Estimated from your settings, not measured.</string>
+    <string name="meter_boost">Boost</string>
+    <string name="meter_input">Input</string>
+    <string name="meter_limit">Limit</string>
+    <string name="meter_limit_low">low</string>
+    <string name="meter_limit_some">some</string>
+    <string name="meter_limit_heavy">heavy</string>
+    <string name="intensity_title">Intensity</string>
+    <string name="genre_title">Genre</string>
+    <string name="info_more">More info</string>
+    <string name="info_less">Less info</string>
+    <string name="module_loudness">Loudness</string>
+    <string name="module_subsonic">Subsonic</string>
+    <string name="module_virtual_bass">Virtual bass</string>
+    <string name="module_on">on</string>
+    <string name="module_off">off</string>
+    <string name="player_open_equalizer">Open equalizer: %1$s</string>
 </resources>

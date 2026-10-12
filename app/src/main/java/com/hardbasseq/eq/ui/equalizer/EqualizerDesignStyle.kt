@@ -158,3 +158,11 @@ internal fun styleFor(design: PresetDesign): EqualizerDesignStyle =
                     ),
             )
     }
+
+/**
+ * Style for the dark app chrome around the equalizer (player, navigation bar): the genre's
+ * accent, but never the one light style (Gabber), whose dark text would clash with the
+ * player's fixed light text colors.
+ */
+internal fun chromeStyleFor(design: PresetDesign): EqualizerDesignStyle =
+    styleFor(design).takeUnless { it.isLight } ?: styleFor(PresetDesign.UPTEMPO_HARDCORE)

@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +22,7 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
@@ -85,9 +85,13 @@ import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.playlist.PlaylistSearch
 import com.hardbasseq.eq.playlist.SavedPlaylist
+import com.hardbasseq.eq.preset.PresetDesign
+import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.ui.eq.EqStatus
 import com.hardbasseq.eq.ui.eq.EqStatusLine
 import com.hardbasseq.eq.ui.equalizer.ContextModeChips
+import com.hardbasseq.eq.ui.equalizer.chromeStyleFor
+import com.hardbasseq.eq.ui.equalizer.displayName
 import com.hardbasseq.eq.ui.theme.HardBassCardBorder
 import com.hardbasseq.eq.ui.theme.PlayerArtistColor
 import com.hardbasseq.eq.ui.theme.PlayerTextColor
@@ -113,9 +117,14 @@ fun PlayerScreen(
     onOpenEqualizer: () -> Unit,
     onOpenServices: () -> Unit,
     onSelectSource: (PlayerSource) -> Unit,
+    soundName: String,
+    soundCurve: List<TargetPoint>,
+    design: PresetDesign,
     dspViewModel: PlayerDspViewModel = hiltViewModel(),
 ) {
     val spacing = MaterialTheme.spacing
+    // Same accent as the equalizer, so both tabs read as one app.
+    val style = chromeStyleFor(design)
     val dsp by dspViewModel.settings.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
@@ -229,20 +238,22 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    ArtworkImage(
-                        url = PlayerFormat.largeArtwork(playing?.artworkUrl),
-                        modifier =
-                            Modifier
-                                .fillMaxWidth(0.7f)
-                                .aspectRatio(1f)
-                                .clip(RoundedCornerShape(16.dp)),
-                    )
+                    NeonArtworkFrame(
+                        isPlaying = playing?.isPlaying == true,
+                        style = style,
+                        modifier = Modifier.fillMaxWidth(0.78f),
+                    ) {
+                        ArtworkImage(
+                            url = PlayerFormat.largeArtwork(playing?.artworkUrl),
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                        )
+                    }
                     Spacer(modifier = Modifier.height(spacing.medium))
                     Text(
                         text = playing?.title ?: stringResource(R.string.player_nothing_playing),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = PlayerTitleColor,
+                        color = style.text,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -250,7 +261,7 @@ fun PlayerScreen(
                     Text(
                         text = playing?.artist ?: stringResource(R.string.player_idle_hint),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = if (playing != null) PlayerArtistColor else PlayerTextMutedColor,
+                        color = style.mutedText,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
@@ -273,45 +284,50 @@ fun PlayerScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(spacing.medium),
                     ) {
-                        IconButton(onClick = viewModel::previous, enabled = playing != null) {
+                        IconButton(onClick = viewModel::previous, enabled = playing != null, modifier = Modifier.size(56.dp)) {
                             Icon(
                                 Icons.Default.SkipPrevious,
                                 contentDescription = stringResource(R.string.player_previous),
-                                modifier = Modifier.size(36.dp),
+                                modifier = Modifier.size(32.dp),
                             )
                         }
-                        IconButton(onClick = viewModel::togglePlayback, enabled = playing != null, modifier = Modifier.size(64.dp)) {
+                        NeonPlayButton(onClick = viewModel::togglePlayback, enabled = playing != null, style = style) {
                             if (playing?.isLoading == true) {
-                                CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                CircularProgressIndicator(modifier = Modifier.size(32.dp), color = style.background)
                             } else {
                                 Icon(
                                     imageVector = if (playing?.isPlaying == true) Icons.Default.Pause else Icons.Default.PlayArrow,
                                     contentDescription =
-                                        if (playing?.isPlaying ==
-                                            true
-                                        ) {
+                                        if (playing?.isPlaying == true) {
                                             stringResource(R.string.player_pause)
                                         } else {
                                             stringResource(R.string.player_play)
                                         },
-                                    modifier = Modifier.size(48.dp),
+                                    modifier = Modifier.size(40.dp),
                                 )
                             }
                         }
-                        IconButton(onClick = viewModel::next, enabled = playing != null) {
+                        IconButton(onClick = viewModel::next, enabled = playing != null, modifier = Modifier.size(56.dp)) {
                             Icon(
                                 Icons.Default.SkipNext,
                                 contentDescription = stringResource(R.string.player_next),
-                                modifier = Modifier.size(36.dp),
+                                modifier = Modifier.size(32.dp),
                             )
                         }
-                        IconButton(
-                            onClick = { viewModel.currentTrack()?.let { playlistDialog = PlaylistDialogRequest(it) } },
-                            enabled = viewModel.currentTrack() != null,
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = stringResource(R.string.queue_add_to_playlist))
-                        }
                     }
+                    IconButton(
+                        onClick = { viewModel.currentTrack()?.let { playlistDialog = PlaylistDialogRequest(it) } },
+                        enabled = viewModel.currentTrack() != null,
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = stringResource(R.string.queue_add_to_playlist))
+                    }
+                    PlayerSoundChip(
+                        soundName = soundName,
+                        curve = soundCurve,
+                        contextName = activeContext?.displayName(),
+                        onClick = onOpenEqualizer,
+                        style = style,
+                    )
                 }
             }
 

@@ -1,27 +1,17 @@
 package com.hardbasseq.eq.ui.equalizer
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.ui.theme.spacing
@@ -56,42 +46,30 @@ internal fun SoundGoalCard(
     style: EqualizerDesignStyle,
 ) {
     val spacing = MaterialTheme.spacing
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(style.cardCorner),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, style.border),
-    ) {
-        Column(modifier = Modifier.padding(spacing.medium)) {
-            Text(
-                text = stringResource(R.string.goal_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-            )
-            Text(
-                text = stringResource(R.string.goal_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(modifier = Modifier.height(spacing.small))
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(spacing.small),
-            ) {
-                SoundGoal.entries.forEach { goal ->
-                    FilterChip(
-                        selected = goal == active,
-                        onClick = { onSelect(goal) },
-                        label = { Text(stringResource(goal.nameRes())) },
-                    )
-                }
+    NeonPanel(style = style) {
+        NeonSectionHeader(
+            title = stringResource(R.string.goal_title),
+            style = style,
+            info = stringResource(R.string.goal_subtitle),
+        )
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(spacing.small),
+        ) {
+            SoundGoal.entries.forEach { goal ->
+                NeonChip(
+                    text = stringResource(goal.nameRes()),
+                    selected = goal == active,
+                    onClick = { onSelect(goal) },
+                    style = style,
+                )
             }
-            Spacer(modifier = Modifier.height(spacing.small))
-            Text(
-                text = stringResource(active.descriptionRes()),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
+        Spacer(modifier = Modifier.height(spacing.small))
+        Text(
+            text = stringResource(active.descriptionRes()),
+            style = MaterialTheme.typography.bodySmall,
+            color = style.mutedText,
+        )
     }
 }
