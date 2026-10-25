@@ -1082,13 +1082,12 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `a mode the user chose stays on across route changes until they turn it off`() =
+    fun `a mode the user chose stays on until they turn it off`() =
         runTest {
             val viewModel = createViewModel(emptyList())
             dispatcher.scheduler.advanceUntilIdle()
 
             viewModel.setContextMode(SoundContext.CAR)
-            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Other", id = "other_unbound"))
             dispatcher.scheduler.advanceUntilIdle()
             assertEquals(SoundContext.CAR, viewModel.activeContext.value)
 

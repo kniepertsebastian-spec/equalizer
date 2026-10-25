@@ -270,6 +270,7 @@ class MainViewModel
 
         // Saved context choice of the current route: null = none, CONTEXT_MODE_NONE = off.
         private var routeContextMode: String? = null
+        private var pendingRestoredContext: SoundContext? = null
 
         // What the preset grid actually renders: built-ins (fixed, compile-time)
         // followed by whatever custom presets are currently saved.
@@ -485,6 +486,9 @@ class MainViewModel
                     findCorrectionProfileById(saved.activeCorrectionProfileId, initialCorrectionProfiles)
                 _activeContext.value = saved.activeContext?.let { name -> SoundContext.entries.firstOrNull { it.name == name } }
                 contextSetAutomatically = saved.activeContextAutomatic
+                // A mode the user switched on by hand survives the restart until the first
+                // route decision; from then on the route's own saved choice or detection rules.
+                pendingRestoredContext = if (saved.activeContextAutomatic) null else _activeContext.value
                 _headphonePower.value = saved.headphonePower.sanitized()
                 _activeGoal.value = SoundGoal.fromId(saved.activeGoal)
                 // A saved activePresetId/activeCorrectionProfileId that no longer
@@ -580,13 +584,15 @@ class MainViewModel
         ) {
             val detected = if (carConnectionRepository.carConnected.value) SoundContext.CAR else route.type.soundContext()
             val stored = routeContextMode
+            val restored = pendingRestoredContext
+            pendingRestoredContext = null
             val mode =
                 when {
-                    stored == null -> legacyContext ?: detected
+                    stored == null -> legacyContext ?: restored ?: detected
                     stored == CONTEXT_MODE_NONE -> null
                     else -> SoundContext.entries.firstOrNull { it.name == stored } ?: detected
                 }
-            contextSetAutomatically = stored == null && legacyContext == null && detected != null
+            contextSetAutomatically = stored == null && legacyContext == null && restored == null && detected != null
             applyContextMode(mode)
         }
 
