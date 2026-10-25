@@ -1,7 +1,6 @@
 package com.hardbasseq.eq.dsp
 
 import com.hardbasseq.eq.preset.TargetPoint
-import kotlin.math.log10
 import kotlin.math.pow
 
 /**
@@ -84,7 +83,7 @@ class CurveEqualizer {
     /** The designed chain's response (without the headroom pre-gain) in dB; for tests. */
     internal fun chainResponseDb(freqHz: Float): Float {
         val current = design ?: return 0f
-        return current.coefficients.sumOf { BiquadFilterDesigner.magnitudeResponseDb(it, freqHz, current.sampleRateHz).toDouble() }.toFloat()
+        return totalResponseDb(current.coefficients, freqHz, current.sampleRateHz)
     }
 
     /** A seek or track change: drop the filters' memory of the old audio. */
@@ -139,7 +138,7 @@ class CurveEqualizer {
                     )
                 }
             for (i in CENTERS_HZ.indices) {
-                val actual = designed.sumOf { BiquadFilterDesigner.magnitudeResponseDb(it, CENTERS_HZ[i], sampleRateHz).toDouble() }.toFloat()
+                val actual = totalResponseDb(designed, CENTERS_HZ[i], sampleRateHz)
                 gains[i] = (gains[i] + SOLVE_DAMPING * (targets[i] - actual)).coerceIn(-MAX_GAIN_DB, MAX_GAIN_DB)
             }
         }
@@ -153,11 +152,21 @@ class CurveEqualizer {
         var max = 0f
         var f = 20f
         while (f <= 20_000f && f < sampleRateHz / 2f) {
-            val db = peaks.sumOf { BiquadFilterDesigner.magnitudeResponseDb(it, f, sampleRateHz).toDouble() }.toFloat()
+            val db = totalResponseDb(peaks, f, sampleRateHz)
             if (db > max) max = db
             f *= GRID_STEP
         }
         return max
+    }
+
+    private fun totalResponseDb(
+        chain: List<BiquadCoefficients>,
+        freqHz: Float,
+        sampleRateHz: Float,
+    ): Float {
+        var sum = 0f
+        for (coefficients in chain) sum += BiquadFilterDesigner.magnitudeResponseDb(coefficients, freqHz, sampleRateHz)
+        return sum
     }
 
     // Half-octave spacing in the bass (Q ~1.4), octave spacing above 500 Hz (Q ~1.0).
