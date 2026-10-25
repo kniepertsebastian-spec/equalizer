@@ -130,30 +130,37 @@ class AndroidAudioEngine
                 var dpLimiterSupported = false
                 var dpInputGainSupported = false
                 var dpMbcSupported = false
-                var dpPreEqSupported = false
+                var dpPreEqCutoffs: List<Float> = emptyList()
+                val preEqFailures = mutableListOf<String>()
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     // Most capable configuration first; the first one the device accepts wins.
                     // Without the experimental switch the order is the long-standing
                     // MBC + limiter, then limiter only.
-                    val attempts =
+                    val attempts: List<Pair<List<Float>?, Boolean>> =
                         if (_currentSettings.value.highResolutionEq) {
-                            listOf(true to true, true to false, false to true, false to false)
+                            // Finest layout first, then the coarser one, then no pre-EQ at all.
+                            val layouts = listOf(PreEqLayout.CUTOFFS_HZ, PreEqLayout.COARSE_CUTOFFS_HZ)
+                            layouts.flatMap { listOf(it to true, it to false) } + listOf(null to true, null to false)
                         } else {
-                            listOf(false to true, false to false)
+                            listOf(null to true, null to false)
                         }
-                    for ((usePreEq, useMbc) in attempts) {
+                    for ((preEqCutoffs, useMbc) in attempts) {
                         try {
                             dynamicsProcessing =
-                                DynamicsProcessing(0, session.sessionId, createDynamicsConfig(useMbc, usePreEq))
-                            dpPreEqSupported = usePreEq
+                                DynamicsProcessing(0, session.sessionId, createDynamicsConfig(useMbc, preEqCutoffs))
+                            dpPreEqCutoffs = preEqCutoffs.orEmpty()
                             dpMbcSupported = useMbc
                             dpSupported = true
                             dpLimiterSupported = true
                             dpInputGainSupported = true
                             break
                         } catch (e: Exception) {
-                            Log.w(TAG, "DynamicsProcessing config (preEq=$usePreEq, mbc=$useMbc) unavailable", e)
+                            Log.w(TAG, "DynamicsProcessing config (preEq=${preEqCutoffs?.size}, mbc=$useMbc) unavailable", e)
+                            if (preEqCutoffs != null) {
+                                val cause = "${e.javaClass.simpleName}: ${e.localizedMessage}"
+                                preEqFailures += "${preEqCutoffs.size} bands, mbc=$useMbc: $cause"
+                            }
                         }
                     }
                     if (!dpSupported) {
@@ -172,7 +179,9 @@ class AndroidAudioEngine
                         hasInputGain = dpInputGainSupported,
                         hasLimiter = dpLimiterSupported,
                         hasMbc = dpMbcSupported,
-                        preEqCutoffsHz = if (dpPreEqSupported) PreEqLayout.CUTOFFS_HZ else emptyList(),
+                        preEqCutoffsHz = dpPreEqCutoffs,
+                        // Also reported when a coarser layout worked: the finer one was refused.
+                        preEqUnavailableReason = preEqFailures.takeIf { it.isNotEmpty() }?.joinToString("; "),
                     )
 
                 isAttached.set(true)
@@ -238,9 +247,10 @@ class AndroidAudioEngine
 
         private fun createDynamicsConfig(
             mbcEnabled: Boolean,
-            preEqEnabled: Boolean,
+            preEqCutoffs: List<Float>?,
         ): DynamicsProcessing.Config {
-            val cutoffs = PreEqLayout.CUTOFFS_HZ
+            val preEqEnabled = preEqCutoffs != null
+            val cutoffs = preEqCutoffs.orEmpty()
             val builder =
                 DynamicsProcessing.Config.Builder(
                     DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,

@@ -12,4 +12,6 @@ data class AudioCapabilities(
     val hasMbc: Boolean = false,
     // Upper band edges of the DynamicsProcessing pre-EQ when it is in use; empty = classic equalizer.
     val preEqCutoffsHz: List<Float> = emptyList(),
+    // Why the high-resolution EQ was asked for but is not in use (device refusal); null otherwise.
+    val preEqUnavailableReason: String? = null,
 )

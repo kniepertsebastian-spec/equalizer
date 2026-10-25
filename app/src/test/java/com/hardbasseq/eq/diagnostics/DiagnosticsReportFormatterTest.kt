@@ -127,4 +127,19 @@ class DiagnosticsReportFormatterTest {
         assertTrue(report.contains("Recent Session Events"))
         assertTrue(report.contains("Session attached: id=42 package=com.spotify.music"))
     }
+
+    @Test
+    fun generateReport_saysWhetherTheHighResolutionEqWasRequestedAndWhyItIsUnavailable() {
+        val report =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Active(1),
+                capabilities = capabilities.copy(preEqUnavailableReason = "IllegalArgumentException: too many bands"),
+                route = route,
+                processingSettings = ProcessingSettings(highResolutionEq = true),
+            )
+
+        assertTrue(report.contains("EQ Path: classic 1-band"))
+        assertTrue(report.contains("High-resolution EQ requested: true"))
+        assertTrue(report.contains("High-resolution EQ unavailable: IllegalArgumentException: too many bands"))
+    }
 }
