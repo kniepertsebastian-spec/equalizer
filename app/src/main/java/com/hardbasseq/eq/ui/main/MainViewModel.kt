@@ -42,6 +42,7 @@ import com.hardbasseq.eq.dsp.LoudnessMatch
 import com.hardbasseq.eq.dsp.PreEqMacros
 import com.hardbasseq.eq.dsp.PreEqMapper
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
+import com.hardbasseq.eq.dsp.VirtualBassApproxCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
@@ -404,6 +405,12 @@ class MainViewModel
                     .collect { route ->
                         if (hasRestoredState) applyDeviceProfileForRoute(route)
                     }
+            }
+            // The Virtual Bass approximation exists only for foreign sessions.
+            viewModelScope.launch {
+                isOwnPlayerSession
+                    .drop(1)
+                    .collect { if (hasRestoredState) recalculateBandGains() }
             }
             // Binding to this app's own player (or away from it) moves the curve between the
             // player's PCM equalizer and the system equalizer.
@@ -1113,10 +1120,20 @@ class MainViewModel
                     loudnessCurve,
                     _activeGoal.value.curve,
                     _activeContext.value?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
+                    virtualBassApproxCurve(),
                     contextCurve(includeSubsonic),
                 ),
             )
         }
+
+        // Virtual Bass cannot run on other apps' audio; with the high-resolution pre-EQ an EQ
+        // approximation of it is possible. Never for the own player, which has the real thing.
+        private fun virtualBassApproxCurve(): List<TargetPoint> =
+            if (!isOwnPlayerSession.value && capabilities.value.preEqCutoffsHz.isNotEmpty()) {
+                VirtualBassApproxCurve.forMix(_processingSettings.value.virtualBassMix)
+            } else {
+                emptyList()
+            }
 
         // Subsonic high-pass + the active sound's own volume-dependent loudness
         // compensation, from the live processing settings (so the on/off switches

@@ -1246,6 +1246,51 @@ class MainViewModelTest {
     private val unknownBt = AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "BT Audio", id = "bt_generic")
 
     @Test
+    fun `approx curve is applied only for foreign sessions with pre eq`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            // The band that contains 110 Hz in the pre-EQ layout (90..115 Hz).
+            val band = PreEqLayout.CUTOFFS_HZ.indexOf(115f)
+
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.processingSettings.value.preEqGainsDb.isEmpty())
+
+            fakeEngine.updateCapabilities(withPreEq())
+            dispatcher.scheduler.advanceUntilIdle()
+            val foreign = viewModel.processingSettings.value.preEqGainsDb[band]
+
+            sessions.setActiveSession(AudioSession(sessionId = 2, packageName = BuildConfig.APPLICATION_ID))
+            dispatcher.scheduler.advanceUntilIdle()
+            val own = viewModel.processingSettings.value.preEqGainsDb[band]
+
+            assertTrue("foreign $foreign dB should exceed own $own dB", foreign > own + 0.5f)
+        }
+
+    @Test
+    fun `own player session never gets the approx curve`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeEngine.updateCapabilities(withPreEq())
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            val withoutSession = viewModel.processingSettings.value.preEqGainsDb
+
+            sessions.setActiveSession(AudioSession(sessionId = 2, packageName = BuildConfig.APPLICATION_ID))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(withoutSession, viewModel.processingSettings.value.preEqGainsDb)
+        }
+
+    @Test
     fun `own player session gets flat system bands when the pcm eq is active`() =
         runTest {
             val sessions = FakeAudioSessionRepository()

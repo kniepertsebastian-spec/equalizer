@@ -411,6 +411,7 @@
     <string name="module_virtual_bass">Virtual bass</string>
     <string name="module_on">on</string>
     <string name="module_player_only">player only</string>
+    <string name="module_approx">approx.</string>
     <string name="device_kind_question">What is %1$s?</string>
     <string name="device_kind_headphones">Headphones</string>
     <string name="device_kind_car">Car</string>

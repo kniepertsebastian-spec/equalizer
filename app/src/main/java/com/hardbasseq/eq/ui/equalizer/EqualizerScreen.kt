@@ -97,6 +97,7 @@ import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
+import com.hardbasseq.eq.dsp.VirtualBassApproxCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.preset.BuiltInContextPresets
 import com.hardbasseq.eq.preset.GenrePreset
@@ -215,6 +216,7 @@ fun EqualizerScreen(
                 loudnessCurve,
                 activeGoal.curve,
                 activeContext?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
+                if (!isOwnPlayerSession && preEqActive) VirtualBassApproxCurve.forMix(settings.virtualBassMix) else emptyList(),
                 contextCurve,
             ),
         )
@@ -729,6 +731,7 @@ fun EqualizerScreen(
                                     stringResource(
                                         when {
                                             settings.virtualBassMix <= 0f -> R.string.module_off
+                                            !isOwnPlayerSession && preEqActive -> R.string.module_approx
                                             !isOwnPlayerSession -> R.string.module_player_only
                                             else -> R.string.module_on
                                         },
