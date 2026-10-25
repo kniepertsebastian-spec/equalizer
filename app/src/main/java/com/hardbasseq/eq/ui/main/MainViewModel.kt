@@ -100,6 +100,9 @@ import javax.inject.Inject
 private const val INPUT_GAIN_SAFETY_RATIO = 0.1f
 private const val FEEDBACK_BUFFER = 8
 
+// DeviceProfileEntity.contextMode value for "mode explicitly off on this route".
+private const val CONTEXT_MODE_NONE = "NONE"
+
 // roadmap-2026.md M5: "Extreme Boosts werden nicht still angewandt, sondern
 // begrenzt oder bestätigt" - an imported correction curve peaking above this
 // needs an explicit confirmation in the import preview, not just a silent clamp
@@ -230,6 +233,9 @@ class MainViewModel
         // True when route detection switched the mode on, so it is switched off again
         // when that route goes away; false once the user chose it themselves.
         private var contextSetAutomatically = false
+
+        // Saved context choice of the current route: null = none, CONTEXT_MODE_NONE = off.
+        private var routeContextMode: String? = null
 
         // What the preset grid actually renders: built-ins (fixed, compile-time)
         // followed by whatever custom presets are currently saved.
@@ -477,19 +483,17 @@ class MainViewModel
             // explicit choice made for it), not left holding the previous route's
             // value.
             headphoneAcousticsOverrideState.value = binding?.headphoneAcousticsOverride
-            applyContextModeForRoute(route)
-            if (binding == null) return
-            val preset = findPresetById(binding.boundPresetId, customPresetsState.value) ?: return
+            routeContextMode = binding?.contextMode
+            val preset = binding?.let { findPresetById(it.boundPresetId, customPresetsState.value) }
+            // A profile saved while the context tunings were still presets of their own
+            // means "this route uses that context" - an explicit choice for it.
+            applyContextModeForRoute(route, preset?.let { BuiltInContextPresets.contextOf(it) })
+            if (binding == null || preset == null) return
 
             // A profile saved while the context tunings were still presets of their own
             // means "this route uses that context": keep the genre preset as it is and
             // turn the mode on instead of replacing the sound with it.
-            val legacyContext = BuiltInContextPresets.contextOf(preset)
-            if (legacyContext != null) {
-                contextSetAutomatically = false
-                applyContextMode(legacyContext)
-                return
-            }
+            if (BuiltInContextPresets.contextOf(preset) != null) return
             val correction = findCorrectionProfileById(binding.boundCorrectionProfileId, customCorrectionProfilesState.value)
 
             _activePreset.value = preset
@@ -500,29 +504,32 @@ class MainViewModel
             persistLiveSettings()
         }
 
-        // Car / Bluetooth-speaker mode follows the route: a route detected as a car or
-        // speaker (see SoundContextClassifier - a name heuristic) switches the mode on,
-        // and leaving it for a route with no context switches it off again - but only if
-        // detection, not the user, turned it on. The genre preset is never touched.
-        private fun applyContextModeForRoute(route: AudioRoute) {
+        // Car / Bluetooth-speaker mode is decided per route, from the route's saved choice
+        // (DeviceProfileEntity.contextMode) or, with none, from detection (see
+        // SoundContextClassifier - a name heuristic). A manual choice therefore never
+        // follows the user to another route. The genre preset is never touched.
+        private fun applyContextModeForRoute(
+            route: AudioRoute,
+            legacyContext: SoundContext?,
+        ) {
             val detected = route.type.soundContext()
-            when {
-                detected != null -> {
-                    contextSetAutomatically = true
-                    applyContextMode(detected)
+            val stored = routeContextMode
+            val mode =
+                when {
+                    stored == null -> legacyContext ?: detected
+                    stored == CONTEXT_MODE_NONE -> null
+                    else -> SoundContext.entries.firstOrNull { it.name == stored } ?: detected
                 }
-
-                contextSetAutomatically -> {
-                    contextSetAutomatically = false
-                    applyContextMode(null)
-                }
-            }
+            contextSetAutomatically = stored == null && legacyContext == null && detected != null
+            applyContextMode(mode)
         }
 
-        /** The user's own choice of listening-context mode (null = off); kept until they change it. */
+        /** The user's own choice of listening-context mode (null = off), remembered for the current route. */
         fun setContextMode(context: SoundContext?) {
             contextSetAutomatically = false
+            routeContextMode = context?.name ?: CONTEXT_MODE_NONE
             applyContextMode(context)
+            saveDeviceProfileBinding()
         }
 
         private fun applyContextMode(context: SoundContext?) {
@@ -548,6 +555,7 @@ class MainViewModel
                     boundPresetId = _activePreset.value.id,
                     boundCorrectionProfileId = _activeCorrectionProfile.value.id,
                     headphoneAcousticsOverride = headphoneAcousticsOverride,
+                    contextMode = routeContextMode,
                 )
             }
         }

@@ -24,4 +24,7 @@ data class DeviceProfileEntity(
     val boundPresetId: String,
     val boundCorrectionProfileId: String = "correction_none",
     val headphoneAcousticsOverride: Boolean? = null,
+    // Schema 2 (Migrations.MIGRATION_1_2). null = no explicit choice, detection decides;
+    // a SoundContext name = mode explicitly on; "NONE" = mode explicitly off.
+    val contextMode: String? = null,
 )

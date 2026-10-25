@@ -1113,6 +1113,103 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `a manually enabled mode is not carried over to the next route`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Radio", id = "bt_radio"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `a mode switched off on a detected car route stays off on reconnect`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val car = AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car")
+            fakeRouteRepo.setRoute(car)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(car)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `a manual mode choice is remembered for that route`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            val radio = AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Radio", id = "bt_radio")
+            fakeRouteRepo.setRoute(radio)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(radio)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("CAR", deviceProfileRepository.getProfileForRoute("bt_radio")?.contextMode)
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `an explicit NONE wins over car detection`() =
+        runTest {
+            val routeId = "bt_car"
+            val deviceProfileRepository =
+                FakeDeviceProfileRepository(
+                    initial =
+                        mapOf(
+                            routeId to
+                                DeviceProfileEntity(
+                                    routeId = routeId,
+                                    routeType = AudioDeviceType.CAR.name,
+                                    displayName = "BMW 12345",
+                                    boundPresetId = BuiltInPresets.DeepRumble.id,
+                                    contextMode = "NONE",
+                                ),
+                        ),
+                )
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = routeId))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `a route without a saved choice follows detection`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+        }
+
+    @Test
     fun `a saved genre profile for a car route applies together with the car mode`() =
         runTest {
             val routeId = "bt_car"
@@ -1592,6 +1689,7 @@ class MainViewModelTest {
             boundPresetId: String,
             boundCorrectionProfileId: String,
             headphoneAcousticsOverride: Boolean?,
+            contextMode: String?,
         ) {
             val entity =
                 DeviceProfileEntity(
@@ -1601,6 +1699,7 @@ class MainViewModelTest {
                     boundPresetId = boundPresetId,
                     boundCorrectionProfileId = boundCorrectionProfileId,
                     headphoneAcousticsOverride = headphoneAcousticsOverride,
+                    contextMode = contextMode,
                 )
             byRoute[routeId] = entity
             savedBindings.add(entity)
