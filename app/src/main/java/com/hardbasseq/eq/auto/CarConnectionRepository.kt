@@ -29,8 +29,9 @@ class AndroidCarConnectionRepository
             // CarConnection.getType() is a LiveData, which can only be observed on the main thread.
             Handler(Looper.getMainLooper()).post {
                 CarConnection(context).type.observeForever { type ->
-                    _carConnected.value =
-                        type == CarConnection.CONNECTION_TYPE_PROJECTION || type == CarConnection.CONNECTION_TYPE_NATIVE
+                    val projecting = type == CarConnection.CONNECTION_TYPE_PROJECTION
+                    val native = type == CarConnection.CONNECTION_TYPE_NATIVE
+                    _carConnected.value = projecting || native
                 }
             }
         }
