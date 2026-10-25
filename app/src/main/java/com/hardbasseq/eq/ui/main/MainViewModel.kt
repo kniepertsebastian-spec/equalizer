@@ -19,6 +19,7 @@ import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.audio.defaultHeadphoneAcoustics
 import com.hardbasseq.eq.audio.soundContext
+import com.hardbasseq.eq.auto.CarConnectionRepository
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.autoeq.AutoEqCatalogMatcher
 import com.hardbasseq.eq.autoeq.AutoEqParser
@@ -150,6 +151,7 @@ class MainViewModel
         private val texts: TextProvider,
         private val deviceAliases: DeviceAliasStore = InMemoryDeviceAliasStore(),
         private val sessionRepository: AudioSessionRepository = NoAudioSessionRepository,
+        private val carConnectionRepository: CarConnectionRepository = NoCarConnectionRepository,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -175,6 +177,10 @@ class MainViewModel
             activeAudioSession
                 .map { it == null || it.packageName == BuildConfig.APPLICATION_ID }
                 .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+        // Android Auto / Automotive OS is running - a safe "car" signal that does not depend on
+        // the Bluetooth device name (and also holds when the audio goes over USB).
+        val androidAutoConnected: StateFlow<Boolean> = carConnectionRepository.carConnected
 
         fun selectAudioSession(session: AudioSession) {
             sessionRepository.setActiveSession(session)
@@ -381,6 +387,15 @@ class MainViewModel
                         if (hasRestoredState) applyDeviceProfileForRoute(route)
                     }
             }
+            // Android Auto connecting or disconnecting changes what "detected" means for the
+            // current route: re-decide the mode (a saved choice for the route still wins).
+            viewModelScope.launch {
+                carConnectionRepository.carConnected
+                    .drop(1)
+                    .collect {
+                        if (hasRestoredState) reapplyContextModeForCurrentRoute()
+                    }
+            }
             // Independent of the restore race above: a suggestion is advisory,
             // read-only UI state, not something that needs to wait for
             // restoreSavedState() - it never mutates activePreset/
@@ -521,7 +536,7 @@ class MainViewModel
             route: AudioRoute,
             legacyContext: SoundContext?,
         ) {
-            val detected = route.type.soundContext()
+            val detected = if (carConnectionRepository.carConnected.value) SoundContext.CAR else route.type.soundContext()
             val stored = routeContextMode
             val mode =
                 when {
@@ -531,6 +546,12 @@ class MainViewModel
                 }
             contextSetAutomatically = stored == null && legacyContext == null && detected != null
             applyContextMode(mode)
+        }
+
+        private suspend fun reapplyContextModeForCurrentRoute() {
+            val binding = deviceProfileRepository.getProfileForRoute(currentRoute.value.id)
+            val preset = binding?.let { findPresetById(it.boundPresetId, customPresetsState.value) }
+            applyContextModeForRoute(currentRoute.value, preset?.let { BuiltInContextPresets.contextOf(it) })
         }
 
         /** The user's own choice of listening-context mode (null = off), remembered for the current route. */
@@ -1270,6 +1291,10 @@ class MainViewModel
             recalculateBandGains()
         }
     }
+
+private object NoCarConnectionRepository : CarConnectionRepository {
+    override val carConnected: StateFlow<Boolean> = MutableStateFlow(false)
+}
 
 private object NoAudioSessionRepository : AudioSessionRepository {
     override val sessions: StateFlow<List<AudioSession>> = MutableStateFlow(emptyList())

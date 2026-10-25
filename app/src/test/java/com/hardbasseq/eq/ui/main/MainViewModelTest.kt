@@ -16,6 +16,7 @@ import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.audio.SystemVolumeRepository
+import com.hardbasseq.eq.auto.CarConnectionRepository
 import com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalog
 import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
@@ -1190,6 +1191,56 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `android auto connection turns car mode on for an unclassified route`() =
+        runTest {
+            val car = FakeCarConnectionRepository()
+            val viewModel = createViewModel(emptyList(), carConnectionRepository = car)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "BT Audio", id = "bt_generic"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNull(viewModel.activeContext.value)
+
+            car.carConnected.value = true
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `an explicit NONE wins over an android auto connection`() =
+        runTest {
+            val car = FakeCarConnectionRepository()
+            val viewModel = createViewModel(emptyList(), carConnectionRepository = car)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "BT Audio", id = "bt_generic"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            car.carConnected.value = true
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `disconnecting android auto re-evaluates the route`() =
+        runTest {
+            val car = FakeCarConnectionRepository()
+            val viewModel = createViewModel(emptyList(), carConnectionRepository = car)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "BT Audio", id = "bt_generic"))
+            car.carConnected.value = true
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+
+            car.carConnected.value = false
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
     fun `a manually enabled mode is not carried over to the next route`() =
         runTest {
             val viewModel = createViewModel(emptyList())
@@ -1602,6 +1653,7 @@ class MainViewModelTest {
         correctionProfileRepository: CorrectionProfileRepository = FakeCorrectionProfileRepository(),
         deviceProfileRepository: DeviceProfileRepository = FakeDeviceProfileRepository(),
         sessionRepository: AudioSessionRepository = FakeAudioSessionRepository(),
+        carConnectionRepository: FakeCarConnectionRepository = FakeCarConnectionRepository(),
     ): MainViewModel =
         MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
@@ -1616,6 +1668,7 @@ class MainViewModelTest {
             deviceProfileRepository = deviceProfileRepository,
             texts = FakeTextProvider(),
             sessionRepository = sessionRepository,
+            carConnectionRepository = carConnectionRepository,
             backgroundDispatcher = dispatcher,
         )
 
@@ -1640,6 +1693,10 @@ class MainViewModelTest {
             )
 
         override fun queryAvailableEffects(): List<AudioEffectDescriptor> = descriptors
+    }
+
+    private class FakeCarConnectionRepository : CarConnectionRepository {
+        override val carConnected = MutableStateFlow(false)
     }
 
     private class FakeAudioSessionRepository : AudioSessionRepository {

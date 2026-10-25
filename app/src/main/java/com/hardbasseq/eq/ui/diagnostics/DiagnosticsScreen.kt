@@ -48,6 +48,7 @@ fun DiagnosticsScreen(
     processingSettings: ProcessingSettings? = null,
     recentEvents: List<DiagnosticsEvent> = emptyList(),
     playerSource: String? = null,
+    androidAutoConnected: Boolean? = null,
 ) {
     val spacing = MaterialTheme.spacing
     val clipboardManager = LocalClipboardManager.current
@@ -59,6 +60,7 @@ fun DiagnosticsScreen(
             processingSettings = processingSettings,
             recentEvents = recentEvents,
             playerSource = playerSource,
+            androidAutoConnected = androidAutoConnected,
         )
 
     Scaffold(

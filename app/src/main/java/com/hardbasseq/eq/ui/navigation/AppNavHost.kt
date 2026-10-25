@@ -161,6 +161,7 @@ fun AppNavHost(
                 val processingSettings by viewModel.processingSettings.collectAsStateWithLifecycle()
                 val diagnosticsEvents by viewModel.diagnosticsEvents.collectAsStateWithLifecycle()
                 val lastPlayerSource by viewModel.lastPlayerSource.collectAsStateWithLifecycle()
+                val androidAutoConnected by viewModel.androidAutoConnected.collectAsStateWithLifecycle()
 
                 DiagnosticsScreen(
                     state = state,
@@ -169,6 +170,7 @@ fun AppNavHost(
                     processingSettings = processingSettings,
                     recentEvents = diagnosticsEvents,
                     playerSource = lastPlayerSource?.name,
+                    androidAutoConnected = androidAutoConnected,
                     onBackClicked = { navController.popBackStack() },
                 )
             }

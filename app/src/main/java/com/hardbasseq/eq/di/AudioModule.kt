@@ -10,6 +10,8 @@ import com.hardbasseq.eq.audio.AudioEngine
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSessionRepository
 import com.hardbasseq.eq.audio.SystemVolumeRepository
+import com.hardbasseq.eq.auto.AndroidCarConnectionRepository
+import com.hardbasseq.eq.auto.CarConnectionRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -38,4 +40,8 @@ abstract class AudioModule {
     @Binds
     @Singleton
     abstract fun bindSystemVolumeRepository(impl: AndroidSystemVolumeRepository): SystemVolumeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindCarConnectionRepository(impl: AndroidCarConnectionRepository): CarConnectionRepository
 }

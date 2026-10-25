@@ -138,6 +138,7 @@ dependencies {
     implementation(libs.work.runtime.ktx)
     // MediaBrowserServiceCompat: the media browser Android Auto connects to.
     implementation(libs.media)
+    implementation(libs.car.app)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)

@@ -20,6 +20,7 @@ object DiagnosticsReportFormatter {
         processingSettings: ProcessingSettings? = null,
         recentEvents: List<DiagnosticsEvent> = emptyList(),
         playerSource: String? = null,
+        androidAutoConnected: Boolean? = null,
     ): String =
         buildString {
             appendLine("=== HardBass EQ Diagnostic Report ===")
@@ -33,6 +34,7 @@ object DiagnosticsReportFormatter {
             appendLine("EQ Status: ${eqStatusLine(engineState, processingSettings)}")
             appendLine("Audio Session: ${sessionLine(engineState)}")
             appendLine("Player: ${playerSource ?: "unknown"}")
+            androidAutoConnected?.let { appendLine("Android Auto: ${if (it) "connected" else "not connected"}") }
             appendLine("Last Error: ${lastError(engineState) ?: "none"}")
             appendLine()
             appendLine("--- Capabilities ---")
