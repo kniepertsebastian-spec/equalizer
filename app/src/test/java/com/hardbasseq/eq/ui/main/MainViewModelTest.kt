@@ -11,6 +11,7 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSession
 import com.hardbasseq.eq.audio.AudioSessionRepository
+import com.hardbasseq.eq.audio.DeviceKind
 import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
@@ -1238,6 +1239,97 @@ class MainViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertNull(viewModel.activeContext.value)
+        }
+
+    private val unknownBt = AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "BT Audio", id = "bt_generic")
+
+    @Test
+    fun `an unclassified bluetooth route without a choice asks once`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(unknownBt, viewModel.deviceKindPrompt.value)
+        }
+
+    @Test
+    fun `answering car stores CAR and turns the mode on`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.answerDeviceKind(DeviceKind.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val saved = deviceProfileRepository.getProfileForRoute("bt_generic")
+            assertEquals("CAR", saved?.contextMode)
+            assertEquals(false, saved?.headphoneAcousticsOverride)
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertNull(viewModel.deviceKindPrompt.value)
+        }
+
+    @Test
+    fun `answering headphones stores NONE and the headphone override`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.answerDeviceKind(DeviceKind.HEADPHONES)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val saved = deviceProfileRepository.getProfileForRoute("bt_generic")
+            assertEquals("NONE", saved?.contextMode)
+            assertEquals(true, saved?.headphoneAcousticsOverride)
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `dismissing does not ask again in the same session`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.dismissDeviceKindPrompt()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.deviceKindPrompt.value)
+        }
+
+    @Test
+    fun `a classified or already answered route does not ask`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNull(viewModel.deviceKindPrompt.value)
+
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.answerDeviceKind(DeviceKind.SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.deviceKindPrompt.value)
         }
 
     @Test

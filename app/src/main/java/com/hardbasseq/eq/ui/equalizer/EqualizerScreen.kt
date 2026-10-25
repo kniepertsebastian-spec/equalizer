@@ -82,6 +82,7 @@ import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioSession
+import com.hardbasseq.eq.audio.DeviceKind
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
@@ -170,6 +171,9 @@ fun EqualizerScreen(
     audioSessions: List<AudioSession> = emptyList(),
     activeAudioSession: AudioSession? = null,
     isOwnPlayerSession: Boolean = true,
+    deviceKindPrompt: AudioRoute? = null,
+    onAnswerDeviceKind: (DeviceKind) -> Unit = {},
+    onDismissDeviceKindPrompt: () -> Unit = {},
     preEqActive: Boolean = false,
     onSelectAudioSession: (AudioSession) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -329,6 +333,15 @@ fun EqualizerScreen(
                                 Text(stringResource(R.string.action_retry))
                             }
                         }
+                    }
+
+                    deviceKindPrompt?.let { prompt ->
+                        DeviceKindCard(
+                            deviceName = prompt.name,
+                            style = style,
+                            onAnswer = onAnswerDeviceKind,
+                            onDismiss = onDismissDeviceKindPrompt,
+                        )
                     }
 
                     // Hero: the curve, its limiting tag and the Original/EQ comparison.

@@ -14,6 +14,7 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSession
 import com.hardbasseq.eq.audio.AudioSessionRepository
+import com.hardbasseq.eq.audio.DeviceKind
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.audio.SystemVolumeRepository
@@ -248,6 +249,12 @@ class MainViewModel
         // True when route detection switched the mode on, so it is switched off again
         // when that route goes away; false once the user chose it themselves.
         private var contextSetAutomatically = false
+
+        // A Bluetooth output the name heuristic could not place, asked about once so the
+        // user's answer (stored like a manual mode choice) replaces the guesswork.
+        private val _deviceKindPrompt = MutableStateFlow<AudioRoute?>(null)
+        val deviceKindPrompt: StateFlow<AudioRoute?> = _deviceKindPrompt.asStateFlow()
+        private val dismissedDeviceKindRouteIds = mutableSetOf<String>()
 
         // Saved context choice of the current route: null = none, CONTEXT_MODE_NONE = off.
         private var routeContextMode: String? = null
@@ -511,7 +518,16 @@ class MainViewModel
             val preset = binding?.let { findPresetById(it.boundPresetId, customPresetsState.value) }
             // A profile saved while the context tunings were still presets of their own
             // means "this route uses that context" - an explicit choice for it.
-            applyContextModeForRoute(route, preset?.let { BuiltInContextPresets.contextOf(it) })
+            val legacyContext = preset?.let { BuiltInContextPresets.contextOf(it) }
+            applyContextModeForRoute(route, legacyContext)
+            _deviceKindPrompt.value =
+                route.takeIf {
+                    it.type == AudioDeviceType.BLUETOOTH &&
+                        routeContextMode == null &&
+                        legacyContext == null &&
+                        it.id !in dismissedDeviceKindRouteIds &&
+                        !carConnectionRepository.carConnected.value
+                }
             if (binding == null || preset == null) return
 
             // A profile saved while the context tunings were still presets of their own
@@ -546,6 +562,24 @@ class MainViewModel
                 }
             contextSetAutomatically = stored == null && legacyContext == null && detected != null
             applyContextMode(mode)
+        }
+
+        fun answerDeviceKind(kind: DeviceKind) {
+            _deviceKindPrompt.value ?: return
+            _deviceKindPrompt.value = null
+            headphoneAcousticsOverrideState.value = kind == DeviceKind.HEADPHONES
+            setContextMode(
+                when (kind) {
+                    DeviceKind.HEADPHONES -> null
+                    DeviceKind.CAR -> SoundContext.CAR
+                    DeviceKind.SPEAKER -> SoundContext.BLUETOOTH_SPEAKER
+                },
+            )
+        }
+
+        fun dismissDeviceKindPrompt() {
+            _deviceKindPrompt.value?.let { dismissedDeviceKindRouteIds.add(it.id) }
+            _deviceKindPrompt.value = null
         }
 
         private suspend fun reapplyContextModeForCurrentRoute() {

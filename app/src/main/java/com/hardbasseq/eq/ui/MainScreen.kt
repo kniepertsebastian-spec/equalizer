@@ -95,6 +95,7 @@ fun MainScreen(
     val audioSessions by viewModel.audioSessions.collectAsStateWithLifecycle()
     val activeAudioSession by viewModel.activeAudioSession.collectAsStateWithLifecycle()
     val isOwnPlayerSession by viewModel.isOwnPlayerSession.collectAsStateWithLifecycle()
+    val deviceKindPrompt by viewModel.deviceKindPrompt.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val route by viewModel.displayRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
@@ -312,6 +313,9 @@ fun MainScreen(
                 audioSessions = audioSessions,
                 activeAudioSession = activeAudioSession,
                 isOwnPlayerSession = isOwnPlayerSession,
+                deviceKindPrompt = deviceKindPrompt,
+                onAnswerDeviceKind = { viewModel.answerDeviceKind(it) },
+                onDismissDeviceKindPrompt = { viewModel.dismissDeviceKindPrompt() },
                 onSelectAudioSession = { viewModel.selectAudioSession(it) },
                 compare = compare,
                 onStartCompare = { viewModel.startCompare() },
