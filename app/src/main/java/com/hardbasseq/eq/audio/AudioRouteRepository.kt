@@ -1,8 +1,8 @@
 package com.hardbasseq.eq.audio
 
 import android.content.Context
-import android.media.AudioDeviceCallback
 import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
