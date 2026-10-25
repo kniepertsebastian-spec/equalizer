@@ -24,7 +24,9 @@ object SoundContextClassifier {
             "car carplay auto carkit uconnect mylink handsfree " +
                 "bmw audi mercedes benz vw volkswagen skoda seat cupra opel ford toyota lexus honda " +
                 "hyundai kia mazda nissan volvo tesla peugeot citroen renault dacia fiat porsche " +
-                "suzuki subaru jeep mmi idrive comand mbux"
+                "suzuki subaru jeep mmi idrive comand mbux " +
+                "sync medianav rlink uvo bluelink pcm entune cue mitsubishi alfa smart polestar mg byd " +
+                "pioneer kenwood alpine blaupunkt headunit carstereo fm transmitter"
         ).split(' ').toSet()
 
     // "freisprech..." (German hands-free) is matched as a prefix since it is
@@ -34,14 +36,28 @@ object SoundContextClassifier {
     private val speakerWords =
         (
             "speaker lautsprecher box soundbox boombox boom megaboom " +
-                "wonderboom partybox soundlink flip xtreme charge soundbar"
+                "wonderboom partybox soundlink flip xtreme charge soundbar " +
+                "stormbox pill boomster rockster emberton stanmore acton onyx"
         ).split(' ').toSet()
+
+    // Names split on hyphens/spaces ("MEDIA-NAV", "R-Link"): adjacent words are also
+    // tried joined, so the compound keyword still matches.
+    // Generic words ("go", "motion", "clip", "pulse") only count next to their brand.
+    private val speakerWordPairs =
+        listOf(
+            setOf("jbl", "go"),
+            setOf("jbl", "clip"),
+            setOf("jbl", "pulse"),
+            setOf("soundcore", "motion"),
+        )
 
     fun classifyBluetoothName(name: String): SoundContext? {
         val words = name.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
         return when {
             words.any { it in carWords || carPrefixes.any { prefix -> it.startsWith(prefix) } } -> SoundContext.CAR
+            words.zipWithNext { a, b -> a + b }.any { it in carWords } -> SoundContext.CAR
             words.any { it in speakerWords } -> SoundContext.BLUETOOTH_SPEAKER
+            speakerWordPairs.any { pair -> words.containsAll(pair) } -> SoundContext.BLUETOOTH_SPEAKER
             else -> null
         }
     }
