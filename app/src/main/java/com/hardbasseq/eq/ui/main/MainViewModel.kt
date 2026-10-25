@@ -107,6 +107,11 @@ private const val INPUT_GAIN_SAFETY_RATIO = 0.1f
 private const val SPEAKER_INPUT_GAIN_SAFETY_RATIO = 0.5f
 private const val FEEDBACK_BUFFER = 8
 
+// The player's curve is handed over as points on this log grid (about 6 per octave).
+private const val PLAYER_CURVE_MIN_HZ = 20f
+private const val PLAYER_CURVE_MAX_HZ = 20_000f
+private const val PLAYER_CURVE_STEP = 1.12f
+
 // Smaller than this, a classic band counts as sitting on the curve (no manual edit).
 private const val MANUAL_DELTA_EPSILON_DB = 0.05f
 
@@ -399,6 +404,14 @@ class MainViewModel
                     .collect { route ->
                         if (hasRestoredState) applyDeviceProfileForRoute(route)
                     }
+            }
+            // Binding to this app's own player (or away from it) moves the curve between the
+            // player's PCM equalizer and the system equalizer.
+            viewModelScope.launch {
+                activeAudioSession
+                    .map { it?.packageName == BuildConfig.APPLICATION_ID }
+                    .drop(1)
+                    .collect { if (hasRestoredState) pushToEngine(_processingSettings.value) }
             }
             // Android Auto connecting or disconnecting changes what "detected" means for the
             // current route: re-decide the mode (a saved choice for the route still wins).
@@ -1080,7 +1093,7 @@ class MainViewModel
         // not Spotify/YouTube Music, too narrow a win for the effort. Loudness
         // compensation (also gated on headphone mode - quieter headphone listening
         // is the case it's meant for) rides the same already-working path instead.
-        private fun combinedCurve(): List<TargetPoint> {
+        private fun combinedCurve(includeSubsonic: Boolean = true): List<TargetPoint> {
             val power = _headphonePower.value
             val headphoneCurve = if (effectiveHeadphoneAcoustics.value) HeadphoneComfortCurve.curve(power.bassDb) else emptyList()
             val loudnessCurve =
@@ -1100,7 +1113,7 @@ class MainViewModel
                     loudnessCurve,
                     _activeGoal.value.curve,
                     _activeContext.value?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
-                    contextCurve(),
+                    contextCurve(includeSubsonic),
                 ),
             )
         }
@@ -1110,7 +1123,7 @@ class MainViewModel
         // below take effect). Headphone mode already has its own loudness curve
         // (loudnessCurve in combinedCurve), so the preset's one is skipped there
         // rather than stacking two boosts. Empty while both are off.
-        private fun contextCurve(): List<TargetPoint> {
+        private fun contextCurve(includeSubsonic: Boolean = true): List<TargetPoint> {
             val settings = _processingSettings.value
             val presetLoudness =
                 if (effectiveHeadphoneAcoustics.value) {
@@ -1120,7 +1133,7 @@ class MainViewModel
                 }
             return CurveComposer.combine(
                 listOf(
-                    SubsonicFilterCurve.forCutoff(settings.subsonicCutoffHz),
+                    if (includeSubsonic) SubsonicFilterCurve.forCutoff(settings.subsonicCutoffHz) else emptyList(),
                     presetLoudness,
                 ),
             )
@@ -1304,11 +1317,57 @@ class MainViewModel
                             )
                     }
                 }
+            // Only the dynamics (MBC, limiter) stay on the system path for the own player.
+            val forSystem =
+                if (pcmEqualizerOwnsTheCurve(settings)) {
+                    forEngine.copy(
+                        bandGainsDb = forEngine.bandGainsDb.mapValues { 0f },
+                        preEqGainsDb = forEngine.preEqGainsDb.map { 0f },
+                        inputGainDb = 0f,
+                    )
+                } else {
+                    forEngine
+                }
             viewModelScope.launch {
-                audioEngine.apply(forEngine)
+                audioEngine.apply(forSystem)
             }
-            pushVirtualBass(if (compare?.side == CompareSide.ORIGINAL) settings.copy(bypass = true) else settings)
+            val forPlayer = if (compare?.side == CompareSide.ORIGINAL) settings.copy(bypass = true) else settings
+            pushVirtualBass(forPlayer)
+            pushPlayerCurve(forPlayer)
         }
+
+        // The player's own PCM equalizer follows the exact curve; the subsonic cut is a real
+        // high-pass there, so it travels separately and the curve must not contain it twice.
+        // The macros are not part of the curve either, so they are sampled into it.
+        private fun pushPlayerCurve(settings: ProcessingSettings) {
+            val active = settings.masterEnabled && !settings.bypass
+            if (!active) {
+                playerBridge.setPlayerCurve(emptyList(), 0f)
+                return
+            }
+            val curve = combinedCurve(includeSubsonic = false).sortedBy { it.frequencyHz }
+            val sampled =
+                generateSequence(PLAYER_CURVE_MIN_HZ) { it * PLAYER_CURVE_STEP }
+                    .takeWhile { it <= PLAYER_CURVE_MAX_HZ }
+                    .map { hz ->
+                        TargetPoint(
+                            hz,
+                            EqualizerInterpolator.resolveGainAtFrequency(
+                                hz,
+                                curve,
+                                settings.macroBassDb,
+                                settings.macroPunchDb,
+                                settings.macroHaerteDb,
+                            ),
+                        )
+                    }.toList()
+            playerBridge.setPlayerCurve(sampled, settings.subsonicCutoffHz)
+        }
+
+        // True while the EQ is bound to this app's own player: its PCM equalizer already
+        // applies the curve, so the system equalizer must not apply it a second time.
+        private fun pcmEqualizerOwnsTheCurve(settings: ProcessingSettings): Boolean =
+            settings.masterEnabled && !settings.bypass && activeAudioSession.value?.packageName == BuildConfig.APPLICATION_ID
 
         private fun eqLevelDeltaDb(
             settings: ProcessingSettings,

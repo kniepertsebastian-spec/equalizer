@@ -39,6 +39,7 @@ import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.SoundGoal
+import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
@@ -1245,6 +1246,68 @@ class MainViewModelTest {
     private val unknownBt = AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "BT Audio", id = "bt_generic")
 
     @Test
+    fun `own player session gets flat system bands when the pcm eq is active`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = BuildConfig.APPLICATION_ID))
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(fakeEngine.currentSettings.value.bandGainsDb.values.all { it == 0f })
+            // The settings the user sees keep the real gains.
+            assertTrue(viewModel.processingSettings.value.bandGainsDb.values.any { it != 0f })
+        }
+
+    @Test
+    fun `foreign session keeps system band gains`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(fakeEngine.currentSettings.value.bandGainsDb.values.any { it != 0f })
+        }
+
+    @Test
+    fun `the player gets the curve without the subsonic cut and the cutoff separately`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge = playerBridge)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInContextPresets.Car.subsonicCutoffHz, playerBridge.lastSubsonicCutoffHz, 0f)
+            // Deep Rumble boosts the lowest octave; the subsonic curve (about -8 dB at 20 Hz)
+            // is applied by the high-pass instead, so it must not be in the curve as well.
+            val lowest = playerBridge.lastPlayerCurve.minBy { it.frequencyHz }
+            assertTrue("curve at ${lowest.frequencyHz} Hz was ${lowest.gainDb} dB", lowest.gainDb >= 5f)
+        }
+
+    @Test
+    fun `master off switches the player curve off`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge = playerBridge)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(playerBridge.lastPlayerCurve.isNotEmpty())
+
+            viewModel.setMasterEnabled(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(playerBridge.lastPlayerCurve.isEmpty())
+            assertEquals(0f, playerBridge.lastSubsonicCutoffHz, 0f)
+        }
+
+    @Test
     fun `an unclassified bluetooth route without a choice asks once`() =
         runTest {
             val viewModel = createViewModel(emptyList())
@@ -1881,6 +1944,10 @@ class MainViewModelTest {
     private class FakePlayerBridge : PlayerBridge {
         var lastVirtualBassMix: Float? = null
             private set
+        var lastPlayerCurve: List<TargetPoint> = emptyList()
+            private set
+        var lastSubsonicCutoffHz: Float = 0f
+            private set
         var launchCount = 0
             private set
         var stopCount = 0
@@ -1901,6 +1968,14 @@ class MainViewModelTest {
 
         override fun togglePlayback() {
             toggleCount++
+        }
+
+        override fun setPlayerCurve(
+            curve: List<TargetPoint>,
+            subsonicCutoffHz: Float,
+        ) {
+            lastPlayerCurve = curve
+            lastSubsonicCutoffHz = subsonicCutoffHz
         }
 
         override fun setVirtualBassMix(mix: Float) {

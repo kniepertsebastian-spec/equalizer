@@ -3,8 +3,22 @@ package com.soundcloud.equalizer.player.playback
 import android.content.Context
 import com.hardbasseq.eq.dsp.BassMonoSummerSettings
 import com.hardbasseq.eq.dsp.PlayerDspSettings
+import com.hardbasseq.eq.preset.TargetPoint
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+
+// The exact target curve and subsonic cutoff the player's equalizer follows (see
+// CurveEqualizer). Set by HardBass EQ's main screen, read on ExoPlayer's playback
+// thread; a new object per update, so the reader can tell a change by identity.
+class PlayerCurve(
+    val curve: List<TargetPoint>,
+    val subsonicCutoffHz: Float,
+)
+
+object PlayerCurveState {
+    @Volatile
+    var current: PlayerCurve = PlayerCurve(emptyList(), 0f)
+}
 
 // The player's output-stage switches (mono bass, limiter), shared between the UI that
 // sets them and ExoPlayer's playback thread that reads them - same-process singleton

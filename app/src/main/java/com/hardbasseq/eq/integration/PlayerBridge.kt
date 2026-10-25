@@ -1,5 +1,7 @@
 package com.hardbasseq.eq.integration
 
+import com.hardbasseq.eq.preset.TargetPoint
+
 /**
  * Binds HardBass EQ's master on/off bar to the SC Equalizer Player screen (see
  * roadmap.md: SoundCloud never sends ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION, so
@@ -24,4 +26,14 @@ interface PlayerBridge {
      * audio is reachable only through the system effect path, which cannot do it.
      */
     fun setVirtualBassMix(mix: Float)
+
+    /**
+     * The exact target curve (without the subsonic cut) the player's own equalizer follows, and
+     * the subsonic high-pass cutoff. An empty curve and 0 switch it off. Other apps' audio is
+     * only reachable through the coarser system equalizer.
+     */
+    fun setPlayerCurve(
+        curve: List<TargetPoint>,
+        subsonicCutoffHz: Float,
+    )
 }

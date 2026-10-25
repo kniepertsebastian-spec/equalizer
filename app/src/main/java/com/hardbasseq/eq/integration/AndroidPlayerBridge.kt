@@ -3,7 +3,10 @@ package com.hardbasseq.eq.integration
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.hardbasseq.eq.preset.TargetPoint
 import com.soundcloud.equalizer.player.PlayerActivity
+import com.soundcloud.equalizer.player.playback.PlayerCurve
+import com.soundcloud.equalizer.player.playback.PlayerCurveState
 import com.soundcloud.equalizer.player.playback.VirtualBassState
 import com.soundcloud.equalizer.player.service.AudioPlayerService
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -54,5 +57,12 @@ class AndroidPlayerBridge
 
         override fun setVirtualBassMix(mix: Float) {
             VirtualBassState.mix = mix.coerceIn(0f, 1f)
+        }
+
+        override fun setPlayerCurve(
+            curve: List<TargetPoint>,
+            subsonicCutoffHz: Float,
+        ) {
+            PlayerCurveState.current = PlayerCurve(curve, subsonicCutoffHz)
         }
     }
