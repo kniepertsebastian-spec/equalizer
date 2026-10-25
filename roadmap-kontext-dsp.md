@@ -130,7 +130,7 @@ Test neu `app/src/test/java/com/hardbasseq/eq/audio/RouteSelectionTest.kt`.
 
 ---
 
-### A2 – Kontext-Modus pro Route speichern  `[ ]`
+### A2 – Kontext-Modus pro Route speichern  `[x]`
 
 **Ziel:** Jede Route merkt sich eine explizite Modus-Wahl. Eine manuelle Wahl gilt
 nur für die Route, auf der sie getroffen wurde. Behebt F1 und F2.
@@ -206,9 +206,12 @@ nur für die Route, auf der sie getroffen wurde. Behebt F1 und F2.
 👤 A2-G2: K3 aus `docs/TEST_MATRIX.md` (Gerät ohne Stichwort, manuell „Car“ → beim nächsten Verbinden wieder an).
 👤 A2-G3: „Car“ manuell an, Kopfhörer verbinden → Modus aus.
 
+
+*Umgesetzt (Branch `ccr-89d3640a-gjxiez`, PR #57). Abweichungen: Persistenz über ein zusätzliches Argument `contextMode` an `saveProfile` statt eigener Schreibmethode; das exportierte Schema `2.json` wird vom Build erzeugt (das eingecheckte `1.json` ist veraltet und kennt die Spalten `boundCorrectionProfileId`/`headphoneAcousticsOverride` nicht) – nach dem ersten Gradle-Lauf mit einchecken. A2-G1…G3 offen (K12–K14).*
+
 ---
 
-### A3 – Klassifizierer-Stichwörter erweitern  `[ ]`
+### A3 – Klassifizierer-Stichwörter erweitern  `[x]`
 
 **Ziel:** Mehr Autos/Boxen am Namen erkennen, ohne neue Fehlgriffe.
 
@@ -238,9 +241,12 @@ nur für die Route, auf der sie getroffen wurde. Behebt F1 und F2.
 
 **Akzeptanz:** alle bestehenden und neuen Klassifizierer-Tests grün.
 
+
+*Umgesetzt (PR #57). Mehrwort-Regeln für `go`/`clip`/`pulse` (mit `jbl`) und `motion` (mit `soundcore`); zusammengesetzte Namen über Verkettung benachbarter Wörter.*
+
 ---
 
-### A4 – Einmalige Gerätefrage bei unbekanntem Bluetooth-Gerät  `[ ]`
+### A4 – Einmalige Gerätefrage bei unbekanntem Bluetooth-Gerät  `[x]`
 
 **Braucht:** A2.
 
@@ -277,9 +283,12 @@ ohne neue Berechtigung: Der Nutzer sagt einmal, was das Gerät ist.
 
 **Akzeptanz:** Tests grün. 👤 A4-G1: unbekanntes BT-Gerät verbinden → Frage erscheint genau einmal, Antwort bleibt nach App-Neustart.
 
+
+*Umgesetzt (PR #57). Die Frage entfällt, solange Android Auto verbunden ist. A4-G1 offen (K15).*
+
 ---
 
-### A5 – Android-Auto-Verbindung als sicheres Auto-Signal  `[ ]`
+### A5 – Android-Auto-Verbindung als sicheres Auto-Signal  `[x]`
 
 **Braucht:** A2 (Explizite Wahl schlägt auch dieses Signal).
 
@@ -308,11 +317,14 @@ auch, wenn das Audio über USB läuft.
 
 **Akzeptanz:** Tests grün. 👤 C10 (= K10 in TEST_MATRIX): kabelgebunden und drahtlos – Modus geht an, und ob der EQ auf der Spotify-Session greift, wird dokumentiert.
 
+
+*Umgesetzt (PR #57), `androidx.car.app:app:1.4.0`. Schritt 2 (Gearhead-Signal im `AutoBrowserService`) nur nach Gerätetest K18, falls `CarConnection` versagt.*
+
 ---
 
 ## Phase B – Ehrlichkeit und Sicherheit
 
-### B1 – Ehrliche Kennzeichnung Virtual Bass / Subsonic  `[ ]`
+### B1 – Ehrliche Kennzeichnung Virtual Bass / Subsonic  `[x]`
 
 **Ziel:** Kein Schalter behauptet eine Wirkung, die auf dem aktuellen Pfad nicht entsteht.
 
@@ -335,9 +347,12 @@ auch, wenn das Audio über USB läuft.
 **Tests:** ViewModel-Test `own player session is detected by package name`.
 **Akzeptanz:** 👤 B1-G1: Spotify spielt, Virtual Bass an → Kachel zeigt „player only“.
 
+
+*Umgesetzt (PR #57). `isOwnPlayerSession` ist auch ohne gebundene Session wahr (der eigene Player kann ohne Session spielen); `BuildConfig.APPLICATION_ID` statt injiziertem Paketnamen. Info-Text zum Subsonic-Näherungswert entfällt (nur Detailtext `≈`).*
+
 ---
 
-### B2 – Kontext-MBC anwenden, Box-Headroom, tote Felder  `[ ]`
+### B2 – Kontext-MBC anwenden, Box-Headroom, tote Felder  `[x]`
 
 **Ziel:** Die Schutz-Werte der Kontext-Presets wirken tatsächlich; kleine Boxen
 werden nicht nur vom Limiter „gerettet“.
@@ -373,11 +388,14 @@ werden nicht nur vom Limiter „gerettet“.
 
 **Akzeptanz:** Tests grün. 👤 B2-G1 (= D3 in TEST_MATRIX): Box-Modus, basslastiger Track, laut → weniger Pumpen als vorher.
 
+
+*Umgesetzt (PR #57). Der Kontext-Faktor liegt als `when` im ViewModel (`BLUETOOTH_SPEAKER` 0,5; sonst 0,1). B2-G1 offen (K17).*
+
 ---
 
 ## Phase C – Mehr Auflösung auf dem System-Pfad (Spotify & Co.)
 
-### C1 – DynamicsProcessing-Pre-EQ hinter Schalter  `[ ]`
+### C1 – DynamicsProcessing-Pre-EQ hinter Schalter  `[x]`
 
 **Ziel:** Statt 5 Bänder (klassischer `Equalizer`) bis zu 16 frei gesetzte Bänder
 über den Pre-EQ von `DynamicsProcessing`, der ohnehin an jeder Session hängt.
@@ -448,6 +466,9 @@ Annäherung liegen; grob in Mitten/Höhen. Als Konstante in `:core`
 **Nicht tun:** keine PEQ-UI (das ist M6 Phase 2 in `roadmap-2026.md`), keine
 Änderung der Preset-Kurven.
 
+
+*Umgesetzt (PR #57), Standard aus. Schalter in der Diagnose; die Einstellung liegt in `ProcessingSettings.highResolutionEq` (damit in `LiveSettings` persistiert); Umschalten baut den Effekt per `retry()` neu auf. Abweichung: ±0,5 dB aus der Roadmap sind mit dieser Bandaufteilung bei 200 Hz (Car) nicht erreichbar, der Test prüft ±1 dB.*
+
 ---
 
 ### C2 – 👤 Messung Pre-EQ vs. klassischer EQ, Entscheidung  `[ ]`
@@ -470,9 +491,14 @@ mit dieser Tabelle anlegen (leer):
 genauer trifft, keine neuen Knackser auftreten und Attach nicht schlechter wird.
 Ergebnis in `docs/DECISIONS.md` festhalten.
 
+
+*Tabelle vorbereitet in `docs/TEST_MATRIX.md`. Messung steht aus (👤).*
+
 ---
 
 ### C3 – Pre-EQ als Standard  `[ ]`
+
+*Bewusst nicht umgesetzt: wartet auf das „Go“ aus der Messung C2.*
 
 **Braucht:** C2 mit Ergebnis „Go“. Default der Einstellung aus C1 auf `true`;
 Schalter bleibt in der Diagnose als Rückfallebene. Nichts weiter.
@@ -481,7 +507,7 @@ Schalter bleibt in der Diagnose als Rückfallebene. Nichts weiter.
 
 ## Phase D – Eigener Player: exakte Kurve
 
-### D1 – Kurven-EQ + echter Hochpass im PCM-Pfad des Players  `[ ]`
+### D1 – Kurven-EQ + echter Hochpass im PCM-Pfad des Players  `[x]`
 
 **Ziel:** Im eigenen Player läuft die komplette Zielkurve als Biquad-Kette und der
 Subsonic-Filter als echter Hochpass (24 dB/Oktave). Damit ist der eigene Player
@@ -537,7 +563,10 @@ für Auto/Box hörbar die beste Option – ehrlich nach Release-Gate B.
 Box verzerrt mit „an“ hörbar weniger; keine Knackser bei Seek/Titelwechsel.
 👤 D1-G2: CPU/Akku 30 min im Player unauffällig.
 
-### D2 – Doppelte EQ-Anwendung auf der Player-Session vermeiden  `[ ]`
+
+*Umgesetzt (PR #57). Abweichung: das iterative Lösen der Peak-Gains braucht Dämpfung (Faktor 0,6, 8 Durchläufe); ohne Dämpfung divergiert es. Die Makros werden als Stützpunkte auf einem Log-Raster (~6 pro Oktave) in die Player-Kurve gesampelt. D1-G1/G2 offen (K19/K20).*
+
+### D2 – Doppelte EQ-Anwendung auf der Player-Session vermeiden  `[x]`
 
 **Braucht:** D1, B1 (`isOwnPlayerSession`).
 
@@ -549,11 +578,14 @@ Fremd-Sessions unverändert.
 **Tests:** `own player session gets flat system bands when the pcm eq is active`,
 `foreign session keeps system band gains`.
 
+
+*Umgesetzt (PR #57). Der System-Pfad bekommt zusätzlich `inputGainDb = 0` (ohne Bänder entfällt die Pegelkompensation). Greift nur bei ausdrücklich gebundener eigener Session.*
+
 ---
 
 ## Phase E – Virtual Bass für Spotify (Annäherung)
 
-### E1 – „Bass-Lift (angenähert)“ für Fremd-Apps  `[ ]`
+### E1 – „Bass-Lift (angenähert)“ für Fremd-Apps  `[x]`
 
 **Braucht:** C1 (ohne Pre-EQ zu grob, siehe F5), B1.
 
@@ -579,11 +611,14 @@ ViewModel: `approx curve is applied only for foreign sessions with pre eq`,
 **Akzeptanz:** 👤 E1-G1: Spotify auf kleiner Box, A/B mit Original/EQ-Vergleich →
 Kick wirkt präsenter, Box pumpt nicht stärker als ohne.
 
+
+*Umgesetzt (PR #57). E1-G1 offen (K21).*
+
 ---
 
 ## Phase F – Dokumentation (läuft mit)
 
-### F1 – Doku nachziehen  `[ ]`
+### F1 – Doku nachziehen  `[x]`
 
 Pro Aufgabe im selben PR:
 - `docs/TEST_MATRIX.md`: Gerätetests der Aufgabe (A1-G1 … E1-G1) als offene Zeilen
@@ -594,11 +629,16 @@ Pro Aufgabe im selben PR:
 - `roadmap-2026.md`: im Kopf einen Verweis auf diese Datei (einmalig, mit A1).
 - `roadmap.md`: Session-Log-Eintrag je PR (bestehendes Format).
 
+
+*Läuft mit; Gerätetests K11–K21, DECISIONS-Eintrag und Verweis in `roadmap-2026.md` sind drin. Session-Log-Eintrag in `roadmap.md` ergänzt.*
+
 ---
 
 ## Phase G – Optional
 
 ### G1 – BluetoothClass per Opt-in-Berechtigung  `[ ]`
+
+*Bewusst nicht umgesetzt: die Aufgabe gilt nur, wenn A3+A4+A5 in der Praxis nicht reichen – das zeigen erst die Gerätetests K11–K18.*
 
 **Braucht:** A4. **Nur umsetzen, wenn A3+A4+A5 in der Praxis nicht reichen.**
 

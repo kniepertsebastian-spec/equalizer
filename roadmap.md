@@ -2290,3 +2290,13 @@ auflösbar, echte Kompilierprüfung über CI im PR.
   gedrosselt, da das Muster (Slider-Drag, Routenwechsel) im Rest dieses
   ViewModels genauso funktioniert und Android-Lautstärkestufen ohnehin grob
   gerastert sind (typischerweise 15-25 Stufen).
+
+## Session 25 – Roadmap Kontext-Modi & DSP-Auflösung (25. Oktober 2026)
+
+Umsetzung von `roadmap-kontext-dsp.md` in PR #57: A1–A5 (Medienroute inkl. LE Audio, Kontext-Modus pro Route mit
+Room-Migration 1→2, Stichwörter, Geräte-Frage, Android-Auto-Signal), B1/B2 (ehrliche Kacheln, Kontext-MBC,
+Lautsprecher-Headroom), C1 (Pre-EQ hinter Schalter, Standard aus), D1/D2 (Kurven-EQ und echter Hochpass im
+Player-PCM-Pfad, flache System-Bänder für die eigene Session), E1 (Bass-Lift-Annäherung für Fremd-Apps), F1 (Doku).
+Offen: C2 (Messung am Gerät), C3 (hängt an C2), G1 (nur bei Bedarf) und alle 👤-Zeilen K11–K21 in
+`docs/TEST_MATRIX.md`. Lokal war kein Gradle-Build möglich (Android-Plugin offline nicht auflösbar); Prüfung nur über CI.
+
