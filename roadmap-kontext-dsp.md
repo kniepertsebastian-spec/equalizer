@@ -467,7 +467,7 @@ Annäherung liegen; grob in Mitten/Höhen. Als Konstante in `:core`
 Änderung der Preset-Kurven.
 
 
-*Umgesetzt (PR #57), Standard aus. Nachträglich verfeinert: 34 statt 16 Bänder (`PreEqLayout`), MBC mit 4 statt 3 Bändern (eigenes Kick-Band bis 130 Hz, Sub-Band bis 45 Hz); fällt das Gerät bei der Erzeugung durch, greift die Rückfallkette. Schalter in der Diagnose; die Einstellung liegt in `ProcessingSettings.highResolutionEq` (damit in `LiveSettings` persistiert); Umschalten baut den Effekt per `retry()` neu auf. Abweichung: ±0,5 dB aus der Roadmap sind mit dieser Bandaufteilung bei 200 Hz (Car) nicht erreichbar, der Test prüft ±1 dB.*
+*Umgesetzt (PR #57), Standard aus. Nachträglich verfeinert: 34 statt 16 Bänder (`PreEqLayout`), MBC mit 4 statt 3 Bändern (eigenes Kick-Band bis 130 Hz, Sub-Band bis 45 Hz); fällt das Gerät bei der Erzeugung durch, greift die Rückfallkette. Schalter oben in der Equalizer-Hauptansicht (nicht mehr in der Diagnose); die Einstellung liegt in `ProcessingSettings.highResolutionEq` (damit in `LiveSettings` persistiert); Umschalten baut den Effekt per `retry()` neu auf. Abweichung: ±0,5 dB aus der Roadmap sind mit dieser Bandaufteilung bei 200 Hz (Car) nicht erreichbar, der Test prüft ±1 dB.*
 
 ---
 

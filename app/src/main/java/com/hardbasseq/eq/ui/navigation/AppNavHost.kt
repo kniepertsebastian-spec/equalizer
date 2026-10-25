@@ -171,8 +171,6 @@ fun AppNavHost(
                     recentEvents = diagnosticsEvents,
                     playerSource = lastPlayerSource?.name,
                     androidAutoConnected = androidAutoConnected,
-                    highResolutionEq = processingSettings.highResolutionEq,
-                    onHighResolutionEqChanged = { viewModel.setHighResolutionEq(it) },
                     onBackClicked = { navController.popBackStack() },
                 )
             }

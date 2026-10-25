@@ -570,7 +570,7 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 
 ## C2 – Pre-EQ-Messung (Roadmap Kontext/DSP)
 
-Ausführender: Sebastian (Gerät). Schalter: Diagnose → „High-resolution EQ (experimental)“.
+Ausführender: Sebastian (Gerät). Schalter: Equalizer-Hauptansicht, oben unter der Kopfzeile → „High-resolution EQ (experimental)“.
 Entscheidungsregel: „Go“ für C3, wenn der Pre-EQ die Zielkurve im Bass messbar genauer
 trifft, keine neuen Knackser auftreten und Attach nicht schlechter wird. Ergebnis in
 `docs/DECISIONS.md` festhalten.

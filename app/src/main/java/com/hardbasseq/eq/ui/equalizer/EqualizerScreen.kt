@@ -176,6 +176,7 @@ fun EqualizerScreen(
     onAnswerDeviceKind: (DeviceKind) -> Unit = {},
     onDismissDeviceKindPrompt: () -> Unit = {},
     preEqActive: Boolean = false,
+    onHighResolutionEqChanged: ((Boolean) -> Unit)? = null,
     onSelectAudioSession: (AudioSession) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -343,6 +344,15 @@ fun EqualizerScreen(
                             style = style,
                             onAnswer = onAnswerDeviceKind,
                             onDismiss = onDismissDeviceKindPrompt,
+                        )
+                    }
+
+                    onHighResolutionEqChanged?.let { onChanged ->
+                        HighResolutionEqRow(
+                            checked = settings.highResolutionEq,
+                            active = preEqActive,
+                            style = style,
+                            onCheckedChange = onChanged,
                         )
                     }
 
