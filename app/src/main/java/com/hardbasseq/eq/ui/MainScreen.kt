@@ -313,6 +313,7 @@ fun MainScreen(
                 audioSessions = audioSessions,
                 activeAudioSession = activeAudioSession,
                 isOwnPlayerSession = isOwnPlayerSession,
+                preEqActive = capabilities.preEqCutoffsHz.isNotEmpty(),
                 deviceKindPrompt = deviceKindPrompt,
                 onAnswerDeviceKind = { viewModel.answerDeviceKind(it) },
                 onDismissDeviceKindPrompt = { viewModel.dismissDeviceKindPrompt() },

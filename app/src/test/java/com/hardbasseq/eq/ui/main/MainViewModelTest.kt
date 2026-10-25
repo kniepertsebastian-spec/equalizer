@@ -28,6 +28,7 @@ import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
+import com.hardbasseq.eq.dsp.PreEqLayout
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInContextPresets
@@ -1593,6 +1594,53 @@ class MainViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(BuiltInContextPresets.Car.virtualBassMix, viewModel.processingSettings.value.virtualBassMix, 0f)
+        }
+
+    private fun withPreEq() = FakeAudioEngine.defaultFakeCapabilities().copy(preEqCutoffsHz = PreEqLayout.CUTOFFS_HZ)
+
+    @Test
+    fun `pre eq gains are computed when the engine reports pre eq bands`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeEngine.updateCapabilities(withPreEq())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val gains = viewModel.processingSettings.value.preEqGainsDb
+            assertEquals(PreEqLayout.CUTOFFS_HZ.size, gains.size)
+            assertTrue(gains.any { it != 0f })
+        }
+
+    @Test
+    fun `without pre eq bands nothing changes`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(viewModel.processingSettings.value.preEqGainsDb.isEmpty())
+        }
+
+    @Test
+    fun `compare original zeroes pre eq gains`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeEngine.updateCapabilities(withPreEq())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.startCompare()
+            viewModel.setCompareSide(CompareSide.ORIGINAL)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val original = fakeEngine.currentSettings.value.preEqGainsDb
+            assertEquals(PreEqLayout.CUTOFFS_HZ.size, original.size)
+            assertTrue(original.all { it == 0f })
         }
 
     @Test
