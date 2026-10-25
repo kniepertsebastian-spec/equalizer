@@ -62,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -168,6 +169,8 @@ fun EqualizerScreen(
     onRetryAttach: () -> Unit,
     audioSessions: List<AudioSession> = emptyList(),
     activeAudioSession: AudioSession? = null,
+    isOwnPlayerSession: Boolean = true,
+    preEqActive: Boolean = false,
     onSelectAudioSession: (AudioSession) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -696,7 +699,9 @@ fun EqualizerScreen(
                                 title = stringResource(R.string.module_subsonic),
                                 detail =
                                     if (settings.subsonicCutoffHz > 0f) {
-                                        "< ${settings.subsonicCutoffHz.toInt()} Hz"
+                                        // The 5-band system EQ can only lower its lowest band, not cut like a high-pass.
+                                        val prefix = if (preEqActive) "<" else "≈"
+                                        "$prefix ${settings.subsonicCutoffHz.toInt()} Hz"
                                     } else {
                                         stringResource(R.string.module_off)
                                     },
@@ -707,11 +712,18 @@ fun EqualizerScreen(
                             )
                             SignalModuleTile(
                                 title = stringResource(R.string.module_virtual_bass),
-                                detail = stringResource(if (settings.virtualBassMix > 0f) R.string.module_on else R.string.module_off),
+                                detail =
+                                    stringResource(
+                                        when {
+                                            settings.virtualBassMix <= 0f -> R.string.module_off
+                                            !isOwnPlayerSession -> R.string.module_player_only
+                                            else -> R.string.module_on
+                                        },
+                                    ),
                                 checked = settings.virtualBassMix > 0f,
                                 onCheckedChange = onVirtualBassChanged,
                                 style = style,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).alpha(if (isOwnPlayerSession) 1f else 0.6f),
                             )
                         }
                     }

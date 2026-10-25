@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui.main
 
+import com.hardbasseq.eq.BuildConfig
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioCapabilities
 import com.hardbasseq.eq.audio.AudioDeviceType
@@ -9,6 +10,7 @@ import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSession
+import com.hardbasseq.eq.audio.AudioSessionRepository
 import com.hardbasseq.eq.audio.EffectConnectMode
 import com.hardbasseq.eq.audio.FakeAudioEngine
 import com.hardbasseq.eq.audio.KnownEffectTypeIds
@@ -1113,6 +1115,81 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `own player session is detected by package name`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.isOwnPlayerSession.value)
+
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.isOwnPlayerSession.value)
+
+            sessions.setActiveSession(AudioSession(sessionId = 2, packageName = BuildConfig.APPLICATION_ID))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.isOwnPlayerSession.value)
+        }
+
+    @Test
+    fun `speaker mode tightens mbc threshold and ratio`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val genre = viewModel.activePreset.value
+            viewModel.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val settings = viewModel.processingSettings.value
+            assertTrue(settings.mbcEnabled)
+            assertEquals(minOf(genre.mbcThresholdDb, BuiltInContextPresets.BluetoothSpeaker.mbcThresholdDb), settings.mbcThresholdDb, 0f)
+            assertEquals(maxOf(genre.mbcRatio, BuiltInContextPresets.BluetoothSpeaker.mbcRatio), settings.mbcRatio, 0f)
+        }
+
+    @Test
+    fun `switching the mode off restores the genre dynamics`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val genre = viewModel.activePreset.value
+            viewModel.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val settings = viewModel.processingSettings.value
+            assertEquals(genre.mbcThresholdDb, settings.mbcThresholdDb, 0f)
+            assertEquals(genre.mbcRatio, settings.mbcRatio, 0f)
+        }
+
+    @Test
+    fun `speaker mode uses the higher input gain safety ratio`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // The speaker curve alone boosts about 2.5 dB at 100 Hz; at a ratio of 0.1 that
+            // would cost 0.25 dB, at 0.5 it costs more than 1 dB.
+            assertTrue(viewModel.processingSettings.value.inputGainDb <= -1f)
+        }
+
+    @Test
+    fun `car mode keeps the genre mbc when it is already tighter`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val tight = BuiltInPresets.DeepRumble.copy(mbcThresholdDb = -20f, mbcRatio = 6f)
+            viewModel.selectPreset(tight)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(-20f, viewModel.processingSettings.value.mbcThresholdDb, 0f)
+            assertEquals(6f, viewModel.processingSettings.value.mbcRatio, 0f)
+        }
+
+    @Test
     fun `a manually enabled mode is not carried over to the next route`() =
         runTest {
             val viewModel = createViewModel(emptyList())
@@ -1524,6 +1601,7 @@ class MainViewModelTest {
         appSettingsRepository: AppSettingsRepository = FakeAppSettingsRepository(),
         correctionProfileRepository: CorrectionProfileRepository = FakeCorrectionProfileRepository(),
         deviceProfileRepository: DeviceProfileRepository = FakeDeviceProfileRepository(),
+        sessionRepository: AudioSessionRepository = FakeAudioSessionRepository(),
     ): MainViewModel =
         MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
@@ -1537,6 +1615,7 @@ class MainViewModelTest {
             correctionProfileRepository = correctionProfileRepository,
             deviceProfileRepository = deviceProfileRepository,
             texts = FakeTextProvider(),
+            sessionRepository = sessionRepository,
             backgroundDispatcher = dispatcher,
         )
 
@@ -1561,6 +1640,19 @@ class MainViewModelTest {
             )
 
         override fun queryAvailableEffects(): List<AudioEffectDescriptor> = descriptors
+    }
+
+    private class FakeAudioSessionRepository : AudioSessionRepository {
+        override val sessions = MutableStateFlow<List<AudioSession>>(emptyList())
+        override val activeSession = MutableStateFlow<AudioSession?>(null)
+
+        override fun startListening() = Unit
+
+        override fun stopListening() = Unit
+
+        override fun setActiveSession(session: AudioSession?) {
+            activeSession.value = session
+        }
     }
 
     private class FakeAudioRouteRepository : AudioRouteRepository {

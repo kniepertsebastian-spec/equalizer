@@ -94,6 +94,7 @@ fun MainScreen(
     val engineState by viewModel.engineState.collectAsStateWithLifecycle()
     val audioSessions by viewModel.audioSessions.collectAsStateWithLifecycle()
     val activeAudioSession by viewModel.activeAudioSession.collectAsStateWithLifecycle()
+    val isOwnPlayerSession by viewModel.isOwnPlayerSession.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val route by viewModel.displayRoute.collectAsStateWithLifecycle()
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
@@ -310,6 +311,7 @@ fun MainScreen(
                         ?: if (nowPlaying != null) stringResource(R.string.source_soundcloud) else null,
                 audioSessions = audioSessions,
                 activeAudioSession = activeAudioSession,
+                isOwnPlayerSession = isOwnPlayerSession,
                 onSelectAudioSession = { viewModel.selectAudioSession(it) },
                 compare = compare,
                 onStartCompare = { viewModel.startCompare() },

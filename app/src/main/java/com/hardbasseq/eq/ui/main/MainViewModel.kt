@@ -3,6 +3,7 @@ package com.hardbasseq.eq.ui.main
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hardbasseq.eq.BuildConfig
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
@@ -98,6 +99,7 @@ import javax.inject.Inject
 // unchanged, hard 10:1 ceiling, so it always holds the line, but it may need to work
 // noticeably harder/more audibly on already-loud presets or devices than before.
 private const val INPUT_GAIN_SAFETY_RATIO = 0.1f
+private const val SPEAKER_INPUT_GAIN_SAFETY_RATIO = 0.5f
 private const val FEEDBACK_BUFFER = 8
 
 // DeviceProfileEntity.contextMode value for "mode explicitly off on this route".
@@ -166,6 +168,13 @@ class MainViewModel
         // Every app currently holding an audio effect session, and the one the EQ is bound to.
         val audioSessions: StateFlow<List<AudioSession>> = sessionRepository.sessions
         val activeAudioSession: StateFlow<AudioSession?> = sessionRepository.activeSession
+
+        // False only while the EQ is bound to another app's session: Virtual Bass runs in
+        // this app's own player only, so for a foreign session it has no effect there.
+        val isOwnPlayerSession: StateFlow<Boolean> =
+            activeAudioSession
+                .map { it == null || it.packageName == BuildConfig.APPLICATION_ID }
+                .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
         fun selectAudioSession(session: AudioSession) {
             sessionRepository.setActiveSession(session)
@@ -1090,22 +1099,29 @@ class MainViewModel
             // removes the easing, and it never compounds across repeated calls.
             val preset = _activePreset.value
             val easeDynamics = effectiveHeadphoneAcoustics.value && _headphonePower.value.easeDynamics
+            // An active context mode only ever tightens the genre's dynamics (lower
+            // threshold, higher ratio) and switches the compressor on; the headphone
+            // easing is applied on top of that.
+            val context = _activeContext.value?.let { BuiltInContextPresets.defaultFor(it) }
+            val baseMbcThresholdDb = context?.let { minOf(preset.mbcThresholdDb, it.mbcThresholdDb) } ?: preset.mbcThresholdDb
+            val baseMbcRatio = context?.let { maxOf(preset.mbcRatio, it.mbcRatio) } ?: preset.mbcRatio
             val mbcThresholdDb =
                 if (easeDynamics) {
-                    HeadphoneDynamicsEasing.easedThresholdDb(preset.mbcThresholdDb)
+                    HeadphoneDynamicsEasing.easedThresholdDb(baseMbcThresholdDb)
                 } else {
-                    preset.mbcThresholdDb
+                    baseMbcThresholdDb
                 }
             val mbcRatio =
                 if (easeDynamics) {
-                    HeadphoneDynamicsEasing.easedRatio(preset.mbcRatio)
+                    HeadphoneDynamicsEasing.easedRatio(baseMbcRatio)
                 } else {
-                    preset.mbcRatio
+                    baseMbcRatio
                 }
             val newSettings =
                 _processingSettings.value.copy(
                     bandGainsDb = calculatedGains,
                     inputGainDb = safetyScaledInputGainDb(headroom.maxPositiveGainDb),
+                    mbcEnabled = preset.mbcEnabled || context != null,
                     mbcThresholdDb = mbcThresholdDb,
                     mbcRatio = mbcRatio,
                 )
@@ -1150,9 +1166,18 @@ class MainViewModel
         // Guard against returning -0.0f: boxed Float.equals() (used by assertEquals in
         // tests, and by anything else comparing boxed Floats) treats -0.0f and 0.0f as
         // unequal even though == says they're the same.
+        // Small speaker drivers distort mechanically before anything clips digitally, and
+        // the limiter does not protect the membrane - so the speaker mode pulls the input
+        // gain down much further than the default.
+        private fun inputGainSafetyRatio(): Float =
+            when (_activeContext.value) {
+                SoundContext.BLUETOOTH_SPEAKER -> SPEAKER_INPUT_GAIN_SAFETY_RATIO
+                else -> INPUT_GAIN_SAFETY_RATIO
+            }
+
         private fun safetyScaledInputGainDb(boostDb: Float): Float {
             if (boostDb == 0f) return 0f
-            return -(boostDb * INPUT_GAIN_SAFETY_RATIO)
+            return -(boostDb * inputGainSafetyRatio())
         }
 
         private fun applySettings(settings: ProcessingSettings) {

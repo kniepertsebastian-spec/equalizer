@@ -409,6 +409,7 @@
     <string name="module_subsonic">Subsonic</string>
     <string name="module_virtual_bass">Virtual bass</string>
     <string name="module_on">on</string>
+    <string name="module_player_only">player only</string>
     <string name="module_off">off</string>
     <string name="player_open_equalizer">Open equalizer: %1$s</string>
 </resources>
