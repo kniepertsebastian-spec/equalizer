@@ -1259,7 +1259,8 @@ class MainViewModelTest {
 
             sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
             dispatcher.scheduler.advanceUntilIdle()
-            assertTrue(viewModel.processingSettings.value.preEqGainsDb.isEmpty())
+            val preEqGains = viewModel.processingSettings.value.preEqGainsDb
+            assertTrue(preEqGains.isEmpty())
 
             fakeEngine.updateCapabilities(withPreEq())
             dispatcher.scheduler.advanceUntilIdle()
@@ -1300,9 +1301,11 @@ class MainViewModelTest {
             viewModel.selectPreset(BuiltInPresets.DeepRumble)
             dispatcher.scheduler.advanceUntilIdle()
 
-            assertTrue(fakeEngine.currentSettings.value.bandGainsDb.values.all { it == 0f })
+            val systemBands = fakeEngine.currentSettings.value.bandGainsDb
+            assertTrue(systemBands.values.all { it == 0f })
             // The settings the user sees keep the real gains.
-            assertTrue(viewModel.processingSettings.value.bandGainsDb.values.any { it != 0f })
+            val userBands = viewModel.processingSettings.value.bandGainsDb
+            assertTrue(userBands.values.any { it != 0f })
         }
 
     @Test
@@ -1315,7 +1318,8 @@ class MainViewModelTest {
             viewModel.selectPreset(BuiltInPresets.DeepRumble)
             dispatcher.scheduler.advanceUntilIdle()
 
-            assertTrue(fakeEngine.currentSettings.value.bandGainsDb.values.any { it != 0f })
+            val systemBands = fakeEngine.currentSettings.value.bandGainsDb
+            assertTrue(systemBands.values.any { it != 0f })
         }
 
     @Test
@@ -1729,7 +1733,8 @@ class MainViewModelTest {
             viewModel.selectPreset(BuiltInPresets.DeepRumble)
             dispatcher.scheduler.advanceUntilIdle()
 
-            assertTrue(viewModel.processingSettings.value.preEqGainsDb.isEmpty())
+            val preEqGains = viewModel.processingSettings.value.preEqGainsDb
+            assertTrue(preEqGains.isEmpty())
         }
 
     @Test

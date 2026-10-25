@@ -5,13 +5,49 @@ import kotlin.math.ln
 import kotlin.math.sqrt
 
 /**
- * Band layout of the DynamicsProcessing pre-EQ: dense in the bass, where kick, cabin
- * resonance, subsonic cut and the virtual-bass approximation live, coarse above.
+ * Band layout of the DynamicsProcessing pre-EQ: about a third of an octave in the bass, where
+ * kick, cabin resonance, subsonic cut and the virtual-bass approximation live, coarser above.
+ * If a device cannot create this many bands, the engine falls back to the classic equalizer.
  */
 object PreEqLayout {
     /** Upper edge of each band; the lower edge of the first band is [LOWEST_HZ]. */
     val CUTOFFS_HZ: List<Float> =
-        listOf(25f, 40f, 55f, 70f, 90f, 115f, 150f, 200f, 280f, 400f, 630f, 1000f, 2000f, 4000f, 8000f, 20000f)
+        listOf(
+            20f,
+            25f,
+            31f,
+            36f,
+            40f,
+            45f,
+            50f,
+            55f,
+            62f,
+            70f,
+            80f,
+            90f,
+            100f,
+            115f,
+            130f,
+            150f,
+            175f,
+            200f,
+            240f,
+            280f,
+            340f,
+            400f,
+            500f,
+            630f,
+            800f,
+            1000f,
+            1400f,
+            2000f,
+            3000f,
+            4000f,
+            6000f,
+            8000f,
+            12000f,
+            20000f,
+        )
 
     const val LOWEST_HZ = 15f
     const val MAX_GAIN_DB = 15f

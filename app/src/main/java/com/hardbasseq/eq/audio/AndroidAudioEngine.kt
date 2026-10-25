@@ -22,7 +22,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "AndroidAudioEngine"
-private const val MBC_BAND_COUNT = 3
+private const val MBC_BAND_COUNT = 4
 
 @Singleton
 class AndroidAudioEngine
@@ -333,7 +333,10 @@ class AndroidAudioEngine
                             // half.
                             val mbcBands =
                                 listOf(
-                                    MbcBandSettings(120f, 15f, 100f),
+                                    // Sub-bass: slow, so the compressor does not follow single cycles.
+                                    MbcBandSettings(45f, 20f, 160f),
+                                    // Kick body: its own timing, tight enough to catch the hit without pumping the tail.
+                                    MbcBandSettings(130f, 12f, 90f),
                                     MbcBandSettings(1500f, 8f, 120f),
                                     MbcBandSettings(20000f, 3f, 80f),
                                 )
