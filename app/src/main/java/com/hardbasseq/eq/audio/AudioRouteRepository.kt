@@ -2,8 +2,10 @@ package com.hardbasseq.eq.audio
 
 import android.content.Context
 import android.media.AudioDeviceCallback
+import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.os.Build
 import android.util.Log
 import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.context.SoundContextClassifier
@@ -69,70 +71,66 @@ class AndroidAudioRouteRepository
         }
 
         private fun detectCurrentRoute(): AudioRoute {
-            val outputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-            for (device in outputs) {
-                when (device.type) {
-                    AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
-                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
-                    AudioDeviceInfo.TYPE_HEARING_AID,
-                    -> {
-                        val name = device.productName?.toString()?.ifBlank { null } ?: "Bluetooth Device"
-                        val type =
+            val candidates =
+                audioManager
+                    .getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                    .map { RouteCandidate(it.type, it.productName?.toString()?.ifBlank { null }) }
+            val inCommunication =
+                audioManager.mode == AudioManager.MODE_IN_COMMUNICATION || audioManager.mode == AudioManager.MODE_IN_CALL
+            val picked = RouteSelection.pick(candidates, mediaDeviceType(), inCommunication)
+            return picked?.let(::toRoute) ?: AudioRoute(
+                type = AudioDeviceType.SPEAKER,
+                name = "Built-in Speaker",
+                id = "speaker_internal",
+            )
+        }
+
+        // The device media really plays on (API 33+); null when unknown or empty.
+        private fun mediaDeviceType(): Int? {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return null
+            val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
+            return audioManager.getAudioDevicesForAttributes(attributes).firstOrNull()?.type
+        }
+
+        private fun toRoute(device: RouteCandidate): AudioRoute {
+            val type = device.type
+            return when {
+                RouteSelection.isBluetooth(type) -> {
+                    val name = device.productName ?: "Bluetooth Device"
+                    val routeType =
+                        if (type == RouteSelection.TYPE_BLE_SPEAKER) {
+                            // Android reports this type reliably, no name check needed.
+                            AudioDeviceType.BLUETOOTH_SPEAKER
+                        } else {
                             when (SoundContextClassifier.classifyBluetoothName(name)) {
                                 SoundContext.CAR -> AudioDeviceType.CAR
                                 SoundContext.BLUETOOTH_SPEAKER -> AudioDeviceType.BLUETOOTH_SPEAKER
                                 null -> AudioDeviceType.BLUETOOTH
                             }
-                        // The id stays "bt_<hash of name>" whatever the detected type,
-                        // so a profile saved for this device keeps matching even if
-                        // the classifier's keyword list changes later.
-                        return AudioRoute(
-                            type = type,
-                            name = name,
-                            id = stableRouteFingerprint("bt", name),
-                        )
-                    }
-
-                    // Android Automotive's own output bus: a built-in car audio system
-                    // rather than a phone connected to one.
-                    AudioDeviceInfo.TYPE_BUS -> {
-                        return AudioRoute(
-                            type = AudioDeviceType.CAR,
-                            name = device.productName?.toString()?.ifBlank { null } ?: "Car Audio",
-                            id = "car_bus",
-                        )
-                    }
-
-                    AudioDeviceInfo.TYPE_WIRED_HEADSET,
-                    AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
-                    AudioDeviceInfo.TYPE_LINE_ANALOG,
-                    AudioDeviceInfo.TYPE_LINE_DIGITAL,
-                    -> {
-                        return AudioRoute(
-                            type = AudioDeviceType.WIRED_HEADPHONES,
-                            name = "Wired Headphones",
-                            id = "wired_headphones",
-                        )
-                    }
-
-                    AudioDeviceInfo.TYPE_USB_DEVICE,
-                    AudioDeviceInfo.TYPE_USB_HEADSET,
-                    AudioDeviceInfo.TYPE_USB_ACCESSORY,
-                    -> {
-                        val name = device.productName?.toString()?.ifBlank { null } ?: "USB Audio"
-                        return AudioRoute(
-                            type = AudioDeviceType.USB,
-                            name = name,
-                            id = stableRouteFingerprint("usb", name),
-                        )
-                    }
+                        }
+                    // The id stays "bt_<hash of name>" whatever the detected type or
+                    // transport (Classic or LE), so a profile saved for this device keeps
+                    // matching even if the classifier's keyword list changes later.
+                    AudioRoute(type = routeType, name = name, id = stableRouteFingerprint("bt", name))
                 }
+
+                // Android Automotive's own output bus: a built-in car audio system
+                // rather than a phone connected to one.
+                type == RouteSelection.TYPE_BUS ->
+                    AudioRoute(type = AudioDeviceType.CAR, name = device.productName ?: "Car Audio", id = "car_bus")
+
+                RouteSelection.isUsb(type) -> {
+                    val name = device.productName ?: "USB Audio"
+                    AudioRoute(type = AudioDeviceType.USB, name = name, id = stableRouteFingerprint("usb", name))
+                }
+
+                else ->
+                    AudioRoute(
+                        type = AudioDeviceType.WIRED_HEADPHONES,
+                        name = "Wired Headphones",
+                        id = "wired_headphones",
+                    )
             }
-            return AudioRoute(
-                type = AudioDeviceType.SPEAKER,
-                name = "Built-in Speaker",
-                id = "speaker_internal",
-            )
         }
 
         // roadmap-2026.md M3: "Datenschutzarmen, stabilen Route-Fingerprint definieren" -

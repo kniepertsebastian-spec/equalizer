@@ -398,6 +398,7 @@ Wiederherstellung und Lautstärkefolge. **Nicht** automatisiert prüfbar:
 | K8 | Virtual Bass bei Spotify | Schalter hat dort keine Wirkung (erwartet, steht in der UI) |
 | K9 | CPU/Akku bei 30 Minuten Wiedergabe mit Virtual Bass | unauffällig gegenüber ausgeschaltet |
 | K10 | Android Auto (kabelgebunden/drahtlos) | dokumentieren, ob eine Session erkannt wird und ein Effekt greift |
+| K11 | 👤 Roadmap A1-G1: LE-Audio-Kopfhörer bzw. -Box verbinden | Diagnose zeigt richtige Route (Box = Speaker-Typ), SCO-only-Auto löst keinen Auto-Modus aus (offen) |
 
 ## Großer Player und Playlist-Import: Was jetzt am Gerät getestet werden muss (30. September 2026)
 

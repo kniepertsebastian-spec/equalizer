@@ -82,7 +82,7 @@ F1 läuft mit jeder Aufgabe mit (jede Aufgabe trägt ihre eigenen Gerätetests e
 
 ## Phase A – Kontext-Modus korrekt machen
 
-### A1 – Aktive Medienroute korrekt bestimmen, LE Audio  `[ ]`
+### A1 – Aktive Medienroute korrekt bestimmen, LE Audio  `[x]`
 
 **Ziel:** Die Route ist das Gerät, auf dem Medien tatsächlich laufen – inklusive LE Audio.
 
@@ -125,6 +125,8 @@ Test neu `app/src/test/java/com/hardbasseq/eq/audio/RouteSelectionTest.kt`.
 
 **Akzeptanz:** Tests grün; `AudioRouteTest` unverändert grün.
 👤 Gerätetest A1-G1: LE-Audio-Kopfhörer bzw. -Box verbinden → Diagnose zeigt richtige Route.
+
+*Umgesetzt (Branch `ccr-89d3640a-gjxiez`), Abweichungen: `pick` hat zusätzlich den Parameter `inCommunication` (Audio-Modus-Prüfung für SCO). Lokal kein Gradle-Build möglich (Android-Plugin offline nicht auflösbar) – ktlint/Tests laufen über CI. A1-G1 offen.*
 
 ---
 
