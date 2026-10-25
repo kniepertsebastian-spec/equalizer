@@ -274,6 +274,7 @@
     <string name="track_state_played">Already played</string>
     <string name="diag_title">System diagnostics</string>
     <string name="action_copy">Copy</string>
+    <string name="diag_high_res_eq">High-resolution EQ (experimental)</string>
     <string name="diag_back">Back to equalizer</string>
     <string name="update_available">New version %1$s available</string>
     <string name="update_downloading">Downloading APK …</string>

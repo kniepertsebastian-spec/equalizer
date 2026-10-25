@@ -10,4 +10,6 @@ data class AudioCapabilities(
     val hasInputGain: Boolean = false,
     val hasLimiter: Boolean = false,
     val hasMbc: Boolean = false,
+    // Upper band edges of the DynamicsProcessing pre-EQ when it is in use; empty = classic equalizer.
+    val preEqCutoffsHz: List<Float> = emptyList(),
 )

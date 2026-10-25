@@ -39,6 +39,8 @@ import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.dsp.LoudnessMatch
+import com.hardbasseq.eq.dsp.PreEqMacros
+import com.hardbasseq.eq.dsp.PreEqMapper
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.integration.PlayerBridge
@@ -85,6 +87,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.abs
 
 // How much of the peak EQ boost the automatic input-gain cut pre-cancels before the
 // signal ever reaches dynamics processing. At 1.0 the boost is fully cancelled before
@@ -103,6 +106,9 @@ import javax.inject.Inject
 private const val INPUT_GAIN_SAFETY_RATIO = 0.1f
 private const val SPEAKER_INPUT_GAIN_SAFETY_RATIO = 0.5f
 private const val FEEDBACK_BUFFER = 8
+
+// Smaller than this, a classic band counts as sitting on the curve (no manual edit).
+private const val MANUAL_DELTA_EPSILON_DB = 0.05f
 
 // DeviceProfileEntity.contextMode value for "mode explicitly off on this route".
 private const val CONTEXT_MODE_NONE = "NONE"
@@ -1049,6 +1055,7 @@ class MainViewModel
                 _processingSettings.value.copy(
                     bandGainsDb = currentGains,
                     inputGainDb = automaticInputGainDb(currentGains),
+                    preEqGainsDb = preEqGainsFor(currentGains),
                 )
             _isDirty.value = true
             applySettings(newSettings)
@@ -1119,6 +1126,38 @@ class MainViewModel
             )
         }
 
+        // Gains for the 16-band pre-EQ (empty while the classic equalizer is in use). The
+        // classic band sliders stay the editing surface: how far each one sits from the
+        // curve is carried over as a manual delta that fades out towards its neighbours.
+        private fun preEqGainsFor(classicBandGainsDb: Map<Int, Float>): List<Float> {
+            val caps = capabilities.value
+            if (caps.preEqCutoffsHz.isEmpty()) return emptyList()
+            val settings = _processingSettings.value
+            val macros = PreEqMacros(settings.macroBassDb, settings.macroPunchDb, settings.macroHaerteDb)
+            val curve = combinedCurve()
+            val fromCurve =
+                EqualizerInterpolator.interpolateCurveToBands(
+                    curve,
+                    caps.bands,
+                    settings.macroBassDb,
+                    settings.macroPunchDb,
+                    settings.macroHaerteDb,
+                )
+            val deltas =
+                caps.bands.mapNotNull { band ->
+                    val delta = (classicBandGainsDb[band.index] ?: 0f) - (fromCurve[band.index] ?: 0f)
+                    if (abs(delta) > MANUAL_DELTA_EPSILON_DB) TargetPoint(band.centerFreqHz.toFloat(), delta) else null
+                }
+            return PreEqMapper.map(curve, macros, caps.preEqCutoffsHz, deltas)
+        }
+
+        /** Switch between the classic 5-band equalizer and the DynamicsProcessing pre-EQ (experimental). */
+        fun setHighResolutionEq(enabled: Boolean) {
+            applySettings(_processingSettings.value.copy(highResolutionEq = enabled))
+            // The band layout is fixed when the effect is created, so it has to be rebuilt.
+            viewModelScope.launch { audioEngine.retry() }
+        }
+
         private fun recalculateBandGains(bands: List<EqualizerBandCapabilities> = audioEngine.capabilities.value.bands) {
             val curve = combinedCurve()
             val macroBassDb = _processingSettings.value.macroBassDb
@@ -1179,6 +1218,7 @@ class MainViewModel
                     mbcEnabled = preset.mbcEnabled || context != null,
                     mbcThresholdDb = mbcThresholdDb,
                     mbcRatio = mbcRatio,
+                    preEqGainsDb = preEqGainsFor(calculatedGains),
                 )
             applySettings(newSettings)
         }
@@ -1257,6 +1297,7 @@ class MainViewModel
                             settings.copy(
                                 bypass = false,
                                 bandGainsDb = bands.associate { it.index to 0f },
+                                preEqGainsDb = settings.preEqGainsDb.map { 0f },
                                 inputGainDb = plan.originalGainDb,
                                 limiterEnabled = false,
                                 mbcEnabled = false,

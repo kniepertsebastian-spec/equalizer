@@ -20,4 +20,10 @@ data class ProcessingSettings(
     val loudnessMaxBoostDb: Float = 0f,
     val subsonicCutoffHz: Float = 0f,
     val virtualBassMix: Float = 0f,
+    // "High-resolution EQ (experimental)": ask the engine for the 16-band
+    // DynamicsProcessing pre-EQ instead of the classic 5-band system equalizer. Only takes
+    // effect when the engine reports preEqCutoffsHz after (re)attaching.
+    val highResolutionEq: Boolean = false,
+    // One gain per band of PreEqLayout.CUTOFFS_HZ; empty = not in use.
+    val preEqGainsDb: List<Float> = emptyList(),
 )
