@@ -7,6 +7,9 @@
 > PR-Beschreibungen bleiben dadurch gültig. Neue Session-Log-Einträge gehören
 > weiterhin dorthin; neue Roadmap-/Meilenstein-Entscheidungen hierher.
 
+> **Ergänzung (25. Oktober 2026):** Kontext-Modi, Routen-Erkennung, Pre-EQ und Player-DSP stehen
+> in `roadmap-kontext-dsp.md`.
+
 # HardBass EQ – Produkt- und Technik-Roadmap 2026
 
 **Stand:** 23. September 2026
