@@ -3,6 +3,7 @@ package com.hardbasseq.eq.ui.main
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hardbasseq.eq.BuildConfig
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
@@ -13,11 +14,13 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSession
 import com.hardbasseq.eq.audio.AudioSessionRepository
+import com.hardbasseq.eq.audio.DeviceKind
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.audio.defaultHeadphoneAcoustics
 import com.hardbasseq.eq.audio.soundContext
+import com.hardbasseq.eq.auto.CarConnectionRepository
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.autoeq.AutoEqCatalogMatcher
 import com.hardbasseq.eq.autoeq.AutoEqParser
@@ -36,7 +39,10 @@ import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.dsp.LoudnessMatch
+import com.hardbasseq.eq.dsp.PreEqMacros
+import com.hardbasseq.eq.dsp.PreEqMapper
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
+import com.hardbasseq.eq.dsp.VirtualBassApproxCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
@@ -82,6 +88,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.abs
 
 // How much of the peak EQ boost the automatic input-gain cut pre-cancels before the
 // signal ever reaches dynamics processing. At 1.0 the boost is fully cancelled before
@@ -98,7 +105,19 @@ import javax.inject.Inject
 // unchanged, hard 10:1 ceiling, so it always holds the line, but it may need to work
 // noticeably harder/more audibly on already-loud presets or devices than before.
 private const val INPUT_GAIN_SAFETY_RATIO = 0.1f
+private const val SPEAKER_INPUT_GAIN_SAFETY_RATIO = 0.5f
 private const val FEEDBACK_BUFFER = 8
+
+// The player's curve is handed over as points on this log grid (about 6 per octave).
+private const val PLAYER_CURVE_MIN_HZ = 20f
+private const val PLAYER_CURVE_MAX_HZ = 20_000f
+private const val PLAYER_CURVE_STEP = 1.12f
+
+// Smaller than this, a classic band counts as sitting on the curve (no manual edit).
+private const val MANUAL_DELTA_EPSILON_DB = 0.05f
+
+// DeviceProfileEntity.contextMode value for "mode explicitly off on this route".
+private const val CONTEXT_MODE_NONE = "NONE"
 
 // roadmap-2026.md M5: "Extreme Boosts werden nicht still angewandt, sondern
 // begrenzt oder bestätigt" - an imported correction curve peaking above this
@@ -145,6 +164,7 @@ class MainViewModel
         private val texts: TextProvider,
         private val deviceAliases: DeviceAliasStore = InMemoryDeviceAliasStore(),
         private val sessionRepository: AudioSessionRepository = NoAudioSessionRepository,
+        private val carConnectionRepository: CarConnectionRepository = NoCarConnectionRepository,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -163,6 +183,17 @@ class MainViewModel
         // Every app currently holding an audio effect session, and the one the EQ is bound to.
         val audioSessions: StateFlow<List<AudioSession>> = sessionRepository.sessions
         val activeAudioSession: StateFlow<AudioSession?> = sessionRepository.activeSession
+
+        // False only while the EQ is bound to another app's session: Virtual Bass runs in
+        // this app's own player only, so for a foreign session it has no effect there.
+        val isOwnPlayerSession: StateFlow<Boolean> =
+            activeAudioSession
+                .map { it == null || it.packageName == BuildConfig.APPLICATION_ID }
+                .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+        // Android Auto / Automotive OS is running - a safe "car" signal that does not depend on
+        // the Bluetooth device name (and also holds when the audio goes over USB).
+        val androidAutoConnected: StateFlow<Boolean> = carConnectionRepository.carConnected
 
         fun selectAudioSession(session: AudioSession) {
             sessionRepository.setActiveSession(session)
@@ -230,6 +261,16 @@ class MainViewModel
         // True when route detection switched the mode on, so it is switched off again
         // when that route goes away; false once the user chose it themselves.
         private var contextSetAutomatically = false
+
+        // A Bluetooth output the name heuristic could not place, asked about once so the
+        // user's answer (stored like a manual mode choice) replaces the guesswork.
+        private val _deviceKindPrompt = MutableStateFlow<AudioRoute?>(null)
+        val deviceKindPrompt: StateFlow<AudioRoute?> = _deviceKindPrompt.asStateFlow()
+        private val dismissedDeviceKindRouteIds = mutableSetOf<String>()
+
+        // Saved context choice of the current route: null = none, CONTEXT_MODE_NONE = off.
+        private var routeContextMode: String? = null
+        private var pendingRestoredContext: SoundContext? = null
 
         // What the preset grid actually renders: built-ins (fixed, compile-time)
         // followed by whatever custom presets are currently saved.
@@ -366,6 +407,29 @@ class MainViewModel
                         if (hasRestoredState) applyDeviceProfileForRoute(route)
                     }
             }
+            // The Virtual Bass approximation exists only for foreign sessions.
+            viewModelScope.launch {
+                isOwnPlayerSession
+                    .drop(1)
+                    .collect { if (hasRestoredState) recalculateBandGains() }
+            }
+            // Binding to this app's own player (or away from it) moves the curve between the
+            // player's PCM equalizer and the system equalizer.
+            viewModelScope.launch {
+                activeAudioSession
+                    .map { it?.packageName == BuildConfig.APPLICATION_ID }
+                    .drop(1)
+                    .collect { if (hasRestoredState) pushToEngine(_processingSettings.value) }
+            }
+            // Android Auto connecting or disconnecting changes what "detected" means for the
+            // current route: re-decide the mode (a saved choice for the route still wins).
+            viewModelScope.launch {
+                carConnectionRepository.carConnected
+                    .drop(1)
+                    .collect {
+                        if (hasRestoredState) reapplyContextModeForCurrentRoute()
+                    }
+            }
             // Independent of the restore race above: a suggestion is advisory,
             // read-only UI state, not something that needs to wait for
             // restoreSavedState() - it never mutates activePreset/
@@ -422,6 +486,9 @@ class MainViewModel
                     findCorrectionProfileById(saved.activeCorrectionProfileId, initialCorrectionProfiles)
                 _activeContext.value = saved.activeContext?.let { name -> SoundContext.entries.firstOrNull { it.name == name } }
                 contextSetAutomatically = saved.activeContextAutomatic
+                // A mode the user switched on by hand survives the restart until the first
+                // route decision; from then on the route's own saved choice or detection rules.
+                pendingRestoredContext = if (saved.activeContextAutomatic) null else _activeContext.value
                 _headphonePower.value = saved.headphonePower.sanitized()
                 _activeGoal.value = SoundGoal.fromId(saved.activeGoal)
                 // A saved activePresetId/activeCorrectionProfileId that no longer
@@ -477,19 +544,26 @@ class MainViewModel
             // explicit choice made for it), not left holding the previous route's
             // value.
             headphoneAcousticsOverrideState.value = binding?.headphoneAcousticsOverride
-            applyContextModeForRoute(route)
-            if (binding == null) return
-            val preset = findPresetById(binding.boundPresetId, customPresetsState.value) ?: return
+            routeContextMode = binding?.contextMode
+            val preset = binding?.let { findPresetById(it.boundPresetId, customPresetsState.value) }
+            // A profile saved while the context tunings were still presets of their own
+            // means "this route uses that context" - an explicit choice for it.
+            val legacyContext = preset?.let { BuiltInContextPresets.contextOf(it) }
+            applyContextModeForRoute(route, legacyContext)
+            _deviceKindPrompt.value =
+                route.takeIf {
+                    it.type == AudioDeviceType.BLUETOOTH &&
+                        routeContextMode == null &&
+                        legacyContext == null &&
+                        it.id !in dismissedDeviceKindRouteIds &&
+                        !carConnectionRepository.carConnected.value
+                }
+            if (binding == null || preset == null) return
 
             // A profile saved while the context tunings were still presets of their own
             // means "this route uses that context": keep the genre preset as it is and
             // turn the mode on instead of replacing the sound with it.
-            val legacyContext = BuiltInContextPresets.contextOf(preset)
-            if (legacyContext != null) {
-                contextSetAutomatically = false
-                applyContextMode(legacyContext)
-                return
-            }
+            if (BuiltInContextPresets.contextOf(preset) != null) return
             val correction = findCorrectionProfileById(binding.boundCorrectionProfileId, customCorrectionProfilesState.value)
 
             _activePreset.value = preset
@@ -500,29 +574,58 @@ class MainViewModel
             persistLiveSettings()
         }
 
-        // Car / Bluetooth-speaker mode follows the route: a route detected as a car or
-        // speaker (see SoundContextClassifier - a name heuristic) switches the mode on,
-        // and leaving it for a route with no context switches it off again - but only if
-        // detection, not the user, turned it on. The genre preset is never touched.
-        private fun applyContextModeForRoute(route: AudioRoute) {
-            val detected = route.type.soundContext()
-            when {
-                detected != null -> {
-                    contextSetAutomatically = true
-                    applyContextMode(detected)
+        // Car / Bluetooth-speaker mode is decided per route, from the route's saved choice
+        // (DeviceProfileEntity.contextMode) or, with none, from detection (see
+        // SoundContextClassifier - a name heuristic). A manual choice therefore never
+        // follows the user to another route. The genre preset is never touched.
+        private fun applyContextModeForRoute(
+            route: AudioRoute,
+            legacyContext: SoundContext?,
+        ) {
+            val detected = if (carConnectionRepository.carConnected.value) SoundContext.CAR else route.type.soundContext()
+            val stored = routeContextMode
+            val restored = pendingRestoredContext
+            pendingRestoredContext = null
+            val mode =
+                when {
+                    stored == null -> legacyContext ?: restored ?: detected
+                    stored == CONTEXT_MODE_NONE -> null
+                    else -> SoundContext.entries.firstOrNull { it.name == stored } ?: detected
                 }
-
-                contextSetAutomatically -> {
-                    contextSetAutomatically = false
-                    applyContextMode(null)
-                }
-            }
+            contextSetAutomatically = stored == null && legacyContext == null && restored == null && detected != null
+            applyContextMode(mode)
         }
 
-        /** The user's own choice of listening-context mode (null = off); kept until they change it. */
+        fun answerDeviceKind(kind: DeviceKind) {
+            _deviceKindPrompt.value ?: return
+            _deviceKindPrompt.value = null
+            headphoneAcousticsOverrideState.value = kind == DeviceKind.HEADPHONES
+            setContextMode(
+                when (kind) {
+                    DeviceKind.HEADPHONES -> null
+                    DeviceKind.CAR -> SoundContext.CAR
+                    DeviceKind.SPEAKER -> SoundContext.BLUETOOTH_SPEAKER
+                },
+            )
+        }
+
+        fun dismissDeviceKindPrompt() {
+            _deviceKindPrompt.value?.let { dismissedDeviceKindRouteIds.add(it.id) }
+            _deviceKindPrompt.value = null
+        }
+
+        private suspend fun reapplyContextModeForCurrentRoute() {
+            val binding = deviceProfileRepository.getProfileForRoute(currentRoute.value.id)
+            val preset = binding?.let { findPresetById(it.boundPresetId, customPresetsState.value) }
+            applyContextModeForRoute(currentRoute.value, preset?.let { BuiltInContextPresets.contextOf(it) })
+        }
+
+        /** The user's own choice of listening-context mode (null = off), remembered for the current route. */
         fun setContextMode(context: SoundContext?) {
             contextSetAutomatically = false
+            routeContextMode = context?.name ?: CONTEXT_MODE_NONE
             applyContextMode(context)
+            saveDeviceProfileBinding()
         }
 
         private fun applyContextMode(context: SoundContext?) {
@@ -548,6 +651,7 @@ class MainViewModel
                     boundPresetId = _activePreset.value.id,
                     boundCorrectionProfileId = _activeCorrectionProfile.value.id,
                     headphoneAcousticsOverride = headphoneAcousticsOverride,
+                    contextMode = routeContextMode,
                 )
             }
         }
@@ -977,6 +1081,7 @@ class MainViewModel
                 _processingSettings.value.copy(
                     bandGainsDb = currentGains,
                     inputGainDb = automaticInputGainDb(currentGains),
+                    preEqGainsDb = preEqGainsFor(currentGains),
                 )
             _isDirty.value = true
             applySettings(newSettings)
@@ -1001,7 +1106,7 @@ class MainViewModel
         // not Spotify/YouTube Music, too narrow a win for the effort. Loudness
         // compensation (also gated on headphone mode - quieter headphone listening
         // is the case it's meant for) rides the same already-working path instead.
-        private fun combinedCurve(): List<TargetPoint> {
+        private fun combinedCurve(includeSubsonic: Boolean = true): List<TargetPoint> {
             val power = _headphonePower.value
             val headphoneCurve = if (effectiveHeadphoneAcoustics.value) HeadphoneComfortCurve.curve(power.bassDb) else emptyList()
             val loudnessCurve =
@@ -1021,17 +1126,27 @@ class MainViewModel
                     loudnessCurve,
                     _activeGoal.value.curve,
                     _activeContext.value?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
-                    contextCurve(),
+                    virtualBassApproxCurve(),
+                    contextCurve(includeSubsonic),
                 ),
             )
         }
+
+        // Virtual Bass cannot run on other apps' audio; with the high-resolution pre-EQ an EQ
+        // approximation of it is possible. Never for the own player, which has the real thing.
+        private fun virtualBassApproxCurve(): List<TargetPoint> =
+            if (!isOwnPlayerSession.value && capabilities.value.preEqCutoffsHz.isNotEmpty()) {
+                VirtualBassApproxCurve.forMix(_processingSettings.value.virtualBassMix)
+            } else {
+                emptyList()
+            }
 
         // Subsonic high-pass + the active sound's own volume-dependent loudness
         // compensation, from the live processing settings (so the on/off switches
         // below take effect). Headphone mode already has its own loudness curve
         // (loudnessCurve in combinedCurve), so the preset's one is skipped there
         // rather than stacking two boosts. Empty while both are off.
-        private fun contextCurve(): List<TargetPoint> {
+        private fun contextCurve(includeSubsonic: Boolean = true): List<TargetPoint> {
             val settings = _processingSettings.value
             val presetLoudness =
                 if (effectiveHeadphoneAcoustics.value) {
@@ -1041,10 +1156,42 @@ class MainViewModel
                 }
             return CurveComposer.combine(
                 listOf(
-                    SubsonicFilterCurve.forCutoff(settings.subsonicCutoffHz),
+                    if (includeSubsonic) SubsonicFilterCurve.forCutoff(settings.subsonicCutoffHz) else emptyList(),
                     presetLoudness,
                 ),
             )
+        }
+
+        // Gains for the 16-band pre-EQ (empty while the classic equalizer is in use). The
+        // classic band sliders stay the editing surface: how far each one sits from the
+        // curve is carried over as a manual delta that fades out towards its neighbours.
+        private fun preEqGainsFor(classicBandGainsDb: Map<Int, Float>): List<Float> {
+            val caps = capabilities.value
+            if (caps.preEqCutoffsHz.isEmpty()) return emptyList()
+            val settings = _processingSettings.value
+            val macros = PreEqMacros(settings.macroBassDb, settings.macroPunchDb, settings.macroHaerteDb)
+            val curve = combinedCurve()
+            val fromCurve =
+                EqualizerInterpolator.interpolateCurveToBands(
+                    curve,
+                    caps.bands,
+                    settings.macroBassDb,
+                    settings.macroPunchDb,
+                    settings.macroHaerteDb,
+                )
+            val deltas =
+                caps.bands.mapNotNull { band ->
+                    val delta = (classicBandGainsDb[band.index] ?: 0f) - (fromCurve[band.index] ?: 0f)
+                    if (abs(delta) > MANUAL_DELTA_EPSILON_DB) TargetPoint(band.centerFreqHz.toFloat(), delta) else null
+                }
+            return PreEqMapper.map(curve, macros, caps.preEqCutoffsHz, deltas)
+        }
+
+        /** Switch between the classic 5-band equalizer and the DynamicsProcessing pre-EQ (experimental). */
+        fun setHighResolutionEq(enabled: Boolean) {
+            applySettings(_processingSettings.value.copy(highResolutionEq = enabled))
+            // The band layout is fixed when the effect is created, so it has to be rebuilt.
+            viewModelScope.launch { audioEngine.retry() }
         }
 
         private fun recalculateBandGains(bands: List<EqualizerBandCapabilities> = audioEngine.capabilities.value.bands) {
@@ -1082,24 +1229,32 @@ class MainViewModel
             // removes the easing, and it never compounds across repeated calls.
             val preset = _activePreset.value
             val easeDynamics = effectiveHeadphoneAcoustics.value && _headphonePower.value.easeDynamics
+            // An active context mode only ever tightens the genre's dynamics (lower
+            // threshold, higher ratio) and switches the compressor on; the headphone
+            // easing is applied on top of that.
+            val context = _activeContext.value?.let { BuiltInContextPresets.defaultFor(it) }
+            val baseMbcThresholdDb = context?.let { minOf(preset.mbcThresholdDb, it.mbcThresholdDb) } ?: preset.mbcThresholdDb
+            val baseMbcRatio = context?.let { maxOf(preset.mbcRatio, it.mbcRatio) } ?: preset.mbcRatio
             val mbcThresholdDb =
                 if (easeDynamics) {
-                    HeadphoneDynamicsEasing.easedThresholdDb(preset.mbcThresholdDb)
+                    HeadphoneDynamicsEasing.easedThresholdDb(baseMbcThresholdDb)
                 } else {
-                    preset.mbcThresholdDb
+                    baseMbcThresholdDb
                 }
             val mbcRatio =
                 if (easeDynamics) {
-                    HeadphoneDynamicsEasing.easedRatio(preset.mbcRatio)
+                    HeadphoneDynamicsEasing.easedRatio(baseMbcRatio)
                 } else {
-                    preset.mbcRatio
+                    baseMbcRatio
                 }
             val newSettings =
                 _processingSettings.value.copy(
                     bandGainsDb = calculatedGains,
                     inputGainDb = safetyScaledInputGainDb(headroom.maxPositiveGainDb),
+                    mbcEnabled = preset.mbcEnabled || context != null,
                     mbcThresholdDb = mbcThresholdDb,
                     mbcRatio = mbcRatio,
+                    preEqGainsDb = preEqGainsFor(calculatedGains),
                 )
             applySettings(newSettings)
         }
@@ -1142,9 +1297,18 @@ class MainViewModel
         // Guard against returning -0.0f: boxed Float.equals() (used by assertEquals in
         // tests, and by anything else comparing boxed Floats) treats -0.0f and 0.0f as
         // unequal even though == says they're the same.
+        // Small speaker drivers distort mechanically before anything clips digitally, and
+        // the limiter does not protect the membrane - so the speaker mode pulls the input
+        // gain down much further than the default.
+        private fun inputGainSafetyRatio(): Float =
+            when (_activeContext.value) {
+                SoundContext.BLUETOOTH_SPEAKER -> SPEAKER_INPUT_GAIN_SAFETY_RATIO
+                else -> INPUT_GAIN_SAFETY_RATIO
+            }
+
         private fun safetyScaledInputGainDb(boostDb: Float): Float {
             if (boostDb == 0f) return 0f
-            return -(boostDb * INPUT_GAIN_SAFETY_RATIO)
+            return -(boostDb * inputGainSafetyRatio())
         }
 
         private fun applySettings(settings: ProcessingSettings) {
@@ -1169,17 +1333,64 @@ class MainViewModel
                             settings.copy(
                                 bypass = false,
                                 bandGainsDb = bands.associate { it.index to 0f },
+                                preEqGainsDb = settings.preEqGainsDb.map { 0f },
                                 inputGainDb = plan.originalGainDb,
                                 limiterEnabled = false,
                                 mbcEnabled = false,
                             )
                     }
                 }
+            // Only the dynamics (MBC, limiter) stay on the system path for the own player.
+            val forSystem =
+                if (pcmEqualizerOwnsTheCurve(settings)) {
+                    forEngine.copy(
+                        bandGainsDb = forEngine.bandGainsDb.mapValues { 0f },
+                        preEqGainsDb = forEngine.preEqGainsDb.map { 0f },
+                        inputGainDb = 0f,
+                    )
+                } else {
+                    forEngine
+                }
             viewModelScope.launch {
-                audioEngine.apply(forEngine)
+                audioEngine.apply(forSystem)
             }
-            pushVirtualBass(if (compare?.side == CompareSide.ORIGINAL) settings.copy(bypass = true) else settings)
+            val forPlayer = if (compare?.side == CompareSide.ORIGINAL) settings.copy(bypass = true) else settings
+            pushVirtualBass(forPlayer)
+            pushPlayerCurve(forPlayer)
         }
+
+        // The player's own PCM equalizer follows the exact curve; the subsonic cut is a real
+        // high-pass there, so it travels separately and the curve must not contain it twice.
+        // The macros are not part of the curve either, so they are sampled into it.
+        private fun pushPlayerCurve(settings: ProcessingSettings) {
+            val active = settings.masterEnabled && !settings.bypass
+            if (!active) {
+                playerBridge.setPlayerCurve(emptyList(), 0f)
+                return
+            }
+            val curve = combinedCurve(includeSubsonic = false).sortedBy { it.frequencyHz }
+            val sampled =
+                generateSequence(PLAYER_CURVE_MIN_HZ) { it * PLAYER_CURVE_STEP }
+                    .takeWhile { it <= PLAYER_CURVE_MAX_HZ }
+                    .map { hz ->
+                        TargetPoint(
+                            hz,
+                            EqualizerInterpolator.resolveGainAtFrequency(
+                                hz,
+                                curve,
+                                settings.macroBassDb,
+                                settings.macroPunchDb,
+                                settings.macroHaerteDb,
+                            ),
+                        )
+                    }.toList()
+            playerBridge.setPlayerCurve(sampled, settings.subsonicCutoffHz)
+        }
+
+        // True while the EQ is bound to this app's own player: its PCM equalizer already
+        // applies the curve, so the system equalizer must not apply it a second time.
+        private fun pcmEqualizerOwnsTheCurve(settings: ProcessingSettings): Boolean =
+            settings.masterEnabled && !settings.bypass && activeAudioSession.value?.packageName == BuildConfig.APPLICATION_ID
 
         private fun eqLevelDeltaDb(
             settings: ProcessingSettings,
@@ -1237,6 +1448,10 @@ class MainViewModel
             recalculateBandGains()
         }
     }
+
+private object NoCarConnectionRepository : CarConnectionRepository {
+    override val carConnected: StateFlow<Boolean> = MutableStateFlow(false)
+}
 
 private object NoAudioSessionRepository : AudioSessionRepository {
     override val sessions: StateFlow<List<AudioSession>> = MutableStateFlow(emptyList())

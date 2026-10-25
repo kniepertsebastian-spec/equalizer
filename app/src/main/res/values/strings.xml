@@ -274,6 +274,7 @@
     <string name="track_state_played">Already played</string>
     <string name="diag_title">System diagnostics</string>
     <string name="action_copy">Copy</string>
+    <string name="diag_high_res_eq">High-resolution EQ (experimental)</string>
     <string name="diag_back">Back to equalizer</string>
     <string name="update_available">New version %1$s available</string>
     <string name="update_downloading">Downloading APK …</string>
@@ -409,6 +410,13 @@
     <string name="module_subsonic">Subsonic</string>
     <string name="module_virtual_bass">Virtual bass</string>
     <string name="module_on">on</string>
+    <string name="module_player_only">player only</string>
+    <string name="module_approx">approx.</string>
+    <string name="device_kind_question">What is %1$s?</string>
+    <string name="device_kind_headphones">Headphones</string>
+    <string name="device_kind_car">Car</string>
+    <string name="device_kind_speaker">Speaker</string>
+    <string name="device_kind_later">Later</string>
     <string name="module_off">off</string>
     <string name="player_open_equalizer">Open equalizer: %1$s</string>
 </resources>

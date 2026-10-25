@@ -62,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -81,6 +82,7 @@ import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioSession
+import com.hardbasseq.eq.audio.DeviceKind
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
@@ -95,6 +97,7 @@ import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
+import com.hardbasseq.eq.dsp.VirtualBassApproxCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
 import com.hardbasseq.eq.preset.BuiltInContextPresets
 import com.hardbasseq.eq.preset.GenrePreset
@@ -168,6 +171,11 @@ fun EqualizerScreen(
     onRetryAttach: () -> Unit,
     audioSessions: List<AudioSession> = emptyList(),
     activeAudioSession: AudioSession? = null,
+    isOwnPlayerSession: Boolean = true,
+    deviceKindPrompt: AudioRoute? = null,
+    onAnswerDeviceKind: (DeviceKind) -> Unit = {},
+    onDismissDeviceKindPrompt: () -> Unit = {},
+    preEqActive: Boolean = false,
     onSelectAudioSession: (AudioSession) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -208,6 +216,7 @@ fun EqualizerScreen(
                 loudnessCurve,
                 activeGoal.curve,
                 activeContext?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
+                if (!isOwnPlayerSession && preEqActive) VirtualBassApproxCurve.forMix(settings.virtualBassMix) else emptyList(),
                 contextCurve,
             ),
         )
@@ -326,6 +335,15 @@ fun EqualizerScreen(
                                 Text(stringResource(R.string.action_retry))
                             }
                         }
+                    }
+
+                    deviceKindPrompt?.let { prompt ->
+                        DeviceKindCard(
+                            deviceName = prompt.name,
+                            style = style,
+                            onAnswer = onAnswerDeviceKind,
+                            onDismiss = onDismissDeviceKindPrompt,
+                        )
                     }
 
                     // Hero: the curve, its limiting tag and the Original/EQ comparison.
@@ -696,7 +714,9 @@ fun EqualizerScreen(
                                 title = stringResource(R.string.module_subsonic),
                                 detail =
                                     if (settings.subsonicCutoffHz > 0f) {
-                                        "< ${settings.subsonicCutoffHz.toInt()} Hz"
+                                        // The 5-band system EQ can only lower its lowest band, not cut like a high-pass.
+                                        val prefix = if (preEqActive) "<" else "≈"
+                                        "$prefix ${settings.subsonicCutoffHz.toInt()} Hz"
                                     } else {
                                         stringResource(R.string.module_off)
                                     },
@@ -707,11 +727,19 @@ fun EqualizerScreen(
                             )
                             SignalModuleTile(
                                 title = stringResource(R.string.module_virtual_bass),
-                                detail = stringResource(if (settings.virtualBassMix > 0f) R.string.module_on else R.string.module_off),
+                                detail =
+                                    stringResource(
+                                        when {
+                                            settings.virtualBassMix <= 0f -> R.string.module_off
+                                            !isOwnPlayerSession && preEqActive -> R.string.module_approx
+                                            !isOwnPlayerSession -> R.string.module_player_only
+                                            else -> R.string.module_on
+                                        },
+                                    ),
                                 checked = settings.virtualBassMix > 0f,
                                 onCheckedChange = onVirtualBassChanged,
                                 style = style,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).alpha(if (isOwnPlayerSession) 1f else 0.6f),
                             )
                         }
                     }

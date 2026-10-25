@@ -5,6 +5,7 @@ import android.media.audiofx.Equalizer
 import android.os.Build
 import android.util.Log
 import com.hardbasseq.eq.di.DefaultDispatcher
+import com.hardbasseq.eq.dsp.PreEqLayout
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -21,7 +22,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "AndroidAudioEngine"
-private const val MBC_BAND_COUNT = 3
+private const val MBC_BAND_COUNT = 4
 
 @Singleton
 class AndroidAudioEngine
@@ -129,26 +130,34 @@ class AndroidAudioEngine
                 var dpLimiterSupported = false
                 var dpInputGainSupported = false
                 var dpMbcSupported = false
+                var dpPreEqSupported = false
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    try {
-                        val dp =
-                            try {
-                                val fullConfig = createDynamicsConfig(mbcEnabled = true)
-                                DynamicsProcessing(0, session.sessionId, fullConfig).also {
-                                    dpMbcSupported = true
-                                }
-                            } catch (mbcError: Exception) {
-                                Log.w(TAG, "MBC unavailable; falling back to limiter-only processing", mbcError)
-                                val fallbackConfig = createDynamicsConfig(mbcEnabled = false)
-                                DynamicsProcessing(0, session.sessionId, fallbackConfig)
-                            }
-                        dynamicsProcessing = dp
-                        dpSupported = true
-                        dpLimiterSupported = true
-                        dpInputGainSupported = true
-                    } catch (e: Exception) {
-                        Log.w(TAG, "DynamicsProcessing not supported on session ${session.sessionId}", e)
+                    // Most capable configuration first; the first one the device accepts wins.
+                    // Without the experimental switch the order is the long-standing
+                    // MBC + limiter, then limiter only.
+                    val attempts =
+                        if (_currentSettings.value.highResolutionEq) {
+                            listOf(true to true, true to false, false to true, false to false)
+                        } else {
+                            listOf(false to true, false to false)
+                        }
+                    for ((usePreEq, useMbc) in attempts) {
+                        try {
+                            dynamicsProcessing =
+                                DynamicsProcessing(0, session.sessionId, createDynamicsConfig(useMbc, usePreEq))
+                            dpPreEqSupported = usePreEq
+                            dpMbcSupported = useMbc
+                            dpSupported = true
+                            dpLimiterSupported = true
+                            dpInputGainSupported = true
+                            break
+                        } catch (e: Exception) {
+                            Log.w(TAG, "DynamicsProcessing config (preEq=$usePreEq, mbc=$useMbc) unavailable", e)
+                        }
+                    }
+                    if (!dpSupported) {
+                        Log.w(TAG, "DynamicsProcessing not supported on session ${session.sessionId}")
                     }
                 }
 
@@ -163,6 +172,7 @@ class AndroidAudioEngine
                         hasInputGain = dpInputGainSupported,
                         hasLimiter = dpLimiterSupported,
                         hasMbc = dpMbcSupported,
+                        preEqCutoffsHz = if (dpPreEqSupported) PreEqLayout.CUTOFFS_HZ else emptyList(),
                     )
 
                 isAttached.set(true)
@@ -226,19 +236,31 @@ class AndroidAudioEngine
                 applyInternal(settings, sessionId)
             }
 
-        private fun createDynamicsConfig(mbcEnabled: Boolean): DynamicsProcessing.Config =
-            DynamicsProcessing.Config
-                .Builder(
+        private fun createDynamicsConfig(
+            mbcEnabled: Boolean,
+            preEqEnabled: Boolean,
+        ): DynamicsProcessing.Config {
+            val cutoffs = PreEqLayout.CUTOFFS_HZ
+            val builder =
+                DynamicsProcessing.Config.Builder(
                     DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
                     2,
-                    false,
-                    0,
+                    preEqEnabled,
+                    if (preEqEnabled) cutoffs.size else 0,
                     mbcEnabled,
                     if (mbcEnabled) MBC_BAND_COUNT else 0,
                     false,
                     0,
                     true,
-                ).build()
+                )
+            if (preEqEnabled) {
+                // The band edges are fixed at creation; only the gains change afterwards.
+                val eq = DynamicsProcessing.Eq(true, true, cutoffs.size)
+                cutoffs.forEachIndexed { i, hz -> eq.setBand(i, DynamicsProcessing.EqBand(true, hz, 0f)) }
+                builder.setPreEqAllChannelsTo(eq)
+            }
+            return builder.build()
+        }
 
         private fun applyInternal(
             settings: ProcessingSettings,
@@ -247,9 +269,13 @@ class AndroidAudioEngine
             val eq = equalizer ?: return false
             try {
                 val shouldEnable = settings.masterEnabled && !settings.bypass
-                eq.enabled = shouldEnable
+                val preEqCutoffs = capabilities.value.preEqCutoffsHz
+                val usePreEq = preEqCutoffs.isNotEmpty() && dynamicsProcessing != null
+                // Never both: the pre-EQ replaces the classic equalizer, which stays only as
+                // the source of the band layout for the UI.
+                eq.enabled = shouldEnable && !usePreEq
 
-                if (shouldEnable) {
+                if (shouldEnable && !usePreEq) {
                     settings.bandGainsDb.forEach { (bandIdx, gainDb) ->
                         val bandCaps = capabilities.value.bands.getOrNull(bandIdx)
                         if (bandCaps != null) {
@@ -264,6 +290,13 @@ class AndroidAudioEngine
                     dp.enabled = shouldEnable
                     if (shouldEnable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         dp.setInputGainAllChannelsTo(settings.inputGainDb.coerceIn(-15f, 0f))
+
+                        if (usePreEq) {
+                            preEqCutoffs.forEachIndexed { i, cutoffHz ->
+                                val gainDb = (settings.preEqGainsDb.getOrNull(i) ?: 0f).coerceIn(-15f, 15f)
+                                dp.setPreEqBandAllChannelsTo(i, DynamicsProcessing.EqBand(true, cutoffHz, gainDb))
+                            }
+                        }
 
                         if (capabilities.value.hasMbc) {
                             val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
@@ -300,7 +333,10 @@ class AndroidAudioEngine
                             // half.
                             val mbcBands =
                                 listOf(
-                                    MbcBandSettings(120f, 15f, 100f),
+                                    // Sub-bass: slow, so the compressor does not follow single cycles.
+                                    MbcBandSettings(45f, 20f, 160f),
+                                    // Kick body: its own timing, tight enough to catch the hit without pumping the tail.
+                                    MbcBandSettings(130f, 12f, 90f),
                                     MbcBandSettings(1500f, 8f, 120f),
                                     MbcBandSettings(20000f, 3f, 80f),
                                 )

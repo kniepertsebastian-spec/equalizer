@@ -9,6 +9,10 @@ import com.hardbasseq.eq.context.SoundContext
 // they address are mostly about *not* wasting headroom on frequencies the
 // hardware cannot reproduce, so they lean on the context features (subsonic
 // high-pass, loudness compensation, virtual bass) more than on big EQ boosts.
+// As an overlay only the target curve, limiter, mbcThresholdDb/mbcRatio and the
+// context features are applied; macroBassDb, macroPunchDb, macroHaerteDb and
+// requestedHeadroomDb are unused then (they would override the genre's macros) and
+// only matter to profiles that still bind a context preset directly.
 // Like the genre presets they are folded into BuiltInPresets.all, so a device
 // profile can bind to them by id.
 object BuiltInContextPresets {

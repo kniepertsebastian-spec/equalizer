@@ -50,4 +50,68 @@ class SoundContextClassifierTest {
     fun `car wins when a name contains both car and speaker words`() {
         assertEquals(SoundContext.CAR, SoundContextClassifier.classifyBluetoothName("Audi Speaker"))
     }
+
+    @Test
+    fun `more infotainment and aftermarket names are classified as car`() {
+        listOf(
+            "Ford SYNC",
+            "MEDIA-NAV",
+            "R-Link",
+            "UVO",
+            "Blue Link",
+            "Toyota Entune",
+            "Mitsubishi",
+            "Polestar 2",
+            "MG Pilot",
+            "BYD Han",
+            "Pioneer DMH",
+            "Kenwood KMM",
+            "Alpine iLX",
+            "Blaupunkt Bremen",
+            "Headunit",
+            "CarStereo",
+            "FM Transmitter",
+            "Smart #1",
+            "Opel PCM",
+        ).forEach { name ->
+            assertEquals(name, SoundContext.CAR, SoundContextClassifier.classifyBluetoothName(name))
+        }
+    }
+
+    @Test
+    fun `more speaker names are classified as bluetooth speaker`() {
+        listOf(
+            "Stormbox Micro",
+            "Beats Pill",
+            "UE Boomster",
+            "Rockster",
+            "Marshall Emberton II",
+            "Stanmore III",
+            "Acton II",
+            "Onyx Studio 7",
+            "JBL Go 3",
+            "JBL Clip 4",
+            "JBL Pulse 5",
+            "Soundcore Motion+",
+        ).forEach { name ->
+            assertEquals(name, SoundContext.BLUETOOTH_SPEAKER, SoundContextClassifier.classifyBluetoothName(name))
+        }
+    }
+
+    @Test
+    fun `common headphone names stay unclassified`() {
+        listOf(
+            "JBL Tune 760NC",
+            "Sony WH-1000XM5",
+            "Marshall Major IV",
+            "Galaxy Buds3 Pro",
+            "Soundcore Liberty 4",
+            "Beats Studio Pro",
+            "Go",
+            "Motion",
+            "Clip",
+        ).forEach { name ->
+            assertNull(name, SoundContextClassifier.classifyBluetoothName(name))
+        }
+    }
 }

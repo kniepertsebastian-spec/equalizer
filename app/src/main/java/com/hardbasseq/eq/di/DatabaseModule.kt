@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.hardbasseq.eq.data.db.AppDatabase
 import com.hardbasseq.eq.data.db.CorrectionProfileDao
 import com.hardbasseq.eq.data.db.DeviceProfileDao
+import com.hardbasseq.eq.data.db.MIGRATION_1_2
 import com.hardbasseq.eq.data.db.PresetDao
 import dagger.Module
 import dagger.Provides
@@ -26,10 +27,9 @@ object DatabaseModule {
                 context,
                 AppDatabase::class.java,
                 "hardbasseq.db",
-            )
+            ).addMigrations(MIGRATION_1_2)
             // Only guards against a future downgrade (newer DB opened by an older
-            // app build) - there's no forward migration to fall back from today
-            // since version 1 is still the only schema this DB has ever had.
+            // app build); upgrades go through the explicit migrations above.
             // Per-row corruption (one bad custom preset) is handled in
             // PresetRepository instead, which is what M2's "ein beschädigtes
             // Nutzerpreset kann die App nicht am Start hindern" actually asks for.

@@ -695,3 +695,13 @@ Navigation zurück.
 ## Englisch-only und Textkontrast (Oktober 2026)
 - Die App ist komplett Englisch (App, Player, Desktop). `values-de/` wurde entfernt, `androidResources.localeFilters = en`.
 - Kontrast: Der Equalizer setzt `LocalContentColor` auf die Textfarbe des Preset-Designs (vorher schwarzer Text auf dunklem Uptempo/Terror-Hintergrund). Gabber nutzt dunkle Textfarben auf hellen Flächen; Akzentfarben für Text liegen bei mindestens 4,5:1 (WCAG AA).
+
+## Virtual Bass bleibt Player-Feature (25. Oktober 2026)
+- Echte Obertonerzeugung ist für fremde Audiosessions ohne Root oder Audio-Mitschnitt nicht möglich: Android erlaubt
+  einer gewöhnlichen App dort nur die System-Effekte (Equalizer, DynamicsProcessing, …).
+- Virtual Bass bleibt daher ein Feature des eigenen Players. Die Kachel kennzeichnet das bei Fremd-Apps als „player only“
+  (Roadmap B1); für Fremd-Apps gibt es nur eine EQ-Annäherung (Roadmap E1, nur mit Pre-EQ).
+- Nicht verfolgt: Audio-Mitschnitt (Aufnahme-Dialog bei jedem Start, Latenz, Stummschalten des Originals) und
+  Root-/Magisk-Effekte – widersprechen „Zuverlässigkeit vor Funktionsmenge“.
+- Die Entscheidung zum Pre-EQ als Standard (Roadmap C2/C3) steht aus, bis die Messung in `docs/TEST_MATRIX.md` (C2) vorliegt.
+

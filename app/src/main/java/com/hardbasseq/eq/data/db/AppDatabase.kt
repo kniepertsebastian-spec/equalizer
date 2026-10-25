@@ -17,7 +17,7 @@ import com.hardbasseq.eq.data.profile.DeviceProfileEntity
 // 1 here is the first schema real user data will ever be written under.
 @Database(
     entities = [PresetEntity::class, DeviceProfileEntity::class, CorrectionProfileEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {

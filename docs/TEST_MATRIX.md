@@ -398,6 +398,17 @@ Wiederherstellung und Lautstärkefolge. **Nicht** automatisiert prüfbar:
 | K8 | Virtual Bass bei Spotify | Schalter hat dort keine Wirkung (erwartet, steht in der UI) |
 | K9 | CPU/Akku bei 30 Minuten Wiedergabe mit Virtual Bass | unauffällig gegenüber ausgeschaltet |
 | K10 | Android Auto (kabelgebunden/drahtlos) | dokumentieren, ob eine Session erkannt wird und ein Effekt greift |
+| K11 | 👤 Roadmap A1-G1: LE-Audio-Kopfhörer bzw. -Box verbinden | Diagnose zeigt richtige Route (Box = Speaker-Typ), SCO-only-Auto löst keinen Auto-Modus aus (offen) |
+| K12 | 👤 Roadmap A2-G1: Update-Installation über eine Version mit Schema 1 | App startet, bestehende Profile sind noch da (offen) |
+| K13 | 👤 Roadmap A2-G2: Gerät ohne Stichwort, „Car“ manuell → beim nächsten Verbinden wieder an (= K3 mit A2-Semantik) | offen |
+| K14 | 👤 Roadmap A2-G3: „Car“ manuell an, Kopfhörer verbinden | Modus aus (manuelle Wahl wandert nicht auf andere Routen; gilt auch für K4) (offen) |
+| K15 | 👤 Roadmap A4-G1: unbekanntes BT-Gerät verbinden | Frage erscheint genau einmal, Antwort bleibt nach App-Neustart (offen) |
+| K16 | 👤 Roadmap B1-G1: Spotify spielt, Virtual Bass an | Kachel zeigt „player only“ (offen) |
+| K17 | 👤 Roadmap B2-G1 (= D3): Box-Modus, basslastiger Track, laut | weniger Pumpen als vorher (offen) |
+| K18 | 👤 Roadmap A5 (= K10): Android Auto kabelgebunden und drahtlos | Modus geht an; Diagnose zeigt „Android Auto: connected“; dokumentieren, ob der EQ auf der Spotify-Session greift (offen) |
+| K19 | 👤 Roadmap D1-G1: SoundCloud-Track im Player, Box-Modus, Subsonic an/aus | Box verzerrt mit „an“ hörbar weniger; keine Knackser bei Seek/Titelwechsel (offen) |
+| K20 | 👤 Roadmap D1-G2: CPU/Akku 30 min im Player | unauffällig (offen) |
+| K21 | 👤 Roadmap E1-G1: Spotify auf kleiner Box, A/B mit Original/EQ-Vergleich | Kick wirkt präsenter, Box pumpt nicht stärker als ohne (offen) |
 
 ## Großer Player und Playlist-Import: Was jetzt am Gerät getestet werden muss (30. September 2026)
 
@@ -556,3 +567,19 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | Z1 | TalkBack an: Equalizer durchgehen | Schalter und Regler werden mit Namen vorgelesen („Bypass, Schalter, aus“; „Bass: +1,5 dB, Regler“) |
 | Z2 | Größte Systemschrift, Deutsch und Englisch | nichts abgeschnitten, alles bedienbar, Touch-Ziele erreichbar |
 | Z3 | Kernabläufe nach `docs/USABILITY_TEST.md` mit Testpersonen | Ergebnisse notieren, Beschriftungen/Navigation anpassen |
+
+## C2 – Pre-EQ-Messung (Roadmap Kontext/DSP)
+
+Ausführender: Sebastian (Gerät). Schalter: Diagnose → „High-resolution EQ (experimental)“.
+Entscheidungsregel: „Go“ für C3, wenn der Pre-EQ die Zielkurve im Bass messbar genauer
+trifft, keine neuen Knackser auftreten und Attach nicht schlechter wird. Ergebnis in
+`docs/DECISIONS.md` festhalten.
+
+| Prüfung | Klassisch | Pre-EQ | Notiz |
+|---|---|---|---|
+| Sweep über die Spike-Werkzeuge (`audio/spike/TestTonePlayer.kt` mit `LogarithmicSweepGenerator`, Aufnahme z. B. mit zweitem Handy + REW/Spektrum-App): Abweichung zur Zielkurve bei 40/75/100/200 Hz, Car-Modus | | | |
+| Dasselbe, Box-Modus | | | |
+| Knackser beim Preset-/Modus-Wechsel während Wiedergabe | | | |
+| Attach klappt bei Spotify (10 Starts) | | | |
+| CPU/Akku 30 min Spotify | | | |
+| Höreindruck Auto / Box | | | |

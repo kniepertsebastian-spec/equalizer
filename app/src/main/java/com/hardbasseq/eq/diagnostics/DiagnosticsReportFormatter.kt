@@ -20,6 +20,7 @@ object DiagnosticsReportFormatter {
         processingSettings: ProcessingSettings? = null,
         recentEvents: List<DiagnosticsEvent> = emptyList(),
         playerSource: String? = null,
+        androidAutoConnected: Boolean? = null,
     ): String =
         buildString {
             appendLine("=== HardBass EQ Diagnostic Report ===")
@@ -33,11 +34,13 @@ object DiagnosticsReportFormatter {
             appendLine("EQ Status: ${eqStatusLine(engineState, processingSettings)}")
             appendLine("Audio Session: ${sessionLine(engineState)}")
             appendLine("Player: ${playerSource ?: "unknown"}")
+            androidAutoConnected?.let { appendLine("Android Auto: ${if (it) "connected" else "not connected"}") }
             appendLine("Last Error: ${lastError(engineState) ?: "none"}")
             appendLine()
             appendLine("--- Capabilities ---")
             appendLine("Has Equalizer: ${capabilities.hasEqualizer}")
             appendLine("Has DynamicsProcessing: ${capabilities.hasDynamicsProcessing}")
+            appendLine("EQ Path: ${eqPathLine(capabilities)}")
             appendLine("Has Input Gain: ${capabilities.hasInputGain}")
             appendLine("Has Limiter: ${capabilities.hasLimiter}")
             appendLine("Has Multiband Compressor: ${capabilities.hasMbc}")
@@ -98,5 +101,12 @@ object DiagnosticsReportFormatter {
             is AudioEngineState.Unsupported -> state.reason
             is AudioEngineState.Error -> state.message
             else -> null
+        }
+
+    private fun eqPathLine(capabilities: AudioCapabilities): String =
+        when {
+            capabilities.preEqCutoffsHz.isNotEmpty() -> "DP pre-EQ ${capabilities.preEqCutoffsHz.size}-band"
+            capabilities.hasEqualizer -> "classic ${capabilities.bands.size}-band"
+            else -> "DP unavailable"
         }
 }

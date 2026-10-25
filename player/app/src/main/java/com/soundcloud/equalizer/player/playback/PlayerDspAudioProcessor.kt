@@ -8,14 +8,15 @@ import androidx.media3.common.util.UnstableApi
 import com.hardbasseq.eq.dsp.PlayerDspPcm16
 import java.nio.ByteBuffer
 
-// The last stage of the player's own audio chain: mono bass and a lookahead limiter
-// (see PlayerDspPcm16), each switchable through PlayerDspState without a player
+// The last stage of the player's own audio chain: the exact target curve, mono bass
+// and a lookahead limiter (see PlayerDspPcm16), each switchable through PlayerDspState without a player
 // rebuild. Goes after the virtual-bass processor so the limiter also catches the
 // harmonics it adds. The limiter delays the audio by a few milliseconds.
 @OptIn(UnstableApi::class)
 class PlayerDspAudioProcessor : BaseAudioProcessor() {
     private val dsp = PlayerDspPcm16()
     private var sampleRateHz = 0
+    private var appliedCurve: PlayerCurve? = null
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         // Same rule as the virtual-bass processor: only 16-bit PCM is processed.
@@ -23,6 +24,7 @@ class PlayerDspAudioProcessor : BaseAudioProcessor() {
         sampleRateHz = inputAudioFormat.sampleRate
         dsp.configure(inputAudioFormat.channelCount)
         dsp.updateSettings(PlayerDspState.settings.value)
+        appliedCurve = null
         return inputAudioFormat
     }
 
@@ -31,6 +33,11 @@ class PlayerDspAudioProcessor : BaseAudioProcessor() {
         if (size == 0) return
 
         dsp.updateSettings(PlayerDspState.settings.value)
+        val curve = PlayerCurveState.current
+        if (curve !== appliedCurve) {
+            dsp.updateCurve(curve.curve, curve.subsonicCutoffHz)
+            appliedCurve = curve
+        }
 
         val shorts = inputBuffer.asShortBuffer()
         val samples = ShortArray(shorts.remaining())
