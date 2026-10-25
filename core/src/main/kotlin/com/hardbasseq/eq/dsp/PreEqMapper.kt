@@ -49,6 +49,10 @@ object PreEqLayout {
             20000f,
         )
 
+    /** The earlier, coarser layout: tried when a device refuses [CUTOFFS_HZ]. */
+    val COARSE_CUTOFFS_HZ: List<Float> =
+        listOf(25f, 40f, 55f, 70f, 90f, 115f, 150f, 200f, 280f, 400f, 630f, 1000f, 2000f, 4000f, 8000f, 20000f)
+
     const val LOWEST_HZ = 15f
     const val MAX_GAIN_DB = 15f
 }
