@@ -41,6 +41,10 @@ object DiagnosticsReportFormatter {
             appendLine("Has Equalizer: ${capabilities.hasEqualizer}")
             appendLine("Has DynamicsProcessing: ${capabilities.hasDynamicsProcessing}")
             appendLine("EQ Path: ${eqPathLine(capabilities)}")
+            if (processingSettings != null) {
+                appendLine("High-resolution EQ requested: ${processingSettings.highResolutionEq}")
+            }
+            capabilities.preEqUnavailableReason?.let { appendLine("High-resolution EQ unavailable: $it") }
             appendLine("Has Input Gain: ${capabilities.hasInputGain}")
             appendLine("Has Limiter: ${capabilities.hasLimiter}")
             appendLine("Has Multiband Compressor: ${capabilities.hasMbc}")

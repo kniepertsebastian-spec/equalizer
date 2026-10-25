@@ -131,6 +131,7 @@ class AndroidAudioEngine
                 var dpInputGainSupported = false
                 var dpMbcSupported = false
                 var dpPreEqSupported = false
+                var preEqFailure: String? = null
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     // Most capable configuration first; the first one the device accepts wins.
@@ -154,6 +155,9 @@ class AndroidAudioEngine
                             break
                         } catch (e: Exception) {
                             Log.w(TAG, "DynamicsProcessing config (preEq=$usePreEq, mbc=$useMbc) unavailable", e)
+                            if (usePreEq && preEqFailure == null) {
+                                preEqFailure = "${e.javaClass.simpleName}: ${e.localizedMessage}"
+                            }
                         }
                     }
                     if (!dpSupported) {
@@ -173,6 +177,7 @@ class AndroidAudioEngine
                         hasLimiter = dpLimiterSupported,
                         hasMbc = dpMbcSupported,
                         preEqCutoffsHz = if (dpPreEqSupported) PreEqLayout.CUTOFFS_HZ else emptyList(),
+                        preEqUnavailableReason = preEqFailure.takeUnless { dpPreEqSupported },
                     )
 
                 isAttached.set(true)
