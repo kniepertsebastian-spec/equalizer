@@ -102,6 +102,19 @@ fun DiagnosticsScreen(
                     .padding(horizontal = spacing.medium, vertical = spacing.small),
             verticalArrangement = Arrangement.spacedBy(spacing.medium),
         ) {
+            if (onHighResolutionEqChanged != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.diag_high_res_eq),
+                        modifier = Modifier.weight(1f),
+                    )
+                    Switch(checked = highResolutionEq, onCheckedChange = onHighResolutionEqChanged)
+                }
+            }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -113,19 +126,6 @@ fun DiagnosticsScreen(
                         fontFamily = FontFamily.Monospace,
                         modifier = Modifier.padding(spacing.medium),
                     )
-                }
-            }
-
-            if (onHighResolutionEqChanged != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.diag_high_res_eq),
-                        modifier = Modifier.weight(1f),
-                    )
-                    Switch(checked = highResolutionEq, onCheckedChange = onHighResolutionEqChanged)
                 }
             }
 
