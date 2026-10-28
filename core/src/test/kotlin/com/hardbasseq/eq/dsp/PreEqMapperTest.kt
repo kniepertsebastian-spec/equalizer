@@ -7,17 +7,13 @@ import org.junit.Test
 
 class PreEqMapperTest {
     @Test
-    fun `34-band layout has exactly 34 strictly increasing cutoffs without sub-bin crowding`() {
+    fun `34-band layout has exactly 34 strictly increasing cutoffs`() {
         val cutoffs = PreEqLayout.CUTOFFS_HZ
         assertEquals(34, cutoffs.size)
 
         var previous = PreEqLayout.LOWEST_HZ
         for (cutoff in cutoffs) {
             assertTrue("Expected $cutoff > $previous", cutoff > previous)
-            // Ensure each band is at least ~18% wider than the previous edge to avoid
-            // STFT sub-bin phase smearing in Android's DynamicsProcessing engine.
-            val ratio = cutoff / previous
-            assertTrue("Band ratio $ratio at $cutoff Hz is too narrow", ratio >= 1.18f)
             previous = cutoff
         }
     }

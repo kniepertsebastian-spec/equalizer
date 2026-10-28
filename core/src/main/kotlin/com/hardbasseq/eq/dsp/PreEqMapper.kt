@@ -1,65 +1,59 @@
 package com.hardbasseq.eq.dsp
 
 import com.hardbasseq.eq.preset.TargetPoint
+import kotlin.math.ln
 import kotlin.math.sqrt
 
 /**
- * Band layout of the DynamicsProcessing pre-EQ: 34 logarithmically balanced bands
- * (~1/3 octave spacing from 25 Hz to 20 kHz).
- *
- * Acoustic improvement (Priority 2):
- * Previously, 18 of the 34 bands were crammed below 200 Hz (with 5 Hz spacing like
- * 31/36/40/45/50/55 Hz), which is narrower than the physical FFT bin width of Android's
- * DynamicsProcessing STFT engine (~46-93 Hz at 48 kHz), causing phase smearing in the
- * sub-bass while leaving mids/presence (1-12 kHz) under-resolved. The revised 34-band
- * distribution preserves high bass resolution (14 bands <= 250 Hz) without sub-bin
- * crowding, while providing 20 smooth ~1/3-octave bands across mids, presence, and air.
+ * Band layout of the DynamicsProcessing pre-EQ: about a third of an octave in the bass, where
+ * kick, cabin resonance, subsonic cut and the virtual-bass approximation live, coarser above.
+ * If a device cannot create this many bands, the engine falls back to the classic equalizer.
  */
 object PreEqLayout {
-    /** Upper edge of each of the 34 bands; the lower edge of the first band is [LOWEST_HZ]. */
+    /** Upper edge of each band; the lower edge of the first band is [LOWEST_HZ]. */
     val CUTOFFS_HZ: List<Float> =
         listOf(
-            24f,
-            30f,
-            37f,
+            20f,
+            25f,
+            31f,
+            36f,
+            40f,
             45f,
+            50f,
             55f,
-            67f,
-            82f,
+            62f,
+            70f,
+            80f,
+            90f,
             100f,
-            122f,
+            115f,
+            130f,
             150f,
-            185f,
-            225f,
-            275f,
-            335f,
-            410f,
+            175f,
+            200f,
+            240f,
+            280f,
+            340f,
+            400f,
             500f,
-            615f,
-            750f,
-            920f,
-            1120f,
-            1370f,
-            1680f,
-            2050f,
-            2500f,
-            3050f,
-            3720f,
-            4550f,
-            5550f,
-            6800f,
-            8300f,
-            10150f,
-            12400f,
-            15500f,
+            630f,
+            800f,
+            1000f,
+            1400f,
+            2000f,
+            3000f,
+            4000f,
+            6000f,
+            8000f,
+            12000f,
             20000f,
         )
 
-    /** The earlier, coarser 16-band layout: tried when a device refuses [CUTOFFS_HZ]. */
+    /** The earlier, coarser layout: tried when a device refuses [CUTOFFS_HZ]. */
     val COARSE_CUTOFFS_HZ: List<Float> =
         listOf(25f, 40f, 55f, 70f, 90f, 115f, 150f, 200f, 280f, 400f, 630f, 1000f, 2000f, 4000f, 8000f, 20000f)
 
-    const val LOWEST_HZ = 18f
+    const val LOWEST_HZ = 15f
     const val MAX_GAIN_DB = 15f
 }
 
@@ -75,8 +69,10 @@ object PreEqMapper {
     private const val LONE_DELTA_REACH = 4f
 
     /**
-     * One gain per pre-EQ band: the combined curve (including macros) at the band's
-     * logarithmic midpoint, plus the manual band edits, clamped to +-[PreEqLayout.MAX_GAIN_DB].
+     * One gain per pre-EQ band: uses 3-point Simpson integration in log-frequency across
+     * [lowerHz, upperHz] so dense curves (like 127-point AutoEQ profiles or steep subsonic cuts)
+     * do not alias or jump harshly between narrow adjacent bands, while remaining mathematically
+     * identical to midpoint evaluation on linear segments.
      *
      * @param manualDeltas how far the user moved a classic band from the curve, as points at
      *   the band centres; they fade out towards their neighbours instead of staying flat.
@@ -92,9 +88,16 @@ object PreEqMapper {
         return cutoffsHz.mapIndexed { i, upperHz ->
             val lowerHz = if (i == 0) PreEqLayout.LOWEST_HZ else cutoffsHz[i - 1]
             val midHz = sqrt(lowerHz * upperHz)
-            val gain =
+            val lowGain =
+                EqualizerInterpolator.resolveGainAtFrequency(lowerHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                    deltaAt(lowerHz, sortedDeltas)
+            val midGain =
                 EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
                     deltaAt(midHz, sortedDeltas)
+            val highGain =
+                EqualizerInterpolator.resolveGainAtFrequency(upperHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                    deltaAt(upperHz, sortedDeltas)
+            val gain = (lowGain + 4f * midGain + highGain) / 6f
             gain.coerceIn(-PreEqLayout.MAX_GAIN_DB, PreEqLayout.MAX_GAIN_DB)
         }
     }
@@ -111,12 +114,16 @@ object PreEqMapper {
         val lowReach = if (deltas.size > 1) first.frequencyHz / deltas[1].frequencyHz else 1f / LONE_DELTA_REACH
         val highReach = if (deltas.size > 1) last.frequencyHz / deltas[deltas.size - 2].frequencyHz else LONE_DELTA_REACH
         val anchors =
-            buildList {
-                add(TargetPoint(first.frequencyHz * lowReach, 0f))
-                addAll(deltas)
-                add(TargetPoint(last.frequencyHz * highReach, 0f))
-            }
+            listOf(TargetPoint(first.frequencyHz * lowReach, 0f)) + deltas + TargetPoint(last.frequencyHz * highReach, 0f)
         if (freqHz <= anchors.first().frequencyHz || freqHz >= anchors.last().frequencyHz) return 0f
-        return EqualizerInterpolator.interpolateFrequency(freqHz, anchors)
+        for (i in 0 until anchors.size - 1) {
+            val a = anchors[i]
+            val b = anchors[i + 1]
+            if (freqHz in a.frequencyHz..b.frequencyHz) {
+                val fraction = ln(freqHz / a.frequencyHz) / ln(b.frequencyHz / a.frequencyHz)
+                return a.gainDb + fraction * (b.gainDb - a.gainDb)
+            }
+        }
+        return 0f
     }
 }
