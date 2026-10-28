@@ -15,6 +15,9 @@ class DiagnosticsReportFormatterTest {
         AudioCapabilities(
             hasEqualizer = true,
             hasDynamicsProcessing = true,
+            hasInputGain = true,
+            hasLimiter = true,
+            hasMbc = true,
             bands = listOf(EqualizerBandCapabilities(0, 60, -15f, 15f)),
         )
     private val route = AudioRoute()
@@ -84,7 +87,7 @@ class DiagnosticsReportFormatterTest {
     }
 
     @Test
-    fun generateReport_includesActiveDspStagesWhenProvided() {
+    fun generateReport_includesActiveDspStagesAndDistinguishesAppliedFromWaiting() {
         val settings =
             ProcessingSettings(
                 masterEnabled = true,
@@ -96,7 +99,7 @@ class DiagnosticsReportFormatterTest {
                 mbcRatio = 2.5f,
             )
 
-        val report =
+        val activeReport =
             DiagnosticsReportFormatter.generateReport(
                 engineState = AudioEngineState.Active(1),
                 capabilities = capabilities,
@@ -104,9 +107,20 @@ class DiagnosticsReportFormatterTest {
                 processingSettings = settings,
             )
 
-        assertTrue(report.contains("Active DSP Stages"))
-        assertTrue(report.contains("Limiter Enabled: true (threshold -1.5 dB)"))
-        assertTrue(report.contains("MBC Enabled: true (threshold -7.0 dB, ratio 2.5:1)"))
+        assertTrue(activeReport.contains("Active DSP Stages"))
+        assertTrue(activeReport.contains("Hardware Processing Applied: true"))
+        assertTrue(activeReport.contains("Limiter Enabled: true (threshold -1.5 dB, applied=true)"))
+        assertTrue(activeReport.contains("MBC Enabled: true (threshold -7.0 dB, ratio 2.5:1, applied=true)"))
+
+        val waitingReport =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Listening,
+                capabilities = AudioCapabilities(hasEqualizer = true, hasDynamicsProcessing = true),
+                route = route,
+                processingSettings = settings,
+            )
+        assertTrue(waitingReport.contains("Hardware Processing Applied: false"))
+        assertTrue(waitingReport.contains("applied=false"))
     }
 
     @Test

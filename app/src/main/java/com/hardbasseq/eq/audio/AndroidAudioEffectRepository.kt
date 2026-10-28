@@ -1,7 +1,10 @@
 package com.hardbasseq.eq.audio
 
 import android.media.audiofx.AudioEffect
+import android.util.Log
 import javax.inject.Inject
+
+private const val TAG = "AndroidAudioEffectRepo"
 
 /**
  * Android-backed [AudioEffectRepository]. Wraps the static,
@@ -21,18 +24,22 @@ class AndroidAudioEffectRepository
             )
 
         override fun queryAvailableEffects(): List<AudioEffectDescriptor> =
-            AudioEffect.queryEffects().map { descriptor ->
-                AudioEffectDescriptor(
-                    typeUuid = descriptor.type,
-                    effectUuid = descriptor.uuid,
-                    name = descriptor.name,
-                    implementor = descriptor.implementor,
-                    connectMode =
-                        when (descriptor.connectMode) {
-                            AudioEffect.EFFECT_INSERT -> EffectConnectMode.INSERT
-                            AudioEffect.EFFECT_AUXILIARY -> EffectConnectMode.AUXILIARY
-                            else -> EffectConnectMode.UNKNOWN
-                        },
-                )
-            }
+            runCatching {
+                AudioEffect.queryEffects().orEmpty().map { descriptor ->
+                    AudioEffectDescriptor(
+                        typeUuid = descriptor.type,
+                        effectUuid = descriptor.uuid,
+                        name = descriptor.name,
+                        implementor = descriptor.implementor,
+                        connectMode =
+                            when (descriptor.connectMode) {
+                                AudioEffect.EFFECT_INSERT -> EffectConnectMode.INSERT
+                                AudioEffect.EFFECT_AUXILIARY -> EffectConnectMode.AUXILIARY
+                                else -> EffectConnectMode.UNKNOWN
+                            },
+                    )
+                }
+            }.onFailure { e ->
+                Log.w(TAG, "Failed to query global audio effects", e)
+            }.getOrDefault(emptyList())
     }

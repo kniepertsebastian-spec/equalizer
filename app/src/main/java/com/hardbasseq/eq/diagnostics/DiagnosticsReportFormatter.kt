@@ -23,6 +23,10 @@ object DiagnosticsReportFormatter {
         androidAutoConnected: Boolean? = null,
     ): String =
         buildString {
+            val isEffectivelyActive =
+                engineState is AudioEngineState.Active &&
+                    (processingSettings == null || (processingSettings.masterEnabled && !processingSettings.bypass))
+
             appendLine("=== HardBass EQ Diagnostic Report ===")
             appendLine("App Version: ${BuildConfig.VERSION_NAME}")
             appendLine("Android API Level: ${Build.VERSION.SDK_INT}")
@@ -56,13 +60,21 @@ object DiagnosticsReportFormatter {
             if (processingSettings != null) {
                 appendLine()
                 appendLine("--- Active DSP Stages ---")
+                appendLine("Hardware Processing Applied: $isEffectivelyActive")
                 appendLine("Master Enabled: ${processingSettings.masterEnabled}")
                 appendLine("Bypass: ${processingSettings.bypass}")
-                appendLine("Input Gain: ${processingSettings.inputGainDb} dB")
-                appendLine("Limiter Enabled: ${processingSettings.limiterEnabled} (threshold ${processingSettings.limiterThresholdDb} dB)")
+                appendLine(
+                    "Input Gain: ${processingSettings.inputGainDb} dB " +
+                        "(applied=${isEffectivelyActive && capabilities.hasInputGain})",
+                )
+                appendLine(
+                    "Limiter Enabled: ${processingSettings.limiterEnabled} " +
+                        "(threshold ${processingSettings.limiterThresholdDb} dB, applied=${isEffectivelyActive && capabilities.hasLimiter})",
+                )
                 appendLine(
                     "MBC Enabled: ${processingSettings.mbcEnabled} " +
-                        "(threshold ${processingSettings.mbcThresholdDb} dB, ratio ${processingSettings.mbcRatio}:1)",
+                        "(threshold ${processingSettings.mbcThresholdDb} dB, ratio ${processingSettings.mbcRatio}:1, " +
+                        "applied=${isEffectivelyActive && capabilities.hasMbc && processingSettings.mbcEnabled})",
                 )
             }
             if (recentEvents.isNotEmpty()) {
@@ -110,7 +122,8 @@ object DiagnosticsReportFormatter {
     private fun eqPathLine(capabilities: AudioCapabilities): String =
         when {
             capabilities.preEqCutoffsHz.isNotEmpty() -> "DP pre-EQ ${capabilities.preEqCutoffsHz.size}-band"
-            capabilities.hasEqualizer -> "classic ${capabilities.bands.size}-band"
+            capabilities.hasEqualizer && capabilities.bands.isNotEmpty() -> "classic ${capabilities.bands.size}-band"
+            capabilities.hasEqualizer -> "classic (awaiting session attach for band layout)"
             else -> "DP unavailable"
         }
 }
