@@ -8,10 +8,15 @@ import androidx.media3.common.util.UnstableApi
 import com.hardbasseq.eq.dsp.PlayerDspPcm16
 import java.nio.ByteBuffer
 
-// The last stage of the player's own audio chain: the exact target curve, mono bass
-// and a lookahead limiter (see PlayerDspPcm16), each switchable through PlayerDspState without a player
-// rebuild. Goes after the virtual-bass processor so the limiter also catches the
-// harmonics it adds. The limiter delays the audio by a few milliseconds.
+// The player's whole audio chain: the exact target curve, virtual bass, mono bass and a
+// lookahead limiter (see PlayerDspPcm16), each switchable through PlayerCurveState,
+// VirtualBassState and PlayerDspState without a player rebuild. One processor, so the
+// stages hand floats to each other and nothing clips in between. The limiter delays the
+// audio by a few milliseconds.
+//
+// Virtual bass only exists here: the system-wide effect path HardBass EQ uses for other
+// apps (Android Equalizer/DynamicsProcessing attached to their audio session) has no hook
+// for custom sample processing, so Spotify & co. cannot get it - see docs/DECISIONS.md.
 @OptIn(UnstableApi::class)
 class PlayerDspAudioProcessor : BaseAudioProcessor() {
     private val dsp = PlayerDspPcm16()
@@ -19,7 +24,9 @@ class PlayerDspAudioProcessor : BaseAudioProcessor() {
     private var appliedCurve: PlayerCurve? = null
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
-        // Same rule as the virtual-bass processor: only 16-bit PCM is processed.
+        // Anything but 16-bit PCM (float output, 24-bit, ...) stays unprocessed: NOT_SET
+        // marks this processor inactive so ExoPlayer skips it entirely, instead of failing
+        // playback with UnhandledAudioFormatException.
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT) return AudioProcessor.AudioFormat.NOT_SET
         sampleRateHz = inputAudioFormat.sampleRate
         dsp.configure(inputAudioFormat.channelCount)
@@ -33,6 +40,7 @@ class PlayerDspAudioProcessor : BaseAudioProcessor() {
         if (size == 0) return
 
         dsp.updateSettings(PlayerDspState.settings.value)
+        dsp.updateVirtualBass(VirtualBassState.mix)
         val curve = PlayerCurveState.current
         if (curve !== appliedCurve) {
             dsp.updateCurve(curve.curve, curve.subsonicCutoffHz)

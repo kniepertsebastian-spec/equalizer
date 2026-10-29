@@ -24,6 +24,22 @@ import javax.inject.Singleton
 private const val TAG = "AndroidAudioEngine"
 private const val MBC_BAND_COUNT = 4
 
+// Frame length for the frequency-domain DynamicsProcessing while the pre-EQ runs. The
+// platform default of 10 ms gives an FFT bin spacing of roughly 47 Hz at 48 kHz (AOSP
+// DPFrequency), far too coarse for the pre-EQ's bass bands 5-10 Hz apart: they would
+// share one or two bins. 20 ms halves the spacing. Longer frames resolve the bass even
+// finer but smear kick transients (pre-echo) and add latency; to be checked by ear and
+// with a sweep on a real device.
+private const val PRE_EQ_FRAME_DURATION_MS = 20f
+
+// Limiter release. 50 ms let the gain recover within a few cycles of 40-60 Hz bass and
+// follow the waveform - heard as distortion on heavily boosted bass.
+private const val LIMITER_RELEASE_MS = 120f
+
+// The sub-bass band compresses this much later than the others: it carries the most
+// energy, so with a shared threshold it is the one that pumps first.
+private const val SUB_BAND_THRESHOLD_OFFSET_DB = 3f
+
 @Singleton
 class AndroidAudioEngine
     @Inject
@@ -264,6 +280,7 @@ class AndroidAudioEngine
                     true,
                 )
             if (preEqEnabled) {
+                builder.setPreferredFrameDuration(PRE_EQ_FRAME_DURATION_MS)
                 // The band edges are fixed at creation; only the gains change afterwards.
                 val eq = DynamicsProcessing.Eq(true, true, cutoffs.size)
                 cutoffs.forEachIndexed { i, hz -> eq.setBand(i, DynamicsProcessing.EqBand(true, hz, 0f)) }
@@ -344,7 +361,7 @@ class AndroidAudioEngine
                             val mbcBands =
                                 listOf(
                                     // Sub-bass: slow, so the compressor does not follow single cycles.
-                                    MbcBandSettings(45f, 20f, 160f),
+                                    MbcBandSettings(45f, 20f, 160f, SUB_BAND_THRESHOLD_OFFSET_DB),
                                     // Kick body: its own timing, tight enough to catch the hit without pumping the tail.
                                     MbcBandSettings(130f, 12f, 90f),
                                     MbcBandSettings(1500f, 8f, 120f),
@@ -359,7 +376,7 @@ class AndroidAudioEngine
                                         band.attackMs,
                                         band.releaseMs,
                                         mbcRatio,
-                                        mbcThresholdDb,
+                                        (mbcThresholdDb + band.thresholdOffsetDb).coerceAtMost(0f),
                                         6f, // soft knee
                                         -80f, // effectively disable the noise gate
                                         1f, // no expansion
@@ -377,7 +394,7 @@ class AndroidAudioEngine
                                 settings.limiterEnabled,
                                 0, // channel 0
                                 1f, // attack ms
-                                50f, // release ms
+                                LIMITER_RELEASE_MS,
                                 10f, // ratio
                                 safeThresholdDb, // threshold
                                 0f, // postGain
@@ -434,4 +451,5 @@ private data class MbcBandSettings(
     val cutoffFrequencyHz: Float,
     val attackMs: Float,
     val releaseMs: Float,
+    val thresholdOffsetDb: Float = 0f,
 )

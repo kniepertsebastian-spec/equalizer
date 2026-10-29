@@ -148,31 +148,34 @@ object BiquadFilterDesigner {
 // call per sample, as BassExciter does) requires carrying that state between
 // calls - a fresh, state-free filter on every call would click/pop at every
 // buffer boundary. Direct Form I, per the same RBJ cookbook the coefficients
-// above come from.
+// above come from. The state and the arithmetic run in double precision: the
+// bass filters (31 Hz peak, subsonic high-pass) have poles right next to z = 1,
+// where single-precision rounding turns into audible noise and gain error.
 class BiquadFilterState {
-    private var x1 = 0f
-    private var x2 = 0f
-    private var y1 = 0f
-    private var y2 = 0f
+    private var x1 = 0.0
+    private var x2 = 0.0
+    private var y1 = 0.0
+    private var y2 = 0.0
 
     fun process(
         input: Float,
         coefficients: BiquadCoefficients,
     ): Float {
+        val x0 = input.toDouble()
         val output =
-            coefficients.b0 * input + coefficients.b1 * x1 + coefficients.b2 * x2 -
+            coefficients.b0 * x0 + coefficients.b1 * x1 + coefficients.b2 * x2 -
                 coefficients.a1 * y1 - coefficients.a2 * y2
         x2 = x1
-        x1 = input
+        x1 = x0
         y2 = y1
         y1 = output
-        return output
+        return output.toFloat()
     }
 
     fun reset() {
-        x1 = 0f
-        x2 = 0f
-        y1 = 0f
-        y2 = 0f
+        x1 = 0.0
+        x2 = 0.0
+        y1 = 0.0
+        y2 = 0.0
     }
 }

@@ -2,16 +2,21 @@ package com.hardbasseq.eq.dsp
 
 import com.hardbasseq.eq.preset.TargetPoint
 
-// The player's output stage on interleaved PCM16: the target curve and subsonic
-// high-pass (CurveEqualizer) first, then mono bass (stereo only), then a lookahead
-// limiter per channel so the bass boost and virtual bass cannot clip the DAC. All
-// stages run on floats and the result is converted back to PCM16 once, so an EQ boost
-// cannot clip between stages. Each part can be switched off on its own; with both off the buffer
-// is left untouched. Android-free like BassExciterPcm16 - the Media3 processor that
-// feeds it lives in :player.
+// The player's whole audio chain on interleaved PCM16, in one float pass:
+// 1. target curve and subsonic high-pass (CurveEqualizer), whose pre-gain makes room
+//    for the strongest boost,
+// 2. virtual bass (BassExciter) - after the pre-gain, so its harmonics fit in,
+// 3. mono bass (stereo only),
+// 4. one lookahead limiter linked across the channels, so neither the boost nor the
+//    harmonics can clip the DAC.
+// Nothing is clipped or rounded between the stages; the result goes back to PCM16 once,
+// with TPDF dither, so quiet passages after a large pre-gain cut keep their detail
+// instead of turning into rounding distortion. Each part can be switched off on its own;
+// with everything off the buffer is left untouched. Android-free like the rest of :core -
+// the Media3 processor that feeds it lives in :player.
 //
-// The limiter runs per channel (not linked): when only one channel peaks, only that
-// one is pulled down, which can nudge the stereo image for a few milliseconds.
+// PCM16 rather than float out: Media3 1.3.1 runs its speed processor (Sonic) behind
+// this one, and that accepts 16-bit only.
 data class PlayerDspSettings(
     val monoBassEnabled: Boolean = true,
     val monoBassCutoffHz: Float = DEFAULT_MONO_BASS_CUTOFF_HZ,
@@ -25,12 +30,17 @@ data class PlayerDspSettings(
 class PlayerDspPcm16 {
     private var settings = PlayerDspSettings()
     private val monoSummer = BassMonoSummer()
-    private var limiters: List<LookaheadLimiter> = emptyList()
+    private var limiter = LookaheadLimiter()
+    private var channels = 0
     private val curveEqualizer = CurveEqualizer()
+    private var exciters: List<BassExciter> = emptyList()
+    private var exciterSettings = BassExciterSettings()
+    private var frame = FloatArray(0)
+    private var ditherState = 0x2545F491
 
     fun updateSettings(newSettings: PlayerDspSettings) {
         // A limiter that was off holds stale samples: start it fresh.
-        if (newSettings.limiterEnabled && !settings.limiterEnabled) limiters.forEach { it.reset() }
+        if (newSettings.limiterEnabled && !settings.limiterEnabled) limiter.reset()
         settings = newSettings
         monoSummer.updateSettings(
             BassMonoSummerSettings(enabled = newSettings.monoBassEnabled, cutoffHz = newSettings.monoBassCutoffHz),
@@ -45,17 +55,29 @@ class PlayerDspPcm16 {
         curveEqualizer.setCurve(curve, subsonicCutoffHz)
     }
 
-    // Call whenever the channel layout changes.
-    fun configure(channelCount: Int) {
-        limiters = List(channelCount.coerceAtLeast(1)) { LookaheadLimiter() }
-        monoSummer.reset()
-        curveEqualizer.configure(channelCount)
+    /** Virtual bass amount, 0 = off, 1 = full. */
+    fun updateVirtualBass(mix: Float) {
+        val next = BassExciterSettings(enabled = mix > 0f, mix = mix)
+        if (next == exciterSettings) return
+        exciterSettings = next
+        exciters.forEach { it.updateSettings(next) }
     }
 
-    // A seek or track change: drop the filters' and limiters' memory of the old audio.
+    // Call whenever the channel layout changes.
+    fun configure(channelCount: Int) {
+        channels = channelCount.coerceAtLeast(1)
+        limiter = LookaheadLimiter(channelCount = channels)
+        exciters = List(channels) { BassExciter(exciterSettings) }
+        frame = FloatArray(channels)
+        monoSummer.reset()
+        curveEqualizer.configure(channels)
+    }
+
+    // A seek or track change: drop the filters' and limiter's memory of the old audio.
     fun reset() {
         monoSummer.reset()
-        limiters.forEach { it.reset() }
+        limiter.reset()
+        exciters.forEach { it.reset() }
         curveEqualizer.reset()
     }
 
@@ -66,37 +88,53 @@ class PlayerDspPcm16 {
         sampleRateHz: Int,
     ) {
         val current = settings
-        if (limiters.isEmpty()) return
+        if (channels == 0) return
         val rate = sampleRateHz.toFloat()
         val curveActive = curveEqualizer.beginBuffer(rate)
-        if (!(curveActive || current.monoBassEnabled || current.limiterEnabled)) return
-        val channels = limiters.size
+        val exciterActive = exciterSettings.enabled
+        if (!(curveActive || exciterActive || current.monoBassEnabled || current.limiterEnabled)) return
         val monoActive = current.monoBassEnabled && channels == 2
-        val frame = FloatArray(channels)
+        val frame = frame
         var i = offset
         val end = offset + sampleCount
         while (i + channels <= end) {
             for (c in 0 until channels) {
-                val sample = samples[i + c] / PCM16_SCALE
-                frame[c] = if (curveActive) curveEqualizer.process(c, sample) else sample
+                var sample = samples[i + c] / PCM16_SCALE
+                if (curveActive) sample = curveEqualizer.process(c, sample)
+                if (exciterActive) sample = exciters[c].processUnclamped(sample, rate)
+                frame[c] = sample
             }
+            if (curveActive) curveEqualizer.endFrame()
             if (monoActive) {
                 val mixed = monoSummer.process(frame[0], frame[1], rate)
                 frame[0] = mixed.left
                 frame[1] = mixed.right
             }
-            for (c in 0 until channels) {
-                val out = if (current.limiterEnabled) limiters[c].process(frame[c], rate) else frame[c]
-                samples[i + c] = toPcm16(out)
-            }
+            if (current.limiterEnabled) limiter.processFrame(frame, rate)
+            for (c in 0 until channels) samples[i + c] = toPcm16(frame[c])
             i += channels
         }
     }
 
-    private fun toPcm16(value: Float): Short =
-        (value * PCM16_SCALE).toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+    // Triangular (TPDF) dither of +-1 LSB, then rounding: the rounding error becomes a
+    // constant, signal-independent noise floor at -96 dBFS instead of distortion.
+    private fun toPcm16(value: Float): Short {
+        val dithered = value * PCM16_SCALE + (nextUniform() - nextUniform())
+        return Math.round(dithered).coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+    }
+
+    // xorshift32: cheap, allocation-free and good enough for dither noise. 0..1.
+    private fun nextUniform(): Float {
+        var x = ditherState
+        x = x xor (x shl 13)
+        x = x xor (x ushr 17)
+        x = x xor (x shl 5)
+        ditherState = x
+        return (x ushr 8) * INV_2_POW_24
+    }
 
     private companion object {
         const val PCM16_SCALE = 32768f
+        const val INV_2_POW_24 = 1f / 16_777_216f
     }
 }

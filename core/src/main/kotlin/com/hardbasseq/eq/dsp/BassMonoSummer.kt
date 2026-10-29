@@ -5,16 +5,20 @@ package com.hardbasseq.eq.dsp
 // wahrgenommen, aber Pegel-/Phasenunterschiede zwischen L/R dort führen bei
 // In-Ears (kein akustisches Übersprechen wie bei Lautsprechern) oft zu
 // "wabbeligem" statt druckvollem Bass. Diese Klasse summiert den Bassanteil
-// beider Kanäle zu einem gemeinsamen Mono-Signal und mischt ihn zurück in
-// beide Kanäle, während alles oberhalb der Grenzfrequenz unangetastet
-// stereo bleibt.
+// beider Kanäle zu einem gemeinsamen Mono-Signal, während alles oberhalb der
+// Grenzfrequenz unangetastet stereo bleibt.
 //
-// Signalfluss pro Kanal:
-// 1. Tiefpass isoliert den Bassanteil jedes Kanals separat.
-// 2. Beide Bassanteile werden gemittelt -> ein gemeinsames Mono-Bass-Signal.
-// 3. Hochpass entfernt den ursprünglichen (noch stereo, potenziell
-//    problematischen) Bassanteil aus jedem Kanal.
-// 4. Das Mono-Bass-Signal wird zu beiden hochpassgefilterten Kanälen addiert.
+// Signalfluss (Mitte/Seite):
+// 1. Mitte M = (L+R)/2 und Seite S = (L-R)/2.
+// 2. Nur die Seite wird hochpassgefiltert (24 dB/Oktave, zwei Butterworth-
+//    Stufen) - unterhalb der Grenzfrequenz bleibt so keine L/R-Differenz übrig.
+// 3. L = M + HP(S), R = M - HP(S).
+//
+// Die Mitte wird nie gefiltert: Monomaterial (der Normalfall für Bass) kommt
+// unverändert heraus. Die frühere Variante (Tiefpass + Hochpass je Kanal,
+// danach summiert) löschte genau an der Grenzfrequenz alles aus - zwei
+// Butterworth-Filter 2. Ordnung sind dort 180° gegeneinander verschoben, bei
+// 120 Hz entstand also ein tiefes Loch mitten im Kick.
 //
 // Wie BassExciter/BiquadFilterDesigner eine Referenzimplementierung, nur
 // gegen synthetische Testsignale offline geprüft (siehe BassMonoSummerTest),
@@ -45,14 +49,10 @@ class BassMonoSummer(
 ) {
     private var settings = initialSettings.clamped()
 
-    private val leftLowpassState = BiquadFilterState()
-    private val rightLowpassState = BiquadFilterState()
-    private val leftHighpassState = BiquadFilterState()
-    private val rightHighpassState = BiquadFilterState()
+    private val sideHighpassStates = listOf(BiquadFilterState(), BiquadFilterState())
 
     private var coefficientsSampleRateHz = -1f
     private var coefficientsCutoffHz = -1f
-    private var lowpassCoefficients = SILENT_COEFFICIENTS
     private var highpassCoefficients = SILENT_COEFFICIENTS
 
     fun updateSettings(newSettings: BassMonoSummerSettings) {
@@ -60,7 +60,7 @@ class BassMonoSummer(
     }
 
     // Muss mit genau einem Stereo-Sample-Paar pro Aufruf, in Stream-
-    // Reihenfolge, aufgerufen werden - die vier Filterzustände tragen IIR-
+    // Reihenfolge, aufgerufen werden - die Filterzustände tragen IIR-
     // Zustand zwischen Aufrufen weiter (siehe BiquadFilterState).
     fun process(
         left: Float,
@@ -72,24 +72,15 @@ class BassMonoSummer(
 
         ensureCoefficients(currentSettings.cutoffHz, sampleRateHz)
 
-        val leftBass = leftLowpassState.process(left, lowpassCoefficients)
-        val rightBass = rightLowpassState.process(right, lowpassCoefficients)
-        val monoBass = (leftBass + rightBass) * 0.5f
+        val mid = (left + right) * 0.5f
+        var side = (left - right) * 0.5f
+        for (state in sideHighpassStates) side = state.process(side, highpassCoefficients)
 
-        val leftAboveCutoff = leftHighpassState.process(left, highpassCoefficients)
-        val rightAboveCutoff = rightHighpassState.process(right, highpassCoefficients)
-
-        return StereoSample(
-            left = (leftAboveCutoff + monoBass).coerceIn(-1f, 1f),
-            right = (rightAboveCutoff + monoBass).coerceIn(-1f, 1f),
-        )
+        return StereoSample(left = mid + side, right = mid - side)
     }
 
     fun reset() {
-        leftLowpassState.reset()
-        rightLowpassState.reset()
-        leftHighpassState.reset()
-        rightHighpassState.reset()
+        sideHighpassStates.forEach { it.reset() }
     }
 
     private fun ensureCoefficients(
@@ -98,11 +89,6 @@ class BassMonoSummer(
     ) {
         if (coefficientsSampleRateHz == sampleRateHz && coefficientsCutoffHz == cutoffHz) return
 
-        lowpassCoefficients =
-            BiquadFilterDesigner.design(
-                ParametricFilter(ParametricFilterType.LOW_PASS, cutoffHz, 0f, BUTTERWORTH_Q),
-                sampleRateHz,
-            )
         highpassCoefficients =
             BiquadFilterDesigner.design(
                 ParametricFilter(ParametricFilterType.HIGH_PASS, cutoffHz, 0f, BUTTERWORTH_Q),

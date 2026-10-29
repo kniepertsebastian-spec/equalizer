@@ -13,6 +13,10 @@ import kotlin.math.pow
  *
  * The curve is set from any thread; the coefficients are (re)designed lazily on the audio
  * thread at the start of the next buffer, so they are never recomputed per buffer.
+ *
+ * A new curve while music plays (dragging a point) must not click: the filters keep their
+ * memory across a redesign, and the headroom pre-gain glides to its new value over
+ * [GAIN_RAMP_MS] instead of jumping.
  */
 class CurveEqualizer {
     private class Request(
@@ -23,14 +27,27 @@ class CurveEqualizer {
     private class Design(
         val request: Request,
         val sampleRateHz: Float,
-        val coefficients: List<BiquadCoefficients>,
+        val highPass: BiquadCoefficients?,
+        val peaks: List<BiquadCoefficients>,
         val preGain: Float,
     )
+
+    // One channel's filter memory: the two high-pass stages and one state per peak.
+    private class ChannelState(
+        peakCount: Int,
+    ) {
+        val highPass = listOf(BiquadFilterState(), BiquadFilterState())
+        val peaks = List(peakCount) { BiquadFilterState() }
+    }
 
     @Volatile private var request: Request? = null
     private var design: Design? = null
     private var channelCount = 0
-    private var states: List<List<BiquadFilterState>> = emptyList()
+    private var states: List<ChannelState> = emptyList()
+
+    // The pre-gain actually applied, gliding towards design.preGain one step per frame.
+    private var appliedPreGain = Float.NaN
+    private var preGainStep = 0f
 
     /** Empty curve and a cutoff of 0 switch the equalizer off (the audio is left untouched). */
     fun setCurve(
@@ -45,25 +62,54 @@ class CurveEqualizer {
     fun configure(channels: Int) {
         channelCount = channels.coerceAtLeast(1)
         design = null
+        states = emptyList()
+        appliedPreGain = Float.NaN
     }
 
     /** Linear gain that makes room for the curve's strongest boost; valid after [beginBuffer]. */
     val preGain: Float get() = design?.preGain ?: 1f
+
+    /** The pre-gain the next frame gets; differs from [preGain] only while it glides. */
+    internal val appliedGain: Float get() = if (appliedPreGain.isNaN()) preGain else appliedPreGain
 
     /** Call once per buffer, on the audio thread. Returns whether the equalizer is running. */
     fun beginBuffer(sampleRateHz: Float): Boolean {
         val wanted = request
         if (wanted == null) {
             design = null
+            appliedPreGain = Float.NaN
             return false
         }
         val current = design
         if (current == null || current.request !== wanted || current.sampleRateHz != sampleRateHz) {
             val fresh = design(wanted, sampleRateHz)
             design = fresh
-            states = List(channelCount) { List(fresh.coefficients.size) { BiquadFilterState() } }
+            // Same filter layout: keep the memory, so the audio runs on without a click.
+            // Only a new layout (first start, other sample rate, other channel count) starts clean.
+            if (states.size != channelCount || states.firstOrNull()?.peaks?.size != fresh.peaks.size) {
+                states = List(channelCount) { ChannelState(fresh.peaks.size) }
+            }
+            if (current == null || current.sampleRateHz != sampleRateHz || appliedPreGain.isNaN()) {
+                appliedPreGain = fresh.preGain
+                preGainStep = 0f
+            } else {
+                val rampFrames = (GAIN_RAMP_MS / 1000f * sampleRateHz).coerceAtLeast(1f)
+                preGainStep = (fresh.preGain - appliedPreGain) / rampFrames
+            }
+            if (fresh.highPass == null) states.forEach { channel -> channel.highPass.forEach { it.reset() } }
         }
         return true
+    }
+
+    /** Call once per frame, after all channels of the frame went through [process]. */
+    fun endFrame() {
+        val target = design?.preGain ?: return
+        if (preGainStep == 0f) return
+        appliedPreGain += preGainStep
+        if ((preGainStep > 0f && appliedPreGain >= target) || (preGainStep < 0f && appliedPreGain <= target)) {
+            appliedPreGain = target
+            preGainStep = 0f
+        }
     }
 
     /** One sample of [channel] through the chain. Only valid after [beginBuffer] returned true. */
@@ -73,9 +119,10 @@ class CurveEqualizer {
     ): Float {
         val current = design ?: return input
         val chain = states.getOrNull(channel) ?: return input
-        var value = input * current.preGain
-        for (i in current.coefficients.indices) {
-            value = chain[i].process(value, current.coefficients[i])
+        var value = input * appliedPreGain
+        current.highPass?.let { coefficients -> chain.highPass.forEach { value = it.process(value, coefficients) } }
+        for (i in current.peaks.indices) {
+            value = chain.peaks[i].process(value, current.peaks[i])
         }
         return value
     }
@@ -83,27 +130,31 @@ class CurveEqualizer {
     /** The designed chain's response (without the headroom pre-gain) in dB; for tests. */
     internal fun chainResponseDb(freqHz: Float): Float {
         val current = design ?: return 0f
-        return totalResponseDb(current.coefficients, freqHz, current.sampleRateHz)
+        val chain = current.peaks + listOfNotNull(current.highPass, current.highPass)
+        return totalResponseDb(chain, freqHz, current.sampleRateHz)
     }
 
     /** A seek or track change: drop the filters' memory of the old audio. */
     fun reset() {
-        states.forEach { chain -> chain.forEach { it.reset() } }
+        states.forEach { channel ->
+            channel.highPass.forEach { it.reset() }
+            channel.peaks.forEach { it.reset() }
+        }
     }
 
     private fun design(
         request: Request,
         sampleRateHz: Float,
     ): Design {
-        val coefficients = mutableListOf<BiquadCoefficients>()
-        if (request.subsonicCutoffHz > 0f) {
-            val highPass =
+        val highPass =
+            if (request.subsonicCutoffHz > 0f) {
                 BiquadFilterDesigner.design(
                     ParametricFilter(ParametricFilterType.HIGH_PASS, request.subsonicCutoffHz, 0f, BUTTERWORTH_Q),
                     sampleRateHz,
                 )
-            coefficients += listOf(highPass, highPass)
-        }
+            } else {
+                null
+            }
         val gains = solveGains(request.curve, sampleRateHz)
         // Filters at or above Nyquist cannot be designed; they only matter at low rates.
         val peaks =
@@ -115,9 +166,8 @@ class CurveEqualizer {
                         sampleRateHz,
                     )
                 }
-        coefficients += peaks
         val maxBoostDb = peakBoostDb(peaks, sampleRateHz)
-        return Design(request, sampleRateHz, coefficients, 10f.pow(-maxBoostDb / 20f))
+        return Design(request, sampleRateHz, highPass, peaks, 10f.pow(-maxBoostDb / 20f))
     }
 
     // The chain's response is close to, but not exactly, the sum of the gains, so the gains
@@ -183,5 +233,6 @@ class CurveEqualizer {
         private const val SOLVE_DAMPING = 0.6f
         private const val NYQUIST_MARGIN = 0.9f
         private const val GRID_STEP = 1.05f
+        private const val GAIN_RAMP_MS = 30f
     }
 }

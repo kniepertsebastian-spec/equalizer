@@ -88,4 +88,40 @@ class CurveEqualizerTest {
 
         assertTrue(copy.contentEquals(samples))
     }
+
+    @Test
+    fun `changing the curve during playback does not click`() {
+        val equalizer = CurveEqualizer()
+        equalizer.configure(1)
+        equalizer.setCurve(listOf(TargetPoint(20f, 6f), TargetPoint(200f, 6f), TargetPoint(1_000f, 0f)), 0f)
+        val out = FloatArray(48_000)
+        for (block in 0 until 48) {
+            // Halfway through, the bass boost is dragged down by 3 dB, as on the graph.
+            if (block == 24) equalizer.setCurve(listOf(TargetPoint(20f, 3f), TargetPoint(200f, 3f), TargetPoint(1_000f, 0f)), 0f)
+            assertTrue(equalizer.beginBuffer(rate))
+            for (n in block * 1_000 until (block + 1) * 1_000) {
+                out[n] = equalizer.process(0, (0.5 * sin(2 * PI * 80 * n / rate)).toFloat())
+                equalizer.endFrame()
+            }
+        }
+        // The steepest sample-to-sample step of a clean 80 Hz sine at this level, with margin.
+        val steady = (12_000 until 24_000).maxOf { abs(out[it] - out[it - 1]) }
+        val aroundChange = (24_000 until 26_000).maxOf { abs(out[it] - out[it - 1]) }
+        assertTrue("step $aroundChange after the change vs $steady before", aroundChange <= steady * 1.2f)
+    }
+
+    @Test
+    fun `the pre-gain glides to a new curve instead of jumping`() {
+        val equalizer = designed(listOf(TargetPoint(20f, 0.5f), TargetPoint(20_000f, 0.5f)))
+        val before = equalizer.appliedGain
+        equalizer.setCurve(listOf(TargetPoint(20f, 9f), TargetPoint(20_000f, 9f)), 0f)
+        assertTrue(equalizer.beginBuffer(rate))
+        equalizer.process(0, 0f)
+        equalizer.endFrame()
+
+        val afterOneFrame = equalizer.appliedGain
+        assertTrue("jumped from $before to $afterOneFrame", before - afterOneFrame < 0.01f)
+        repeat(4_800) { equalizer.endFrame() }
+        assertEquals(equalizer.preGain, equalizer.appliedGain, 1e-6f)
+    }
 }

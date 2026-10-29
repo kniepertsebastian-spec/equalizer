@@ -104,8 +104,12 @@ import kotlin.math.abs
 // is the only thing standing between a hot preset and true clipping - still an
 // unchanged, hard 10:1 ceiling, so it always holds the line, but it may need to work
 // noticeably harder/more audibly on already-loud presets or devices than before.
-private const val INPUT_GAIN_SAFETY_RATIO = 0.1f
-private const val SPEAKER_INPUT_GAIN_SAFETY_RATIO = 0.5f
+// Raised back to 0.5 after a sound review: at 0.1 a +12 dB bass preset left the limiter
+// over 10 dB of reduction on bass-heavy tracks, which flattened and distorted exactly the
+// kicks it was meant to make hit harder. At 0.5 it works a few dB at most; the punch comes
+// from the MBC makeup gain instead.
+private const val INPUT_GAIN_SAFETY_RATIO = 0.5f
+private const val SPEAKER_INPUT_GAIN_SAFETY_RATIO = 0.8f
 private const val FEEDBACK_BUFFER = 8
 
 // The player's curve is handed over as points on this log grid (about 6 per octave).
