@@ -69,8 +69,10 @@ object PreEqMapper {
     private const val LONE_DELTA_REACH = 4f
 
     /**
-     * One gain per pre-EQ band: the combined curve (including macros) at the band's
-     * logarithmic midpoint, plus the manual band edits, clamped to +-[PreEqLayout.MAX_GAIN_DB].
+     * One gain per pre-EQ band: uses 3-point Simpson integration in log-frequency across
+     * [lowerHz, upperHz] so dense curves (like 127-point AutoEQ profiles or steep subsonic cuts)
+     * do not alias or jump harshly between narrow adjacent bands, while remaining mathematically
+     * identical to midpoint evaluation on linear segments.
      *
      * @param manualDeltas how far the user moved a classic band from the curve, as points at
      *   the band centres; they fade out towards their neighbours instead of staying flat.
@@ -86,9 +88,16 @@ object PreEqMapper {
         return cutoffsHz.mapIndexed { i, upperHz ->
             val lowerHz = if (i == 0) PreEqLayout.LOWEST_HZ else cutoffsHz[i - 1]
             val midHz = sqrt(lowerHz * upperHz)
-            val gain =
+            val lowGain =
+                EqualizerInterpolator.resolveGainAtFrequency(lowerHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                    deltaAt(lowerHz, sortedDeltas)
+            val midGain =
                 EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
                     deltaAt(midHz, sortedDeltas)
+            val highGain =
+                EqualizerInterpolator.resolveGainAtFrequency(upperHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                    deltaAt(upperHz, sortedDeltas)
+            val gain = (lowGain + 4f * midGain + highGain) / 6f
             gain.coerceIn(-PreEqLayout.MAX_GAIN_DB, PreEqLayout.MAX_GAIN_DB)
         }
     }

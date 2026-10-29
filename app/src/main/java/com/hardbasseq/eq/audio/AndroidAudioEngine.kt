@@ -45,8 +45,21 @@ class AndroidAudioEngine
     @Inject
     constructor(
         @DefaultDispatcher dispatcher: CoroutineDispatcher,
+        private val effectRepository: AudioEffectRepository,
     ) : AudioEngine {
-        private val _capabilities = MutableStateFlow(AudioCapabilities())
+        // Secondary constructor preserves compatibility with any callers/tests that only pass a dispatcher.
+        constructor(dispatcher: CoroutineDispatcher) : this(dispatcher, AndroidAudioEffectRepository())
+
+        private val staticDeviceCapabilities: AudioCapabilities by lazy {
+            runCatching {
+                AudioCapabilitiesMapper.map(
+                    effectRepository.queryAvailableEffects(),
+                    effectRepository.knownEffectTypeIds,
+                )
+            }.getOrDefault(AudioCapabilities())
+        }
+
+        private val _capabilities = MutableStateFlow(staticDeviceCapabilities)
         override val capabilities: StateFlow<AudioCapabilities> = _capabilities.asStateFlow()
 
         private val _state = MutableStateFlow<AudioEngineState>(AudioEngineState.Detached)
@@ -55,13 +68,17 @@ class AndroidAudioEngine
         private val _currentSettings = MutableStateFlow(ProcessingSettings())
         override val currentSettings: StateFlow<ProcessingSettings> = _currentSettings.asStateFlow()
 
+        @Volatile
         private var equalizer: Equalizer? = null
+
+        @Volatile
         private var dynamicsProcessing: DynamicsProcessing? = null
 
         // Tracks the session a Retrying/Error cycle belongs to, so a stale retry
         // timer that fires after the session already changed/disappeared can
         // recognize it's obsolete (docs/STATE_MACHINE.md §4, "Timer-Abbruch").
         // Also what the manual "Erneut versuchen" button (retry()) re-attaches to.
+        @Volatile
         private var currentSessionId: Int? = null
 
         private val isAttached = AtomicBoolean(false)
@@ -90,17 +107,34 @@ class AndroidAudioEngine
                 cancelRetryLocked()
                 releaseEffectsLocked()
                 currentSessionId = null
+                _capabilities.value = staticDeviceCapabilities
                 _state.value = AudioEngineState.Listening
             }
 
         override fun markDetached() {
-            // Not suspend - Service.onDestroy() isn't a coroutine. Best-effort;
-            // only meaningful at process/service teardown, not everyday operation.
+            // Not suspend - Service.onDestroy() isn't a coroutine. Best-effort immediate
+            // teardown, plus serialized cleanup on engineScope if mutex is currently held.
             retryJob?.cancel()
             retryJob = null
-            releaseEffectsLocked()
             currentSessionId = null
             _state.value = AudioEngineState.Detached
+            if (mutex.tryLock()) {
+                try {
+                    releaseEffectsLocked()
+                    _capabilities.value = staticDeviceCapabilities
+                } finally {
+                    mutex.unlock()
+                }
+            } else {
+                engineScope.launch {
+                    mutex.withLock {
+                        if (_state.value is AudioEngineState.Detached) {
+                            releaseEffectsLocked()
+                            _capabilities.value = staticDeviceCapabilities
+                        }
+                    }
+                }
+            }
         }
 
         override suspend fun retry(): Boolean =
@@ -188,8 +222,8 @@ class AndroidAudioEngine
                     AudioCapabilities(
                         hasEqualizer = true,
                         hasDynamicsProcessing = dpSupported,
-                        hasBassBoost = false,
-                        hasLoudnessEnhancer = false,
+                        hasBassBoost = staticDeviceCapabilities.hasBassBoost,
+                        hasLoudnessEnhancer = staticDeviceCapabilities.hasLoudnessEnhancer,
                         totalEffectCount = if (dpSupported) 2 else 1,
                         bands = bandCaps,
                         hasInputGain = dpInputGainSupported,
@@ -208,56 +242,60 @@ class AndroidAudioEngine
                 // transitions to LostControl/Retrying if this fails.
                 return applyInternal(_currentSettings.value, session.sessionId)
             } catch (e: UnsupportedOperationException) {
-                // Per AudioEffect's documented contract, thrown when the device
-                // genuinely doesn't implement the effect - a real capability gap,
-                // not worth retrying.
                 Log.w(TAG, "Session ${session.sessionId} does not support the required audio effects", e)
                 releaseEffectsLocked()
+                _capabilities.value = staticDeviceCapabilities
                 _state.value = AudioEngineState.Unsupported("Device does not support the required audio effects: ${e.localizedMessage}")
                 return false
             } catch (e: IllegalArgumentException) {
                 Log.w(TAG, "Session ${session.sessionId} rejected effect parameters", e)
                 releaseEffectsLocked()
+                _capabilities.value = staticDeviceCapabilities
                 _state.value = AudioEngineState.Unsupported("Unsupported session parameters: ${e.localizedMessage}")
                 return false
             } catch (e: Exception) {
-                // Per AudioEffect's documented contract, IllegalStateException means
-                // "effect engine not initialized" - typically because the session
-                // already went away again. Treat this (and anything else
-                // unexpected) as transient and worth retrying rather than giving up.
                 Log.w(TAG, "Transient failure attaching to session ${session.sessionId} (attempt $attempt)", e)
                 releaseEffectsLocked()
-                scheduleRetryLocked(session.sessionId, attempt + 1, e.localizedMessage ?: e.toString())
+                _capabilities.value = staticDeviceCapabilities
+                scheduleRetryLocked(session.sessionId, attempt + 1, "${e.javaClass.simpleName}: ${e.localizedMessage ?: e.toString()}")
                 return false
             }
         }
 
         private fun releaseEffectsLocked() {
             isAttached.set(false)
+            val eqToRelease = equalizer
+            equalizer = null
             try {
-                equalizer?.enabled = false
-                equalizer?.release()
+                eqToRelease?.enabled = false
+                eqToRelease?.release()
             } catch (e: Exception) {
                 Log.w(TAG, "Error releasing Equalizer", e)
-            } finally {
-                equalizer = null
             }
 
+            val dpToRelease = dynamicsProcessing
+            dynamicsProcessing = null
             try {
-                dynamicsProcessing?.enabled = false
-                dynamicsProcessing?.release()
+                dpToRelease?.enabled = false
+                dpToRelease?.release()
             } catch (e: Exception) {
                 Log.w(TAG, "Error releasing DynamicsProcessing", e)
-            } finally {
-                dynamicsProcessing = null
             }
         }
 
         override suspend fun apply(settings: ProcessingSettings): Boolean =
             mutex.withLock {
+                val previousHighRes = _currentSettings.value.highResolutionEq
                 _currentSettings.value = settings
                 if (!isAttached.get()) return@withLock false
                 val sessionId = currentSessionId ?: return@withLock false
+
+                // If the user toggled highResolutionEq while attached, re-configure
+                // DynamicsProcessing so switching between 5-band and 34-band takes
+                // effect immediately and deterministically.
+                if (previousHighRes != settings.highResolutionEq) {
+                    return@withLock attachLocked(AudioSession(sessionId = sessionId), attempt = 0)
+                }
                 applyInternal(settings, sessionId)
             }
 
@@ -297,7 +335,7 @@ class AndroidAudioEngine
             try {
                 val shouldEnable = settings.masterEnabled && !settings.bypass
                 val preEqCutoffs = capabilities.value.preEqCutoffsHz
-                val usePreEq = preEqCutoffs.isNotEmpty() && dynamicsProcessing != null
+                val usePreEq = settings.highResolutionEq && preEqCutoffs.isNotEmpty() && dynamicsProcessing != null
                 // Never both: the pre-EQ replaces the classic equalizer, which stays only as
                 // the source of the band layout for the UI.
                 eq.enabled = shouldEnable && !usePreEq
@@ -329,43 +367,28 @@ class AndroidAudioEngine
                             val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
                             val mbcThresholdDb =
                                 if (settings.mbcEnabled) settings.mbcThresholdDb.coerceIn(-30f, 0f) else 0f
-                            // Standard compressor makeup-gain heuristic (a fraction of the average
-                            // gain reduction the ratio/threshold combination implies), capped.
-                            // Without this, every preset ends up net quieter than flat instead of
-                            // punchier: the Limiter below (unchanged, hard 10:1 ceiling) still
-                            // protects the final output, so this only restores loudness the
-                            // compression itself removed. Restore fraction raised 0.5->0.7->0.85 and
-                            // the cap 4dB->5dB->6dB, both in Session 24 (roadmap.md), alongside a
-                            // matching loosening of the broadband input-gain safety ratio in
-                            // MainViewModel, at the user's explicit request for more punch on
-                            // kick-heavy material ("soll ja knallen") - the Limiter downstream is
-                            // still the actual, unchanged clipping backstop, so this and the
-                            // input-gain ratio are the two places left to give back loudness; at
-                            // these values the Limiter is doing most of the remaining safety work.
+                            // Balanced makeup-gain heuristic (reduced from 0.85 / 6 dB cap to
+                            // 0.45 / 3 dB cap): previously, adding up to +6 dB postGain across all
+                            // 4 MBC bands drove the downstream brickwall limiter into constant
+                            // saturation, crushing transients and mid/high clarity even with 34-band
+                            // mode turned off.
                             val mbcMakeupGainDb =
                                 if (mbcRatio > 1f) {
-                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.85f).coerceIn(0f, 6f)
+                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.45f).coerceIn(0f, 3.0f)
                                 } else {
                                     0f
                                 }
-                            // Low band's 180ms->100ms: a real-device report described the mix
-                            // getting audibly "hallend"/pumpy with headphone mode on. Headphone
-                            // mode adds a bass shelf ahead of this compressor (see
-                            // HeadphoneComfortCurve/combinedCurve in MainViewModel), so the low
-                            // band now hits the threshold harder and its long recovery after each
-                            // kick was audible as a swelling tail. 100ms still comfortably clears
-                            // the ~8-16ms period of 60-120Hz content (avoiding the compressor
-                            // itself distorting the waveform, why this band's release was long
-                            // to begin with) while cutting the audible recovery time nearly in
-                            // half.
                             val mbcBands =
                                 listOf(
-                                    // Sub-bass: slow, so the compressor does not follow single cycles.
-                                    MbcBandSettings(45f, 20f, 160f, SUB_BAND_THRESHOLD_OFFSET_DB),
-                                    // Kick body: its own timing, tight enough to catch the hit without pumping the tail.
-                                    MbcBandSettings(130f, 12f, 90f),
-                                    MbcBandSettings(1500f, 8f, 120f),
-                                    MbcBandSettings(20000f, 3f, 80f),
+                                    // Sub-bass: slow, and its threshold sits a little higher so the compressor
+                                    // does not hold the kick's fundamental down.
+                                    MbcBandSettings(45f, 20f, 160f, mbcMakeupGainDb, SUB_BAND_THRESHOLD_OFFSET_DB),
+                                    // Kick body: tight enough to catch the hit without pumping the tail.
+                                    MbcBandSettings(130f, 12f, 90f, mbcMakeupGainDb),
+                                    // Midrange & Treble: gentler makeup gain so vocals and highs stay clear
+                                    // and don't slam the final limiter on every kick hit.
+                                    MbcBandSettings(1500f, 10f, 110f, mbcMakeupGainDb * 0.6f),
+                                    MbcBandSettings(20000f, 5f, 80f, mbcMakeupGainDb * 0.5f),
                                 )
                             mbcBands.forEachIndexed { bandIndex, band ->
                                 dp.setMbcBandAllChannelsTo(
@@ -381,7 +404,7 @@ class AndroidAudioEngine
                                         -80f, // effectively disable the noise gate
                                         1f, // no expansion
                                         0f, // preGain
-                                        mbcMakeupGainDb, // postGain
+                                        band.postGainDb, // band-appropriate postGain
                                     ),
                                 )
                             }
@@ -393,7 +416,7 @@ class AndroidAudioEngine
                                 true,
                                 settings.limiterEnabled,
                                 0, // channel 0
-                                1f, // attack ms
+                                2f, // slightly gentler 2ms attack preserves kick transient click/clarity
                                 LIMITER_RELEASE_MS,
                                 10f, // ratio
                                 safeThresholdDb, // threshold
@@ -406,11 +429,9 @@ class AndroidAudioEngine
                 return true
             } catch (e: Exception) {
                 Log.e(TAG, "Error applying settings to AudioEngine", e)
-                _state.value = AudioEngineState.LostControl(sessionId, "Error applying settings: ${e.localizedMessage}")
-                // Same tick, per docs/STATE_MACHINE.md §3: LostControl has no
-                // dwell time of its own, it's only a UI distinction from "cold"
-                // Retrying.
-                scheduleRetryLocked(sessionId, attempt = 1, reason = e.localizedMessage ?: e.toString())
+                val detail = "${e.javaClass.simpleName}: ${e.localizedMessage ?: e.toString()}"
+                _state.value = AudioEngineState.LostControl(sessionId, "Error applying settings: $detail")
+                scheduleRetryLocked(sessionId, attempt = 1, reason = detail)
                 return false
             }
         }
@@ -437,9 +458,6 @@ class AndroidAudioEngine
                 engineScope.launch {
                     delay(delayMs)
                     mutex.withLock {
-                        // The session may have changed or disappeared while this
-                        // timer was waiting - a newer attach()/detach() already
-                        // moved currentSessionId on, so this retry is obsolete.
                         if (currentSessionId != sessionId) return@withLock
                         attachLocked(AudioSession(sessionId = sessionId), attempt)
                     }
@@ -451,5 +469,6 @@ private data class MbcBandSettings(
     val cutoffFrequencyHz: Float,
     val attackMs: Float,
     val releaseMs: Float,
+    val postGainDb: Float,
     val thresholdOffsetDb: Float = 0f,
 )
