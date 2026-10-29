@@ -2,17 +2,23 @@ package com.hardbasseq.eq.ui.eq
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEngineState
@@ -54,8 +60,9 @@ object EqStatus {
         }
 }
 
-// One tappable line: the status (with the audio path when known) and, if not active, what
-// is missing and what to do next.
+// One tappable line: a lamp, the status (with the audio path when known) and, if not
+// active, what is missing and what to do next. The lamp's shape carries the state as well
+// as its color: filled when the effect runs, a ring when it is off, a square for problems.
 @Composable
 fun EqStatusLine(
     kind: EqStatusKind,
@@ -64,12 +71,12 @@ fun EqStatusLine(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
-    val background =
+    val lampColor =
         when (kind) {
-            EqStatusKind.ACTIVE -> colors.primaryContainer
-            EqStatusKind.ERROR -> colors.errorContainer
-            EqStatusKind.UNSUPPORTED -> colors.tertiaryContainer
-            else -> colors.surfaceVariant
+            EqStatusKind.ACTIVE -> colors.secondary
+            EqStatusKind.OFF -> colors.onSurfaceVariant
+            EqStatusKind.ERROR, EqStatusKind.UNSUPPORTED, EqStatusKind.LOST -> colors.error
+            EqStatusKind.WAITING, EqStatusKind.CONNECTING -> colors.tertiary
         }
     val label =
         if (kind == EqStatusKind.ACTIVE && pathLabel != null) {
@@ -77,17 +84,35 @@ fun EqStatusLine(
         } else {
             stringResource(kind.labelRes)
         }
-    Column(
+    Row(
         modifier =
             modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(background)
+                .clip(MaterialTheme.shapes.small)
+                .background(if (kind == EqStatusKind.ERROR) colors.errorContainer else colors.surface)
                 .clickable(onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 6.dp),
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(text = label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-        kind.hintRes?.let { hint ->
-            Text(text = stringResource(hint), style = MaterialTheme.typography.bodySmall)
+        Box(
+            modifier =
+                Modifier
+                    .padding(top = 6.dp)
+                    .size(10.dp)
+                    .then(
+                        when (kind) {
+                            EqStatusKind.ACTIVE -> Modifier.clip(CircleShape).background(lampColor)
+                            EqStatusKind.OFF -> Modifier.border(1.5.dp, lampColor, CircleShape)
+                            else -> Modifier.background(lampColor)
+                        },
+                    ),
+        )
+        Column {
+            Text(text = label, style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+            kind.hintRes?.let { hint ->
+                Text(text = stringResource(hint), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+            }
         }
     }
 }

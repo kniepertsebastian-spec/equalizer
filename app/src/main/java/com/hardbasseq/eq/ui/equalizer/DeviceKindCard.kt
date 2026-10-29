@@ -19,16 +19,15 @@ import com.hardbasseq.eq.audio.DeviceKind
 @Composable
 internal fun DeviceKindCard(
     deviceName: String,
-    style: EqualizerDesignStyle,
     onAnswer: (DeviceKind) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    NeonPanel(style = style, modifier = modifier) {
+    Notice(modifier = modifier) {
         Text(
             text = stringResource(R.string.device_kind_question, deviceName),
             style = MaterialTheme.typography.titleSmall,
-            color = style.text,
+            color = SonicStyle.text,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),

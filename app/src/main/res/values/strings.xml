@@ -73,7 +73,6 @@
     <string name="playlists_empty_text">Paste a link above or create a new playlist. Imported lists appear here.</string>
     <string name="mini_player_nothing">Nothing playing</string>
     <string name="playlists_new_button">New playlist</string>
-    <string name="compare_current_preset">Current sound</string>
     <string name="compare_preset_custom">%1$s (customized)</string>
     <string name="compare_reset">Reset</string>
     <string name="compare_original">Original</string>
@@ -154,9 +153,6 @@
     <string name="context_subsonic_off">Cuts deep bass that small speakers cannot reproduce</string>
     <string name="context_virtual_bass_desc">Creates bass overtones for small speakers - only in the built-in player, not in Spotify &amp; co.</string>
     <string name="presets_custom">Custom presets</string>
-    <string name="macro_bass_label">Bass: %1$s dB</string>
-    <string name="macro_punch_label">Punch: %1$s dB</string>
-    <string name="macro_haerte_label">Harshness: %1$s dB</string>
     <string name="bands_title">Graphic EQ (%1$s bands)</string>
     <string name="clipping_danger">Clipping risk: +%1$s dB. Recommended reduction: %2$s dB.</string>
     <string name="clipping_protected">Clipping protection ready. Input gain: %1$s dB.</string>
@@ -167,13 +163,9 @@
     <string name="retry_countdown">Retrying in %1$ss (attempt %2$s/%3$s)</string>
     <string name="hp_power_title">Headphone power</string>
     <string name="hp_power_warning">More punch for headphones. At high volume and lots of bass this can harm your hearing - the input gain is limited automatically so nothing clips.</string>
-    <string name="hp_power_bass">Bass strength: +%1$s dB</string>
-    <string name="hp_power_loudness_on">Loudness: up to +%1$s dB at low volume</string>
-    <string name="hp_power_loudness_off">Loudness: off</string>
     <string name="hp_power_dynamics">Ease dynamics</string>
     <string name="hp_power_dynamics_desc">Off = full dynamics, bass and kicks hit harder</string>
     <string name="hp_power_player_only">Virtual bass and mono bass exist only in the built-in player.</string>
-    <string name="hint_icon">Hint</string>
     <string name="action_import">Import</string>
     <string name="action_save">Save</string>
     <string name="bypass_label">Bypass</string>
@@ -422,4 +414,17 @@
     <string name="device_kind_later">Later</string>
     <string name="module_off">off</string>
     <string name="player_open_equalizer">Open equalizer: %1$s</string>
+    <string name="graph_band_lower">Lower %1$s by 0.5 dB</string>
+    <string name="graph_band_raise">Raise %1$s by 0.5 dB</string>
+    <string name="graph_hint_select">Drag a point up or down, or tap it and use − and + for exact steps.</string>
+    <string name="graph_hint_no_bands">The points appear once the EQ is connected to a player. Until then the graph shows the target curve.</string>
+    <string name="graph_note_interpolated">Points are the band settings. The line between them is drawn smooth for reading the shape; it is not a measurement.</string>
+    <string name="graph_state_off">EQ off</string>
+    <string name="graph_state_bypass">Bypassed</string>
+    <string name="compare_title">Compare with the original</string>
+    <string name="macro_bass_name">Bass</string>
+    <string name="macro_punch_name">Punch</string>
+    <string name="macro_haerte_name">Harshness</string>
+    <string name="hp_power_bass_name">Bass strength</string>
+    <string name="hp_power_loudness_name">Loudness at low volume</string>
 </resources>

@@ -23,7 +23,6 @@ import com.hardbasseq.eq.R
 internal fun HighResolutionEqRow(
     checked: Boolean,
     active: Boolean,
-    style: EqualizerDesignStyle,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -33,7 +32,8 @@ internal fun HighResolutionEqRow(
             checked -> R.string.high_res_eq_unavailable
             else -> R.string.high_res_eq_classic
         }
-    NeonPanel(style = style, modifier = modifier, contentPadding = 12.dp) {
+    val style = SonicStyle
+    Column(modifier = modifier) {
         Row(
             modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -46,8 +46,9 @@ internal fun HighResolutionEqRow(
                 )
                 Text(
                     text = stringResource(state),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = style.mutedText,
+                    style = MaterialTheme.typography.bodySmall,
+                    // Requested but refused by the device: say so in the caution color, not as calm grey.
+                    color = if (checked && !active) style.caution else style.mutedText,
                 )
             }
             Switch(checked = checked, onCheckedChange = onCheckedChange)

@@ -4,8 +4,6 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,13 +41,11 @@ internal fun SoundGoal.descriptionRes(): Int =
 internal fun SoundGoalCard(
     active: SoundGoal,
     onSelect: (SoundGoal) -> Unit,
-    style: EqualizerDesignStyle,
 ) {
     val spacing = MaterialTheme.spacing
-    NeonPanel(style = style) {
-        NeonSectionHeader(
+    Section {
+        SectionHeader(
             title = stringResource(R.string.goal_title),
-            style = style,
             info = stringResource(R.string.goal_subtitle),
         )
         Row(
@@ -57,19 +53,17 @@ internal fun SoundGoalCard(
             horizontalArrangement = Arrangement.spacedBy(spacing.small),
         ) {
             SoundGoal.entries.forEach { goal ->
-                NeonChip(
+                ChoiceChip(
                     text = stringResource(goal.nameRes()),
                     selected = goal == active,
                     onClick = { onSelect(goal) },
-                    style = style,
                 )
             }
         }
-        Spacer(modifier = Modifier.height(spacing.small))
         Text(
             text = stringResource(active.descriptionRes()),
             style = MaterialTheme.typography.bodySmall,
-            color = style.mutedText,
+            color = SonicStyle.mutedText,
         )
     }
 }
