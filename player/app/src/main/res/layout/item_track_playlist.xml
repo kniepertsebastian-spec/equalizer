@@ -6,7 +6,7 @@
     android:orientation="horizontal"
     android:gravity="center_vertical"
     android:padding="12dp"
-    android:background="#1E1E1E"
+    android:background="@color/sonic_graphite_raised"
     android:layout_marginBottom="8dp">
 
     <LinearLayout
@@ -20,7 +20,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             tools:text="Item Title"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/sonic_paper"
             android:textSize="15sp"
             android:textStyle="bold"
             android:ellipsize="end"
@@ -31,7 +31,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             tools:text="Item Subtitle"
-            android:textColor="#AAAAAA"
+            android:textColor="@color/sonic_steel"
             android:textSize="13sp"
             android:ellipsize="end"
             android:maxLines="1" />
@@ -43,6 +43,6 @@
         android:layout_height="wrap_content"
         android:text="@string/layout_item_play"
         android:textSize="12sp"
-        android:backgroundTint="#FF5500"
-        android:textColor="#FFFFFF" />
+        android:backgroundTint="@color/sonic_amber"
+        android:textColor="@color/sonic_graphite" />
 </LinearLayout>

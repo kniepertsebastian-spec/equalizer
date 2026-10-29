@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Same Sonic Control palette as the main app (ui/theme/Color.kt). -->
+<resources>
+    <color name="sonic_graphite">#FF16181B</color>
+    <color name="sonic_graphite_raised">#FF1E2125</color>
+    <color name="sonic_graphite_control">#FF292D32</color>
+    <color name="sonic_rule">#FF3A3F46</color>
+    <color name="sonic_paper">#FFEAE7E2</color>
+    <color name="sonic_steel">#FF8D949D</color>
+    <color name="sonic_amber">#FFFFA826</color>
+    <color name="sonic_clip">#FFFF5A52</color>
+</resources>

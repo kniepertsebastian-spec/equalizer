@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors ui/theme/Color.kt for the window theme, which is set before Compose runs. -->
+    <color name="sonic_graphite">#FF16181B</color>
+    <color name="sonic_graphite_raised">#FF1E2125</color>
+</resources>

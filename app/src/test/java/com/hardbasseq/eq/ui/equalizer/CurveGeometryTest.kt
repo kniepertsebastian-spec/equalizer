@@ -86,4 +86,49 @@ class CurveGeometryTest {
         assertEquals("3.6 kHz", CurveGeometry.formatFrequency(3600f))
         assertEquals("14 kHz", CurveGeometry.formatFrequency(14_000f))
     }
+
+    @Test
+    fun `scale follows the device range and falls back to 12 dB`() {
+        assertEquals(15f, CurveGeometry.scaleDb(-15f, 15f), 0f)
+        assertEquals(12f, CurveGeometry.scaleDb(-12f, 10.5f), 0f)
+        assertEquals(6f, CurveGeometry.scaleDb(-3f, 3f), 0f)
+        assertEquals(12f, CurveGeometry.scaleDb(null, null), 0f)
+    }
+
+    @Test
+    fun `gain ticks are symmetric and include 0 dB`() {
+        assertEquals(listOf(15f, 10f, 5f, 0f, -5f, -10f, -15f), CurveGeometry.gainTicks(15f))
+        assertEquals(listOf(12f, 6f, 0f, -6f, -12f), CurveGeometry.gainTicks(12f))
+        assertEquals(listOf(6f, 3f, 0f, -3f, -6f), CurveGeometry.gainTicks(6f))
+    }
+
+    @Test
+    fun `minor grid lines skip the labelled ones and stay inside the axis`() {
+        assertTrue(CurveGeometry.minorFrequencies.none { it in CurveGeometry.labelledFrequencies })
+        assertTrue(CurveGeometry.minorFrequencies.all { it in 20f..20_000f })
+        assertTrue(30f in CurveGeometry.minorFrequencies)
+        assertTrue(9000f in CurveGeometry.minorFrequencies)
+    }
+
+    @Test
+    fun `labels use a real minus sign and one decimal for values`() {
+        assertEquals("5k", CurveGeometry.axisLabel(5000f))
+        assertEquals("200", CurveGeometry.axisLabel(200f))
+        assertEquals("+6", CurveGeometry.gainTickLabel(6f))
+        assertEquals("\u22126", CurveGeometry.gainTickLabel(-6f))
+        assertEquals("0", CurveGeometry.gainTickLabel(0f))
+        assertTrue(CurveGeometry.formatGain(4.46f).startsWith("+4"))
+        assertTrue(CurveGeometry.formatGain(-2f).startsWith("\u22122"))
+        assertTrue(CurveGeometry.formatGain(-0.01f).startsWith("0"))
+        assertTrue(CurveGeometry.formatGain(1f).endsWith(" dB"))
+    }
+
+    @Test
+    fun `nearest band is found on the log axis`() {
+        val centers = bands.map { it.frequencyHz }
+        assertEquals(0, CurveGeometry.nearestIndex(centers, 0f))
+        assertEquals(4, CurveGeometry.nearestIndex(centers, 1f))
+        assertEquals(2, CurveGeometry.nearestIndex(centers, CurveGeometry.xFraction(1000f)))
+        assertNull(CurveGeometry.nearestIndex(emptyList(), 0.5f))
+    }
 }

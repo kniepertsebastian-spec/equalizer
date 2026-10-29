@@ -57,11 +57,10 @@ import com.hardbasseq.eq.discovery.DiscoveryTrack
 import com.hardbasseq.eq.discovery.GenreMode
 import com.hardbasseq.eq.playlist.AgeFormat
 import com.hardbasseq.eq.playlist.PlayerFormat
-import com.hardbasseq.eq.ui.theme.HardBassCardBorder
-import com.hardbasseq.eq.ui.theme.PlayerArtistColor
-import com.hardbasseq.eq.ui.theme.PlayerTextColor
-import com.hardbasseq.eq.ui.theme.PlayerTextMutedColor
-import com.hardbasseq.eq.ui.theme.PlayerTitleColor
+import com.hardbasseq.eq.ui.equalizer.ChoiceChip
+import com.hardbasseq.eq.ui.theme.SonicPaper
+import com.hardbasseq.eq.ui.theme.SonicRule
+import com.hardbasseq.eq.ui.theme.SonicSteel
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -89,9 +88,9 @@ fun LazyListScope.discoveryItems(
     item(key = "discovery-header") {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
+            shape = MaterialTheme.shapes.medium,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, HardBassCardBorder),
+            border = BorderStroke(1.dp, SonicRule),
         ) {
             DiscoveryHeader(state, ui, onAddArtist, onRemoveArtist, onGenreMode, onAddGenre, onRemoveGenre, onRefresh, onPlayAll)
         }
@@ -104,7 +103,7 @@ fun LazyListScope.discoveryItems(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .glowWhenCurrent(playState)
+                        .markWhenCurrent(playState)
                         .clickable { onPlay(index) }
                         .padding(start = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -115,7 +114,7 @@ fun LazyListScope.discoveryItems(
                         text = item.track.title,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = PlayerTitleColor.copy(alpha = playState.textAlpha()),
+                        color = SonicPaper.copy(alpha = playState.textAlpha()),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -128,13 +127,13 @@ fun LazyListScope.discoveryItems(
                                 ageLabel(AgeFormat.daysSince(nowMs, item.uploadedAtMs)),
                             ).filter { it.isNotBlank() }.joinToString(" · "),
                         style = MaterialTheme.typography.bodySmall,
-                        color = PlayerArtistColor,
+                        color = SonicSteel,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
                 IconButton(onClick = { onDismiss(item) }) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.discovery_dismiss), tint = PlayerTextMutedColor)
+                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.discovery_dismiss), tint = SonicSteel)
                 }
             }
         }
@@ -175,7 +174,7 @@ private fun DiscoveryHeader(
             text =
                 stringResource(R.string.discovery_intro),
             style = MaterialTheme.typography.bodySmall,
-            color = PlayerTextMutedColor,
+            color = SonicSteel,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -207,13 +206,13 @@ private fun DiscoveryHeader(
                     Surface(
                         shape = RoundedCornerShape(50),
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = BorderStroke(1.dp, HardBassCardBorder),
+                        border = BorderStroke(1.dp, SonicRule),
                     ) {
                         Row(
                             modifier = Modifier.padding(start = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(text = artist, style = MaterialTheme.typography.labelMedium, color = PlayerTextColor)
+                            Text(text = artist, style = MaterialTheme.typography.labelMedium, color = SonicPaper)
                             IconButton(onClick = { onRemoveArtist(artist) }, modifier = Modifier.size(32.dp)) {
                                 Icon(
                                     Icons.Default.Close,
@@ -244,7 +243,7 @@ private fun DiscoveryHeader(
             Text(
                 text = message,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (ui.isError) MaterialTheme.colorScheme.error else PlayerTextMutedColor,
+                color = if (ui.isError) MaterialTheme.colorScheme.error else SonicSteel,
             )
         }
         if (state.playlist.isNotEmpty()) {
@@ -257,7 +256,7 @@ private fun DiscoveryHeader(
             Text(
                 text = stringResource(R.string.discovery_no_artists),
                 style = MaterialTheme.typography.bodySmall,
-                color = PlayerTextMutedColor,
+                color = SonicSteel,
             )
         }
     }
@@ -289,20 +288,7 @@ private fun GenreSection(
             GenreMode.MANUAL to stringResource(R.string.discovery_mode_manual),
             GenreMode.OFF to stringResource(R.string.discovery_mode_off),
         ).forEach { (mode, label) ->
-            val selected = state.genreMode == mode
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = if (selected) PlayerTitleColor.copy(alpha = 0.22f) else MaterialTheme.colorScheme.surfaceVariant,
-                border = BorderStroke(1.dp, if (selected) PlayerTitleColor else HardBassCardBorder),
-            ) {
-                TextButton(onClick = { onGenreMode(mode) }) {
-                    Text(
-                        text = label,
-                        color = if (selected) PlayerTitleColor else PlayerTextMutedColor,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-            }
+            ChoiceChip(text = label, selected = state.genreMode == mode, onClick = { onGenreMode(mode) })
         }
     }
     when (state.genreMode) {
@@ -310,7 +296,7 @@ private fun GenreSection(
             Text(
                 stringResource(R.string.discovery_genre_off_desc),
                 style = MaterialTheme.typography.bodySmall,
-                color = PlayerTextMutedColor,
+                color = SonicSteel,
             )
 
         GenreMode.AUTO ->
@@ -322,7 +308,7 @@ private fun GenreSection(
                         stringResource(R.string.discovery_taste_detected, state.autoGenres.joinToString(", "))
                     },
                 style = MaterialTheme.typography.bodySmall,
-                color = PlayerTextMutedColor,
+                color = SonicSteel,
             )
 
         GenreMode.MANUAL -> {
@@ -345,10 +331,10 @@ private fun GenreSection(
                     Surface(
                         shape = RoundedCornerShape(50),
                         color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = BorderStroke(1.dp, HardBassCardBorder),
+                        border = BorderStroke(1.dp, SonicRule),
                     ) {
                         Row(modifier = Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = genre, style = MaterialTheme.typography.labelMedium, color = PlayerTextColor)
+                            Text(text = genre, style = MaterialTheme.typography.labelMedium, color = SonicPaper)
                             IconButton(onClick = { onRemoveGenre(genre) }, modifier = Modifier.size(32.dp)) {
                                 Icon(
                                     Icons.Default.Close,

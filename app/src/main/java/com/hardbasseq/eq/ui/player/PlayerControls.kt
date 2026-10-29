@@ -1,10 +1,5 @@
 package com.hardbasseq.eq.ui.player
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +12,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -28,12 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -45,88 +32,45 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.ui.equalizer.EqualizerDesignStyle
 import com.hardbasseq.eq.ui.equalizer.MiniCurve
+import com.hardbasseq.eq.ui.equalizer.SonicStyle
 
-// Player pieces of the neon look. The ring around the cover turns while a track plays;
-// it shows "playing", not the audio itself - the app has no level or spectrum data for
-// what is playing.
+// Player transport pieces. Nothing here moves on its own: the app has no level or spectrum
+// data for what is playing, so the player does not pretend to visualize it.
 
-/** Cover frame: a soft accent glow and a ring that slowly turns while [isPlaying]. */
+/** Square cover in a thin rule frame. */
 @Composable
-internal fun NeonArtworkFrame(
-    isPlaying: Boolean,
-    style: EqualizerDesignStyle,
+internal fun ArtworkFrame(
     modifier: Modifier = Modifier,
+    style: EqualizerDesignStyle = SonicStyle,
     content: @Composable () -> Unit,
 ) {
-    // Only a playing track runs the animation; a paused player draws nothing per frame.
-    val rotation = if (isPlaying) rememberRingRotation() else 0f
-    Box(
-        modifier =
-            modifier
-                .aspectRatio(1f)
-                .drawBehind {
-                    val radius = size.minDimension / 2f
-                    drawCircle(
-                        brush =
-                            Brush.radialGradient(
-                                colors = listOf(style.accent.copy(alpha = 0.38f), Color.Transparent),
-                                center = center,
-                                radius = radius * 1.2f,
-                            ),
-                        radius = radius * 1.2f,
-                    )
-                    rotate(rotation) {
-                        drawCircle(
-                            brush = Brush.sweepGradient(listOf(style.accent, style.secondaryAccent, Color.Transparent, style.accent)),
-                            radius = radius - 2.dp.toPx(),
-                            style = Stroke(width = 3.dp.toPx()),
-                        )
-                    }
-                }.padding(14.dp),
-        contentAlignment = Alignment.Center,
+    Surface(
+        modifier = modifier.aspectRatio(1f),
+        shape = MaterialTheme.shapes.medium,
+        color = style.surface,
+        border = BorderStroke(1.dp, style.border),
     ) {
-        content()
+        Box(contentAlignment = Alignment.Center) { content() }
     }
 }
 
+/** Main play/pause key: amber when it can act, a flat control surface when it cannot. */
 @Composable
-private fun rememberRingRotation(): Float {
-    val transition = rememberInfiniteTransition(label = "coverRing")
-    val angle =
-        transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(durationMillis = 14_000, easing = LinearEasing)),
-            label = "coverRingRotation",
-        )
-    return angle.value
-}
-
-/** Big round play/pause button with an accent glow. */
-@Composable
-internal fun NeonPlayButton(
+internal fun PlayKey(
     onClick: () -> Unit,
     enabled: Boolean,
-    style: EqualizerDesignStyle,
     modifier: Modifier = Modifier,
-    size: Dp = 76.dp,
+    style: EqualizerDesignStyle = SonicStyle,
+    size: Dp = 72.dp,
     content: @Composable () -> Unit,
 ) {
     Surface(
         onClick = onClick,
         enabled = enabled,
-        modifier =
-            modifier
-                .size(size)
-                .shadow(
-                    elevation = if (enabled) 18.dp else 0.dp,
-                    shape = CircleShape,
-                    ambientColor = style.accent,
-                    spotColor = style.accent,
-                ),
-        shape = CircleShape,
+        modifier = modifier.size(size),
+        shape = MaterialTheme.shapes.large,
         color = if (enabled) style.accent else style.surfaceVariant,
-        contentColor = style.background,
+        contentColor = if (enabled) style.background else style.mutedText,
     ) {
         Box(contentAlignment = Alignment.Center) { content() }
     }
@@ -139,8 +83,8 @@ internal fun PlayerSoundChip(
     curve: List<TargetPoint>,
     contextName: String?,
     onClick: () -> Unit,
-    style: EqualizerDesignStyle,
     modifier: Modifier = Modifier,
+    style: EqualizerDesignStyle = SonicStyle,
 ) {
     val description = stringResource(R.string.player_open_equalizer, soundName)
     Surface(
@@ -150,10 +94,10 @@ internal fun PlayerSoundChip(
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
                 .semantics { contentDescription = description },
-        shape = RoundedCornerShape(16.dp),
-        color = style.accent.copy(alpha = 0.08f),
+        shape = MaterialTheme.shapes.small,
+        color = style.surface,
         contentColor = style.text,
-        border = BorderStroke(1.dp, style.accent.copy(alpha = 0.35f)),
+        border = BorderStroke(1.dp, style.border),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -164,8 +108,8 @@ internal fun PlayerSoundChip(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = soundName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

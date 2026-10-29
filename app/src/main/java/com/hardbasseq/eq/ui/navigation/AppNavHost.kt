@@ -1,5 +1,6 @@
 package com.hardbasseq.eq.ui.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,11 +28,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
-import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.ui.MainScreen
 import com.hardbasseq.eq.ui.diagnostics.DiagnosticsScreen
-import com.hardbasseq.eq.ui.equalizer.chromeStyleFor
-import com.hardbasseq.eq.ui.equalizer.neonBackdrop
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.player.DiscoveryViewModel
 import com.hardbasseq.eq.ui.player.LinkedServicesScreen
@@ -56,9 +54,7 @@ fun AppNavHost(
     // settings to their defaults and stop those (singleton) listeners the
     // moment the second instance's onCleared() ran.
     val viewModel: MainViewModel = hiltViewModel()
-    // The navigation bar and the player take the active genre's accent, like the equalizer.
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
-    val chromeStyle = chromeStyleFor(PresetDesign.forPreset(activePreset))
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val navigateTo: (String) -> Unit = { route ->
@@ -76,21 +72,23 @@ fun AppNavHost(
             playerViewModel.consumeShowPlayerRequest()
         }
     }
+    // Selected: amber icon on a dark key and a paper label; the shape of the indicator,
+    // not only its color, marks where the user is.
     val navItemColors =
         NavigationBarItemDefaults.colors(
-            selectedIconColor = chromeStyle.background,
-            selectedTextColor = chromeStyle.accent,
-            indicatorColor = chromeStyle.accent,
-            unselectedIconColor = chromeStyle.mutedText,
-            unselectedTextColor = chromeStyle.mutedText,
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+            indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     Scaffold(
         // The screens inside handle the status bar themselves; only the bar below needs the navigation bar inset.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        containerColor = chromeStyle.background,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (currentRoute == ROUTE_HOME || currentRoute == ROUTE_PLAYER) {
-                NavigationBar(containerColor = chromeStyle.surface, contentColor = chromeStyle.text) {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface, contentColor = MaterialTheme.colorScheme.onSurface) {
                     NavigationBarItem(
                         selected = currentRoute == ROUTE_PLAYER,
                         onClick = { navigateTo(ROUTE_PLAYER) },
@@ -128,23 +126,20 @@ fun AppNavHost(
                 val discoveryViewModel: DiscoveryViewModel = hiltViewModel()
                 val engineState by viewModel.engineState.collectAsStateWithLifecycle()
                 val processingSettings by viewModel.processingSettings.collectAsStateWithLifecycle()
-                MaterialTheme(colorScheme = chromeStyle.colorScheme) {
-                    Box(modifier = Modifier.fillMaxSize().neonBackdrop(chromeStyle)) {
-                        PlayerScreen(
-                            viewModel = playerViewModel,
-                            discovery = discoveryViewModel,
-                            activeContext = activeContext,
-                            onContextModeChanged = { viewModel.setContextMode(it) },
-                            eqState = engineState,
-                            processingSettings = processingSettings,
-                            onOpenEqualizer = { navigateTo(ROUTE_HOME) },
-                            onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
-                            onSelectSource = { viewModel.choosePlayerSource(it) },
-                            soundName = activePreset.name,
-                            soundCurve = activePreset.targetCurve,
-                            design = PresetDesign.forPreset(activePreset),
-                        )
-                    }
+                Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    PlayerScreen(
+                        viewModel = playerViewModel,
+                        discovery = discoveryViewModel,
+                        activeContext = activeContext,
+                        onContextModeChanged = { viewModel.setContextMode(it) },
+                        eqState = engineState,
+                        processingSettings = processingSettings,
+                        onOpenEqualizer = { navigateTo(ROUTE_HOME) },
+                        onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
+                        onSelectSource = { viewModel.choosePlayerSource(it) },
+                        soundName = activePreset.name,
+                        soundCurve = activePreset.targetCurve,
+                    )
                 }
             }
             composable(ROUTE_SERVICES) {

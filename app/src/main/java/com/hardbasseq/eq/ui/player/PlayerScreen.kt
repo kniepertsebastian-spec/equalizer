@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
@@ -85,18 +84,15 @@ import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.playlist.PlaylistSearch
 import com.hardbasseq.eq.playlist.SavedPlaylist
-import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.ui.eq.EqStatus
 import com.hardbasseq.eq.ui.eq.EqStatusLine
 import com.hardbasseq.eq.ui.equalizer.ContextModeChips
-import com.hardbasseq.eq.ui.equalizer.chromeStyleFor
+import com.hardbasseq.eq.ui.equalizer.SonicStyle
 import com.hardbasseq.eq.ui.equalizer.displayName
-import com.hardbasseq.eq.ui.theme.HardBassCardBorder
-import com.hardbasseq.eq.ui.theme.PlayerArtistColor
-import com.hardbasseq.eq.ui.theme.PlayerTextColor
-import com.hardbasseq.eq.ui.theme.PlayerTextMutedColor
-import com.hardbasseq.eq.ui.theme.PlayerTitleColor
+import com.hardbasseq.eq.ui.theme.SonicPaper
+import com.hardbasseq.eq.ui.theme.SonicRule
+import com.hardbasseq.eq.ui.theme.SonicSteel
 import com.hardbasseq.eq.ui.theme.spacing
 import com.soundcloud.equalizer.player.model.TrackItem
 import kotlinx.coroutines.Dispatchers
@@ -119,12 +115,10 @@ fun PlayerScreen(
     onSelectSource: (PlayerSource) -> Unit,
     soundName: String,
     soundCurve: List<TargetPoint>,
-    design: PresetDesign,
     dspViewModel: PlayerDspViewModel = hiltViewModel(),
 ) {
     val spacing = MaterialTheme.spacing
-    // Same accent as the equalizer, so both tabs read as one app.
-    val style = chromeStyleFor(design)
+    val style = SonicStyle
     val dsp by dspViewModel.settings.collectAsStateWithLifecycle()
     val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
     val queue by viewModel.queue.collectAsStateWithLifecycle()
@@ -192,7 +186,7 @@ fun PlayerScreen(
             onDismiss = { mergeDialogOpen = false },
         )
     }
-    CompositionLocalProvider(LocalContentColor provides PlayerTextColor) {
+    CompositionLocalProvider(LocalContentColor provides SonicPaper) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding =
@@ -238,14 +232,10 @@ fun PlayerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    NeonArtworkFrame(
-                        isPlaying = playing?.isPlaying == true,
-                        style = style,
-                        modifier = Modifier.fillMaxWidth(0.78f),
-                    ) {
+                    ArtworkFrame(modifier = Modifier.fillMaxWidth(0.72f)) {
                         ArtworkImage(
                             url = PlayerFormat.largeArtwork(playing?.artworkUrl),
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
                         )
                     }
                     Spacer(modifier = Modifier.height(spacing.medium))
@@ -291,7 +281,7 @@ fun PlayerScreen(
                                 modifier = Modifier.size(32.dp),
                             )
                         }
-                        NeonPlayButton(onClick = viewModel::togglePlayback, enabled = playing != null, style = style) {
+                        PlayKey(onClick = viewModel::togglePlayback, enabled = playing != null) {
                             if (playing?.isLoading == true) {
                                 CircularProgressIndicator(modifier = Modifier.size(32.dp), color = style.background)
                             } else {
@@ -326,7 +316,6 @@ fun PlayerScreen(
                         curve = soundCurve,
                         contextName = activeContext?.displayName(),
                         onClick = onOpenEqualizer,
-                        style = style,
                     )
                 }
             }
@@ -366,9 +355,9 @@ fun PlayerScreen(
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = MaterialTheme.shapes.medium,
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, HardBassCardBorder),
+                        border = BorderStroke(1.dp, SonicRule),
                     ) {
                         Column(modifier = Modifier.padding(spacing.medium)) {
                             Text(
@@ -380,7 +369,7 @@ fun PlayerScreen(
                                 text =
                                     stringResource(R.string.playlists_import_hint),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = PlayerTextMutedColor,
+                                color = SonicSteel,
                             )
                             Spacer(modifier = Modifier.height(spacing.small))
                             OutlinedTextField(
@@ -405,7 +394,7 @@ fun PlayerScreen(
                                             if (importState.isError) {
                                                 MaterialTheme.colorScheme.error
                                             } else {
-                                                PlayerTextMutedColor
+                                                SonicSteel
                                             },
                                         modifier = Modifier.weight(1f).padding(horizontal = spacing.small),
                                     )
@@ -433,7 +422,7 @@ fun PlayerScreen(
                                                 pending.total,
                                             ),
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = PlayerTextMutedColor,
+                                        color = SonicSteel,
                                         modifier = Modifier.weight(1f),
                                     )
                                     TextButton(onClick = viewModel::resumeSpotifyImport) { Text(stringResource(R.string.action_resume)) }
@@ -487,9 +476,9 @@ fun PlayerScreen(
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = MaterialTheme.shapes.medium,
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, HardBassCardBorder),
+                            border = BorderStroke(1.dp, SonicRule),
                         ) {
                             Column(modifier = Modifier.padding(spacing.medium)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -509,7 +498,7 @@ fun PlayerScreen(
                                             stringResource(R.string.bridge_no_sure_match)
                                         },
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = PlayerTextMutedColor,
+                                    color = SonicSteel,
                                 )
                                 bridge.matches.forEach { match ->
                                     LibraryRow(
@@ -531,9 +520,9 @@ fun PlayerScreen(
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
+                            shape = MaterialTheme.shapes.medium,
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, HardBassCardBorder),
+                            border = BorderStroke(1.dp, SonicRule),
                         ) {
                             Column(modifier = Modifier.padding(spacing.medium)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -555,7 +544,7 @@ fun PlayerScreen(
                                     Text(
                                         text = message,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = if (libraryState.isError) MaterialTheme.colorScheme.error else PlayerTextMutedColor,
+                                        color = if (libraryState.isError) MaterialTheme.colorScheme.error else SonicSteel,
                                     )
                                 }
                                 LibraryRow(
@@ -610,13 +599,13 @@ fun PlayerScreen(
                             text = stringResource(R.string.queue_title) + " · " + stringResource(R.string.queue_count, queue.size),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = PlayerTextColor,
+                            color = SonicPaper,
                         )
                         nowPlaying?.let { playing ->
                             Text(
                                 text = stringResource(R.string.queue_now, playing.title),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = PlayerTextMutedColor,
+                                color = SonicSteel,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -642,7 +631,7 @@ fun PlayerScreen(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(MaterialTheme.colorScheme.surface)
-                                    .glowWhenCurrent(playState)
+                                    .markWhenCurrent(playState)
                                     .clickable { viewModel.playQueueIndex(index) }
                                     .padding(horizontal = spacing.small, vertical = spacing.small),
                             verticalAlignment = Alignment.CenterVertically,
@@ -653,14 +642,14 @@ fun PlayerScreen(
                                     text = track.title,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
-                                    color = PlayerTitleColor.copy(alpha = playState.textAlpha()),
+                                    color = SonicPaper.copy(alpha = playState.textAlpha()),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
                                     text = track.artist,
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = PlayerArtistColor,
+                                    color = SonicSteel,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -669,7 +658,7 @@ fun PlayerScreen(
                                 Text(
                                     text = PlayerFormat.duration(track.durationMs),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = PlayerTextMutedColor,
+                                    color = SonicSteel,
                                 )
                             }
                             IconButton(onClick = { playlistDialog = PlaylistDialogRequest(track) }) {
@@ -688,9 +677,9 @@ fun PlayerScreen(
                 // virtual bass, limiter), so it applies to everything playing here too.
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = MaterialTheme.shapes.medium,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    border = BorderStroke(1.dp, HardBassCardBorder),
+                    border = BorderStroke(1.dp, SonicRule),
                 ) {
                     Column(modifier = Modifier.padding(spacing.medium)) {
                         Text(
@@ -701,14 +690,12 @@ fun PlayerScreen(
                         Text(
                             text = stringResource(R.string.context_mode_desc),
                             style = MaterialTheme.typography.bodySmall,
-                            color = PlayerTextMutedColor,
+                            color = SonicSteel,
                         )
                         Spacer(modifier = Modifier.height(spacing.small))
                         ContextModeChips(
                             activeContext = activeContext,
                             onContextModeChanged = onContextModeChanged,
-                            accent = PlayerTitleColor,
-                            border = HardBassCardBorder,
                         )
                     }
                 }
@@ -781,11 +768,11 @@ internal fun LibraryRow(
                 text = title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = PlayerTitleColor,
+                color = SonicPaper,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = PlayerTextMutedColor)
+            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = SonicSteel)
         }
         IconButton(onClick = onPlay) {
             Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.player_play))
@@ -821,7 +808,7 @@ private fun PlaylistRow(
                     text = playlist.title,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = PlayerTitleColor,
+                    color = SonicPaper,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -830,7 +817,7 @@ private fun PlaylistRow(
                         stringResource(R.string.playlist_row_count, playlist.tracks.size) +
                             if (playlist.soundCloudId != null) stringResource(R.string.playlist_row_on_soundcloud) else "",
                     style = MaterialTheme.typography.bodySmall,
-                    color = PlayerTextMutedColor,
+                    color = SonicSteel,
                 )
             }
             IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
@@ -848,7 +835,7 @@ private fun PlaylistRow(
                 Text(
                     text = stringResource(R.string.playlist_empty_hint),
                     style = MaterialTheme.typography.bodySmall,
-                    color = PlayerTextMutedColor,
+                    color = SonicSteel,
                 )
             }
             // A search box once the list is long enough to need one.
@@ -866,7 +853,7 @@ private fun PlaylistRow(
                 Text(
                     text = stringResource(R.string.playlist_search_none, search),
                     style = MaterialTheme.typography.bodySmall,
-                    color = PlayerTextMutedColor,
+                    color = SonicSteel,
                 )
             }
             hits.forEach { hit ->
@@ -877,7 +864,7 @@ private fun PlaylistRow(
                         Modifier
                             .fillMaxWidth()
                             .padding(start = 8.dp)
-                            .glowWhenCurrent(playState)
+                            .markWhenCurrent(playState)
                             .clip(RoundedCornerShape(8.dp))
                             .clickable { onPlayTrack(hit.index) },
                     verticalAlignment = Alignment.CenterVertically,
@@ -887,14 +874,14 @@ private fun PlaylistRow(
                         Text(
                             text = track.title,
                             style = MaterialTheme.typography.bodySmall,
-                            color = PlayerTitleColor.copy(alpha = playState.textAlpha()),
+                            color = SonicPaper.copy(alpha = playState.textAlpha()),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = track.artist,
                             style = MaterialTheme.typography.labelSmall,
-                            color = PlayerArtistColor,
+                            color = SonicSteel,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )

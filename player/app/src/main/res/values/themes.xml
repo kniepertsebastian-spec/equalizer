@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.SoundCloudEqualizerPlayer" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">#FF5500</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
+    <!-- Dark only, matching HardBass EQ: amber is the one interactive accent. -->
+    <style name="Theme.SoundCloudEqualizerPlayer" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/sonic_amber</item>
+        <item name="colorOnPrimary">@color/sonic_graphite</item>
+        <item name="colorSurface">@color/sonic_graphite_raised</item>
+        <item name="colorOnSurface">@color/sonic_paper</item>
+        <item name="colorOnSurfaceVariant">@color/sonic_steel</item>
+        <item name="colorOutline">@color/sonic_rule</item>
+        <item name="colorError">@color/sonic_clip</item>
+        <item name="android:colorBackground">@color/sonic_graphite</item>
+        <item name="android:windowBackground">@color/sonic_graphite</item>
+        <item name="android:statusBarColor">@color/sonic_graphite</item>
+        <item name="android:navigationBarColor">@color/sonic_graphite</item>
+        <item name="android:fontFamily">@font/barlow</item>
+        <item name="fontFamily">@font/barlow</item>
     </style>
 </resources>
