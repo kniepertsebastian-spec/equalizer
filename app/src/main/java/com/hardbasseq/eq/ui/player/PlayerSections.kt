@@ -44,8 +44,9 @@ import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.playlist.PlayerFormat
-import com.hardbasseq.eq.ui.theme.PlayerTextMutedColor
-import com.hardbasseq.eq.ui.theme.PlayerTitleColor
+import com.hardbasseq.eq.ui.theme.SonicAmber
+import com.hardbasseq.eq.ui.theme.SonicPaper
+import com.hardbasseq.eq.ui.theme.SonicSteel
 import com.hardbasseq.eq.ui.theme.spacing
 
 // The three areas of the player screen, always reachable through the tab row.
@@ -66,7 +67,7 @@ fun PlayerTabs(
     TabRow(
         selectedTabIndex = selected.ordinal,
         containerColor = Color.Transparent,
-        contentColor = PlayerTitleColor,
+        contentColor = SonicAmber,
     ) {
         PlayerTab.entries.forEach { tab ->
             val label =
@@ -75,7 +76,13 @@ fun PlayerTabs(
                 } else {
                     stringResource(tab.labelRes)
                 }
-            Tab(selected = selected == tab, onClick = { onSelect(tab) }, text = { Text(label, maxLines = 1) })
+            Tab(
+                selected = selected == tab,
+                onClick = { onSelect(tab) },
+                text = { Text(label, maxLines = 1) },
+                selectedContentColor = SonicPaper,
+                unselectedContentColor = SonicSteel,
+            )
         }
     }
 }
@@ -170,7 +177,7 @@ fun LazyListScope.searchItems(
                     Text(
                         text = stringResource(R.string.search_empty_intro),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = PlayerTextMutedColor,
+                        color = SonicSteel,
                     )
                 }
             }
@@ -180,7 +187,7 @@ fun LazyListScope.searchItems(
                 Text(
                     text = stringResource(R.string.search_no_results, state.query),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = PlayerTextMutedColor,
+                    color = SonicSteel,
                 )
             }
 
@@ -195,7 +202,7 @@ fun LazyListScope.searchItems(
                     Text(
                         text = stringResource(R.string.search_offline_hint),
                         style = MaterialTheme.typography.bodySmall,
-                        color = PlayerTextMutedColor,
+                        color = SonicSteel,
                     )
                     TextButton(onClick = onSearch) { Text(stringResource(R.string.action_retry)) }
                 }
@@ -227,9 +234,9 @@ fun EmptyState(
         modifier = Modifier.fillMaxWidth().padding(vertical = MaterialTheme.spacing.medium),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(text = title, style = MaterialTheme.typography.titleMedium, color = PlayerTitleColor)
+        Text(text = title, style = MaterialTheme.typography.titleMedium, color = SonicPaper)
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.extraSmall))
-        Text(text = text, style = MaterialTheme.typography.bodyMedium, color = PlayerTextMutedColor)
+        Text(text = text, style = MaterialTheme.typography.bodyMedium, color = SonicSteel)
         TextButton(onClick = onAction) { Text(actionLabel) }
     }
 }

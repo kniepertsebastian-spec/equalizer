@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -24,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.dsp.BassMonoSummerSettings
 import com.hardbasseq.eq.dsp.PlayerDspSettings
-import com.hardbasseq.eq.ui.theme.HardBassCardBorder
+import com.hardbasseq.eq.ui.theme.SonicRule
 import com.hardbasseq.eq.ui.theme.spacing
 
 // "Klang-Feinschliff" of the built-in player: mono bass (recommended, on by default)
@@ -39,9 +38,9 @@ fun PlayerDspCard(
     val spacing = MaterialTheme.spacing
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, HardBassCardBorder),
+        border = BorderStroke(1.dp, SonicRule),
     ) {
         Column(modifier = Modifier.padding(spacing.medium)) {
             Text(text = stringResource(R.string.dsp_card_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

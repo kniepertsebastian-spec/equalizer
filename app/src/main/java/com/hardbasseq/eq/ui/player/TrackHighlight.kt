@@ -1,18 +1,13 @@
 package com.hardbasseq.eq.ui.player
 
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -20,8 +15,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
-import com.hardbasseq.eq.ui.theme.PlayerTextMutedColor
-import com.hardbasseq.eq.ui.theme.PlayerTitleColor
+import com.hardbasseq.eq.ui.theme.SonicAmber
+import com.hardbasseq.eq.ui.theme.SonicGraphiteRaised
+import com.hardbasseq.eq.ui.theme.SonicSteel
 
 // Where a track in a list stands: the one playing now, one that was already played in
 // this session, or not played yet.
@@ -38,20 +34,15 @@ fun trackPlayState(
         else -> TrackPlayState.NEW
     }
 
-// The track playing now glows: a softly pulsing lilac frame and tint around the row.
+// The track playing now is marked, still: a raised background and an amber outline. No
+// pulse - a list that keeps moving competes with everything else on the screen.
 @Composable
-fun Modifier.glowWhenCurrent(state: TrackPlayState): Modifier {
+fun Modifier.markWhenCurrent(state: TrackPlayState): Modifier {
     if (state != TrackPlayState.CURRENT) return this
-    val pulse by rememberInfiniteTransition(label = "glow").animateFloat(
-        initialValue = 0.10f,
-        targetValue = 0.28f,
-        animationSpec = infiniteRepeatable(tween(1_100), RepeatMode.Reverse),
-        label = "glowAlpha",
-    )
-    val shape = RoundedCornerShape(8.dp)
+    val shape = MaterialTheme.shapes.small
     return this
-        .background(PlayerTitleColor.copy(alpha = pulse), shape)
-        .border(1.5.dp, PlayerTitleColor, shape)
+        .background(SonicGraphiteRaised, shape)
+        .border(1.5.dp, SonicAmber, shape)
 }
 
 // Small marker in front of a row: equalizer bars for the current track, a check for a
@@ -63,7 +54,7 @@ fun TrackStateIcon(state: TrackPlayState) {
             Icon(
                 Icons.Default.GraphicEq,
                 contentDescription = stringResource(R.string.track_state_current),
-                tint = PlayerTitleColor,
+                tint = SonicAmber,
                 modifier = Modifier.size(20.dp),
             )
 
@@ -71,7 +62,7 @@ fun TrackStateIcon(state: TrackPlayState) {
             Icon(
                 Icons.Default.Check,
                 contentDescription = stringResource(R.string.track_state_played),
-                tint = PlayerTextMutedColor,
+                tint = SonicSteel,
                 modifier = Modifier.size(18.dp).alpha(0.8f),
             )
 

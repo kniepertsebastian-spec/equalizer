@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -42,9 +41,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hardbasseq.eq.R
-import com.hardbasseq.eq.ui.theme.HardBassCardBorder
-import com.hardbasseq.eq.ui.theme.PlayerTextColor
-import com.hardbasseq.eq.ui.theme.PlayerTextMutedColor
+import com.hardbasseq.eq.ui.theme.SonicPaper
+import com.hardbasseq.eq.ui.theme.SonicRule
+import com.hardbasseq.eq.ui.theme.SonicSteel
 import com.hardbasseq.eq.ui.theme.spacing
 
 // "Verknüpfte Dienste": the music accounts and their connection state, in one place of their own
@@ -63,7 +62,7 @@ fun LinkedServicesScreen(
     // Coming back from a sign-in screen: pick up the new state.
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshAccount() }
 
-    CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides PlayerTextColor) {
+    CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides SonicPaper) {
         Column(
             modifier =
                 Modifier
@@ -90,7 +89,7 @@ fun LinkedServicesScreen(
             Text(
                 text = stringResource(R.string.services_intro),
                 style = MaterialTheme.typography.bodyMedium,
-                color = PlayerTextMutedColor,
+                color = SonicSteel,
             )
 
             ServiceCard(
@@ -171,9 +170,9 @@ private fun ServiceCard(
     val spacing = MaterialTheme.spacing
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, HardBassCardBorder),
+        border = BorderStroke(1.dp, SonicRule),
     ) {
         Column(modifier = Modifier.padding(spacing.medium)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -186,10 +185,10 @@ private fun ServiceCard(
                 Text(
                     text = stringResource(if (connected) R.string.service_status_connected else R.string.service_status_not_connected),
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (connected) MaterialTheme.colorScheme.primary else PlayerTextMutedColor,
+                    color = if (connected) MaterialTheme.colorScheme.primary else SonicSteel,
                 )
             }
-            Text(text = description, style = MaterialTheme.typography.bodySmall, color = PlayerTextMutedColor)
+            Text(text = description, style = MaterialTheme.typography.bodySmall, color = SonicSteel)
             Spacer(modifier = Modifier.height(spacing.small))
             extra()
             Row(

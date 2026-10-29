@@ -4,7 +4,6 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,13 +20,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -37,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -65,17 +63,12 @@ import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.Preset
-import com.hardbasseq.eq.preset.PresetDesign
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.ui.equalizer.CurvePreview
 import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.equalizer.appLabelFor
 import com.hardbasseq.eq.ui.equalizer.localizedSourceLabel
-import com.hardbasseq.eq.ui.equalizer.styleFor
 import com.hardbasseq.eq.ui.main.MainViewModel
-import com.hardbasseq.eq.ui.theme.HardBassCardBorder
-import com.hardbasseq.eq.ui.theme.PlayerArtistColor
-import com.hardbasseq.eq.ui.theme.PlayerTitleColor
 import com.hardbasseq.eq.ui.theme.spacing
 import com.hardbasseq.eq.ui.update.ReleaseUpdateNotice
 import com.soundcloud.equalizer.player.playback.NowPlaying
@@ -278,7 +271,7 @@ fun MainScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         // The navigation bar of the app shell below handles the bottom inset.
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-        containerColor = styleFor(PresetDesign.forPreset(activePreset)).background,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             nowPlaying?.let { playing ->
                 NowPlayingBar(
@@ -511,17 +504,27 @@ private fun NowPlayingBar(
     onOpenPlayer: () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
-    Card(
+    // Docked to the navigation bar rather than floating above the content: a strip of the
+    // same raised graphite, with the playback position as its top edge.
+    Surface(
         onClick = onOpenPlayer,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = spacing.medium, vertical = spacing.small),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        border = BorderStroke(1.dp, HardBassCardBorder),
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surface,
     ) {
         Column {
+            // Tapping the bar opens the full player; the progress line is the hint
+            // that there is more to it than a title.
+            if (nowPlaying.durationMs > 0) {
+                LinearProgressIndicator(
+                    progress = { PlayerFormat.progress(nowPlaying.positionMs, nowPlaying.durationMs) },
+                    modifier = Modifier.fillMaxWidth().height(2.dp),
+                    trackColor = MaterialTheme.colorScheme.outline,
+                    drawStopIndicator = {},
+                    gapSize = 0.dp,
+                )
+            } else {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.medium, vertical = spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
@@ -531,14 +534,14 @@ private fun NowPlayingBar(
                         text = nowPlaying.title,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = PlayerTitleColor,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
                         text = nowPlaying.artist,
                         style = MaterialTheme.typography.bodySmall,
-                        color = PlayerArtistColor,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -558,14 +561,6 @@ private fun NowPlayingBar(
                             },
                     )
                 }
-            }
-            // Tapping the bar opens the full player; the progress line is the hint
-            // that there is more to it than a title.
-            if (nowPlaying.durationMs > 0) {
-                LinearProgressIndicator(
-                    progress = { PlayerFormat.progress(nowPlaying.positionMs, nowPlaying.durationMs) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
             }
         }
     }
