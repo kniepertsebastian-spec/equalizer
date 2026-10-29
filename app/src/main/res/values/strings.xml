@@ -37,6 +37,11 @@
     <string name="audio_sources_hint">Tap the app the EQ should work on.</string>
     <string name="audio_sources_selected">EQ applied here</string>
     <string name="audio_sources_unknown_app">Unknown app</string>
+    <string name="spotify_eq_hint">Turn off Spotify\'s own equalizer</string>
+    <string name="spotify_eq_help_open">How to turn off Spotify\'s equalizer</string>
+    <string name="spotify_eq_help_title">Turn off Spotify\'s equalizer</string>
+    <string name="spotify_eq_help_text">Spotify has an equalizer of its own. With both on, the same frequencies get boosted twice and the bass distorts sooner. HardBass EQ cannot switch Spotify\'s off for you.\n\nIn Spotify, open Settings, then Playback, then Equalizer, and switch it off.\n\nWhile you are there: under Volume level, pick Normal instead of Loud. Loud adds a limiter of its own on top of the one in HardBass EQ.</string>
+    <string name="spotify_eq_help_done">Got it</string>
     <string name="eq_status_active">EQ active</string>
     <string name="eq_status_waiting">Waiting for playback</string>
     <string name="eq_status_connecting">Connecting…</string>
@@ -266,7 +271,7 @@
     <string name="track_state_played">Already played</string>
     <string name="diag_title">System diagnostics</string>
     <string name="action_copy">Copy</string>
-    <string name="high_res_eq_title">High-resolution EQ (experimental)</string>
+    <string name="high_res_eq_title">High-resolution EQ</string>
     <string name="high_res_eq_active">34-band pre-EQ active</string>
     <string name="high_res_eq_classic">Classic 5-band equalizer</string>
     <string name="high_res_eq_unavailable">Not available on this device, using the 5-band equalizer</string>

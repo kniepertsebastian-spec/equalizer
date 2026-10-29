@@ -49,6 +49,22 @@ class BassMonoSummerTest {
     }
 
     @Test
+    fun monoContent_passesUnchangedAtEveryFrequencyIncludingTheCutoff() {
+        // Low-pass + high-pass per channel summed to a deep notch right at the
+        // cutoff; mono material (most bass) must come through untouched.
+        for (freqHz in listOf(40f, 80f, 120f, 150f, 300f)) {
+            val summer = BassMonoSummer(BassMonoSummerSettings(enabled = true, cutoffHz = 120f))
+            var maxError = 0f
+            for (i in 0 until 4096) {
+                val sample = (0.5 * sin(2.0 * PI * freqHz * i / sampleRateHz)).toFloat()
+                val result = summer.process(sample, sample, sampleRateHz)
+                maxError = maxOf(maxError, abs(result.left - sample), abs(result.right - sample))
+            }
+            assertTrue("mono $freqHz Hz changed by $maxError", maxError < 1e-6f)
+        }
+    }
+
+    @Test
     fun outOfBandStereoContent_staysSeparated() {
         // 5 kHz sits far above any reasonable bass cutoff - stereo separation
         // there must survive untouched.

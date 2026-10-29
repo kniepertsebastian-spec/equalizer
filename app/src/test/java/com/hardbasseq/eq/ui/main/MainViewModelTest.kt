@@ -139,10 +139,10 @@ class MainViewModelTest {
                     macroPunchDb = BuiltInPresets.DeepRumble.macroPunchDb,
                     macroHaerteDb = BuiltInPresets.DeepRumble.macroHaerteDb,
                 )
-            // Input gain only pre-cancels 10% of the peak boost (INPUT_GAIN_SAFETY_RATIO
-            // in MainViewModel) - the rest stays audible, with the Limiter as the real
+            // Input gain pre-cancels half of the peak boost (INPUT_GAIN_SAFETY_RATIO
+            // in MainViewModel) - the rest stays audible, with the Limiter as the
             // safety net against clipping. See roadmap.md Session 16/17/24.
-            val expectedInputGainDb = -(headroom.maxPositiveGainDb * 0.1f)
+            val expectedInputGainDb = -(headroom.maxPositiveGainDb * 0.5f)
             assertEquals(expectedInputGainDb, viewModel.processingSettings.value.inputGainDb, 0.01f)
             assertEquals(BuiltInPresets.DeepRumble.mbcThresholdDb, viewModel.processingSettings.value.mbcThresholdDb)
             assertEquals(BuiltInPresets.DeepRumble.mbcRatio, viewModel.processingSettings.value.mbcRatio)
@@ -154,7 +154,7 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `manual boost automatically reserves 10 percent as headroom`() =
+    fun `manual boost automatically reserves half of it as headroom`() =
         runTest {
             val viewModel = createViewModel(emptyList())
             dispatcher.scheduler.advanceUntilIdle()
@@ -162,7 +162,7 @@ class MainViewModelTest {
             viewModel.setBandGain(bandIndex = 0, gainDb = 8f)
             dispatcher.scheduler.advanceUntilIdle()
 
-            assertEquals(-0.8f, viewModel.processingSettings.value.inputGainDb)
+            assertEquals(-4f, viewModel.processingSettings.value.inputGainDb)
             assertEquals(8f, viewModel.processingSettings.value.bandGainsDb[0])
         }
 

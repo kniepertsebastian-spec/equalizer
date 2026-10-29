@@ -79,6 +79,13 @@ class BassExciter(
     fun process(
         inputSample: Float,
         sampleRateHz: Float,
+    ): Float = processUnclamped(inputSample, sampleRateHz).coerceIn(-1f, 1f)
+
+    // Same as process(), but may go past full scale: for a float chain with a limiter
+    // behind it, where clipping here would only add distortion the limiter cannot undo.
+    fun processUnclamped(
+        inputSample: Float,
+        sampleRateHz: Float,
     ): Float {
         val currentSettings = settings
         if (!currentSettings.enabled || currentSettings.mix <= 0f) return inputSample
@@ -95,7 +102,7 @@ class BassExciter(
         val harmonics = dcBlockState.process(rectified, dcBlockCoefficients)
         val normalizedHarmonics = harmonics / driveFactor
 
-        return (inputSample + normalizedHarmonics * currentSettings.mix).coerceIn(-1f, 1f)
+        return inputSample + normalizedHarmonics * currentSettings.mix
     }
 
     fun reset() {

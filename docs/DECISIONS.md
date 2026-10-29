@@ -171,7 +171,7 @@ umgesetzt, mit unterschiedlicher Reichweite:
 | Automatische Umschaltung | `AudioDeviceType.CAR`/`BLUETOOTH_SPEAKER`, Erkennung über Produktnamen (`SoundContextClassifier`) bzw. `TYPE_BUS`; Default nur für Routen ohne gespeichertes Profil | alle Apps |
 | Lautstärke-Loudness | `VolumeLevelMapper` + vorhandene `LoudnessCompensationCurve`, folgt der System-Medienlautstärke (`SystemVolumeRepository`) | alle Apps |
 | Subsonic-Filter | `SubsonicFilterCurve` (Butterworth-Highpass als `TargetPoint`-Kurve) | alle Apps, aber nur so steil wie das unterste Band des Systemequalizers es zulässt |
-| Virtual Bass | vorhandener `BassExciter` über `BassExciterPcm16` in einem Media3-`AudioProcessor` | **nur eingebauter Player** |
+| Virtual Bass | vorhandener `BassExciter` in der Float-Kette von `PlayerDspPcm16` (ein Media3-`AudioProcessor`) | **nur eingebauter Player** |
 
 Entscheidungen und Grenzen:
 
