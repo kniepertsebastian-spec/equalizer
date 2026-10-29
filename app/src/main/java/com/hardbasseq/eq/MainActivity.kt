@@ -9,15 +9,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.ui.navigation.AppNavHost
 import com.hardbasseq.eq.ui.player.PlayerViewModel
 import com.hardbasseq.eq.ui.theme.HardBassEqTheme
-import com.hardbasseq.eq.ui.theme.hardBassIndustrialBackground
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handleShareIntent(intent)
         setContent {
             HardBassEqTheme {
-                Surface(modifier = Modifier.hardBassIndustrialBackground(), color = Color.Transparent) {
+                Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     AppNavHost(spikeController = spikeController, playerViewModel = playerViewModel)
                 }
             }

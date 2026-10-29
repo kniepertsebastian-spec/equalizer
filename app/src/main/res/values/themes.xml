@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.HardBassEQ" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Dark window from the first frame, so the app does not flash white before Compose draws. -->
+    <style name="Theme.HardBassEQ" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/sonic_graphite</item>
+        <item name="android:statusBarColor">@color/sonic_graphite</item>
+        <item name="android:navigationBarColor">@color/sonic_graphite_raised</item>
+    </style>
 </resources>
