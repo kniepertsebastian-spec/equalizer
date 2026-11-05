@@ -56,7 +56,7 @@ class AndroidAudioSessionRepository
 
                     when (action) {
                         AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION -> {
-                            Log.d(TAG, "Audio effect control session opened: $sessionId from $packageName")
+                            Log.d(TAG, "Audio effect control session opened: $sessionId")
                             val newSession = AudioSession(sessionId = sessionId, packageName = packageName, active = true)
                             val currentList = _sessions.value.filter { it.sessionId != sessionId }
                             _sessions.value = currentList + newSession
