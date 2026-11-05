@@ -1,0 +1,2276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.4.0" type="incidents">
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.core:core-ktx than 1.13.1 is available: 1.19.1">
+        <fix-replace
+            description="Change to 1.19.1"
+            family="Update versions"
+            oldString="1.13.1"
+            replacement="1.19.1"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="52"
+            column="20"
+            startOffset="1410"
+            endLine="52"
+            endColumn="51"
+            endOffset="1441"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.appcompat:appcompat than 1.7.0 is available: 1.8.0">
+        <fix-replace
+            description="Change to 1.8.0"
+            family="Update versions"
+            oldString="1.7.0"
+            replacement="1.8.0"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="53"
+            column="20"
+            startOffset="1462"
+            endLine="53"
+            endColumn="56"
+            endOffset="1498"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of com.google.android.material:material than 1.12.0 is available: 1.14.0">
+        <fix-replace
+            description="Change to 1.14.0"
+            family="Update versions"
+            oldString="1.12.0"
+            replacement="1.14.0"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="54"
+            column="20"
+            startOffset="1519"
+            endLine="54"
+            endColumn="65"
+            endOffset="1564"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.constraintlayout:constraintlayout than 2.1.4 is available: 2.2.2">
+        <fix-replace
+            description="Change to 2.2.2"
+            family="Update versions"
+            oldString="2.1.4"
+            replacement="2.2.2"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="55"
+            column="20"
+            startOffset="1585"
+            endLine="55"
+            endColumn="70"
+            endOffset="1635"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.webkit:webkit than 1.11.0 is available: 1.18.0">
+        <fix-replace
+            description="Change to 1.18.0"
+            family="Update versions"
+            oldString="1.11.0"
+            replacement="1.18.0"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="56"
+            column="20"
+            startOffset="1656"
+            endLine="56"
+            endColumn="51"
+            endOffset="1687"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media3:media3-exoplayer than 1.3.1 is available: 1.11.1">
+        <fix-replace
+            description="Change to 1.11.1"
+            family="Update versions"
+            oldString="1.3.1"
+            replacement="1.11.1"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="59"
+            column="20"
+            startOffset="1735"
+            endLine="59"
+            endColumn="60"
+            endOffset="1775"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media3:media3-exoplayer-hls than 1.3.1 is available: 1.11.1">
+        <fix-replace
+            description="Change to 1.11.1"
+            family="Update versions"
+            oldString="1.3.1"
+            replacement="1.11.1"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="61"
+            column="20"
+            startOffset="1879"
+            endLine="61"
+            endColumn="64"
+            endOffset="1923"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media3:media3-ui than 1.3.1 is available: 1.11.1">
+        <fix-replace
+            description="Change to 1.11.1"
+            family="Update versions"
+            oldString="1.3.1"
+            replacement="1.11.1"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="62"
+            column="20"
+            startOffset="1944"
+            endLine="62"
+            endColumn="53"
+            endOffset="1977"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media3:media3-session than 1.3.1 is available: 1.11.1">
+        <fix-replace
+            description="Change to 1.11.1"
+            family="Update versions"
+            oldString="1.3.1"
+            replacement="1.11.1"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="63"
+            column="20"
+            startOffset="1998"
+            endLine="63"
+            endColumn="58"
+            endOffset="2036"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.media:media than 1.7.0 is available: 1.8.0">
+        <fix-replace
+            description="Change to 1.8.0"
+            family="Update versions"
+            oldString="1.7.0"
+            replacement="1.8.0"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="65"
+            column="20"
+            startOffset="2154"
+            endLine="65"
+            endColumn="48"
+            endOffset="2182"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.test.ext:junit than 1.1.5 is available: 1.3.0">
+        <fix-replace
+            description="Change to 1.3.0"
+            family="Update versions"
+            oldString="1.1.5"
+            replacement="1.3.0"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="74"
+            column="31"
+            startOffset="2531"
+            endLine="74"
+            endColumn="62"
+            endOffset="2562"/>
+    </incident>
+
+    <incident
+        id="GradleDependency"
+        severity="warning"
+        message="A newer version of androidx.test.espresso:espresso-core than 3.5.1 is available: 3.7.0">
+        <fix-replace
+            description="Change to 3.7.0"
+            family="Update versions"
+            oldString="3.5.1"
+            replacement="3.7.0"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="75"
+            column="31"
+            startOffset="2594"
+            endLine="75"
+            endColumn="75"
+            endOffset="2638"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.1">
+        <fix-replace
+            description="Change to 5.5.1"
+            family="Update versions"
+            oldString="4.12.0"
+            replacement="5.5.1"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="68"
+            column="20"
+            startOffset="2237"
+            endLine="68"
+            endColumn="56"
+            endOffset="2273"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of org.jetbrains.kotlinx:kotlinx-coroutines-android than 1.8.0 is available: 1.11.0">
+        <fix-replace
+            description="Change to 1.11.0"
+            family="Update versions"
+            oldString="1.8.0"
+            replacement="1.11.0"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="69"
+            column="20"
+            startOffset="2294"
+            endLine="69"
+            endColumn="76"
+            endOffset="2350"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of org.json:json than 20240303 is available: 20260814">
+        <fix-replace
+            description="Change to 20260814"
+            family="Update versions"
+            oldString="20240303"
+            replacement="20260814"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="70"
+            column="20"
+            startOffset="2371"
+            endLine="70"
+            endColumn="44"
+            endOffset="2395"/>
+    </incident>
+
+    <incident
+        id="NewerVersionAvailable"
+        severity="warning"
+        message="A newer version of org.mockito:mockito-core than 5.11.0 is available: 5.24.0">
+        <fix-replace
+            description="Change to 5.24.0"
+            family="Update versions"
+            oldString="5.11.0"
+            replacement="5.24.0"
+            priority="0"/>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="73"
+            column="24"
+            startOffset="2466"
+            endLine="73"
+            endColumn="57"
+            endOffset="2499"/>
+    </incident>
+
+    <incident
+        id="RestrictedApi"
+        severity="error"
+        message="WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST can only be accessed from within the same library group (referenced groupId=`androidx.webkit` from groupId=`HardBassEQ`)">
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+            line="70"
+            column="66"
+            startOffset="3187"
+            endLine="70"
+            endColumn="98"
+            endOffset="3219"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <annotate
+            description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to containing class &apos;AudioPlayerService&apos;"
+            source="@androidx.media3.common.util.UnstableApi"
+            replace="true">
+            <range
+                file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                startOffset="2466"
+                endOffset="25829"/>
+        </annotate>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="91"
+            column="48"
+            startOffset="4280"
+            endLine="91"
+            endColumn="70"
+            endOffset="4302"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;initExoPlayer&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="6200"
+                    endOffset="8683"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;initExoPlayer&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="6200"
+                    endOffset="8683"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="147"
+            column="31"
+            startOffset="6431"
+            endLine="147"
+            endColumn="38"
+            endOffset="6438"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;initExoPlayer&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="6200"
+                    endOffset="8683"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;initExoPlayer&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="6200"
+                    endOffset="8683"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="188"
+            column="44"
+            startOffset="8585"
+            endLine="188"
+            endColumn="58"
+            endOffset="8599"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;initExoPlayer&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="6200"
+                    endOffset="8683"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;initExoPlayer&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="6200"
+                    endOffset="8683"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="188"
+            column="64"
+            startOffset="8605"
+            endLine="188"
+            endColumn="86"
+            endOffset="8627"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;openAudioSession&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="13943"
+                    endOffset="15015"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;openAudioSession&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="13943"
+                    endOffset="15015"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="295"
+            column="36"
+            startOffset="14003"
+            endLine="295"
+            endColumn="50"
+            endOffset="14017"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;openAudioSession&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="13943"
+                    endOffset="15015"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;openAudioSession&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="13943"
+                    endOffset="15015"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="295"
+            column="56"
+            startOffset="14023"
+            endLine="295"
+            endColumn="78"
+            endOffset="14045"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;openAudioSession&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="13943"
+                    endOffset="15015"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;openAudioSession&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="13943"
+                    endOffset="15015"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="296"
+            column="28"
+            startOffset="14073"
+            endLine="296"
+            endColumn="50"
+            endOffset="14095"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;closeAudioSession&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="15021"
+                    endOffset="15471"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;closeAudioSession&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="15021"
+                    endOffset="15471"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="315"
+            column="64"
+            startOffset="15110"
+            endLine="315"
+            endColumn="86"
+            endOffset="15132"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;getAudioSessionId&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="21425"
+                    endOffset="21530"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;getAudioSessionId&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="21425"
+                    endOffset="21530"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="488"
+            column="27"
+            startOffset="21482"
+            endLine="488"
+            endColumn="41"
+            endOffset="21496"/>
+    </incident>
+
+    <incident
+        id="UnsafeOptInUsageError"
+        severity="error"
+        message="This declaration is opt-in and its usage should be marked with `@androidx.media3.common.util.UnstableApi` or `@OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)`">
+        <fix-alternatives>
+            <annotate
+                description="Add &apos;@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)&apos; annotation to &apos;getAudioSessionId&apos;"
+                source="@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="21425"
+                    endOffset="21530"/>
+            </annotate>
+            <annotate
+                description="Add &apos;@androidx.media3.common.util.UnstableApi&apos; annotation to &apos;getAudioSessionId&apos;"
+                source="@androidx.media3.common.util.UnstableApi"
+                replace="true">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                    startOffset="21425"
+                    endOffset="21530"/>
+            </annotate>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="488"
+            column="47"
+            startOffset="21502"
+            endLine="488"
+            endColumn="69"
+            endOffset="21524"/>
+    </incident>
+
+    <incident
+        id="NotifyDataSetChanged"
+        severity="warning"
+        message="It will always be more efficient to use more specific change events if you can. Rely on `notifyDataSetChanged` as a last resort.">
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/ui/TrackAdapter.kt"
+            line="21"
+            column="9"
+            startOffset="623"
+            endLine="21"
+            endColumn="31"
+            endOffset="645"/>
+    </incident>
+
+    <incident
+        id="ObsoleteSdkInt"
+        severity="warning"
+        message="Unnecessary; `SDK_INT` is always >= 24">
+        <fix-data conditional="true"/>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="475"
+            column="13"
+            startOffset="21125"
+            endLine="475"
+            endColumn="59"
+            endOffset="21171"/>
+    </incident>
+
+    <incident
+        id="Overdraw"
+        severity="warning"
+        message="Possible overdraw: Root element paints background `@color/sonic_graphite` with a theme that also paints a background (inferred theme is `@android:style/Theme.Holo`)">
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*resDir*0}/layout/activity_player.xml"
+            line="7"
+            column="5"
+            startOffset="288"
+            endLine="7"
+            endColumn="47"
+            endOffset="330"/>
+    </incident>
+
+    <incident
+        id="Overdraw"
+        severity="warning"
+        message="Possible overdraw: Root element paints background `@color/sonic_graphite_raised` with a theme that also paints a background (inferred theme is `@android:style/Theme.Holo`)">
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*resDir*0}/layout/item_track_playlist.xml"
+            line="9"
+            column="5"
+            startOffset="350"
+            endLine="9"
+            endColumn="54"
+            endOffset="399"/>
+    </incident>
+
+    <incident
+        id="TypographyEllipsis"
+        severity="warning"
+        message="Replace &quot;...&quot; with ellipsis character (…, &amp;#8230;) ?">
+        <fix-replace
+            description="Replace with …"
+            oldString="..."
+            replacement="…"
+            priority="0"/>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="58"
+            column="39"
+            startOffset="4935"
+            endLine="58"
+            endColumn="68"
+            endOffset="4964"/>
+    </incident>
+
+    <incident
+        id="Autofill"
+        severity="warning"
+        message="Missing `autofillHints` attribute">
+        <fix-alternatives>
+            <fix-attribute
+                description="Set autofillHints"
+                namespace="http://schemas.android.com/apk/res/android"
+                attribute="autofillHints"
+                value=""
+                point="0"
+                mark="0"/>
+            <fix-attribute
+                description="Set importantForAutofill=&quot;no&quot;"
+                namespace="http://schemas.android.com/apk/res/android"
+                attribute="importantForAutofill"
+                value="no"/>
+        </fix-alternatives>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*resDir*0}/layout/activity_player.xml"
+            line="44"
+            column="10"
+            startOffset="1569"
+            endLine="44"
+            endColumn="18"
+            endOffset="1577"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `String.toUri` instead?">
+        <fix-replace
+            description="Replace with the toUri extension function"
+            family="Replace with the toUri extension function"
+            robot="true"
+            independent="true"
+            oldString="Uri.parse(it)"
+            replacement="it.toUri()"
+            reformat="value"
+            imports="androidx.core.net.toUri"
+            priority="0">
+            <range
+                file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                startOffset="18623"
+                endOffset="18636"/>
+        </fix-replace>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+            line="405"
+            column="53"
+            startOffset="18623"
+            endLine="405"
+            endColumn="66"
+            endOffset="18636"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?">
+        <fix-composite
+            description="Replace with the edit extension function"
+            family="Replace with the edit extension function"
+            robot="true"
+            independent="true">
+            <fix-replace
+                description="Replace with edit"
+                robot="true"
+                independent="true"
+                oldString="edit("
+                replacement="edit"
+                reformat="value"
+                imports="androidx.core.content.edit"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/playback/PlayerDspState.kt"
+                    startOffset="2558"
+                    endOffset="2563"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with  {"
+                robot="true"
+                independent="true"
+                oldString=")"
+                replacement=" {"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/playback/PlayerDspState.kt"
+                    startOffset="2563"
+                    endOffset="2564"/>
+            </fix-replace>
+            <fix-replace
+                description="Delete &quot;.&quot;"
+                robot="true"
+                independent="true"
+                oldString="."
+                replacement=""
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/playback/PlayerDspState.kt"
+                    startOffset="2577"
+                    endOffset="2578"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with }"
+                robot="true"
+                independent="true"
+                oldString=".apply()"
+                replacement="}"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/playback/PlayerDspState.kt"
+                    startOffset="2753"
+                    endOffset="2761"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with     "
+                robot="true"
+                independent="true"
+                oldString=""
+                replacement="    "
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/playback/PlayerDspState.kt"
+                    startOffset="2565"
+                    endOffset="2565"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with     "
+                robot="true"
+                independent="true"
+                oldString=""
+                replacement="    "
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/playback/PlayerDspState.kt"
+                    startOffset="2626"
+                    endOffset="2626"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with     "
+                robot="true"
+                independent="true"
+                oldString=""
+                replacement="    "
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/playback/PlayerDspState.kt"
+                    startOffset="2683"
+                    endOffset="2683"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/playback/PlayerDspState.kt"
+            line="63"
+            column="9"
+            startOffset="2455"
+            endLine="65"
+            endColumn="20"
+            endOffset="2564"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?">
+        <fix-composite
+            description="Replace with the edit extension function"
+            family="Replace with the edit extension function"
+            robot="true"
+            independent="true">
+            <fix-replace
+                description="Replace with edit"
+                robot="true"
+                independent="true"
+                oldString="edit("
+                replacement="edit"
+                reformat="value"
+                imports="androidx.core.content.edit"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+                    startOffset="2232"
+                    endOffset="2237"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with  {"
+                robot="true"
+                independent="true"
+                oldString=")"
+                replacement=" {"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+                    startOffset="2237"
+                    endOffset="2238"/>
+            </fix-replace>
+            <fix-replace
+                description="Delete &quot;.&quot;"
+                robot="true"
+                independent="true"
+                oldString="."
+                replacement=""
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+                    startOffset="2238"
+                    endOffset="2239"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with }"
+                robot="true"
+                independent="true"
+                oldString=".apply()"
+                replacement="}"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+                    startOffset="2272"
+                    endOffset="2280"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+            line="54"
+            column="13"
+            startOffset="2226"
+            endLine="54"
+            endColumn="25"
+            endOffset="2238"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?">
+        <fix-composite
+            description="Replace with the edit extension function"
+            family="Replace with the edit extension function"
+            robot="true"
+            independent="true">
+            <fix-replace
+                description="Replace with edit"
+                robot="true"
+                independent="true"
+                oldString="edit("
+                replacement="edit"
+                reformat="value"
+                imports="androidx.core.content.edit"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+                    startOffset="2440"
+                    endOffset="2445"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with  {"
+                robot="true"
+                independent="true"
+                oldString=")"
+                replacement=" {"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+                    startOffset="2445"
+                    endOffset="2446"/>
+            </fix-replace>
+            <fix-replace
+                description="Delete &quot;.&quot;"
+                robot="true"
+                independent="true"
+                oldString="."
+                replacement=""
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+                    startOffset="2446"
+                    endOffset="2447"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with }"
+                robot="true"
+                independent="true"
+                oldString=".apply()"
+                replacement="}"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+                    startOffset="2470"
+                    endOffset="2478"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt"
+            line="59"
+            column="13"
+            startOffset="2434"
+            endLine="59"
+            endColumn="25"
+            endOffset="2446"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?">
+        <fix-composite
+            description="Replace with the edit extension function"
+            family="Replace with the edit extension function"
+            robot="true"
+            independent="true">
+            <fix-replace
+                description="Replace with edit"
+                robot="true"
+                independent="true"
+                oldString="edit("
+                replacement="edit"
+                reformat="value"
+                imports="androidx.core.content.edit"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="1692"
+                    endOffset="1697"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with  {"
+                robot="true"
+                independent="true"
+                oldString=")"
+                replacement=" {"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="1697"
+                    endOffset="1698"/>
+            </fix-replace>
+            <fix-replace
+                description="Delete &quot;.&quot;"
+                robot="true"
+                independent="true"
+                oldString="."
+                replacement=""
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="1698"
+                    endOffset="1699"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with }"
+                robot="true"
+                independent="true"
+                oldString=".apply()"
+                replacement="}"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="1734"
+                    endOffset="1742"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+            line="44"
+            column="9"
+            startOffset="1686"
+            endLine="44"
+            endColumn="21"
+            endOffset="1698"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?">
+        <fix-composite
+            description="Replace with the edit extension function"
+            family="Replace with the edit extension function"
+            robot="true"
+            independent="true">
+            <fix-replace
+                description="Replace with edit"
+                robot="true"
+                independent="true"
+                oldString="edit("
+                replacement="edit"
+                reformat="value"
+                imports="androidx.core.content.edit"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="2211"
+                    endOffset="2216"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with  {"
+                robot="true"
+                independent="true"
+                oldString=")"
+                replacement=" {"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="2216"
+                    endOffset="2217"/>
+            </fix-replace>
+            <fix-replace
+                description="Delete &quot;.&quot;"
+                robot="true"
+                independent="true"
+                oldString="."
+                replacement=""
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="2217"
+                    endOffset="2218"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with }"
+                robot="true"
+                independent="true"
+                oldString=".apply()"
+                replacement="}"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="2279"
+                    endOffset="2287"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+            line="56"
+            column="9"
+            startOffset="2205"
+            endLine="56"
+            endColumn="21"
+            endOffset="2217"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `String.toUri` instead?">
+        <fix-replace
+            description="Replace with the toUri extension function"
+            family="Replace with the toUri extension function"
+            robot="true"
+            independent="true"
+            oldString="Uri.parse(url)"
+            replacement="url.toUri()"
+            reformat="value"
+            imports="androidx.core.net.toUri"
+            priority="0">
+            <range
+                file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                startOffset="2420"
+                endOffset="2434"/>
+        </fix-replace>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+            line="58"
+            column="43"
+            startOffset="2420"
+            endLine="58"
+            endColumn="57"
+            endOffset="2434"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?">
+        <fix-composite
+            description="Replace with the edit extension function"
+            family="Replace with the edit extension function"
+            robot="true"
+            independent="true">
+            <fix-replace
+                description="Replace with edit"
+                robot="true"
+                independent="true"
+                oldString="edit("
+                replacement="edit"
+                reformat="value"
+                imports="androidx.core.content.edit"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="2869"
+                    endOffset="2874"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with  {"
+                robot="true"
+                independent="true"
+                oldString=")"
+                replacement=" {"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="2874"
+                    endOffset="2875"/>
+            </fix-replace>
+            <fix-replace
+                description="Delete &quot;.&quot;"
+                robot="true"
+                independent="true"
+                oldString="."
+                replacement=""
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="2875"
+                    endOffset="2876"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with }"
+                robot="true"
+                independent="true"
+                oldString=".apply()"
+                replacement="}"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="2914"
+                    endOffset="2922"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+            line="67"
+            column="13"
+            startOffset="2863"
+            endLine="67"
+            endColumn="25"
+            endOffset="2875"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?">
+        <fix-composite
+            description="Replace with the edit extension function"
+            family="Replace with the edit extension function"
+            robot="true"
+            independent="true">
+            <fix-replace
+                description="Replace with edit"
+                robot="true"
+                independent="true"
+                oldString="edit("
+                replacement="edit"
+                reformat="value"
+                imports="androidx.core.content.edit"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="4086"
+                    endOffset="4091"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with  {"
+                robot="true"
+                independent="true"
+                oldString=")"
+                replacement=" {"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="4091"
+                    endOffset="4092"/>
+            </fix-replace>
+            <fix-replace
+                description="Delete &quot;.&quot;"
+                robot="true"
+                independent="true"
+                oldString="."
+                replacement=""
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="4092"
+                    endOffset="4093"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with }"
+                robot="true"
+                independent="true"
+                oldString=".apply()"
+                replacement="}"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="4151"
+                    endOffset="4159"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+            line="90"
+            column="9"
+            startOffset="4080"
+            endLine="90"
+            endColumn="21"
+            endOffset="4092"/>
+    </incident>
+
+    <incident
+        id="UseKtx"
+        severity="warning"
+        message="Use the KTX extension function `SharedPreferences.edit` instead?">
+        <fix-composite
+            description="Replace with the edit extension function"
+            family="Replace with the edit extension function"
+            robot="true"
+            independent="true">
+            <fix-replace
+                description="Replace with edit"
+                robot="true"
+                independent="true"
+                oldString="edit("
+                replacement="edit"
+                reformat="value"
+                imports="androidx.core.content.edit"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="8273"
+                    endOffset="8278"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with  {"
+                robot="true"
+                independent="true"
+                oldString=")"
+                replacement=" {"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="8278"
+                    endOffset="8279"/>
+            </fix-replace>
+            <fix-replace
+                description="Delete &quot;.&quot;"
+                robot="true"
+                independent="true"
+                oldString="."
+                replacement=""
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="8296"
+                    endOffset="8297"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with }"
+                robot="true"
+                independent="true"
+                oldString=".apply()"
+                replacement="}"
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="8462"
+                    endOffset="8470"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with     "
+                robot="true"
+                independent="true"
+                oldString=""
+                replacement="    "
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="8280"
+                    endOffset="8280"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with     "
+                robot="true"
+                independent="true"
+                oldString=""
+                replacement="    "
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="8339"
+                    endOffset="8339"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with     "
+                robot="true"
+                independent="true"
+                oldString=""
+                replacement="    "
+                priority="0">
+                <range
+                    file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+                    startOffset="8388"
+                    endOffset="8388"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*release*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt"
+            line="170"
+            column="13"
+            startOffset="8250"
+            endLine="171"
+            endColumn="24"
+            endOffset="8279"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead (androidx.core:core-ktx is already available as `core-ktx`, but using version 1.16.0 instead)">
+        <fix-alternatives>
+            <fix-composite
+                description="Replace with new library catalog declaration for core-ktx-v1131"
+                robot="true"
+                independent="true">
+                <fix-replace
+                    description="Replace with coreKtxVersion = &quot;1.13.1&quot;..."
+                    robot="true"
+                    independent="true"
+                    oldString="_lint_insert_begin_"
+                    replacement="coreKtxVersion = &quot;1.13.1&quot;&#xA;"
+                    priority="0">
+                    <range
+                        file="$HOME/equalizer/gradle/libs.versions.toml"
+                        startOffset="226"
+                        endOffset="226"/>
+                </fix-replace>
+                <fix-replace
+                    description="Replace with core-ktx-v1131 = { module = &quot;androidx.core:core-ktx&quot;, version.ref = &quot;coreKtxVersion&quot; }..."
+                    robot="true"
+                    independent="true"
+                    oldString="_lint_insert_begin_"
+                    replacement="core-ktx-v1131 = { module = &quot;androidx.core:core-ktx&quot;, version.ref = &quot;coreKtxVersion&quot; }&#xA;"
+                    priority="0">
+                    <range
+                        file="$HOME/equalizer/gradle/libs.versions.toml"
+                        startOffset="1230"
+                        endOffset="1230"/>
+                </fix-replace>
+                <fix-replace
+                    description="Replace with libs.core.ktx.v1131"
+                    robot="true"
+                    independent="true"
+                    replacement="libs.core.ktx.v1131"
+                    priority="0">
+                    <range
+                        file="${:player*projectDir}/build.gradle.kts"
+                        startOffset="1410"
+                        endOffset="1441"/>
+                </fix-replace>
+            </fix-composite>
+            <fix-replace
+                description="Replace with existing version catalog reference `core-ktx` (version 1.16.0)"
+                replacement="libs.core.ktx"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1410"
+                    endOffset="1441"/>
+            </fix-replace>
+        </fix-alternatives>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="52"
+            column="20"
+            startOffset="1410"
+            endLine="52"
+            endColumn="51"
+            endOffset="1441"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for androidx-appcompat"
+            robot="true">
+            <fix-replace
+                description="Replace with appcompat = &quot;1.7.0&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="appcompat = &quot;1.7.0&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="226"
+                    endOffset="226"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with androidx-appcompat = { module = &quot;androidx.appcompat:appcompat&quot;, version.ref = &quot;appcompat&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="androidx-appcompat = { module = &quot;androidx.appcompat:appcompat&quot;, version.ref = &quot;appcompat&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.androidx.appcompat"
+                robot="true"
+                replacement="libs.androidx.appcompat"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1462"
+                    endOffset="1498"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="53"
+            column="20"
+            startOffset="1462"
+            endLine="53"
+            endColumn="56"
+            endOffset="1498"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for google-material"
+            robot="true">
+            <fix-replace
+                description="Replace with materialVersion = &quot;1.12.0&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="materialVersion = &quot;1.12.0&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="400"
+                    endOffset="400"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with google-material = { module = &quot;com.google.android.material:material&quot;, version.ref = &quot;materialVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="google-material = { module = &quot;com.google.android.material:material&quot;, version.ref = &quot;materialVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.google.material"
+                robot="true"
+                replacement="libs.google.material"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1519"
+                    endOffset="1564"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="54"
+            column="20"
+            startOffset="1519"
+            endLine="54"
+            endColumn="65"
+            endOffset="1564"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for constraintlayout"
+            robot="true">
+            <fix-replace
+                description="Replace with constraintlayoutVersion = &quot;2.1.4&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="constraintlayoutVersion = &quot;2.1.4&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="226"
+                    endOffset="226"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with constraintlayout = { module = &quot;androidx.constraintlayout:constraintlayout&quot;, version.ref = &quot;constraintlayoutVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="constraintlayout = { module = &quot;androidx.constraintlayout:constraintlayout&quot;, version.ref = &quot;constraintlayoutVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.constraintlayout"
+                robot="true"
+                replacement="libs.constraintlayout"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1585"
+                    endOffset="1635"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="55"
+            column="20"
+            startOffset="1585"
+            endLine="55"
+            endColumn="70"
+            endOffset="1635"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for androidx-webkit"
+            robot="true">
+            <fix-replace
+                description="Replace with webkit = &quot;1.11.0&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="webkit = &quot;1.11.0&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="832"
+                    endOffset="832"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with androidx-webkit = { module = &quot;androidx.webkit:webkit&quot;, version.ref = &quot;webkit&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="androidx-webkit = { module = &quot;androidx.webkit:webkit&quot;, version.ref = &quot;webkit&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.androidx.webkit"
+                robot="true"
+                replacement="libs.androidx.webkit"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1656"
+                    endOffset="1687"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="56"
+            column="20"
+            startOffset="1656"
+            endLine="56"
+            endColumn="51"
+            endOffset="1687"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for androidx-media3-exoplayer"
+            robot="true">
+            <fix-replace
+                description="Replace with media3Exoplayer = &quot;1.3.1&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="media3Exoplayer = &quot;1.3.1&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="400"
+                    endOffset="400"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with androidx-media3-exoplayer = { module = &quot;androidx.media3:media3-exoplayer&quot;, version.ref = &quot;media3Exoplayer&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="androidx-media3-exoplayer = { module = &quot;androidx.media3:media3-exoplayer&quot;, version.ref = &quot;media3Exoplayer&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.androidx.media3.exoplayer"
+                robot="true"
+                replacement="libs.androidx.media3.exoplayer"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1735"
+                    endOffset="1775"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="59"
+            column="20"
+            startOffset="1735"
+            endLine="59"
+            endColumn="60"
+            endOffset="1775"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for androidx-media3-exoplayer-hls"
+            robot="true">
+            <fix-replace
+                description="Replace with media3ExoplayerHls = &quot;1.3.1&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="media3ExoplayerHls = &quot;1.3.1&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="400"
+                    endOffset="400"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with androidx-media3-exoplayer-hls = { module = &quot;androidx.media3:media3-exoplayer-hls&quot;, version.ref = &quot;media3ExoplayerHls&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="androidx-media3-exoplayer-hls = { module = &quot;androidx.media3:media3-exoplayer-hls&quot;, version.ref = &quot;media3ExoplayerHls&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.androidx.media3.exoplayer.hls"
+                robot="true"
+                replacement="libs.androidx.media3.exoplayer.hls"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1879"
+                    endOffset="1923"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="61"
+            column="20"
+            startOffset="1879"
+            endLine="61"
+            endColumn="64"
+            endOffset="1923"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for androidx-media3-ui"
+            robot="true">
+            <fix-replace
+                description="Replace with media3Ui = &quot;1.3.1&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="media3Ui = &quot;1.3.1&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="400"
+                    endOffset="400"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with androidx-media3-ui = { module = &quot;androidx.media3:media3-ui&quot;, version.ref = &quot;media3Ui&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="androidx-media3-ui = { module = &quot;androidx.media3:media3-ui&quot;, version.ref = &quot;media3Ui&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.androidx.media3.ui"
+                robot="true"
+                replacement="libs.androidx.media3.ui"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1944"
+                    endOffset="1977"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="62"
+            column="20"
+            startOffset="1944"
+            endLine="62"
+            endColumn="53"
+            endOffset="1977"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for media3-session"
+            robot="true">
+            <fix-replace
+                description="Replace with media3Session = &quot;1.3.1&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="media3Session = &quot;1.3.1&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="400"
+                    endOffset="400"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with media3-session = { module = &quot;androidx.media3:media3-session&quot;, version.ref = &quot;media3Session&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="media3-session = { module = &quot;androidx.media3:media3-session&quot;, version.ref = &quot;media3Session&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.media3.session"
+                robot="true"
+                replacement="libs.media3.session"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="1998"
+                    endOffset="2036"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="63"
+            column="20"
+            startOffset="1998"
+            endLine="63"
+            endColumn="58"
+            endOffset="2036"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use the existing version catalog reference (`libs.media`) instead">
+        <fix-replace
+            description="Replace with existing version catalog reference `media`"
+            robot="true"
+            independent="true"
+            replacement="libs.media"
+            priority="0">
+            <range
+                file="${:player*projectDir}/build.gradle.kts"
+                startOffset="2154"
+                endOffset="2182"/>
+        </fix-replace>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="65"
+            column="20"
+            startOffset="2154"
+            endLine="65"
+            endColumn="48"
+            endOffset="2182"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for okhttp3-okhttp"
+            robot="true">
+            <fix-replace
+                description="Replace with okhttpVersion = &quot;4.12.0&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="okhttpVersion = &quot;4.12.0&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="789"
+                    endOffset="789"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with okhttp3-okhttp = { module = &quot;com.squareup.okhttp3:okhttp&quot;, version.ref = &quot;okhttpVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="okhttp3-okhttp = { module = &quot;com.squareup.okhttp3:okhttp&quot;, version.ref = &quot;okhttpVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.okhttp3.okhttp"
+                robot="true"
+                replacement="libs.okhttp3.okhttp"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="2237"
+                    endOffset="2273"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="68"
+            column="20"
+            startOffset="2237"
+            endLine="68"
+            endColumn="56"
+            endOffset="2273"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for kotlinx-coroutines-android"
+            robot="true">
+            <fix-replace
+                description="Replace with kotlinxCoroutinesAndroid = &quot;1.8.0&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="kotlinxCoroutinesAndroid = &quot;1.8.0&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="244"
+                    endOffset="244"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with kotlinx-coroutines-android = { module = &quot;org.jetbrains.kotlinx:kotlinx-coroutines-android&quot;, version.ref = &quot;kotlinxCoroutinesAndroid&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="kotlinx-coroutines-android = { module = &quot;org.jetbrains.kotlinx:kotlinx-coroutines-android&quot;, version.ref = &quot;kotlinxCoroutinesAndroid&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.kotlinx.coroutines.android"
+                robot="true"
+                replacement="libs.kotlinx.coroutines.android"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="2294"
+                    endOffset="2350"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="69"
+            column="20"
+            startOffset="2294"
+            endLine="69"
+            endColumn="76"
+            endOffset="2350"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for json-json"
+            robot="true">
+            <fix-replace
+                description="Replace with jsonVersion = &quot;20240303&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="jsonVersion = &quot;20240303&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="226"
+                    endOffset="226"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with json-json = { module = &quot;org.json:json&quot;, version.ref = &quot;jsonVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="json-json = { module = &quot;org.json:json&quot;, version.ref = &quot;jsonVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.json.json"
+                robot="true"
+                replacement="libs.json.json"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="2371"
+                    endOffset="2395"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="70"
+            column="20"
+            startOffset="2371"
+            endLine="70"
+            endColumn="44"
+            endOffset="2395"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use the existing version catalog reference (`libs.junit`) instead">
+        <fix-replace
+            description="Replace with existing version catalog reference `junit`"
+            robot="true"
+            independent="true"
+            replacement="libs.junit"
+            priority="0">
+            <range
+                file="${:player*projectDir}/build.gradle.kts"
+                startOffset="2421"
+                endOffset="2441"/>
+        </fix-replace>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="72"
+            column="24"
+            startOffset="2421"
+            endLine="72"
+            endColumn="44"
+            endOffset="2441"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for mockito-mockito-core"
+            robot="true">
+            <fix-replace
+                description="Replace with mockitoCoreVersion = &quot;5.11.0&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="mockitoCoreVersion = &quot;5.11.0&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="400"
+                    endOffset="400"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with mockito-mockito-core = { module = &quot;org.mockito:mockito-core&quot;, version.ref = &quot;mockitoCoreVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="mockito-mockito-core = { module = &quot;org.mockito:mockito-core&quot;, version.ref = &quot;mockitoCoreVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.mockito.mockito.core"
+                robot="true"
+                replacement="libs.mockito.mockito.core"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="2466"
+                    endOffset="2499"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="73"
+            column="24"
+            startOffset="2466"
+            endLine="73"
+            endColumn="57"
+            endOffset="2499"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for ext-junit"
+            robot="true">
+            <fix-replace
+                description="Replace with androidxJunit = &quot;1.1.5&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="androidxJunit = &quot;1.1.5&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="226"
+                    endOffset="226"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with ext-junit = { module = &quot;androidx.test.ext:junit&quot;, version.ref = &quot;androidxJunit&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="ext-junit = { module = &quot;androidx.test.ext:junit&quot;, version.ref = &quot;androidxJunit&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.ext.junit"
+                robot="true"
+                replacement="libs.ext.junit"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="2531"
+                    endOffset="2562"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="74"
+            column="31"
+            startOffset="2531"
+            endLine="74"
+            endColumn="62"
+            endOffset="2562"/>
+    </incident>
+
+    <incident
+        id="UseTomlInstead"
+        severity="warning"
+        message="Use version catalog instead">
+        <fix-composite
+            description="Replace with new library catalog declaration for espresso-core"
+            robot="true">
+            <fix-replace
+                description="Replace with espressoCoreVersion = &quot;3.5.1&quot;..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="espressoCoreVersion = &quot;3.5.1&quot;&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="226"
+                    endOffset="226"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with espresso-core = { module = &quot;androidx.test.espresso:espresso-core&quot;, version.ref = &quot;espressoCoreVersion&quot; }..."
+                robot="true"
+                oldString="_lint_insert_begin_"
+                replacement="espresso-core = { module = &quot;androidx.test.espresso:espresso-core&quot;, version.ref = &quot;espressoCoreVersion&quot; }&#xA;"
+                priority="0">
+                <range
+                    file="$HOME/equalizer/gradle/libs.versions.toml"
+                    startOffset="1230"
+                    endOffset="1230"/>
+            </fix-replace>
+            <fix-replace
+                description="Replace with libs.espresso.core"
+                robot="true"
+                replacement="libs.espresso.core"
+                priority="0">
+                <range
+                    file="${:player*projectDir}/build.gradle.kts"
+                    startOffset="2594"
+                    endOffset="2638"/>
+            </fix-replace>
+        </fix-composite>
+        <location
+            file="${:player*projectDir}/build.gradle.kts"
+            line="75"
+            column="31"
+            startOffset="2594"
+            endLine="75"
+            endColumn="75"
+            endOffset="2638"/>
+    </incident>
+
+</incidents>

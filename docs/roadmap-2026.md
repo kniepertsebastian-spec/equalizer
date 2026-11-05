@@ -158,10 +158,9 @@ M1 ist ein Stop-or-Go-Punkt. Wird auf wichtigen Playern keine verlässliche Frem
   `app/src/main/java/com/hardbasseq/eq/integration/`). Spotify läuft weiterhin
   über den klassischen Session-Attach (Option A), da es den Broadcast sendet.
   YouTube: der eingebaute Player spielt kein YouTube (Nutzungsbedingungen,
-  siehe `docs/DECISIONS.md`). Als Quelle im Player-Kopf öffnet „YouTube-App“ die
-  YouTube-App; der EQ hängt sich dann an, wenn die App ihre Audio-Session meldet
-  (nicht garantiert, auf dem Gerät zu prüfen). YouTube-Links werden zusätzlich
-  zu Titeln auf SoundCloud aufgelöst. Die frühere Angabe „noch nicht
+  siehe `docs/DECISIONS.md`). Die Quelle „YouTube-App“ im Player-Kopf wurde am
+  5. November 2026 entfernt. YouTube-Links werden weiter zu Titeln auf SoundCloud
+  aufgelöst. Die frühere Angabe „noch nicht
   funktionsfähig“ (Session 19) betraf den eingebauten Player und gilt dort weiter.
   **`docs/DECISIONS.md`s Entscheidungsvorlage ist damit inhaltlich überholt**
   (dort steht noch "Noch nicht entschieden") – die formale Entscheidung

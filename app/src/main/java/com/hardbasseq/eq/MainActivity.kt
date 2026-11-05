@@ -14,18 +14,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.ui.navigation.AppNavHost
 import com.hardbasseq.eq.ui.player.PlayerViewModel
 import com.hardbasseq.eq.ui.theme.HardBassEqTheme
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    @Inject
-    lateinit var spikeController: SessionAttachSpikeController
-
     // Activity-scoped, handed to AppNavHost explicitly: a link shared into the app
     // (onNewIntent below) has to reach the same instance the player screen shows.
     private val playerViewModel: PlayerViewModel by viewModels()
@@ -41,7 +36,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             HardBassEqTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    AppNavHost(spikeController = spikeController, playerViewModel = playerViewModel)
+                    AppNavHost(playerViewModel = playerViewModel)
                 }
             }
         }

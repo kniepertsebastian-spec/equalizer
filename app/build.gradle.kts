@@ -105,7 +105,7 @@ ksp {
 }
 
 dependencies {
-    // Shared preset/DSP domain logic - also used by the :desktop module.
+    // Shared preset/DSP domain logic (plain Kotlin/JVM, no Android dependency).
     implementation(project(":core"))
     // SC Equalizer Player: the companion source screen the master bar's source
     // picker launches (see PlayerBridge). A library module now, merged into this

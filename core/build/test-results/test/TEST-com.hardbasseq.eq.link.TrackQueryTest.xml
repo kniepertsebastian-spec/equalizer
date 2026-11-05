@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.link.TrackQueryTest" tests="15" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.445Z" hostname="vmd206980" time="0.257">
+  <properties/>
+  <testcase name="a blank artist leaves the artist out" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.24"/>
+  <testcase name="an artist may match through the uploader name" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.002"/>
+  <testcase name="handles en dashes" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.001"/>
+  <testcase name="an artist counts as mentioned when all its words appear in title or uploader" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.001"/>
+  <testcase name="an exact match scores higher than an unrelated or longer result" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.001"/>
+  <testcase name="rank orders best first and confidence needs an artist" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.006"/>
+  <testcase name="a title with no artist anywhere stays title only" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.001"/>
+  <testcase name="pipe separated titles read title first" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.0"/>
+  <testcase name="splits artist and title and drops decoration" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.0"/>
+  <testcase name="accents and case do not matter" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.001"/>
+  <testcase name="builds a query from a playlist entry with several artists" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.0"/>
+  <testcase name="uses the channel as artist when the title has none and strips topic suffixes" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.0"/>
+  <testcase name="spotify titles have no artist" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.0"/>
+  <testcase name="no title tokens means no match" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.0"/>
+  <testcase name="drops several noise groups but keeps version markers" classname="com.hardbasseq.eq.link.TrackQueryTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

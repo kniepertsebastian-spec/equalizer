@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.dsp.BassExciterTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:46.006Z" hostname="vmd206980" time="0.245">
+  <properties/>
+  <testcase name="disabled_isBypass" classname="com.hardbasseq.eq.dsp.BassExciterTest" time="0.205"/>
+  <testcase name="settings_clampCutoffMixAndDrive" classname="com.hardbasseq.eq.dsp.BassExciterTest" time="0.0"/>
+  <testcase name="outOfBandTone_leftEssentiallyUnchanged" classname="com.hardbasseq.eq.dsp.BassExciterTest" time="0.031"/>
+  <testcase name="lowFrequencyTone_generatesSecondHarmonic" classname="com.hardbasseq.eq.dsp.BassExciterTest" time="0.005"/>
+  <testcase name="zeroMix_isBypass" classname="com.hardbasseq.eq.dsp.BassExciterTest" time="0.0"/>
+  <testcase name="output_neverExceedsFullScale" classname="com.hardbasseq.eq.dsp.BassExciterTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

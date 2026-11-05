@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.preset.RoomPresetRepositoryTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:24.555Z" hostname="vmd206980" time="0.342">
+  <properties/>
+  <testcase name="a corrupted row is skipped instead of failing the whole flow" classname="com.hardbasseq.eq.preset.RoomPresetRepositoryTest" time="0.331"/>
+  <testcase name="save writes a validated JSON blob the dao can read back" classname="com.hardbasseq.eq.preset.RoomPresetRepositoryTest" time="0.003"/>
+  <testcase name="delete removes the row" classname="com.hardbasseq.eq.preset.RoomPresetRepositoryTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

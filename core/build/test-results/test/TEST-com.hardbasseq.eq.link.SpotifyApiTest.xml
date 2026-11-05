@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.link.SpotifyApiTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:47.562Z" hostname="vmd206980" time="0.426">
+  <properties/>
+  <testcase name="the redirect gives the code only for the matching state" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.03"/>
+  <testcase name="a page of the new items answer" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.31"/>
+  <testcase name="the older track field and a wrapped page work too and the last page has no next" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.005"/>
+  <testcase name="verifier and state only use allowed characters and differ each time" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.004"/>
+  <testcase name="the authorize address carries everything spotify needs" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.063"/>
+  <testcase name="tokens are read with their expiry" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.007"/>
+  <testcase name="answers that are not a page give null" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.0"/>
+  <testcase name="the playlist name" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.001"/>
+  <testcase name="the challenge matches the example of rfc 7636" classname="com.hardbasseq.eq.link.SpotifyApiTest" time="0.005"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

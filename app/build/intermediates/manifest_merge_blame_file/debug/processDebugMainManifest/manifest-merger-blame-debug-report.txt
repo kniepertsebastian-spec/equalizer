@@ -1,0 +1,626 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.hardbasseq.eq"
+4    android:versionCode="2"
+5    android:versionName="0.2.1-m1" >
+6
+7    <uses-sdk
+7-->INJECTED
+8        android:minSdkVersion="28"
+8-->INJECTED
+9        android:targetSdkVersion="36" />
+9-->INJECTED
+10
+11    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+11-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:4:5-77
+11-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:4:22-74
+12    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+12-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:5:5-92
+12-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:5:22-89
+13    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+13-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:6:5-77
+13-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:6:22-74
+14    <uses-permission android:name="android.permission.INTERNET" />
+14-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:7:5-67
+14-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:7:22-64
+15    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+15-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:8:5-83
+15-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:8:22-80
+16
+17    <!-- Lets the session list show other apps' names (package visibility, Android 11+). -->
+18    <queries>
+18-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:11:5-16:15
+19        <intent>
+19-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:12:9-15:18
+20            <action android:name="android.intent.action.MAIN" />
+20-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:13:13-65
+20-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:13:21-62
+21
+22            <category android:name="android.intent.category.LAUNCHER" />
+22-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:14:13-73
+22-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:14:23-70
+23        </intent>
+24
+25        <provider
+25-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:24:9-27:43
+26            android:name="androidx.car.app.connection.provider"
+26-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:25:13-64
+27            android:authorities="androidx.car.app.connection" />
+27-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:26:13-62
+28    </queries>
+29
+30    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- ExoPlayer setWakeMode: keep CPU and Wi-Fi awake while music streams with the screen off. -->
+30-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:8:5-79
+30-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:8:22-76
+31    <uses-permission android:name="android.permission.WAKE_LOCK" />
+31-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:12:5-68
+31-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:12:22-65
+32    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+32-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:25:5-81
+32-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:25:22-78
+33
+34    <permission
+34-->[androidx.core:core:1.16.0] /home/basti/.gradle/caches/9.7.1/transforms/322d3d5ef8f126383b1e7b26507f0d1f/transformed/core-1.16.0/AndroidManifest.xml:22:5-24:47
+35        android:name="com.hardbasseq.eq.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+35-->[androidx.core:core:1.16.0] /home/basti/.gradle/caches/9.7.1/transforms/322d3d5ef8f126383b1e7b26507f0d1f/transformed/core-1.16.0/AndroidManifest.xml:23:9-81
+36        android:protectionLevel="signature" />
+36-->[androidx.core:core:1.16.0] /home/basti/.gradle/caches/9.7.1/transforms/322d3d5ef8f126383b1e7b26507f0d1f/transformed/core-1.16.0/AndroidManifest.xml:24:9-44
+37
+38    <uses-permission android:name="com.hardbasseq.eq.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+38-->[androidx.core:core:1.16.0] /home/basti/.gradle/caches/9.7.1/transforms/322d3d5ef8f126383b1e7b26507f0d1f/transformed/core-1.16.0/AndroidManifest.xml:26:5-97
+38-->[androidx.core:core:1.16.0] /home/basti/.gradle/caches/9.7.1/transforms/322d3d5ef8f126383b1e7b26507f0d1f/transformed/core-1.16.0/AndroidManifest.xml:26:22-94
+39
+40    <application
+40-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:18:5-91:19
+41        android:name="com.hardbasseq.eq.HardBassEqApplication"
+41-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:19:9-46
+42        android:allowBackup="true"
+42-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:20:9-35
+43        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+43-->[androidx.core:core:1.16.0] /home/basti/.gradle/caches/9.7.1/transforms/322d3d5ef8f126383b1e7b26507f0d1f/transformed/core-1.16.0/AndroidManifest.xml:28:18-86
+44        android:dataExtractionRules="@xml/data_extraction_rules"
+44-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:21:9-65
+45        android:debuggable="true"
+46        android:extractNativeLibs="false"
+46-->INJECTED
+47        android:fullBackupContent="@xml/backup_rules"
+47-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:22:9-54
+48        android:icon="@mipmap/ic_launcher"
+48-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:23:9-43
+49        android:label="@string/app_name"
+49-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:24:9-41
+50        android:supportsRtl="true"
+50-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:25:9-35
+51        android:theme="@style/Theme.HardBassEQ" >
+51-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:26:9-48
+52
+53        <!--
+54          singleTask: a link shared into the app from another app must reach the
+55          already-running instance (onNewIntent) rather than start a second
+56          MainActivity with its own view models next to the first.
+57        -->
+58        <activity
+58-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:33:9-48:20
+59            android:name="com.hardbasseq.eq.MainActivity"
+59-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:34:13-41
+60            android:exported="true"
+60-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:35:13-36
+61            android:launchMode="singleTask"
+61-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:36:13-44
+62            android:theme="@style/Theme.HardBassEQ" >
+62-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:37:13-52
+63            <intent-filter>
+63-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:38:13-41:29
+64                <action android:name="android.intent.action.MAIN" />
+64-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:13:13-65
+64-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:13:21-62
+65
+66                <category android:name="android.intent.category.LAUNCHER" />
+66-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:14:13-73
+66-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:14:23-70
+67            </intent-filter>
+68            <!-- Share target for text, used for SoundCloud links. -->
+69            <intent-filter>
+69-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:43:13-47:29
+70                <action android:name="android.intent.action.SEND" />
+70-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:44:17-69
+70-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:44:25-66
+71
+72                <category android:name="android.intent.category.DEFAULT" />
+72-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:45:17-76
+72-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:45:27-73
+73
+74                <data android:mimeType="text/plain" />
+74-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:46:17-55
+74-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:46:23-52
+75            </intent-filter>
+76        </activity>
+77
+78        <!--
+79          foregroundServiceType="mediaPlayback": this service doesn't play media itself,
+80          but there is no FGS type that exactly fits "listen for other apps' audio
+81          sessions to attach effects" - mediaPlayback is what comparable published
+82          system-wide equalizer apps use for this, and keeps this out of the
+83          Play-policy-reviewed "specialUse" category. See roadmap.md Session 13.
+84        -->
+85        <service
+85-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:57:9-60:61
+86            android:name="com.hardbasseq.eq.service.AudioSessionForegroundService"
+86-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:58:13-66
+87            android:exported="false"
+87-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:59:13-37
+88            android:foregroundServiceType="mediaPlayback" />
+88-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:60:13-58
+89
+90        <!--
+91          Android Auto: the media browser the car shows (playlists, new uploads, likes) and
+92          the declaration that this app is a media app. See AutoBrowserService.
+93        -->
+94        <service
+94-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:66:9-77:19
+95            android:name="com.hardbasseq.eq.auto.AutoBrowserService"
+95-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:67:13-52
+96            android:exported="true" >
+96-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:68:13-36
+97            <intent-filter>
+97-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:69:13-71:29
+98                <action android:name="android.media.browse.MediaBrowserService" />
+98-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:70:17-83
+98-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:70:25-80
+99            </intent-filter>
+100            <!-- Voice search in the car ("play X"): handled by the player's media session. -->
+101            <intent-filter>
+101-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:73:13-76:29
+102                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
+102-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:74:17-86
+102-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:74:25-83
+103
+104                <category android:name="android.intent.category.DEFAULT" />
+104-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:45:17-76
+104-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:45:27-73
+105            </intent-filter>
+106        </service>
+107
+108        <meta-data
+108-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:78:9-80:59
+109            android:name="com.google.android.gms.car.application"
+109-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:79:13-66
+110            android:resource="@xml/automotive_app_desc" />
+110-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:80:13-56
+111
+112        <provider
+112-->INJECTED
+113            android:name="androidx.core.content.FileProvider"
+113-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:83:13-62
+114            android:authorities="com.hardbasseq.eq.updates"
+114-->INJECTED
+115            android:exported="false"
+115-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:85:13-37
+116            android:grantUriPermissions="true" >
+116-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:86:13-47
+117            <meta-data
+117-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:87:13-89:61
+118                android:name="android.support.FILE_PROVIDER_PATHS"
+118-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:88:17-67
+119                android:resource="@xml/update_file_paths" />
+119-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:89:17-58
+120        </provider>
+121        <!--
+122          Not a launcher entry point - HardBass EQ's own MainActivity starts this
+123          explicitly (via PlayerBridge) once the user picks a source after switching
+124          the master bar on. Same-app now, so exported=false; the manifest merger
+125          folds this into HardBassEQ's single application, no separate app icon.
+126        -->
+127        <activity
+127-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:22:9-25:70
+128            android:name="com.soundcloud.equalizer.player.PlayerActivity"
+128-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:23:13-74
+129            android:exported="false"
+129-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:24:13-37
+130            android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
+130-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:25:13-67
+131        <!--
+132          Needs an explicit AppCompat-descended theme, same as PlayerActivity above:
+133          with none set here it fell back to the merged app's own application theme
+134          (Theme.HardBassEQ, parent android:Theme.Material.Light.NoActionBar - not an
+135          AppCompat/Material Components theme). AppCompatActivity.setContentView()
+136          throws IllegalStateException("You need to use a Theme.AppCompat theme (or
+137          descendant) with this activity.") in that case, which crashed this activity
+138          immediately on every launch, before the WebView was ever created - looked
+139          from the outside like tapping Login did nothing and bounced straight back.
+140        -->
+141        <activity
+141-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:37:9-41:70
+142            android:name="com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity"
+142-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:38:13-88
+143            android:exported="false"
+143-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:39:13-37
+144            android:label="SoundCloud Login"
+144-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:40:13-45
+145            android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
+145-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:41:13-67
+146        <!--
+147          Spotify sign-in: the browser is sent back to hardbasseq://spotify-callback (the redirect
+148          address registered in the user's Spotify developer app). Exported because the browser
+149          starts it; the sign-in state it checks keeps other apps from feeding it a code.
+150        -->
+151        <activity
+151-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:48:9-62:20
+152            android:name="com.soundcloud.equalizer.player.spotify.SpotifyLoginActivity"
+152-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:49:13-88
+153            android:exported="true"
+153-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:50:13-36
+154            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+154-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:51:13-72
+155            <intent-filter>
+155-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:52:13-61:29
+156                <action android:name="android.intent.action.VIEW" />
+156-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:53:17-69
+156-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:53:25-66
+157
+158                <category android:name="android.intent.category.DEFAULT" />
+158-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:45:17-76
+158-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:45:27-73
+159                <category android:name="android.intent.category.BROWSABLE" />
+159-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:56:17-78
+159-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:56:27-75
+160
+161                <data
+161-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:46:17-55
+162                    android:host="spotify-callback"
+163                    android:scheme="hardbasseq" />
+164            </intent-filter>
+165        </activity>
+166
+167        <service
+167-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:64:9-68:61
+168            android:name="com.soundcloud.equalizer.player.service.AudioPlayerService"
+168-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:65:13-86
+169            android:enabled="true"
+169-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:66:13-35
+170            android:exported="false"
+170-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:67:13-37
+171            android:foregroundServiceType="mediaPlayback" />
+171-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:68:13-58
+172
+173        <activity
+173-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:31:9-34:75
+174            android:name="androidx.car.app.CarAppPermissionActivity"
+174-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:32:13-69
+175            android:exported="false"
+175-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:33:13-37
+176            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+176-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:34:13-72
+177
+178        <receiver
+178-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:36:9-38:40
+179            android:name="androidx.car.app.notification.CarAppNotificationBroadcastReceiver"
+179-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:37:13-93
+180            android:exported="false" />
+180-->[androidx.car.app:app:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/e21434f5353e2e3d4ba462d33c498a33/transformed/app-1.4.0/AndroidManifest.xml:38:13-37
+181
+182        <activity
+182-->[androidx.compose.ui:ui-tooling-android:1.12.0] /home/basti/.gradle/caches/9.7.1/transforms/129c914715aab72983ae06c51c016f40/transformed/ui-tooling/AndroidManifest.xml:23:9-25:39
+183            android:name="androidx.compose.ui.tooling.PreviewActivity"
+183-->[androidx.compose.ui:ui-tooling-android:1.12.0] /home/basti/.gradle/caches/9.7.1/transforms/129c914715aab72983ae06c51c016f40/transformed/ui-tooling/AndroidManifest.xml:24:13-71
+184            android:exported="true" />
+184-->[androidx.compose.ui:ui-tooling-android:1.12.0] /home/basti/.gradle/caches/9.7.1/transforms/129c914715aab72983ae06c51c016f40/transformed/ui-tooling/AndroidManifest.xml:25:13-36
+185        <activity
+185-->[androidx.compose.ui:ui-test-manifest:1.12.0] /home/basti/.gradle/caches/9.7.1/transforms/b506228160a6322500f54b3b9c07217b/transformed/ui-test-manifest-1.12.0/AndroidManifest.xml:23:9-26:79
+186            android:name="androidx.activity.ComponentActivity"
+186-->[androidx.compose.ui:ui-test-manifest:1.12.0] /home/basti/.gradle/caches/9.7.1/transforms/b506228160a6322500f54b3b9c07217b/transformed/ui-test-manifest-1.12.0/AndroidManifest.xml:24:13-63
+187            android:exported="true"
+187-->[androidx.compose.ui:ui-test-manifest:1.12.0] /home/basti/.gradle/caches/9.7.1/transforms/b506228160a6322500f54b3b9c07217b/transformed/ui-test-manifest-1.12.0/AndroidManifest.xml:25:13-36
+188            android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+188-->[androidx.compose.ui:ui-test-manifest:1.12.0] /home/basti/.gradle/caches/9.7.1/transforms/b506228160a6322500f54b3b9c07217b/transformed/ui-test-manifest-1.12.0/AndroidManifest.xml:26:13-76
+189
+190        <provider
+190-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:29:9-37:20
+191            android:name="androidx.startup.InitializationProvider"
+191-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:30:13-67
+192            android:authorities="com.hardbasseq.eq.androidx-startup"
+192-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:31:13-68
+193            android:exported="false" >
+193-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:32:13-37
+194            <meta-data
+194-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:34:13-36:52
+195                android:name="androidx.work.WorkManagerInitializer"
+195-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:35:17-68
+196                android:value="androidx.startup" />
+196-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:36:17-49
+197            <meta-data
+197-->[androidx.emoji2:emoji2:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/25253a37059b116486c08f95d75eab4f/transformed/emoji2-1.4.0/AndroidManifest.xml:29:13-31:52
+198                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+198-->[androidx.emoji2:emoji2:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/25253a37059b116486c08f95d75eab4f/transformed/emoji2-1.4.0/AndroidManifest.xml:30:17-75
+199                android:value="androidx.startup" />
+199-->[androidx.emoji2:emoji2:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/25253a37059b116486c08f95d75eab4f/transformed/emoji2-1.4.0/AndroidManifest.xml:31:17-49
+200            <meta-data
+200-->[androidx.lifecycle:lifecycle-process:2.11.0] /home/basti/.gradle/caches/9.7.1/transforms/40ae6bf6c6bb95e86d2087198bd86a16/transformed/lifecycle-process-2.11.0/AndroidManifest.xml:29:13-31:52
+201                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+201-->[androidx.lifecycle:lifecycle-process:2.11.0] /home/basti/.gradle/caches/9.7.1/transforms/40ae6bf6c6bb95e86d2087198bd86a16/transformed/lifecycle-process-2.11.0/AndroidManifest.xml:30:17-78
+202                android:value="androidx.startup" />
+202-->[androidx.lifecycle:lifecycle-process:2.11.0] /home/basti/.gradle/caches/9.7.1/transforms/40ae6bf6c6bb95e86d2087198bd86a16/transformed/lifecycle-process-2.11.0/AndroidManifest.xml:31:17-49
+203            <meta-data
+203-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:29:13-31:52
+204                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+204-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:30:17-85
+205                android:value="androidx.startup" />
+205-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:31:17-49
+206        </provider>
+207
+208        <service
+208-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:39:9-45:35
+209            android:name="androidx.work.impl.background.systemalarm.SystemAlarmService"
+209-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:40:13-88
+210            android:directBootAware="false"
+210-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:41:13-44
+211            android:enabled="@bool/enable_system_alarm_service_default"
+211-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:42:13-72
+212            android:exported="false" />
+212-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:43:13-37
+213        <service
+213-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:46:9-52:35
+214            android:name="androidx.work.impl.background.systemjob.SystemJobService"
+214-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:47:13-84
+215            android:directBootAware="false"
+215-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:48:13-44
+216            android:enabled="@bool/enable_system_job_service_default"
+216-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:49:13-70
+217            android:exported="true"
+217-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:50:13-36
+218            android:permission="android.permission.BIND_JOB_SERVICE" />
+218-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:51:13-69
+219        <service
+219-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:53:9-59:35
+220            android:name="androidx.work.impl.foreground.SystemForegroundService"
+220-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:54:13-81
+221            android:directBootAware="false"
+221-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:55:13-44
+222            android:enabled="@bool/enable_system_foreground_service_default"
+222-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:56:13-77
+223            android:exported="false" />
+223-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:57:13-37
+224
+225        <receiver
+225-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:61:9-66:35
+226            android:name="androidx.work.impl.utils.ForceStopRunnable$BroadcastReceiver"
+226-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:62:13-88
+227            android:directBootAware="false"
+227-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:63:13-44
+228            android:enabled="true"
+228-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:64:13-35
+229            android:exported="false" />
+229-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:65:13-37
+230        <receiver
+230-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:67:9-77:20
+231            android:name="androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryChargingProxy"
+231-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:68:13-106
+232            android:directBootAware="false"
+232-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:69:13-44
+233            android:enabled="false"
+233-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:70:13-36
+234            android:exported="false" >
+234-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:71:13-37
+235            <intent-filter>
+235-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:73:13-76:29
+236                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+236-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:74:17-87
+236-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:74:25-84
+237                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+237-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:75:17-90
+237-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:75:25-87
+238            </intent-filter>
+239        </receiver>
+240        <receiver
+240-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:78:9-88:20
+241            android:name="androidx.work.impl.background.systemalarm.ConstraintProxy$BatteryNotLowProxy"
+241-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:79:13-104
+242            android:directBootAware="false"
+242-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:80:13-44
+243            android:enabled="false"
+243-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:81:13-36
+244            android:exported="false" >
+244-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:82:13-37
+245            <intent-filter>
+245-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:84:13-87:29
+246                <action android:name="android.intent.action.BATTERY_OKAY" />
+246-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:85:17-77
+246-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:85:25-74
+247                <action android:name="android.intent.action.BATTERY_LOW" />
+247-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:86:17-76
+247-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:86:25-73
+248            </intent-filter>
+249        </receiver>
+250        <receiver
+250-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:89:9-99:20
+251            android:name="androidx.work.impl.background.systemalarm.ConstraintProxy$StorageNotLowProxy"
+251-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:90:13-104
+252            android:directBootAware="false"
+252-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:91:13-44
+253            android:enabled="false"
+253-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:92:13-36
+254            android:exported="false" >
+254-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:93:13-37
+255            <intent-filter>
+255-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:95:13-98:29
+256                <action android:name="android.intent.action.DEVICE_STORAGE_LOW" />
+256-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:96:17-83
+256-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:96:25-80
+257                <action android:name="android.intent.action.DEVICE_STORAGE_OK" />
+257-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:97:17-82
+257-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:97:25-79
+258            </intent-filter>
+259        </receiver>
+260        <receiver
+260-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:100:9-109:20
+261            android:name="androidx.work.impl.background.systemalarm.ConstraintProxy$NetworkStateProxy"
+261-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:101:13-103
+262            android:directBootAware="false"
+262-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:102:13-44
+263            android:enabled="false"
+263-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:103:13-36
+264            android:exported="false" >
+264-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:104:13-37
+265            <intent-filter>
+265-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:106:13-108:29
+266                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+266-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:107:17-79
+266-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:107:25-76
+267            </intent-filter>
+268        </receiver>
+269        <receiver
+269-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:110:9-121:20
+270            android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
+270-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:111:13-88
+271            android:directBootAware="false"
+271-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:112:13-44
+272            android:enabled="false"
+272-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:113:13-36
+273            android:exported="false" >
+273-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:114:13-37
+274            <intent-filter>
+274-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:116:13-120:29
+275                <action android:name="android.intent.action.BOOT_COMPLETED" />
+275-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:117:17-79
+275-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:117:25-76
+276                <action android:name="android.intent.action.TIME_SET" />
+276-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:118:17-73
+276-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:118:25-70
+277                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+277-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:119:17-81
+277-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:119:25-78
+278            </intent-filter>
+279        </receiver>
+280        <receiver
+280-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:122:9-131:20
+281            android:name="androidx.work.impl.background.systemalarm.ConstraintProxyUpdateReceiver"
+281-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:123:13-99
+282            android:directBootAware="false"
+282-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:124:13-44
+283            android:enabled="@bool/enable_system_alarm_service_default"
+283-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:125:13-72
+284            android:exported="false" >
+284-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:126:13-37
+285            <intent-filter>
+285-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:128:13-130:29
+286                <action android:name="androidx.work.impl.background.systemalarm.UpdateProxies" />
+286-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:129:17-98
+286-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:129:25-95
+287            </intent-filter>
+288        </receiver>
+289        <receiver
+289-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:132:9-142:20
+290            android:name="androidx.work.impl.diagnostics.DiagnosticsReceiver"
+290-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:133:13-78
+291            android:directBootAware="false"
+291-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:134:13-44
+292            android:enabled="true"
+292-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:135:13-35
+293            android:exported="true"
+293-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:136:13-36
+294            android:permission="android.permission.DUMP" >
+294-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:137:13-57
+295            <intent-filter>
+295-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:139:13-141:29
+296                <action android:name="androidx.work.diagnostics.REQUEST_DIAGNOSTICS" />
+296-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:140:17-88
+296-->[androidx.work:work-runtime:2.10.0] /home/basti/.gradle/caches/9.7.1/transforms/9c57dfaf1654b1636f0adebeb447914f/transformed/work-runtime-2.10.0/AndroidManifest.xml:140:25-85
+297            </intent-filter>
+298        </receiver> <!-- TODO: b/510644544 - Remove this workaround once minSdk is 38 -->
+299        <activity
+299-->[androidx.media3:media3-session:1.11.1] /home/basti/.gradle/caches/9.7.1/transforms/ccffdc78f03f50ee90cb4eda13b1ceb2/transformed/media3-session-1.11.1/AndroidManifest.xml:25:9-43:20
+300            android:name="androidx.media3.session.BluetoothValidationActivity"
+300-->[androidx.media3:media3-session:1.11.1] /home/basti/.gradle/caches/9.7.1/transforms/ccffdc78f03f50ee90cb4eda13b1ceb2/transformed/media3-session-1.11.1/AndroidManifest.xml:26:13-79
+301            android:excludeFromRecents="true"
+301-->[androidx.media3:media3-session:1.11.1] /home/basti/.gradle/caches/9.7.1/transforms/ccffdc78f03f50ee90cb4eda13b1ceb2/transformed/media3-session-1.11.1/AndroidManifest.xml:27:13-46
+302            android:exported="true"
+302-->[androidx.media3:media3-session:1.11.1] /home/basti/.gradle/caches/9.7.1/transforms/ccffdc78f03f50ee90cb4eda13b1ceb2/transformed/media3-session-1.11.1/AndroidManifest.xml:28:13-36
+303            android:noHistory="true"
+303-->[androidx.media3:media3-session:1.11.1] /home/basti/.gradle/caches/9.7.1/transforms/ccffdc78f03f50ee90cb4eda13b1ceb2/transformed/media3-session-1.11.1/AndroidManifest.xml:29:13-37
+304            android:permission="android.permission.BLUETOOTH_PRIVILEGED"
+304-->[androidx.media3:media3-session:1.11.1] /home/basti/.gradle/caches/9.7.1/transforms/ccffdc78f03f50ee90cb4eda13b1ceb2/transformed/media3-session-1.11.1/AndroidManifest.xml:30:13-73
+305            android:theme="@android:style/Theme.NoDisplay" >
+305-->[androidx.media3:media3-session:1.11.1] /home/basti/.gradle/caches/9.7.1/transforms/ccffdc78f03f50ee90cb4eda13b1ceb2/transformed/media3-session-1.11.1/AndroidManifest.xml:31:13-59
+306            <intent-filter>
+306-->[androidx.media3:media3-session:1.11.1] /home/basti/.gradle/caches/9.7.1/transforms/ccffdc78f03f50ee90cb4eda13b1ceb2/transformed/media3-session-1.11.1/AndroidManifest.xml:32:13-42:29
+307
+308                <!-- Omit CATEGORY_DEFAULT to avoid listing this app as a generic audio app. -->
+309                <action android:name="android.intent.action.VIEW" />
+309-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:53:17-69
+309-->[:player] /home/basti/equalizer/player/app/build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml:53:25-66
+310
+311                <data android:scheme="content" />
+311-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:46:17-55
+312                <data android:host="media" />
+312-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:46:17-55
+313                <!-- Satisfies the probe used in Bluetooths's MediaPlayerList.java on API 36 and 37. -->
+314                <data android:pathPrefix="/internal/audio/media/" />
+314-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:46:17-55
+315                <data android:mimeType="audio/*" />
+315-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:46:17-55
+315-->/home/basti/equalizer/app/src/main/AndroidManifest.xml:46:23-52
+316            </intent-filter>
+317        </activity>
+318
+319        <uses-library
+319-->[androidx.window:window:1.5.0] /home/basti/.gradle/caches/9.7.1/transforms/d8913d561b48ebbe05c83aa7504b96ea/transformed/window-1.5.0/AndroidManifest.xml:23:9-25:40
+320            android:name="androidx.window.extensions"
+320-->[androidx.window:window:1.5.0] /home/basti/.gradle/caches/9.7.1/transforms/d8913d561b48ebbe05c83aa7504b96ea/transformed/window-1.5.0/AndroidManifest.xml:24:13-54
+321            android:required="false" />
+321-->[androidx.window:window:1.5.0] /home/basti/.gradle/caches/9.7.1/transforms/d8913d561b48ebbe05c83aa7504b96ea/transformed/window-1.5.0/AndroidManifest.xml:25:13-37
+322        <uses-library
+322-->[androidx.window:window:1.5.0] /home/basti/.gradle/caches/9.7.1/transforms/d8913d561b48ebbe05c83aa7504b96ea/transformed/window-1.5.0/AndroidManifest.xml:26:9-28:40
+323            android:name="androidx.window.sidecar"
+323-->[androidx.window:window:1.5.0] /home/basti/.gradle/caches/9.7.1/transforms/d8913d561b48ebbe05c83aa7504b96ea/transformed/window-1.5.0/AndroidManifest.xml:27:13-51
+324            android:required="false" />
+324-->[androidx.window:window:1.5.0] /home/basti/.gradle/caches/9.7.1/transforms/d8913d561b48ebbe05c83aa7504b96ea/transformed/window-1.5.0/AndroidManifest.xml:28:13-37
+325
+326        <service
+326-->[androidx.room:room-runtime-android:2.8.5] /home/basti/.gradle/caches/9.7.1/transforms/f6b8162ddc1119ec441f36a1c4557270/transformed/room-runtime/AndroidManifest.xml:24:9-28:63
+327            android:name="androidx.room.MultiInstanceInvalidationService"
+327-->[androidx.room:room-runtime-android:2.8.5] /home/basti/.gradle/caches/9.7.1/transforms/f6b8162ddc1119ec441f36a1c4557270/transformed/room-runtime/AndroidManifest.xml:25:13-74
+328            android:directBootAware="true"
+328-->[androidx.room:room-runtime-android:2.8.5] /home/basti/.gradle/caches/9.7.1/transforms/f6b8162ddc1119ec441f36a1c4557270/transformed/room-runtime/AndroidManifest.xml:26:13-43
+329            android:exported="false" />
+329-->[androidx.room:room-runtime-android:2.8.5] /home/basti/.gradle/caches/9.7.1/transforms/f6b8162ddc1119ec441f36a1c4557270/transformed/room-runtime/AndroidManifest.xml:27:13-37
+330
+331        <receiver
+331-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:34:9-52:20
+332            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+332-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:35:13-76
+333            android:directBootAware="false"
+333-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:36:13-44
+334            android:enabled="true"
+334-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:37:13-35
+335            android:exported="true"
+335-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:38:13-36
+336            android:permission="android.permission.DUMP" >
+336-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:39:13-57
+337            <intent-filter>
+337-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:40:13-42:29
+338                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+338-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:41:17-91
+338-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:41:25-88
+339            </intent-filter>
+340            <intent-filter>
+340-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:43:13-45:29
+341                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+341-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:44:17-85
+341-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:44:25-82
+342            </intent-filter>
+343            <intent-filter>
+343-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:46:13-48:29
+344                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+344-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:47:17-88
+344-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:47:25-85
+345            </intent-filter>
+346            <intent-filter>
+346-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:49:13-51:29
+347                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+347-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:50:17-95
+347-->[androidx.profileinstaller:profileinstaller:1.4.0] /home/basti/.gradle/caches/9.7.1/transforms/35fa4c726b8e66dc6a3512672b96479e/transformed/profileinstaller-1.4.0/AndroidManifest.xml:50:25-92
+348            </intent-filter>
+349        </receiver>
+350    </application>
+351
+352</manifest>

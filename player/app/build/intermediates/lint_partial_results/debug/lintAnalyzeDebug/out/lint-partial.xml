@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.4.0" type="partial_results">
+    <map id="NotificationPermission">
+        <entry
+            name="source"
+            boolean="true"/>
+    </map>
+    <map id="UnsafeImplicitIntentLaunch">
+            <map id="actionsSent">
+                    <map id="android.media.action.CLOSE_AUDIO_EFFECT_CONTROL_SESSION (used to send a broadcast)">
+                        <location id="0"
+                            file="${:player*debug*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                            line="317"
+                            column="26"
+                            startOffset="15272"
+                            endLine="317"
+                            endColumn="87"
+                            endOffset="15333"/>
+                    </map>
+                    <map id="android.media.action.OPEN_AUDIO_EFFECT_CONTROL_SESSION (used to send a broadcast)">
+                        <location id="0"
+                            file="${:player*debug*MAIN*sourceProvider*0*javaDir*0}/com/soundcloud/equalizer/player/service/AudioPlayerService.kt"
+                            line="305"
+                            column="26"
+                            startOffset="14726"
+                            endLine="305"
+                            endColumn="86"
+                            endOffset="14786"/>
+                    </map>
+            </map>
+    </map>
+    <map id="UnsafeIntentLaunch">
+            <map id="unprotected">
+                <entry
+                    name="com.soundcloud.equalizer.player.spotify.SpotifyLoginActivity"
+                    boolean="true"/>
+            </map>
+    </map>
+    <map id="UnusedResources">
+        <entry
+            name="model"
+            string="color[sonic_graphite(U),sonic_paper(U),sonic_amber(U),sonic_graphite_control(U),sonic_steel(U),sonic_graphite_raised(U),sonic_rule(U),sonic_clip(U)],font[barlow(U),barlow_regular(R),barlow_medium(R),barlow_semibold(R)],id[btnLogin(U),etSearchQuery(U),btnSearch(U),rvItems(U),cardNowPlaying(U),tvNowPlayingTitle(U),tvNowPlayingArtist(U),btnPlayPause(U),tvTitle(U),tvSubtitle(U),btnPlay(U)],layout[activity_player(U),item_track_playlist(U)],string[layout_source_name(U),layout_login_go(U),layout_search_hint(U),layout_search_button(U),layout_track_title(U),layout_track_artist(U),player_pause(U),layout_item_play(U),err_soundcloud_load(U),err_soundcloud_client_id(U),err_soundcloud_http(U),name_untitled_playlist(U),err_link_nothing(U),err_track_unreadable(U),err_playlist_empty(U),name_playlist(U),err_link_unsupported(U),err_not_signed_in(U),err_account_unknown(U),err_playlist_rejected(U),err_playlist_no_id(U),name_unknown_track(U),name_unknown_artist(U),err_spotify_login_mismatch(U),err_spotify_login_cancelled(U),err_spotify_no_connection(U),err_spotify_format(U),err_spotify_no_tracks(U),err_spotify_unknown_playlist(U),err_spotify_http(U),err_spotify_sign_in_again(U),err_spotify_not_yours(U),err_spotify_login_refused(U),err_link_unsupported_host(U),err_no_details(U),err_provider_no_answer(U),err_link_no_title(U),err_not_public(U),err_spotify_page_http(U),player_logged_in_go(U),player_play(U),player_no_tracks(U),player_search_error(U),spotify_signed_in(U),svc_preview_signin(U),svc_preview_account(U),svc_not_playable(U),svc_default_title(U),svc_default_artist(U),svc_channel_name(U),svc_action_previous(U),svc_action_pause(U),svc_action_play(U),svc_action_next(U),login_manual_token(U),login_token_title(U),login_token_help(U),action_save(U),action_cancel(U)],style[Theme_SoundCloudEqualizerPlayer(U),Theme_Material3_Dark_NoActionBar(R)];8^9^a^b,17^0^19^1^2^1a^3^1b^4^1c^5^1d^1e^1f,18^5^1^4^2^20^0,54^55^2^0^5^1^4^6^7^8;;;"/>
+    </map>
+
+</incidents>

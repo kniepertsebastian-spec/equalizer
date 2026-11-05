@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.discovery.WeekKeyTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:45.976Z" hostname="vmd206980" time="0.017">
+  <properties/>
+  <testcase name="the week turns over at midnight between sunday and monday" classname="com.hardbasseq.eq.discovery.WeekKeyTest" time="0.004"/>
+  <testcase name="the local offset moves the boundary" classname="com.hardbasseq.eq.discovery.WeekKeyTest" time="0.0"/>
+  <testcase name="all days from monday to sunday share a week" classname="com.hardbasseq.eq.discovery.WeekKeyTest" time="0.003"/>
+  <testcase name="dates before 1970 still work" classname="com.hardbasseq.eq.discovery.WeekKeyTest" time="0.008"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

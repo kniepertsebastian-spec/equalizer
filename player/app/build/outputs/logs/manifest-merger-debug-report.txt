@@ -1,0 +1,94 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:2:1-66:12
+INJECTED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:2:1-66:12
+	package
+		INJECTED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:2:11-69
+uses-permission#android.permission.INTERNET
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:4:5-67
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:4:22-64
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:5:5-79
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:5:22-76
+uses-permission#android.permission.FOREGROUND_SERVICE
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:6:5-77
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:6:22-74
+uses-permission#android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:7:5-92
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:7:22-89
+uses-permission#android.permission.WAKE_LOCK
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:9:5-68
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:9:22-65
+application
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:11:5-64:19
+activity#com.soundcloud.equalizer.player.PlayerActivity
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:19:9-22:70
+	android:exported
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:21:13-37
+	android:theme
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:22:13-67
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:20:13-43
+activity#com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:34:9-38:70
+	android:label
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:37:13-45
+	android:exported
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:36:13-37
+	android:theme
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:38:13-67
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:35:13-57
+activity#com.soundcloud.equalizer.player.spotify.SpotifyLoginActivity
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:45:9-57:20
+	android:exported
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:47:13-36
+	android:theme
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:48:13-72
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:46:13-57
+intent-filter#action:name:android.intent.action.VIEW+category:name:android.intent.category.BROWSABLE+category:name:android.intent.category.DEFAULT+data:host:spotify-callback+data:scheme:hardbasseq
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:49:13-56:29
+action#android.intent.action.VIEW
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:50:17-69
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:50:25-66
+category#android.intent.category.DEFAULT
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:51:17-76
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:51:27-73
+category#android.intent.category.BROWSABLE
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:52:17-78
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:52:27-75
+data
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:53:17-55:55
+	android:host
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:55:21-52
+	android:scheme
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:54:21-48
+service#com.soundcloud.equalizer.player.service.AudioPlayerService
+ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:59:9-63:61
+	android:enabled
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:61:13-35
+	android:exported
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:62:13-37
+	android:foregroundServiceType
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:63:13-58
+	android:name
+		ADDED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml:60:13-55
+uses-sdk
+INJECTED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml
+INJECTED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /home/basti/equalizer/player/app/src/main/AndroidManifest.xml

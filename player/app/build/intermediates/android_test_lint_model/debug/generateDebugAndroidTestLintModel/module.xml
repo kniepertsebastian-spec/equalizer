@@ -1,0 +1,19 @@
+<lint-module
+    format="1"
+    dir="/home/basti/equalizer/player/app"
+    name=":player"
+    type="LIBRARY"
+    maven="HardBassEQ:player:unspecified"
+    agpVersion="9.4.0"
+    buildFolder="build"
+    bootClassPath="/home/basti/.cache/hardbass-build/sdk/platforms/android-37.0/android.jar:/home/basti/.cache/hardbass-build/sdk/build-tools/36.0.0/core-lambda-stubs.jar"
+    javaSourceLevel="17"
+    compileTarget="android-37.0"
+    neverShrinking="true"
+    highlightGradualR8Api="false">
+  <lintOptions
+      absolutePaths="true"
+      checkReleaseBuilds="true"
+      explainIssues="true"/>
+  <variant name="debug"/>
+</lint-module>

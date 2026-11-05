@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.link.StreamSelectionTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.386Z" hostname="vmd206980" time="0.006">
+  <properties/>
+  <testcase name="unknown protocols are ignored and an empty list yields nothing" classname="com.hardbasseq.eq.link.StreamSelectionTest" time="0.005"/>
+  <testcase name="a preview is chosen only when nothing full length exists" classname="com.hardbasseq.eq.link.StreamSelectionTest" time="0.0"/>
+  <testcase name="full length progressive is preferred" classname="com.hardbasseq.eq.link.StreamSelectionTest" time="0.001"/>
+  <testcase name="full length hls beats a progressive preview" classname="com.hardbasseq.eq.link.StreamSelectionTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.dsp.HeadphoneDynamicsEasingTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:46.661Z" hostname="vmd206980" time="0.028">
+  <properties/>
+  <testcase name="ratio is pulled proportionally toward 1 (transparent)" classname="com.hardbasseq.eq.dsp.HeadphoneDynamicsEasingTest" time="0.012"/>
+  <testcase name="an already-transparent ratio of 1 stays 1" classname="com.hardbasseq.eq.dsp.HeadphoneDynamicsEasingTest" time="0.0"/>
+  <testcase name="a higher base ratio is still eased to something higher than a lower base ratio's" classname="com.hardbasseq.eq.dsp.HeadphoneDynamicsEasingTest" time="0.0"/>
+  <testcase name="threshold never rises above 0 dBFS even for an already-high base" classname="com.hardbasseq.eq.dsp.HeadphoneDynamicsEasingTest" time="0.014"/>
+  <testcase name="threshold is raised by a fixed amount so the compressor engages later" classname="com.hardbasseq.eq.dsp.HeadphoneDynamicsEasingTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

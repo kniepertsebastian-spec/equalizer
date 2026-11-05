@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.dsp.PlayerDspPcm16Test" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:47.186Z" hostname="vmd206980" time="0.035">
+  <properties/>
+  <testcase name="mono audio only gets the limiter" classname="com.hardbasseq.eq.dsp.PlayerDspPcm16Test" time="0.002"/>
+  <testcase name="everything off leaves the audio untouched" classname="com.hardbasseq.eq.dsp.PlayerDspPcm16Test" time="0.008"/>
+  <testcase name="quiet audio passes the limiter at about the same level" classname="com.hardbasseq.eq.dsp.PlayerDspPcm16Test" time="0.007"/>
+  <testcase name="the limiter holds loud audio under its threshold" classname="com.hardbasseq.eq.dsp.PlayerDspPcm16Test" time="0.007"/>
+  <testcase name="mono bass keeps the highs in stereo" classname="com.hardbasseq.eq.dsp.PlayerDspPcm16Test" time="0.006"/>
+  <testcase name="mono bass cancels out-of-phase deep bass between the channels" classname="com.hardbasseq.eq.dsp.PlayerDspPcm16Test" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

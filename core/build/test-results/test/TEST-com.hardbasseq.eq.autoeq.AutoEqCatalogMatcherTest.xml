@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:44.974Z" hostname="vmd206980" time="0.15">
+  <properties/>
+  <testcase name="deviceNameContainingModelStillMatches" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.051"/>
+  <testcase name="picksTheCloserOfTwoCandidatesWhenBothAreSimilar" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.005"/>
+  <testcase name="exactDisplayNameMatches" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.001"/>
+  <testcase name="realCatalogFindsKnownModelByAlias" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.068"/>
+  <testcase name="unrelatedNameReturnsNoMatch" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.001"/>
+  <testcase name="typoStillMatchesViaEditDistance" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.001"/>
+  <testcase name="emptyCatalogReturnsNoMatch" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.004"/>
+  <testcase name="bluetoothAdvertisedAliasMatches" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.002"/>
+  <testcase name="blankNameReturnsNoMatch" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.001"/>
+  <testcase name="caseAndPunctuationInsensitive" classname="com.hardbasseq.eq.autoeq.AutoEqCatalogMatcherTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

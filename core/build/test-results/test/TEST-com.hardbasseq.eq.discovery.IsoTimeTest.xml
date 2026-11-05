@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.discovery.IsoTimeTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:45.963Z" hostname="vmd206980" time="0.008">
+  <properties/>
+  <testcase name="garbage is null" classname="com.hardbasseq.eq.discovery.IsoTimeTest" time="0.004"/>
+  <testcase name="parses soundcloud timestamps" classname="com.hardbasseq.eq.discovery.IsoTimeTest" time="0.001"/>
+  <testcase name="handles leap days and year boundaries" classname="com.hardbasseq.eq.discovery.IsoTimeTest" time="0.001"/>
+  <testcase name="parses the older slash format and ignores offsets and fractions" classname="com.hardbasseq.eq.discovery.IsoTimeTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -17,6 +17,15 @@ ersten Projekt-Setup (M0, Aufgabe 1 "Android-Projekt initialisieren").
 | JVM-Zielversion | 17 | Java `compileOptions` und Kotlin `compilerOptions.jvmTarget` explizit auf 17; Build-JDK ist separat 21 (Temurin, siehe CI). |
 | ktlint (`org.jlleitschuh.gradle.ktlint`) | 14.2.0 | Aktuellste Plugin-Version (März 2026); unabhängig von der Projekt-Kotlin-Version, da ktlint mit einem eigenen gebündelten Kotlin-Compiler parst. Siehe ADR 0003. |
 
+## Versionen, die später angehoben wurden
+
+| Komponente | Version | Hinweis |
+|---|---|---|
+| Room | 2.8.5 | Vorher `2.7.0-alpha13` (5. November 2026). Der exportierte Schema-Hash (`app/schemas/.../2.json`) blieb gleich, bestehende Datenbanken öffnen sich unverändert. |
+| media3 (`:player`) | 1.11.1 | Vorher 1.3.1. `MediaSession.sessionCompatToken` gibt es nicht mehr; `AudioPlayerService` verpackt jetzt `platformToken` (`MediaSessionCompat.Token.fromToken`). Auf dem Gerät mit Android Auto prüfen (`docs/TEST_MATRIX.md` K25). |
+| kotlinx-coroutines-android (`:player`) | 1.11.0 | Vorher 1.8.0. |
+| okhttp (`:player`) | 4.12.0 | Unverändert: letzte 4.x-Version; 5.x wäre ein Major-Sprung. |
+
 ## Wichtiger Hinweis zur Verifikation
 
 Diese Sandbox-Umgebung kann `dl.google.com` (Android-SDK/Maven-„Google“-Repository)

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.auto.AutoMediaIdTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:44.738Z" hostname="vmd206980" time="0.227">
+  <properties/>
+  <testcase name="a playlist id with colons and slashes survives" classname="com.hardbasseq.eq.auto.AutoMediaIdTest" time="0.135"/>
+  <testcase name="only tracks are playable" classname="com.hardbasseq.eq.auto.AutoMediaIdTest" time="0.018"/>
+  <testcase name="folders round trip" classname="com.hardbasseq.eq.auto.AutoMediaIdTest" time="0.003"/>
+  <testcase name="foreign or broken ids read as null" classname="com.hardbasseq.eq.auto.AutoMediaIdTest" time="0.0"/>
+  <testcase name="discovery and like tracks" classname="com.hardbasseq.eq.auto.AutoMediaIdTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

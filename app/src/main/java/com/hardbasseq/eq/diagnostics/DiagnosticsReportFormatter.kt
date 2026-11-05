@@ -27,7 +27,7 @@ object DiagnosticsReportFormatter {
                 engineState is AudioEngineState.Active &&
                     (processingSettings == null || (processingSettings.masterEnabled && !processingSettings.bypass))
 
-            appendLine("=== HardBass EQ Diagnostic Report ===")
+            appendLine("=== Baschtls Gedröhne Diagnostic Report ===")
             appendLine("App Version: ${BuildConfig.VERSION_NAME}")
             appendLine("Android API Level: ${Build.VERSION.SDK_INT}")
             appendLine("Device Model: ${Build.MODEL}")

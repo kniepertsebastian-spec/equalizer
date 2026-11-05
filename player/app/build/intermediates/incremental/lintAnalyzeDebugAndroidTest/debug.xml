@@ -1,0 +1,30 @@
+<variant
+    name="debug"
+    package="com.soundcloud.equalizer.player"
+    minSdkVersion="24"
+    targetSdkVersion="37.0"
+    debuggable="true"
+    mergedManifest="build/intermediates/merged_manifest/debug/processDebugManifest/AndroidManifest.xml"
+    partialResultsDir="build/intermediates/android_test_lint_partial_results/debug/lintAnalyzeDebugAndroidTest/out"
+    desugaredMethodsFiles="/home/basti/.gradle/caches/9.7.1/transforms/2bc0ab7f2170ac835ada620f01823240/transformed/D8BackportedDesugaredMethods.txt">
+  <buildFeatures
+      viewBinding="true"/>
+  <sourceProviders>
+  </sourceProviders>
+  <testSourceProviders>
+    <sourceProvider
+        manifests="src/androidTest/AndroidManifest.xml"
+        javaDirectories="src/androidTest/java:src/androidTestDebug/java:src/androidTest/kotlin:src/androidTestDebug/kotlin"
+        resDirectories="src/androidTest/res:src/androidTestDebug/res"
+        assetsDirectories="src/androidTest/assets:src/androidTestDebug/assets"
+        keepRulesDirectories="src/androidTest/keepRules:src/androidTestDebug/keepRules"
+        androidTest="true"/>
+  </testSourceProviders>
+  <testFixturesSourceProviders>
+  </testFixturesSourceProviders>
+  <artifact
+      type="INSTRUMENTATION_TEST"
+      applicationId="com.soundcloud.equalizer.player.test"
+      desugaredMethodsFiles="/home/basti/.gradle/caches/9.7.1/transforms/2bc0ab7f2170ac835ada620f01823240/transformed/D8BackportedDesugaredMethods.txt">
+  </artifact>
+</variant>

@@ -80,7 +80,6 @@ import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.context.SoundContext
-import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.playlist.PlaylistSearch
 import com.hardbasseq.eq.playlist.SavedPlaylist
@@ -112,7 +111,6 @@ fun PlayerScreen(
     processingSettings: ProcessingSettings,
     onOpenEqualizer: () -> Unit,
     onOpenServices: () -> Unit,
-    onSelectSource: (PlayerSource) -> Unit,
     soundName: String,
     soundCurve: List<TargetPoint>,
     dspViewModel: PlayerDspViewModel = hiltViewModel(),
@@ -209,11 +207,7 @@ fun PlayerScreen(
                     IconButton(onClick = onOpenServices) {
                         Icon(Icons.Default.Link, contentDescription = stringResource(R.string.player_open_services))
                     }
-                    SourceSelector(
-                        onSelectSource = { source ->
-                            if (source == PlayerSource.SOUNDCLOUD) tab = PlayerTab.SEARCH else onSelectSource(source)
-                        },
-                    )
+                    SourceSelector(onSelectSoundCloud = { tab = PlayerTab.SEARCH })
                 }
             }
 

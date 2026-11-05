@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:24.240Z" hostname="vmd206980" time="0.31">
+  <properties/>
+  <testcase name="auto mode derives genres from the likes" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.228"/>
+  <testcase name="nothing happens without artists" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.003"/>
+  <testcase name="an already built week is skipped when only due work is asked for" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.003"/>
+  <testcase name="a failing taste read keeps the earlier genres" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.001"/>
+  <testcase name="a new week picks new uploads first" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.007"/>
+  <testcase name="one failing artist does not stop the others" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.002"/>
+  <testcase name="builds the playlist from qualifying uploads of all watched artists" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.027"/>
+  <testcase name="when every lookup fails the current list is kept and the failure is reported" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.019"/>
+  <testcase name="a manual genre drops uploads of another genre and counts them" classname="com.hardbasseq.eq.discovery.DiscoveryUpdaterTest" time="0.015"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

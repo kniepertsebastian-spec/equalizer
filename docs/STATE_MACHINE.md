@@ -50,7 +50,14 @@ Daraus folgt:
   Zustand deckt sowohl „Service läuft nicht/hört nicht zu" als auch „Service
   hört aktiv zu, aber keine Session gefunden" ab — das ist die Lücke, die
   Punkt 3 der Roadmap schließen soll.
-- **`AudioSessionForegroundService` läuft praktisch immer.**
+- **`AudioSessionForegroundService` läuft nicht mehr dauerhaft (seit 5. November
+  2026).** Ohne nutzbare Session und ohne sichtbare App beendet er sich nach
+  `SESSION_IDLE_TIMEOUT` (10 Minuten, `service/SessionIdleShutdown.kt`) selbst;
+  Benachrichtigung und Broadcast-Empfang verschwinden mit ihm. Als „ohne Session“
+  zählt auch eine Session, deren Engine im Zustand `Error` steht. Eine geöffnete App
+  (`MainActivity.onStart`) startet ihn wieder – ein Player, der danach eine Session
+  öffnet, wird also erst erkannt, wenn der EQ geöffnet wurde. Der folgende Absatz
+  beschreibt den Stand davor.
   `HardBassEqApplication.onCreate()` startet ihn unbedingt beim Prozessstart
   (`ContextCompat.startForegroundService(...)`, kein Bezug zu
   `masterEnabled`). `AudioSessionForegroundService.onCreate()` ruft sofort

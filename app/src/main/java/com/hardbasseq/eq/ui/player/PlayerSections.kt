@@ -42,7 +42,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
-import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.ui.theme.SonicAmber
 import com.hardbasseq.eq.ui.theme.SonicPaper
@@ -88,9 +87,9 @@ fun PlayerTabs(
 }
 
 // "SoundCloud ▾": the visible source switch. SoundCloud is the built-in player (this screen);
-// YouTube opens its own player screen; "other player" explains how Spotify & co. work.
+// "other player" explains how Spotify & co. work.
 @Composable
-fun SourceSelector(onSelectSource: (PlayerSource) -> Unit) {
+fun SourceSelector(onSelectSoundCloud: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var infoOpen by remember { mutableStateOf(false) }
     val current = stringResource(R.string.source_soundcloud)
@@ -109,14 +108,7 @@ fun SourceSelector(onSelectSource: (PlayerSource) -> Unit) {
                 trailingIcon = { Icon(Icons.Default.Check, contentDescription = null) },
                 onClick = {
                     menuOpen = false
-                    onSelectSource(PlayerSource.SOUNDCLOUD)
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.source_youtube_app)) },
-                onClick = {
-                    menuOpen = false
-                    onSelectSource(PlayerSource.YOUTUBE)
+                    onSelectSoundCloud()
                 },
             )
             DropdownMenuItem(

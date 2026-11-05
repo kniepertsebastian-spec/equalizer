@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.dsp.VolumeLevelMapperTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:47.378Z" hostname="vmd206980" time="0.008">
+  <properties/>
+  <testcase name="quieter level boosts bass more and never beyond the configured maximum" classname="com.hardbasseq.eq.dsp.VolumeLevelMapperTest" time="0.004"/>
+  <testcase name="no compensation when the preset disables it" classname="com.hardbasseq.eq.dsp.VolumeLevelMapperTest" time="0.0"/>
+  <testcase name="no compensation at or above the reference level" classname="com.hardbasseq.eq.dsp.VolumeLevelMapperTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

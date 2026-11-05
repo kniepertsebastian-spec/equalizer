@@ -1,5 +1,9 @@
 # M0 – Machbarkeits-Spike
 
+> **Stand 5. November 2026:** Der Spike-Code (`audio/spike/`, Spike-Oberfläche) wurde gelöscht,
+> siehe `docs/DECISIONS.md`. Dieses Dokument bleibt als Protokoll der Ergebnisse; den Code gibt es in der
+> Git-Historie (z. B. Commit `0cfd62e`).
+
 Status: **in Arbeit, CI grün.** Dieser erste Arbeitsdurchlauf deckt ausschließlich die
 in `roadmap.md` §16 ("Erste konkrete Aufgaben") aufgeführten Punkte ab. Der
 eigentliche Session-Attach-Spike (Anhängen von `Equalizer` an eine echte

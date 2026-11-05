@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.playlist.PlayerFormatTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.709Z" hostname="vmd206980" time="0.062">
+  <properties/>
+  <testcase name="upgrades soundcloud artwork size and leaves other urls alone" classname="com.hardbasseq.eq.playlist.PlayerFormatTest" time="0.008"/>
+  <testcase name="progress is clamped and zero for unknown duration" classname="com.hardbasseq.eq.playlist.PlayerFormatTest" time="0.0"/>
+  <testcase name="formats durations" classname="com.hardbasseq.eq.playlist.PlayerFormatTest" time="0.009"/>
+  <testcase name="formats how long ago an upload was" classname="com.hardbasseq.eq.playlist.PlayerFormatTest" time="0.045"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

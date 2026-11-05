@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.link.SpotifyImportPlanTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.180Z" hostname="vmd206980" time="0.154">
+  <properties/>
+  <testcase name="a block without any hit does not count as a written part" classname="com.hardbasseq.eq.link.SpotifyImportPlanTest" time="0.011"/>
+  <testcase name="batches of 100 until everything is done" classname="com.hardbasseq.eq.link.SpotifyImportPlanTest" time="0.0"/>
+  <testcase name="the next batch starts where the saved position is" classname="com.hardbasseq.eq.link.SpotifyImportPlanTest" time="0.0"/>
+  <testcase name="part count and names" classname="com.hardbasseq.eq.link.SpotifyImportPlanTest" time="0.009"/>
+  <testcase name="the key joins the playlist ids" classname="com.hardbasseq.eq.link.SpotifyImportPlanTest" time="0.0"/>
+  <testcase name="the state survives json and bad data reads as nothing pending" classname="com.hardbasseq.eq.link.SpotifyImportPlanTest" time="0.132"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

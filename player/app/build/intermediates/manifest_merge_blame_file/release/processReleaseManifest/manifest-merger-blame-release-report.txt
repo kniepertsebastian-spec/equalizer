@@ -1,0 +1,112 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.soundcloud.equalizer.player" >
+4
+5    <uses-sdk android:minSdkVersion="24" />
+5-->INJECTED
+5-->INJECTED
+6
+7    <uses-permission android:name="android.permission.INTERNET" />
+7-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:4:5-67
+7-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:4:22-64
+8    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+8-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:5:5-79
+8-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:5:22-76
+9    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+9-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:6:5-77
+9-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:6:22-74
+10    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+10-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:7:5-92
+10-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:7:22-89
+11    <!-- ExoPlayer setWakeMode: keep CPU and Wi-Fi awake while music streams with the screen off. -->
+12    <uses-permission android:name="android.permission.WAKE_LOCK" />
+12-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:9:5-68
+12-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:9:22-65
+13
+14    <application>
+14-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:11:5-64:19
+15
+16        <!--
+17          Not a launcher entry point - HardBass EQ's own MainActivity starts this
+18          explicitly (via PlayerBridge) once the user picks a source after switching
+19          the master bar on. Same-app now, so exported=false; the manifest merger
+20          folds this into HardBassEQ's single application, no separate app icon.
+21        -->
+22        <activity
+22-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:19:9-22:70
+23            android:name="com.soundcloud.equalizer.player.PlayerActivity"
+23-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:20:13-43
+24            android:exported="false"
+24-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:21:13-37
+25            android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
+25-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:22:13-67
+26
+27        <!--
+28          Needs an explicit AppCompat-descended theme, same as PlayerActivity above:
+29          with none set here it fell back to the merged app's own application theme
+30          (Theme.HardBassEQ, parent android:Theme.Material.Light.NoActionBar - not an
+31          AppCompat/Material Components theme). AppCompatActivity.setContentView()
+32          throws IllegalStateException("You need to use a Theme.AppCompat theme (or
+33          descendant) with this activity.") in that case, which crashed this activity
+34          immediately on every launch, before the WebView was ever created - looked
+35          from the outside like tapping Login did nothing and bounced straight back.
+36        -->
+37        <activity
+37-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:34:9-38:70
+38            android:name="com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity"
+38-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:35:13-57
+39            android:exported="false"
+39-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:36:13-37
+40            android:label="SoundCloud Login"
+40-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:37:13-45
+41            android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
+41-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:38:13-67
+42
+43        <!--
+44          Spotify sign-in: the browser is sent back to hardbasseq://spotify-callback (the redirect
+45          address registered in the user's Spotify developer app). Exported because the browser
+46          starts it; the sign-in state it checks keeps other apps from feeding it a code.
+47        -->
+48        <activity
+48-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:45:9-57:20
+49            android:name="com.soundcloud.equalizer.player.spotify.SpotifyLoginActivity"
+49-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:46:13-57
+50            android:exported="true"
+50-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:47:13-36
+51            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+51-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:48:13-72
+52            <intent-filter>
+52-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:49:13-56:29
+53                <action android:name="android.intent.action.VIEW" />
+53-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:50:17-69
+53-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:50:25-66
+54
+55                <category android:name="android.intent.category.DEFAULT" />
+55-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:51:17-76
+55-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:51:27-73
+56                <category android:name="android.intent.category.BROWSABLE" />
+56-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:52:17-78
+56-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:52:27-75
+57
+58                <data
+58-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:53:17-55:55
+59                    android:host="spotify-callback"
+59-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:55:21-52
+60                    android:scheme="hardbasseq" />
+60-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:54:21-48
+61            </intent-filter>
+62        </activity>
+63
+64        <service
+64-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:59:9-63:61
+65            android:name="com.soundcloud.equalizer.player.service.AudioPlayerService"
+65-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:60:13-55
+66            android:enabled="true"
+66-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:61:13-35
+67            android:exported="false"
+67-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:62:13-37
+68            android:foregroundServiceType="mediaPlayback" />
+68-->/home/basti/equalizer/player/app/src/main/AndroidManifest.xml:63:13-58
+69    </application>
+70
+71</manifest>

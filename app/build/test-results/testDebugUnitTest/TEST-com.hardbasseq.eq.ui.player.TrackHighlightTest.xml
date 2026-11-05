@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.ui.player.TrackHighlightTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:27.382Z" hostname="vmd206980" time="0.002">
+  <properties/>
+  <testcase name="the playing track is current even if it was played before" classname="com.hardbasseq.eq.ui.player.TrackHighlightTest" time="0.001"/>
+  <testcase name="only played tracks are dimmed" classname="com.hardbasseq.eq.ui.player.TrackHighlightTest" time="0.0"/>
+  <testcase name="nothing is current when nothing plays" classname="com.hardbasseq.eq.ui.player.TrackHighlightTest" time="0.001"/>
+  <testcase name="an earlier track is played and an untouched one is new" classname="com.hardbasseq.eq.ui.player.TrackHighlightTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,7 +1,6 @@
 package com.hardbasseq.eq.ui
 
 import android.content.Intent
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
@@ -56,10 +55,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.hardbasseq.eq.BuildConfig
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
-import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
@@ -77,7 +74,6 @@ import com.soundcloud.equalizer.player.playback.NowPlaying
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
-    spikeController: SessionAttachSpikeController,
     onNavigateToDiagnostics: () -> Unit = {},
     onOpenFullPlayer: () -> Unit = {},
     onOpenServices: () -> Unit = {},
@@ -113,7 +109,6 @@ fun MainScreen(
     val compare by viewModel.compare.collectAsStateWithLifecycle()
     // Leaving the equalizer ends a running Original/EQ comparison, so the next track is not heard "as original" by accident.
     DisposableEffect(Unit) { onDispose { viewModel.endCompare() } }
-    var showSpikeSection by remember { mutableStateOf(false) }
     var showMoreTools by rememberSaveable { mutableStateOf(false) }
     var showSaveAsNewDialog by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Preset?>(null) }
@@ -144,20 +139,6 @@ fun MainScreen(
                 uri.lastPathSegment?.substringAfterLast('/')?.substringBeforeLast('.')
                     ?: resources.getString(R.string.imported_profile_default)
             viewModel.previewCorrectionProfileImport(sourceName, text)
-        }
-
-    val exportDesktopProfileLauncher =
-        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-            if (uri != null) {
-                runCatching {
-                    val profileJson = viewModel.exportDesktopSoundProfileJson()
-                    context.contentResolver
-                        .openOutputStream(uri)
-                        ?.bufferedWriter()
-                        ?.use { it.write(profileJson) }
-                        ?: error(resources.getString(R.string.export_file_open_failed))
-                }.onFailure { Toast.makeText(context, resources.getString(R.string.export_failed, it.message), Toast.LENGTH_LONG).show() }
-            }
         }
 
     if (showSourcePicker) {
@@ -387,27 +368,12 @@ fun MainScreen(
                         Text(stringResource(R.string.diagnostics_button))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(onClick = { exportDesktopProfileLauncher.launch("HardBassEQ-Desktop.json") }) {
-                        Text(stringResource(R.string.export_desktop_profile))
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(onClick = { viewModel.toggleDebugEffects() }) {
                         Text(
                             stringResource(
                                 if (showDebugEffects) R.string.hide_debug_effects else R.string.show_debug_effects,
                             ),
                         )
-                    }
-                    // The M0 session-attach spike is throwaway diagnostic code (docs/ARCHITECTURE.md): debug builds only.
-                    if (BuildConfig.DEBUG) {
-                        Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedButton(onClick = { showSpikeSection = !showSpikeSection }) {
-                            Text(
-                                stringResource(
-                                    if (showSpikeSection) R.string.hide_spike_section else R.string.show_spike_section,
-                                ),
-                            )
-                        }
                     }
                 }
             }
@@ -424,12 +390,6 @@ fun MainScreen(
                             }
                         }
                     }
-                }
-            }
-
-            if (BuildConfig.DEBUG && showSpikeSection) {
-                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                    SessionAttachSpikeSection(controller = spikeController)
                 }
             }
         }
@@ -451,8 +411,8 @@ private fun PlayerSourcePickerDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = { onSourceChosen(PlayerSource.YOUTUBE) }) {
-                Text(stringResource(R.string.source_youtube))
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
             }
         },
     )

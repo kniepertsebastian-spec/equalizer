@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.soundcloud.equalizer.player" >
+
+    <uses-sdk android:minSdkVersion="24" />
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- ExoPlayer setWakeMode: keep CPU and Wi-Fi awake while music streams with the screen off. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <application>
+
+        <!--
+          Not a launcher entry point - HardBass EQ's own MainActivity starts this
+          explicitly (via PlayerBridge) once the user picks a source after switching
+          the master bar on. Same-app now, so exported=false; the manifest merger
+          folds this into HardBassEQ's single application, no separate app icon.
+        -->
+        <activity
+            android:name="com.soundcloud.equalizer.player.PlayerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
+
+        <!--
+          Needs an explicit AppCompat-descended theme, same as PlayerActivity above:
+          with none set here it fell back to the merged app's own application theme
+          (Theme.HardBassEQ, parent android:Theme.Material.Light.NoActionBar - not an
+          AppCompat/Material Components theme). AppCompatActivity.setContentView()
+          throws IllegalStateException("You need to use a Theme.AppCompat theme (or
+          descendant) with this activity.") in that case, which crashed this activity
+          immediately on every launch, before the WebView was ever created - looked
+          from the outside like tapping Login did nothing and bounced straight back.
+        -->
+        <activity
+            android:name="com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity"
+            android:exported="false"
+            android:label="SoundCloud Login"
+            android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
+
+        <!--
+          Spotify sign-in: the browser is sent back to hardbasseq://spotify-callback (the redirect
+          address registered in the user's Spotify developer app). Exported because the browser
+          starts it; the sign-in state it checks keeps other apps from feeding it a code.
+        -->
+        <activity
+            android:name="com.soundcloud.equalizer.player.spotify.SpotifyLoginActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" >
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:host="spotify-callback"
+                    android:scheme="hardbasseq" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name="com.soundcloud.equalizer.player.service.AudioPlayerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+    </application>
+
+</manifest>

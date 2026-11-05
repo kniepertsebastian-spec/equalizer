@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.playlist.PlaylistEditingTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.778Z" hostname="vmd206980" time="0.03">
+  <properties/>
+  <testcase name="a blank name creates nothing" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.017"/>
+  <testcase name="an imported playlist is not local" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.005"/>
+  <testcase name="merging keeps the order and each track once" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.002"/>
+  <testcase name="merging nothing or with a blank name makes nothing" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.001"/>
+  <testcase name="adds a track once" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.0"/>
+  <testcase name="ids stay unique when two playlists are made in the same millisecond" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.002"/>
+  <testcase name="removes a track" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.001"/>
+  <testcase name="an over long name is shortened" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.0"/>
+  <testcase name="can start with a first track" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.0"/>
+  <testcase name="creates a local playlist with a trimmed name" classname="com.hardbasseq.eq.playlist.PlaylistEditingTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -27,7 +27,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hardbasseq.eq.R
-import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
 import com.hardbasseq.eq.ui.MainScreen
 import com.hardbasseq.eq.ui.diagnostics.DiagnosticsScreen
 import com.hardbasseq.eq.ui.main.MainViewModel
@@ -42,10 +41,7 @@ const val ROUTE_PLAYER = "player"
 const val ROUTE_SERVICES = "services"
 
 @Composable
-fun AppNavHost(
-    spikeController: SessionAttachSpikeController,
-    playerViewModel: PlayerViewModel,
-) {
+fun AppNavHost(playerViewModel: PlayerViewModel) {
     val navController = rememberNavController()
     // Hoisted above NavHost so Home and Diagnostics share one MainViewModel
     // instance instead of each route creating its own via hiltViewModel():
@@ -115,7 +111,6 @@ fun AppNavHost(
             composable(ROUTE_HOME) {
                 MainScreen(
                     viewModel = viewModel,
-                    spikeController = spikeController,
                     onNavigateToDiagnostics = { navController.navigate(ROUTE_DIAGNOSTICS) },
                     onOpenFullPlayer = { navigateTo(ROUTE_PLAYER) },
                     onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
@@ -136,7 +131,6 @@ fun AppNavHost(
                         processingSettings = processingSettings,
                         onOpenEqualizer = { navigateTo(ROUTE_HOME) },
                         onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
-                        onSelectSource = { viewModel.choosePlayerSource(it) },
                         soundName = activePreset.name,
                         soundCurve = activePreset.targetCurve,
                     )

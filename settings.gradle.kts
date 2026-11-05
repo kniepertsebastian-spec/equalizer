@@ -20,7 +20,6 @@ rootProject.name = "HardBassEQ"
 
 include(":app")
 include(":core")
-include(":desktop")
 
 // SC Equalizer Player: companion app that plays SoundCloud (and, later,
 // YouTube) so HardBass EQ has a cooperating session to attach to - see

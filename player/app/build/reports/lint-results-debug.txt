@@ -1,0 +1,400 @@
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:3: Warning: Attribute fontStyle is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_regular" android:fontStyle="normal" android:fontWeight="400" />
+                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:3: Warning: Attribute fontWeight is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_regular" android:fontStyle="normal" android:fontWeight="400" />
+                                                                         ~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:3: Warning: Attribute font is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_regular" android:fontStyle="normal" android:fontWeight="400" />
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:4: Warning: Attribute fontStyle is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_medium" android:fontStyle="normal" android:fontWeight="500" />
+                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:4: Warning: Attribute fontWeight is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_medium" android:fontStyle="normal" android:fontWeight="500" />
+                                                                        ~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:4: Warning: Attribute font is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_medium" android:fontStyle="normal" android:fontWeight="500" />
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:5: Warning: Attribute fontStyle is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_semibold" android:fontStyle="normal" android:fontWeight="600" />
+                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:5: Warning: Attribute fontWeight is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_semibold" android:fontStyle="normal" android:fontWeight="600" />
+                                                                          ~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/font/barlow.xml:5: Warning: Attribute font is only used in API level 26 and higher (current min is 24) [UnusedAttribute]
+    <font android:font="@font/barlow_semibold" android:fontStyle="normal" android:fontWeight="600" />
+          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnusedAttribute":
+   This check finds attributes set in XML files that were introduced in a
+   version newer than the oldest version targeted by your application (with
+   the minSdkVersion attribute).
+
+   This is not an error; the application will simply ignore the attribute.
+   However, if the attribute is important to the appearance or functionality
+   of your application, you should consider finding an alternative way to
+   achieve the same result with only available attributes, and then you can
+   optionally create a copy of the layout in a layout-vNN folder which will be
+   used on API NN or higher where you can take advantage of the newer
+   attribute.
+
+   Note: This check does not only apply to attributes. For example, some tags
+   can be unused too, such as the new <tag> element in layouts introduced in
+   API 21.
+
+/home/basti/equalizer/player/app/build.gradle.kts:52: Warning: A newer version of androidx.core:core-ktx than 1.13.1 is available: 1.19.1 [GradleDependency]
+    implementation("androidx.core:core-ktx:1.13.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:53: Warning: A newer version of androidx.appcompat:appcompat than 1.7.0 is available: 1.8.0 [GradleDependency]
+    implementation("androidx.appcompat:appcompat:1.7.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:54: Warning: A newer version of com.google.android.material:material than 1.12.0 is available: 1.14.0 [GradleDependency]
+    implementation("com.google.android.material:material:1.12.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:55: Warning: A newer version of androidx.constraintlayout:constraintlayout than 2.1.4 is available: 2.2.2 [GradleDependency]
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:56: Warning: A newer version of androidx.webkit:webkit than 1.11.0 is available: 1.18.0 [GradleDependency]
+    implementation("androidx.webkit:webkit:1.11.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:65: Warning: A newer version of androidx.media:media than 1.7.0 is available: 1.8.0 [GradleDependency]
+    implementation("androidx.media:media:1.7.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:75: Warning: A newer version of androidx.test.ext:junit than 1.1.5 is available: 1.3.0 [GradleDependency]
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:76: Warning: A newer version of androidx.test.espresso:espresso-core than 3.5.1 is available: 3.7.0 [GradleDependency]
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+/home/basti/equalizer/player/app/build.gradle.kts:68: Warning: A newer version of com.squareup.okhttp3:okhttp than 4.12.0 is available: 5.5.1 [NewerVersionAvailable]
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:73: Warning: A newer version of org.json:json than 20240303 is available: 20260814 [NewerVersionAvailable]
+    testImplementation("org.json:json:20240303")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:74: Warning: A newer version of org.mockito:mockito-core than 5.11.0 is available: 5.24.0 [NewerVersionAvailable]
+    testImplementation("org.mockito:mockito-core:5.11.0")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NewerVersionAvailable":
+   This detector checks with a central repository to see if there are newer
+   versions available for the dependencies used by this project. This is
+   similar to the GradleDependency check, which checks for newer versions
+   available in the Android SDK tools and libraries, but this works with any
+   MavenCentral dependency, and connects to the library every time, which
+   makes it more flexible but also much slower.
+
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt:70: Error: WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST can only be accessed from within the same library group (referenced groupId=androidx.webkit from groupId=HardBassEQ) [RestrictedApi]
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                                                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "RestrictedApi":
+   This API has been flagged with a restriction that has not been met.
+
+   Examples of API restrictions:
+   * Method can only be invoked by a subclass
+   * Method can only be accessed from within the same library (defined by the
+   Gradle library group id)
+   * Method can only be accessed from tests.
+
+   You can add your own API restrictions with the @RestrictTo annotation.
+
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:91: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+    private var currentAudioSessionId: Int = C.AUDIO_SESSION_ID_UNSET
+                                               ~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:146: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        exoPlayer = ExoPlayer.Builder(this, buildRenderersFactory())
+                              ~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:187: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        currentAudioSessionId = exoPlayer?.audioSessionId ?: C.AUDIO_SESSION_ID_UNSET
+                                           ~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:187: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        currentAudioSessionId = exoPlayer?.audioSessionId ?: C.AUDIO_SESSION_ID_UNSET
+                                                               ~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:296: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        val sessionId = exoPlayer?.audioSessionId ?: C.AUDIO_SESSION_ID_UNSET
+                                   ~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:296: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        val sessionId = exoPlayer?.audioSessionId ?: C.AUDIO_SESSION_ID_UNSET
+                                                       ~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:297: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        if (sessionId != C.AUDIO_SESSION_ID_UNSET && (!isAudioSessionActive || currentAudioSessionId != sessionId)) {
+                           ~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:316: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        if (isAudioSessionActive && currentAudioSessionId != C.AUDIO_SESSION_ID_UNSET) {
+                                                               ~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:489: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        return exoPlayer?.audioSessionId ?: C.AUDIO_SESSION_ID_UNSET
+                          ~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:489: Error: This declaration is opt-in and its usage should be marked with @androidx.media3.common.util.UnstableApi or @OptIn(markerClass = androidx.media3.common.util.UnstableApi.class) [UnsafeOptInUsageError from androidx.annotation.experimental]
+        return exoPlayer?.audioSessionId ?: C.AUDIO_SESSION_ID_UNSET
+                                              ~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UnsafeOptInUsageError":
+   This API has been flagged as opt-in with error-level severity.
+
+   Any declaration annotated with this marker is considered part of an
+   unstable or
+   otherwise non-standard API surface and its call sites should accept the
+   opt-in
+   aspect of it by using the @OptIn annotation, using the marker annotation
+   --
+   effectively causing further propagation of the opt-in aspect -- or
+   configuring
+   the UnsafeOptInUsageError check's options for project-wide opt-in.
+
+   To configure project-wide opt-in, specify the opt-in option value in
+   lint.xml
+   as a comma-delimited list of opted-in annotations:
+
+   <lint>
+       <issue id="UnsafeOptInUsageError">
+           <option name="opt-in" value="com.foo.ExperimentalBarAnnotation" />
+       </issue>
+   </lint>
+
+   Vendor: Android Open Source Project
+   Identifier: androidx.annotation.experimental
+   Feedback: https://issuetracker.google.com/issues/new?component=459778
+
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/ui/TrackAdapter.kt:21: Warning: It will always be more efficient to use more specific change events if you can. Rely on notifyDataSetChanged as a last resort. [NotifyDataSetChanged]
+        notifyDataSetChanged()
+        ~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "NotifyDataSetChanged":
+   The RecyclerView adapter's onNotifyDataSetChanged method does not specify
+   what about the data set has changed, forcing any observers to assume that
+   all existing items and structure may no longer be valid. `LayoutManager`s
+   will be forced to fully rebind and relayout all visible views.
+
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:476: Warning: Unnecessary; SDK_INT is always >= 24 [ObsoleteSdkInt]
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "ObsoleteSdkInt":
+   This check flags version checks that are not necessary, because the
+   minSdkVersion (or surrounding known API level) is already at least as high
+   as the version checked for.
+
+   Similarly, it also looks for resources in -vNN folders, such as values-v14
+   where the version qualifier is less than or equal to the minSdkVersion,
+   where the contents should be merged into the best folder.
+
+/home/basti/equalizer/player/app/src/main/res/layout/activity_player.xml:7: Warning: Possible overdraw: Root element paints background @color/sonic_graphite with a theme that also paints a background (inferred theme is @android:style/Theme.Holo) [Overdraw]
+    android:background="@color/sonic_graphite">
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/res/layout/item_track_playlist.xml:9: Warning: Possible overdraw: Root element paints background @color/sonic_graphite_raised with a theme that also paints a background (inferred theme is @android:style/Theme.Holo) [Overdraw]
+    android:background="@color/sonic_graphite_raised"
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "Overdraw":
+   If you set a background drawable on a root view, then you should use a
+   custom theme where the theme background is null. Otherwise, the theme
+   background will be painted first, only to have your custom background
+   completely cover it; this is called "overdraw".
+
+   NOTE: This detector relies on figuring out which layouts are associated
+   with which activities based on scanning the Java code, and it's currently
+   doing that using an inexact pattern matching algorithm. Therefore, it can
+   incorrectly conclude which activity the layout is associated with and then
+   wrongly complain that a background-theme is hidden.
+
+   If you want your custom background on multiple pages, then you should
+   consider making a custom theme with your custom background and just using
+   that theme instead of a root element background.
+
+   Of course it's possible that your custom drawable is translucent and you
+   want it to be mixed with the background. However, you will get better
+   performance if you pre-mix the background with your drawable and use that
+   resulting image or color as a custom theme background instead.
+
+/home/basti/equalizer/player/app/src/main/res/values/strings.xml:57: Warning: Replace "..." with ellipsis character (…, &#8230;) ? [TypographyEllipsis]
+    <string name="layout_search_hint">Search tracks or playlists...</string>
+                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "TypographyEllipsis":
+   You can replace the string "..." with a dedicated ellipsis character,
+   ellipsis character (u2026, &#8230;). This can help make the text more
+   readable.
+
+   https://en.wikipedia.org/wiki/Ellipsis
+
+/home/basti/equalizer/player/app/src/main/res/layout/activity_player.xml:44: Warning: Missing autofillHints attribute [Autofill]
+        <EditText
+         ~~~~~~~~
+
+   Explanation for issues of type "Autofill":
+   Specify an autofillHints attribute when targeting SDK version 26 or higher
+   or explicitly specify that the view is not important for autofill. Your app
+   can help an autofill service classify the data correctly by providing the
+   meaning of each view that could be autofillable, such as views representing
+   usernames, passwords, credit card fields, email addresses, etc.
+
+   The hints can have any value, but it is recommended to use predefined
+   values like 'username' for a username or 'creditCardNumber' for a credit
+   card number. For a list of all predefined autofill hint constants, see the
+   AUTOFILL_HINT_ constants in the View reference at
+   https://developer.android.com/reference/android/view/View.html.
+
+   You can mark a view unimportant for autofill by specifying an
+   importantForAutofill attribute on that view or a parent view. See
+   https://developer.android.com/reference/android/view/View.html#setImportant
+   ForAutofill(int).
+
+   https://developer.android.com/guide/topics/text/autofill.html
+
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/service/AudioPlayerService.kt:406: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+            .setArtworkUri(currentArtworkUrl?.let { Uri.parse(it) })
+                                                    ~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/playback/PlayerDspState.kt:63: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        context.applicationContext
+        ^
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt:54: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().putString(KEY_OAUTH_TOKEN, token).apply()
+            ~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/auth/SoundCloudLoginActivity.kt:59: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs.edit().remove(KEY_OAUTH_TOKEN).apply()
+            ~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt:44: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_CLIENT_ID, id.trim()).apply()
+        ~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt:56: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().putString(KEY_VERIFIER, verifier).putString(KEY_STATE, state).apply()
+        ~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt:58: Warning: Use the KTX extension function String.toUri instead? [UseKtx]
+        return Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                          ~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt:71: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+                prefs.edit().remove(KEY_STATE).remove(KEY_VERIFIER).apply()
+                ~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt:95: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+        prefs.edit().remove(KEY_ACCESS).remove(KEY_REFRESH).remove(KEY_EXPIRES).apply()
+        ~~~~~~~~~~~~
+/home/basti/equalizer/player/app/src/main/java/com/soundcloud/equalizer/player/spotify/SpotifyApiClient.kt:175: Warning: Use the KTX extension function SharedPreferences.edit instead? [UseKtx]
+            prefs
+            ^
+
+   Explanation for issues of type "UseKtx":
+   The Android KTX libraries decorates the Android platform SDK as well as
+   various libraries with more convenient extension functions available from
+   Kotlin, allowing you to use default parameters, named parameters, and
+   more.
+
+   Available options:
+
+   **remove-defaults** (default is true):
+   Whether to skip arguments that match the defaults provided by the extension.
+
+   Extensions often provide default values for some of the parameters. For example:
+   ```kotlin
+   fun Path.readLines(charset: Charset = Charsets.UTF_8): List<String> { return Files.readAllLines(this, charset) }
+   ```
+   This lint check will by default automatically omit parameters that match the default, so if your code was calling
+
+   ```kotlin
+   Files.readAllLines(file, Charset.UTF_8)
+   ```
+   lint would replace this with
+   ```kotlin
+   file.readLines()
+   ```
+   rather than
+
+   ```kotlin
+   file.readLines(Charset.UTF_8
+   ```
+   You can turn this behavior off using this option.
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="remove-defaults" value="true" />
+       </issue>
+   </lint>
+   ```
+
+   **require-present** (default is true):
+   Whether to only offer extensions already available.
+
+   This option lets you only have lint suggest extension replacements if those extensions are already available on the class path (in other words, you're already depending on the library containing the extension method.)
+
+   To configure this option, use a `lint.xml` file with an <option> like this:
+
+   ```xml
+   <lint>
+       <issue id="UseKtx">
+           <option name="require-present" value="true" />
+       </issue>
+   </lint>
+   ```
+
+/home/basti/equalizer/player/app/build.gradle.kts:52: Warning: Use version catalog instead (androidx.core:core-ktx is already available as core-ktx, but using version 1.16.0 instead) [UseTomlInstead]
+    implementation("androidx.core:core-ktx:1.13.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:53: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.appcompat:appcompat:1.7.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:54: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("com.google.android.material:material:1.12.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:55: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:56: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.webkit:webkit:1.11.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:59: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:61: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:62: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.media3:media3-ui:1.11.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:63: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("androidx.media3:media3-session:1.11.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:65: Warning: Use the existing version catalog reference (libs.media) instead [UseTomlInstead]
+    implementation("androidx.media:media:1.7.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:68: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:69: Warning: Use version catalog instead [UseTomlInstead]
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:71: Warning: Use the existing version catalog reference (libs.junit) instead [UseTomlInstead]
+    testImplementation("junit:junit:4.13.2")
+                       ~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:73: Warning: Use version catalog instead [UseTomlInstead]
+    testImplementation("org.json:json:20240303")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:74: Warning: Use version catalog instead [UseTomlInstead]
+    testImplementation("org.mockito:mockito-core:5.11.0")
+                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:75: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.test.ext:junit:1.1.5")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/basti/equalizer/player/app/build.gradle.kts:76: Warning: Use version catalog instead [UseTomlInstead]
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "UseTomlInstead":
+   If your project is using a libs.versions.toml file, you should place all
+   Gradle dependencies in the TOML file. This lint check looks for version
+   declarations outside of the TOML file and suggests moving them (and in the
+   IDE, provides a quickfix to performing the operation automatically).
+
+11 errors, 53 warnings

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.link.SpotifyImportLedgerTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.032Z" hostname="vmd206980" time="0.141">
+  <properties/>
+  <testcase name="recording adds to what is there and the oldest sources go first" classname="com.hardbasseq.eq.link.SpotifyImportLedgerTest" time="0.031"/>
+  <testcase name="songs that were not found are tried again" classname="com.hardbasseq.eq.link.SpotifyImportLedgerTest" time="0.005"/>
+  <testcase name="json round trip and bad data" classname="com.hardbasseq.eq.link.SpotifyImportLedgerTest" time="0.078"/>
+  <testcase name="a song whose playlist was deleted comes back" classname="com.hardbasseq.eq.link.SpotifyImportLedgerTest" time="0.001"/>
+  <testcase name="songs imported before are skipped while their track is still in a playlist" classname="com.hardbasseq.eq.link.SpotifyImportLedgerTest" time="0.001"/>
+  <testcase name="another source or case and spacing differences" classname="com.hardbasseq.eq.link.SpotifyImportLedgerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -570,7 +570,7 @@ SoundCloud das Token für Schreibzugriffe annimmt und das genaue Antwortformat.
 
 ### UX-Roadmap Schritt 1+2: Navigation, Quellenwahl, Player-Bereiche (2. Oktober 2026)
 
-Umsetzung der P0-Punkte aus `roadmap-ux.md` (Kopie im Ordner „roadmaps and documentations“).
+Umsetzung der P0-Punkte aus `docs/roadmap-ux.md` (früher im Ordner „roadmaps and documentations“, seit 5. November 2026 in `docs/`).
 
 - **Hauptnavigation:** untere Leiste mit **Player** und **Equalizer** (`AppNavHost`). Start ist der Player,
   weil dort Suche, Playlists und Warteschlange liegen. Die Leiste ist im Diagnose-Bildschirm ausgeblendet.
@@ -705,3 +705,23 @@ Navigation zurück.
   Root-/Magisk-Effekte – widersprechen „Zuverlässigkeit vor Funktionsmenge“.
 - Die Entscheidung zum Pre-EQ als Standard (Roadmap C2/C3) steht aus, bis die Messung in `docs/TEST_MATRIX.md` (C2) vorliegt.
 
+
+## Antworten auf die offene Fragenliste (5. November 2026)
+Grundlage: `open_questions.md` (Review zu PR #61), Antworten von Sebastian. Umsetzung dieser Session:
+
+| # | Entscheidung | Umsetzung |
+|---|---|---|
+| 15 | Android Auto / Hintergrund-Worker weckt die App: Sebastian testet selbst, sobald die Liste durch ist. | Offen (Gerätetest, `docs/TEST_MATRIX.md` K22). |
+| 16 | Die SoundCloud-/Spotify-Anmeldung soll eine Wiederherstellung auf einem neuen Gerät überleben. | `backup_rules.xml` und `data_extraction_rules.xml` schließen die Token nicht mehr aus. Die Cloud-Sicherung wird auf Geräten ohne Sperrbildschirm ausgelassen (`disableIfNoEncryptionCapabilities`), damit die Token nie unverschlüsselt hochgeladen werden. Gerätetest offen (K23). |
+| 17 | Der inoffizielle SoundCloud-Zugang bleibt (WebView-Login, `client_id`-Scraping, manueller Cookie): es gibt keinen anderen Weg, SoundCloud mit dem eigenen Player zu hören. | Keine Änderung. Bricht SoundCloud den Zugang, fällt nur der eigene Player aus; EQ für fremde Apps bleibt. |
+| 18 | Verteilung: privat über GitHub-Releases, Play Store ungeplant. | Keine Änderung; `REQUEST_INSTALL_PACKAGES` (App-Update) und der SoundCloud-Weg bleiben. |
+| 19 | Keystore-Verschlüsselung der Token ist nicht nötig. | Keine Änderung. |
+| 20 | R8/Minify nur, wenn es klanglich etwas bringt. R8 verkleinert und optimiert nur Bytecode; die DSP-Rechnung bleibt dieselbe, es gibt keinen Klangunterschied. | Bleibt aus (`isMinifyEnabled = false`). Gewinn wäre nur eine kleinere APK, das Risiko sind Abstürze durch fehlende Keep-Regeln, die nur ein Gerätetest zeigt. |
+| 21 | Der Dienst soll nicht dauerhaft laufen: ohne erkannte Session über Zeit schließt sich der EQ. | `AudioSessionForegroundService` beendet sich nach `SESSION_IDLE_TIMEOUT` (10 Minuten) ohne nutzbare Session, solange keine App-Seite sichtbar ist (`service/SessionIdleShutdown.kt`, `AppVisibility`). Eine Session im Zustand `Error` zählt als keine. Folge: Öffnet ein Player danach eine Session, wird sie erst erkannt, wenn der EQ geöffnet wurde. Gerätetest offen (K24). |
+| 22 | Room auf stabile Version, Player-Bibliotheken anheben; bei Klangverlust nicht. | Room 2.7.0-alpha13 → 2.8.5 (Schema-Hash von `2.json` unverändert), media3 1.3.1 → 1.11.1, coroutines 1.8.0 → 1.11.0. okhttp bleibt auf 4.12.0 (letzte 4.x-Version; 5.x ist ein Major-Sprung ohne Klangbezug). Room und okhttp berühren den Klang nicht; media3 ist der Audiopfad des eigenen Players, der eigene `PlayerDspAudioProcessor` wurde nicht verändert. Hörtest offen (K25). |
+| 23 | YouTube als Quelle entfällt (YouTube Music funktioniert ohnehin über die App selbst). | `PlayerSource.YOUTUBE`, Menüeintrag „YouTube app“, Dialogknopf und Platzhalter in `PlayerActivity` gelöscht. Die YouTube-Link-Brücke (Titel eines geteilten Links auf SoundCloud suchen) bleibt, sie ist ein anderes Feature. |
+| 24 | Spike-Code raus, wenn er keinen Nutzen hat. | `audio/spike/`, `SessionAttachSpikeSection` und `TransientShaper` (ohne Nutzer) gelöscht. `FakeAudioEngine` liegt jetzt in `src/test`, weil Tests ihn brauchen. **Achtung:** Der Sweep-Generator und der Testton aus den Spikes waren das Werkzeug für die Pre-EQ-Messung C2; sie sind in der Git-Historie (Commit `0cfd62e`) wiederzufinden. |
+| 25 | Desktop-Modul (EasyEffects/Equalizer-APO): Der Traum, den EQ am Rechner wie auf Android zu nutzen, klappt nicht und wird nicht mehr gepflegt. | `desktop/`, der Export-Knopf „Export desktop profile“, `PortableSoundProfile` und die CI-/Gradle-Verweise gelöscht. |
+| 26 | Ein Root-README anlegen, doppelte Doku löschen. | `README.md` im Root. `docs/` ist maßgeblich; der Ordner „roadmaps and documentations“ enthielt nur (teils veraltete) Kopien und ist weg, seine drei einzigartigen Roadmaps (`roadmap-ux.md`, `roadmap-private.md`, `roadmap-private-status.md`) liegen jetzt in `docs/`. |
+| 27 | `<queries>` mit Launcher-Apps: Sebastian braucht es, „um die richtigen Prozesse für Tonspuren abzufangen“. | Bleibt. Klarstellung: Die Sessions kommen per Broadcast (mit Paketname), `<queries>` wird nur gebraucht, um daraus den App-Namen für die Liste zu lesen (`AudioSourceList`). Für den Play Store wäre eine feste Paketliste bekannter Musik-Apps die engere Alternative; bei privater Verteilung nicht nötig. |
+| 28 | Limiter testet Sebastian praktisch bei jeder Autofahrt. „Anhängen an Fremd-Sessions“ war ihm unklar. | Gemeint ist der Normalfall des EQs: Spotify & Co. melden ihre Audio-Session per Broadcast, der EQ hängt Equalizer/DynamicsProcessing daran. Welche Apps und welche Geräte das zuverlässig tun, steht in `docs/TEST_MATRIX.md`. Offen: welches Telefon und welche Apps im Auto. |

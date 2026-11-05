@@ -535,7 +535,7 @@ prüfbar (Netzwerk, Audio, Systemdialoge):
 | T3 | „Alle zu SoundCloud“ | alle nicht leeren Playlists drüben; nicht angemeldet → Hinweis zur Anmeldung |
 | N1 | App starten | Startet im Player; unten Leiste „Player“ / „Equalizer“; Wechsel hält Wiedergabe und Zustand |
 | N2 | Player → Tab „Suchen“, Begriff eingeben, „Suchen“ | Treffer erscheinen, Tipp startet den Titel; ohne Treffer Hinweis; ohne Netz Fehlermeldung + „Erneut versuchen“ |
-| N3 | Quellenwähler „SoundCloud ▾“ | Menü mit SoundCloud, YouTube, Anderer Player; YouTube öffnet den YouTube-Player; „Anderer Player“ zeigt Erklärung |
+| N3 | Quellenwähler „SoundCloud ▾“ | Menü mit SoundCloud und Anderer Player (YouTube-Quelle seit 5. November 2026 entfernt); „Anderer Player“ zeigt Erklärung |
 | N4 | Tab „Playlists“: Link einfügen/teilen | geteilter Link öffnet „Playlists“; importierte Liste steht darunter |
 | N5 | Tab „Warteschlange“ leer / gefüllt | leer: Erklärung + „Zur Suche“; gefüllt: Anzahl, laufender Titel, Liste |
 | N6 | EQ aus/Bypass/ohne Wiedergabe/mit Wiedergabe | Player zeigt „EQ ist aus“ / „Wartet auf Wiedergabe“ / „EQ aktiv für SoundCloud“, nie „aktiv“ ohne Bestätigung |
@@ -577,9 +577,20 @@ trifft, keine neuen Knackser auftreten und Attach nicht schlechter wird. Ergebni
 
 | Prüfung | Klassisch | Pre-EQ | Notiz |
 |---|---|---|---|
-| Sweep über die Spike-Werkzeuge (`audio/spike/TestTonePlayer.kt` mit `LogarithmicSweepGenerator`, Aufnahme z. B. mit zweitem Handy + REW/Spektrum-App): Abweichung zur Zielkurve bei 40/75/100/200 Hz, Car-Modus | | | |
+| Sweep (die Spike-Werkzeuge `TestTonePlayer` + `LogarithmicSweepGenerator` wurden am 5. November 2026 gelöscht, Stand in der Git-Historie bei `0cfd62e`; alternativ eine Sweep-Datei in einem Player, der eine Audio-Session meldet; Aufnahme z. B. mit zweitem Handy + REW/Spektrum-App): Abweichung zur Zielkurve bei 40/75/100/200 Hz, Car-Modus | | | |
 | Dasselbe, Box-Modus | | | |
 | Knackser beim Preset-/Modus-Wechsel während Wiedergabe | | | |
 | Attach klappt bei Spotify (10 Starts) | | | |
 | CPU/Akku 30 min Spotify | | | |
 | Höreindruck Auto / Box | | | |
+
+## Gerätetests nach der Fragenliste (5. November 2026)
+
+Ausführender: Sebastian (Gerät).
+
+| # | Prüfung | Erwartung |
+|---|---|---|
+| K22 | 👤 Android Auto verbinden bzw. den Hintergrund-Worker laufen lassen, App war nicht offen | Prozess startet ohne Absturz; der Dienst startet oder wird sauber abgelehnt (Diagnose: „Foreground start rejected“), kein „stürzt häufig ab“-Hinweis von Samsung (offen) |
+| K23 | 👤 Wiederherstellung auf einem neuen/zurückgesetzten Gerät (Cloud oder Kabel) | Presets, Playlists und SoundCloud-/Spotify-Anmeldung sind da; kein neuer Login nötig (offen) |
+| K24 | 👤 Spotify spielen, beenden, App schließen, 10 Minuten warten | Benachrichtigung „HardBass EQ is listening“ verschwindet nach ca. 10 Minuten; Diagnose zeigt „stopping the service“. Mit geöffneter App oder offener Session verschwindet sie nicht (offen) |
+| K25 | 👤 Eigener Player: SoundCloud-Titel mit viel Bass hören, auch im Auto (Android Auto: Browser und Wiedergabe) | Klang wie vorher, keine Aussetzer; Auto zeigt Titel und Steuerung (media3 1.11.1, Room 2.8.5; offen) |

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorderTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:24.213Z" hostname="vmd206980" time="0.013">
+  <properties/>
+  <testcase name="record keeps only the most recent 50 events" classname="com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorderTest" time="0.009"/>
+  <testcase name="record appends timestamped events in order" classname="com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorderTest" time="0.003"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

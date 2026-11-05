@@ -31,7 +31,6 @@
     <string name="err_link_no_title">The link contains no title</string>
     <string name="err_not_public">The track or playlist is not public or does not exist</string>
     <string name="err_spotify_page_http">Spotify is not answering (HTTP %1$s)</string>
-    <string name="player_youtube_unsupported">YouTube isn\'t supported yet - pick SoundCloud for now</string>
     <string name="player_logged_in_go">Logged in (Go)</string>
     <string name="player_play">Play</string>
     <string name="player_pause">Pause</string>
@@ -43,7 +42,7 @@
     <string name="svc_not_playable">Not playable: %1$s</string>
     <string name="svc_default_title">SoundCloud track</string>
     <string name="svc_default_artist">Artist</string>
-    <string name="svc_channel_name">SoundCloud Equalizer playback</string>
+    <string name="svc_channel_name">Baschtls Gedröhne playback</string>
     <string name="svc_action_previous">Previous</string>
     <string name="svc_action_pause">Pause</string>
     <string name="svc_action_play">Play</string>

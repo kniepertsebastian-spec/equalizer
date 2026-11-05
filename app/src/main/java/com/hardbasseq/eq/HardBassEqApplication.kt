@@ -11,6 +11,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.hardbasseq.eq.auto.AppAutoCatalog
 import com.hardbasseq.eq.discovery.DiscoveryWorker
+import com.hardbasseq.eq.service.AppVisibility
 import com.hardbasseq.eq.service.AudioSessionForegroundService
 import com.soundcloud.equalizer.player.PlayerText
 import com.soundcloud.equalizer.player.playback.AutoCatalogHolder
@@ -23,11 +24,16 @@ class HardBassEqApplication : Application() {
     @Inject
     lateinit var autoCatalog: AppAutoCatalog
 
+    // Tells the session service whether a screen of this app is open (it never closes itself then).
+    @Inject
+    lateinit var appVisibility: AppVisibility
+
     override fun onCreate() {
         super.onCreate()
         PlayerText.init(this)
         // What the car (Android Auto) may browse and play; also read by the player service.
         AutoCatalogHolder.catalog = autoCatalog
+        registerActivityLifecycleCallbacks(appVisibility.callbacks)
         // Starts as early as the app process exists (not only once MainActivity/
         // MainViewModel is created), so the session-open broadcast a player sends
         // is much less likely to be missed. See AudioSessionForegroundService.

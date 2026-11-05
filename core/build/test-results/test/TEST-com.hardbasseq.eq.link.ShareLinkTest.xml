@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.link.ShareLinkTest" tests="11" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:47.487Z" hostname="vmd206980" time="0.041">
+  <properties/>
+  <testcase name="playlists channels and lookalikes have no video id" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.014"/>
+  <testcase name="finds the playlist behind a spotify link" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.002"/>
+  <testcase name="finds every link in a text" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.006"/>
+  <testcase name="extracts the url from a shared sentence and strips trailing punctuation" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.001"/>
+  <testcase name="short links are recognized" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.0"/>
+  <testcase name="lookalike hosts are not treated as a known service" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.007"/>
+  <testcase name="finds the video behind youtube links in all their forms" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.001"/>
+  <testcase name="normalizes mobile host, query and fragment but keeps private playlist secrets" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.0"/>
+  <testcase name="classifies the services" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.001"/>
+  <testcase name="finds the spotify track and refuses other spotify links" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.0"/>
+  <testcase name="returns null when there is no usable url" classname="com.hardbasseq.eq.link.ShareLinkTest" time="0.009"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

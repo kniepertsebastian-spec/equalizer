@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.link.SpotifyTrackPageTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.373Z" hostname="vmd206980" time="0.008">
+  <properties/>
+  <testcase name="reads title and artist from the artists list" classname="com.hardbasseq.eq.link.SpotifyTrackPageTest" time="0.001"/>
+  <testcase name="a page without an artist gives null" classname="com.hardbasseq.eq.link.SpotifyTrackPageTest" time="0.0"/>
+  <testcase name="falls back to the subtitle" classname="com.hardbasseq.eq.link.SpotifyTrackPageTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

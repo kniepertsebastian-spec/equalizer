@@ -19,7 +19,6 @@ Roadmap-Paketen getrennt:
 com.hardbasseq.eq/
   MainActivity.kt
   audio/                 # Audio-Schnittstellen + Android-Implementierung
-    spike/                # M0-Spikes, siehe docs/FEASIBILITY.md – kein Produktionscode
   ui/
     main/                 # MainViewModel (State + Business-Logik)
     navigation/           # AppNavHost (Compose-Navigationsgraph)
@@ -41,10 +40,9 @@ kapselt den einzigen Repository-Aufruf, der bisher existiert
 (`MainScreen`) liest nur Zustand und leitet Events weiter – keine
 Geschäftslogik direkt in der Composable (M1-Abnahmekriterium).
 
-Der Session-Attach-Spike-Bereich (`SessionAttachSpikeController` +
-`SessionAttachSpikeSection`) ist bewusst **nicht** in `MainViewModel`
-integriert: Er ist explizit als M0-Wegwerf-Diagnosecode markiert (siehe
-`docs/FEASIBILITY.md`) und wird nicht Teil der Produktarchitektur.
+Die M0-Spikes (Session-Attach, Testton, Session 0) wurden am 5. November 2026
+gelöscht (siehe `docs/DECISIONS.md`); ihre Ergebnisse stehen weiter in
+`docs/FEASIBILITY.md`.
 
 `DiagnosticsRecorder` (`diagnostics/DiagnosticsRecorder.kt`) ist dagegen
 Produktcode: ein `@Singleton`, den `AudioSessionForegroundService` mit
@@ -78,8 +76,7 @@ umzubauen.
 - Keine `AudioEffect`-Aufrufe direkt aus Composables.
 - Jedes Effektobjekt hat genau einen Owner im Audio-Layer.
 - Erstellen/Anwenden/Freigeben seriell über einen `Mutex`
-  (`SessionAttachSpikeController` implementiert das bereits als Vorlage
-  für die spätere `AudioEngine`).
+  (so macht es `AndroidAudioEngine`).
 - Effekte werden immer in `finally` freigegeben.
 
 ## Fehler- und Logstrategie
@@ -92,9 +89,8 @@ umzubauen.
   identifizierenden Daten in Log-Zeilen (Roadmap §12).
 - Fehlerzustände (verlorene Effekt-Kontrolle, tote Session, nicht
   unterstützte Parameter) werden als Zustände modelliert, nicht als
-  Exceptions nach außen geworfen – siehe `DynamicsProcessingSpike`/
-  `EqualizerSpike`/`SessionZeroExperiment` als Vorlage (jede Methode fängt
-  Fehler ab und gibt ein Ergebnis-Objekt zurück statt zu crashen).
+  Exceptions nach außen geworfen (jede Methode in `AndroidAudioEngine` fängt
+  Fehler ab und meldet einen Zustand statt zu crashen).
 
 ## Paketname / Arbeitstitel
 

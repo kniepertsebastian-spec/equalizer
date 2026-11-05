@@ -56,17 +56,17 @@ dependencies {
     implementation("androidx.webkit:webkit:1.11.0")
 
     // Media3 / ExoPlayer
-    implementation("androidx.media3:media3-exoplayer:1.3.1")
+    implementation("androidx.media3:media3-exoplayer:1.11.1")
     // HLS streams: SoundCloud offers some full-length (Go) streams only that way.
-    implementation("androidx.media3:media3-exoplayer-hls:1.3.1")
-    implementation("androidx.media3:media3-ui:1.3.1")
-    implementation("androidx.media3:media3-session:1.3.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
+    implementation("androidx.media3:media3-ui:1.11.1")
+    implementation("androidx.media3:media3-session:1.11.1")
     // MediaSessionCompat.Token: the car browser (Android Auto) works with the platform session.
     implementation("androidx.media:media:1.7.0")
 
     // Networking / Async / JSON
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
 
     testImplementation("junit:junit:4.13.2")
     // Android ships org.json; the JVM unit tests run against stubs, so they need a real one.

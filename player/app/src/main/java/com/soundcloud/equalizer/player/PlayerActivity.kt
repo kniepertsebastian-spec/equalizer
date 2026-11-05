@@ -25,16 +25,14 @@ import kotlinx.coroutines.launch
 
 /**
  * Started explicitly by HardBass EQ (via PlayerBridge) once the user switches the
- * master bar on and picks a source - not a launcher entry point of its own. Only
- * [SOURCE_SOUNDCLOUD] is implemented; [SOURCE_YOUTUBE] is a placeholder until that
- * source gets its own extractor.
+ * master bar on and picks a source - not a launcher entry point of its own. SoundCloud
+ * ([SOURCE_SOUNDCLOUD]) is the only source the built-in player plays.
  */
 class PlayerActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_SOURCE = "com.hardbasseq.eq.EXTRA_PLAYER_SOURCE"
         const val SOURCE_SOUNDCLOUD = "soundcloud"
-        const val SOURCE_YOUTUBE = "youtube"
     }
 
     private lateinit var binding: ActivityPlayerBinding
@@ -61,12 +59,6 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        if (intent?.getStringExtra(EXTRA_SOURCE) == SOURCE_YOUTUBE) {
-            Toast.makeText(this, getString(R.string.player_youtube_unsupported), Toast.LENGTH_LONG).show()
-            finish()
-            return
-        }
 
         binding = ActivityPlayerBinding.inflate(layoutInflater)
         setContentView(binding.root)

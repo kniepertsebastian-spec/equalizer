@@ -17,11 +17,14 @@ import androidx.lifecycle.lifecycleScope
 import com.hardbasseq.eq.MainActivity
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEngine
+import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSessionRepository
 import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,6 +37,8 @@ private const val NOTIFICATION_ID = 1
 // independent of whether MainActivity/MainViewModel is open. Without this, a player's
 // one-shot OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast is missed for good if HardBass
 // EQ's UI wasn't already open at that exact moment (roadmap.md Session 11/12).
+// It does not run forever: with no usable session and the app off screen it closes itself
+// after SESSION_IDLE_TIMEOUT (see idleShutdown), and opening the app starts it again.
 @AndroidEntryPoint
 class AudioSessionForegroundService : LifecycleService() {
     @Inject
@@ -50,6 +55,9 @@ class AudioSessionForegroundService : LifecycleService() {
 
     @Inject
     lateinit var diagnosticsRecorder: DiagnosticsRecorder
+
+    @Inject
+    lateinit var appVisibility: AppVisibility
 
     private var foregroundStarted = false
 
@@ -77,6 +85,19 @@ class AudioSessionForegroundService : LifecycleService() {
                     audioEngine.detach()
                 }
             }
+        }
+
+        lifecycleScope.launch {
+            // A session whose engine ended in Error is as good as none: nothing is being processed.
+            val hasUsableSession =
+                combine(sessionRepository.activeSession, audioEngine.state) { session, state ->
+                    session != null && state !is AudioEngineState.Error
+                }
+            idleShutdown(hasUsableSession, appVisibility.visible, SESSION_IDLE_TIMEOUT).first()
+            diagnosticsRecorder.record(
+                "No audio session for ${SESSION_IDLE_TIMEOUT.inWholeMinutes} min and the app is closed: stopping the service",
+            )
+            stopSelf()
         }
 
         lifecycleScope.launch {
@@ -160,7 +181,7 @@ class AudioSessionForegroundService : LifecycleService() {
         return NotificationCompat
             .Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(getString(R.string.session_service_notification_title))
-            .setContentText(getString(R.string.session_service_notification_text))
+            .setContentText(getString(R.string.session_service_notification_text, SESSION_IDLE_TIMEOUT.inWholeMinutes))
             .setSmallIcon(R.drawable.ic_notification_eq)
             .setContentIntent(contentIntent)
             .setOngoing(true)

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalogTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:45.140Z" hostname="vmd206980" time="0.046">
+  <properties/>
+  <testcase name="everyEntryCurveIsWithinAutoEqParserBounds" classname="com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalogTest" time="0.033"/>
+  <testcase name="everyEntryIdIsUnique" classname="com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalogTest" time="0.009"/>
+  <testcase name="everyEntryHasANonEmptyCurve" classname="com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalogTest" time="0.002"/>
+  <testcase name="catalogIsNotEmpty" classname="com.hardbasseq.eq.autoeq.BuiltInAutoEqCatalogTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

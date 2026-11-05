@@ -31,7 +31,7 @@ class DiagnosticsReportFormatterTest {
                 route = route,
             )
 
-        assertTrue(report.contains("HardBass EQ Diagnostic Report"))
+        assertTrue(report.contains("Baschtls Gedröhne Diagnostic Report"))
         assertTrue(report.contains("Has Equalizer: true"))
         assertTrue(report.contains("Has DynamicsProcessing: true"))
         assertTrue(report.contains("Band #0: 60 Hz"))

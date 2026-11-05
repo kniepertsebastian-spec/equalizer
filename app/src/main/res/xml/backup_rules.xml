@@ -1,10 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Auto Backup for Android 11 and older. Presets, playlists and settings may be restored on a new
-  phone; the sign-in tokens of SoundCloud and Spotify must not leave the device, so they stay
-  out of every backup. (Names: SoundCloudLoginActivity.PREFS_NAME, SpotifyApiClient.PREFS.)
+  Auto Backup for Android 11 and older. Everything is backed up, including the SoundCloud and
+  Spotify sign-in (SoundCloudLoginActivity.PREFS_NAME, SpotifyApiClient.PREFS): after restoring on a
+  new phone nobody should have to sign in again (open_questions.md Q16). No rules means no exclusions.
 -->
-<full-backup-content>
-    <exclude domain="sharedpref" path="sc_auth_prefs.xml" />
-    <exclude domain="sharedpref" path="spotify_auth.xml" />
-</full-backup-content>
+<full-backup-content />

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 9.4.0" type="partial_results">
+    <map id="NotificationPermission">
+        <location id="class"
+            file="$GRADLE_USER_HOME/caches/9.7.1/transforms/65243ff871b571dfb030e4a92163a819/transformed/out/jars/classes.jar"/>
+        <entry
+            name="className"
+            string="com/soundcloud/equalizer/player/service/AudioPlayerService"/>
+    </map>
+    <map id="UnsafeImplicitIntentLaunch">
+            <map id="actionsSent">
+                    <map id="android.settings.MANAGE_UNKNOWN_APP_SOURCES (used to start an activity)">
+                        <location id="0"
+                            file="${:app*debug*MAIN*sourceProvider*0*javaDir*0}/com/hardbasseq/eq/ui/update/ReleaseUpdateNotice.kt"
+                            line="66"
+                            column="33"
+                            startOffset="2903"
+                            endLine="69"
+                            endColumn="34"
+                            endOffset="3105"/>
+                    </map>
+            </map>
+    </map>
+    <map id="UnsafeIntentLaunch">
+            <map id="unprotected">
+                <entry
+                    name="com.hardbasseq.eq.MainActivity"
+                    boolean="true"/>
+                <entry
+                    name="com.hardbasseq.eq.auto.AutoBrowserService"
+                    boolean="true"/>
+            </map>
+    </map>
+    <map id="UnusedResources">
+        <location id="R.string.action_to_equalizer"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="25"
+            column="13"
+            startOffset="1762"
+            endLine="25"
+            endColumn="39"
+            endOffset="1788"/>
+        <location id="R.string.compat_status_unknown"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="4"
+            column="13"
+            startOffset="118"
+            endLine="4"
+            endColumn="41"
+            endOffset="146"/>
+        <location id="R.string.context_loudness_title"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="146"
+            column="13"
+            startOffset="12310"
+            endLine="146"
+            endColumn="42"
+            endOffset="12339"/>
+        <location id="R.string.context_subsonic_title"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="355"
+            column="13"
+            startOffset="27989"
+            endLine="355"
+            endColumn="42"
+            endOffset="28018"/>
+        <location id="R.string.mini_player_nothing"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="70"
+            column="13"
+            startOffset="5404"
+            endLine="70"
+            endColumn="39"
+            endOffset="5430"/>
+        <location id="R.string.playlists_import_button"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="67"
+            column="13"
+            startOffset="5156"
+            endLine="67"
+            endColumn="43"
+            endOffset="5186"/>
+        <location id="R.string.playlists_title"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="65"
+            column="13"
+            startOffset="5024"
+            endLine="65"
+            endColumn="35"
+            endOffset="5046"/>
+        <location id="R.string.queue_go_playlists"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="64"
+            column="13"
+            startOffset="4961"
+            endLine="64"
+            endColumn="38"
+            endOffset="4986"/>
+        <location id="R.string.search_result_play"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="57"
+            column="13"
+            startOffset="4543"
+            endLine="57"
+            endColumn="38"
+            endOffset="4568"/>
+        <location id="R.string.signal_input_gain"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="125"
+            column="13"
+            startOffset="10364"
+            endLine="125"
+            endColumn="37"
+            endOffset="10388"/>
+        <location id="R.string.virtual_bass_title"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/strings.xml"
+            line="173"
+            column="13"
+            startOffset="14404"
+            endLine="173"
+            endColumn="38"
+            endOffset="14429"/>
+        <entry
+            name="model"
+            string="color[sonic_graphite(U),sonic_graphite_raised(U)],drawable[ic_launcher_background(U),ic_launcher_foreground(U),ic_notification_eq(U)],font[barlow_regular(R),barlow_medium(R),barlow_semibold(R),barlow_semicondensed_regular(R),barlow_semicondensed_medium(R),barlow_semicondensed_semibold(R)],mipmap[ic_launcher(U)],string[app_name(U),compat_status_unknown(D),show_debug_effects(U),hide_debug_effects(U),debug_effects_title(U),debug_effects_empty(U),session_service_notification_title(U),session_service_notification_text(U),nav_player(U),nav_equalizer(U),tab_search(U),tab_playlists(U),tab_queue(U),source_soundcloud(U),source_other(U),source_selector_description(U),source_other_title(U),source_other_text(U),action_ok(U),action_retry(U),action_to_player(U),action_to_equalizer(D),eq_status_active_for(U),audio_sources_title(U),audio_sources_hint(U),audio_sources_selected(U),audio_sources_unknown_app(U),spotify_eq_hint(U),spotify_eq_help_open(U),spotify_eq_help_title(U),spotify_eq_help_text(U),spotify_eq_help_done(U),eq_status_active(U),eq_status_waiting(U),eq_status_connecting(U),eq_status_lost(U),eq_status_unsupported(U),eq_status_error(U),eq_status_off(U),eq_hint_waiting(U),eq_hint_connecting(U),eq_hint_lost(U),eq_hint_unsupported(U),eq_hint_error(U),eq_hint_off(U),player_idle_hint(U),player_nothing_playing(U),search_field_hint(U),search_action(U),search_empty_intro(U),search_no_results(U),search_failed(U),search_offline_hint(U),search_result_play(D),queue_title(U),queue_count(U),queue_now(U),queue_empty_title(U),queue_empty_text(U),queue_go_search(U),queue_go_playlists(D),playlists_title(D),playlists_import_title(U),playlists_import_button(D),playlists_empty_title(U),playlists_empty_text(U),mini_player_nothing(D),playlists_new_button(U),compare_preset_custom(U),compare_reset(U),compare_original(U),compare_eq(U),compare_done(U),compare_hint_idle(U),compare_hint_active(U),goal_title(U),goal_subtitle(U),goal_balanced_name(U),goal_balanced_desc(U),goal_vocals_forward_name(U),goal_vocals_forward_desc(U),goal_more_power_name(U),goal_more_power_desc(U),goal_more_punch_name(U),goal_more_punch_desc(U),goal_less_harsh_name(U),goal_less_harsh_desc(U),goal_less_bass_name(U),goal_less_bass_desc(U),fine_tune_title(U),fine_tune_subtitle(U),fine_tune_show(U),fine_tune_hide(U),macro_bass_desc(U),macro_punch_desc(U),macro_haerte_desc(U),services_title(U),services_back(U),services_intro(U),services_open_profiles(U),service_status_connected(U),service_status_not_connected(U),service_action_connect(U),service_action_reconnect(U),service_action_disconnect(U),service_action_save(U),service_soundcloud_name(U),service_soundcloud_connected(U),service_soundcloud_not_connected(U),service_spotify_name(U),service_spotify_connected(U),service_spotify_not_connected(U),service_spotify_client_id(U),player_open_services(U),profiles_title(U),profiles_intro(U),profiles_output(U),profiles_saved_for_output(U),profiles_correction_none(U),profiles_open_services(U),eq_pick_source(U),signal_input_gain(D),signal_limiter_on(U),signal_limiter_off(U),signal_mbc_on(U),signal_mbc_off(U),headroom_ok(U),headroom_limiter_sometimes(U),headroom_limiter_heavy(U),no_session_title(U),no_session_text(U),correction_title(U),correction_detected(U),correction_suggestion(U),action_not_now(U),action_apply(U),headphone_mode_title(U),headphone_mode_desc(U),context_title(U),context_car_detected(U),context_speaker_detected(U),context_default_desc(U),context_loudness_title(D),context_loudness_desc(U),context_subsonic_on(U),context_subsonic_off(U),context_virtual_bass_desc(U),presets_custom(U),bands_title(U),clipping_danger(U),clipping_protected(U),clipping_limiter_off(U),profile_export(U),preset_more_actions(U),preset_delete(U),retry_countdown(U),hp_power_title(U),hp_power_warning(U),hp_power_dynamics(U),hp_power_dynamics_desc(U),hp_power_player_only(U),action_import(U),action_save(U),bypass_label(U),preset_duplicate(U),preset_rename(U),hp_power_standard(U),hp_power_knall(U),route_label(U),virtual_bass_title(D),imported_profile_default(U),preset_save_as_new(U),preset_rename_title(U),preset_delete_title(U),preset_delete_text(U),import_preview_source(U),import_preview_range(U),import_preview_boost(U),import_preview_headroom(U),import_preview_extreme(U),import_failed_title(U),share_correction_profile(U),diagnostics_button(U),source_picker_title(U),source_picker_text(U),action_cancel(U),field_name(U),player_pause(U),player_play(U),preview_only(U),player_previous(U),queue_add_to_playlist(U),playlists_import_hint(U),playlists_add_button(U),spotify_import_paused(U),playlists_merge(U),playlists_all_to_soundcloud(U),bridge_found_title(U),action_close(U),bridge_best_playing(U),bridge_no_sure_match(U),library_title(U),library_reload(U),library_likes_desc(U),library_my_playlists(U),tracks_count(U),library_liked_playlists(U),context_mode_desc(U),playlist_row_count(U),playlist_row_on_soundcloud(U),playlist_to_soundcloud(U),playlist_play(U),playlist_delete(U),playlist_empty_hint(U),playlist_search_hint(U),playlist_search_none(U),playlist_play_from_here(U),playlist_remove_track(U),merge_title(U),merge_name_hint(U),playlist_dialog_add_title(U),playlist_create_and_add(U),player_next(U),action_resume(U),action_discard(U),library_likes_title(U),context_mode_title(U),action_create(U),artwork_description(U),dsp_card_note(U),dsp_mono_bass_title(U),dsp_mono_bass_desc(U),dsp_limiter_title(U),dsp_limiter_desc(U),discovery_dismiss(U),discovery_title(U),discovery_refresh(U),discovery_intro(U),discovery_artist_hint(U),discovery_remember(U),discovery_remove_artist(U),discovery_play_all(U),discovery_no_artists(U),discovery_genre_must_match(U),discovery_mode_auto(U),discovery_mode_manual(U),discovery_mode_off(U),discovery_genre_off_desc(U),discovery_no_taste(U),discovery_taste_detected(U),discovery_genre_example(U),discovery_add(U),discovery_remove_genre(U),dsp_card_title(U),track_state_current(U),track_state_played(U),diag_title(U),action_copy(U),high_res_eq_title(U),high_res_eq_active(U),high_res_eq_classic(U),high_res_eq_unavailable(U),diag_back(U),update_available(U),update_downloading(U),update_allow_install(U),update_progress_total(U),update_progress(U),update_failed(U),action_later(U),update_action(U),import_loading_name(U),import_name_empty(U),import_no_link(U),import_only_soundcloud(U),import_playing(U),import_saved(U),import_nothing_new(U),import_addendum_title(U),import_skipped_note(U),import_reading_spotify(U),import_spotify_signin_note(U),import_spotify_unreadable(U),import_spotify_failed(U),import_title_more(U),import_parts_unreadable(U),import_part_progress(U),import_interrupted(U),import_none_found(U),import_missing_list(U),import_missing_more(U),import_headline_one(U),import_headline_many(U),import_result(U),merge_needs_input(U),merge_done(U),bridge_single_only(U),bridge_reading_title(U),bridge_searching(U),bridge_nothing_found(U),bridge_found_started(U),bridge_pick_from_list(U),playlist_name_needed(U),playlist_created(U),playlist_already_in(U),playlist_added_to(U),soundcloud_sign_in_first(U),soundcloud_nothing_to_send(U),soundcloud_send_failed(U),soundcloud_sent(U),import_cut_off_hint(U),import_name_from_spotify(U),import_name_part(U),unknown_error(U),link_load_failed(U),generic_failed(U),spotify_enter_client_id(U),spotify_no_browser(U),spotify_no_answer(U),likes_read_failed(U),artist_search_failed(U),discovery_no_answer(U),discovery_name_exists(U),discovery_searching(U),discovery_none_new(U),discovery_count_in_list(U),discovery_filtered_by_genre(U),import_failed_unknown(U),preset_copy_name(U),auto_my_playlists(U),age_today(U),age_yesterday(U),age_days_ago(U),context_name_car(U),context_name_speaker(U),correction_none_name(U),source_label_manual(U),source_label_none(U),source_label_autoeq_import(U),upd_err_download(U),upd_err_too_big(U),upd_err_incomplete(U),upd_err_checksum(U),upd_err_save(U),upd_err_invalid(U),upd_err_other_app(U),upd_err_version(U),upd_err_installed(U),upd_err_signature(U),upd_err_query(U),upd_err_data_big(U),context_subsonic_title(D),curve_preview_caption(U),feedback_saved(U),feedback_duplicated(U),feedback_renamed(U),feedback_deleted(U),feedback_reset(U),feedback_profile_applied(U),feedback_profile_imported(U),profile_for_device(U),signal_not_confirmed(U),signal_explain(U),eq_playback_only_note(U),seek_description(U),dsp_cutoff_description(U),eq_master_switch(U),macro_title(U),more_tools_show(U),more_tools_hide(U),compare_hold(U),compare_hold_active(U),route_rename(U),route_rename_title(U),route_rename_hint(U),eq_curve_description(U),eq_curve_flat(U),tag_limiting_sometimes(U),tag_limiting_heavy(U),meters_title(U),meters_estimate_note(U),meter_boost(U),meter_input(U),meter_limit(U),meter_limit_low(U),meter_limit_some(U),meter_limit_heavy(U),intensity_title(U),genre_title(U),info_more(U),info_less(U),module_loudness(U),module_subsonic(U),module_virtual_bass(U),module_on(U),module_player_only(U),module_approx(U),device_kind_question(U),device_kind_headphones(U),device_kind_car(U),device_kind_speaker(U),device_kind_later(U),module_off(U),player_open_equalizer(U),graph_band_lower(U),graph_band_raise(U),graph_hint_select(U),graph_hint_no_bands(U),graph_note_interpolated(U),graph_state_off(U),graph_state_bypass(U),compare_title(U),macro_bass_name(U),macro_punch_name(U),macro_haerte_name(U),hp_power_bass_name(U),hp_power_loudness_name(U)],style[Theme_HardBassEQ(U)],xml[data_extraction_rules(U),backup_rules(U),automotive_app_desc(U),update_file_paths(U)];b^2^3,1ad^0^1;;;"/>
+    </map>
+
+</incidents>

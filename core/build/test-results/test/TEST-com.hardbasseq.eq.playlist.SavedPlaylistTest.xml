@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.playlist.SavedPlaylistTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.831Z" hostname="vmd206980" time="0.044">
+  <properties/>
+  <testcase name="missing or corrupt data reads as no playlists" classname="com.hardbasseq.eq.playlist.SavedPlaylistTest" time="0.007"/>
+  <testcase name="optional fields default when absent" classname="com.hardbasseq.eq.playlist.SavedPlaylistTest" time="0.003"/>
+  <testcase name="unknown fields from a newer version are ignored" classname="com.hardbasseq.eq.playlist.SavedPlaylistTest" time="0.027"/>
+  <testcase name="round trips through json" classname="com.hardbasseq.eq.playlist.SavedPlaylistTest" time="0.007"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

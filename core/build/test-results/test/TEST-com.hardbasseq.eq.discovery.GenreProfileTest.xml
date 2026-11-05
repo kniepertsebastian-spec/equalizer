@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.discovery.GenreProfileTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:45.655Z" hostname="vmd206980" time="0.303">
+  <properties/>
+  <testcase name="recurring genres and tags become the taste, most frequent first" classname="com.hardbasseq.eq.discovery.GenreProfileTest" time="0.284"/>
+  <testcase name="generic words and years are not a taste" classname="com.hardbasseq.eq.discovery.GenreProfileTest" time="0.008"/>
+  <testcase name="too few tracks give no profile" classname="com.hardbasseq.eq.discovery.GenreProfileTest" time="0.001"/>
+  <testcase name="at most six genres" classname="com.hardbasseq.eq.discovery.GenreProfileTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.service.SessionIdleShutdownTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:24.916Z" hostname="vmd206980" time="0.153">
+  <properties/>
+  <testcase name="never closes while the app is on screen" classname="com.hardbasseq.eq.service.SessionIdleShutdownTest" time="0.084"/>
+  <testcase name="a session that opens in time restarts the wait from zero" classname="com.hardbasseq.eq.service.SessionIdleShutdownTest" time="0.035"/>
+  <testcase name="opening the app while idle restarts the wait" classname="com.hardbasseq.eq.service.SessionIdleShutdownTest" time="0.01"/>
+  <testcase name="never closes while a session is open" classname="com.hardbasseq.eq.service.SessionIdleShutdownTest" time="0.005"/>
+  <testcase name="the flow ends after the first signal" classname="com.hardbasseq.eq.service.SessionIdleShutdownTest" time="0.003"/>
+  <testcase name="closes after the timeout when there is no session and the app is closed" classname="com.hardbasseq.eq.service.SessionIdleShutdownTest" time="0.015"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

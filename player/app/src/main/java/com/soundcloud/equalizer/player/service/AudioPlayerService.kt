@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.net.Uri
 import android.os.Looper
+import android.support.v4.media.session.MediaSessionCompat
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
@@ -266,7 +267,9 @@ class AudioPlayerService : Service() {
                 ): ListenableFuture<MutableList<MediaItem>> = Futures.immediateFuture(mediaItems)
             })
             .build()
-        AutoSessionState.sessionToken = mediaSession?.sessionCompatToken
+        // media3 1.9+ no longer offers sessionCompatToken: the platform token is wrapped here for the
+        // car browser (MediaBrowserServiceCompat).
+        AutoSessionState.sessionToken = mediaSession?.platformToken?.let { MediaSessionCompat.Token.fromToken(it) }
     }
 
     // True when [items] is a request from the car's browser (ids of AutoMediaId): the

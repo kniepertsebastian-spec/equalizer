@@ -7,7 +7,7 @@ plugins {
 }
 
 // Pure-Kotlin domain logic (presets, DSP curve math, JSON (de)serialization)
-// shared between the Android app and the desktop module. No Android or
+// used by the Android app. No Android or
 // Compose dependency on purpose - see docs/adr for the module split.
 kotlin {
     compilerOptions {

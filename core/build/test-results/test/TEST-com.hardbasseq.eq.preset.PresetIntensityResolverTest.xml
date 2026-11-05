@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.preset.PresetIntensityResolverTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:49.209Z" hostname="vmd206980" time="0.01">
+  <properties/>
+  <testcase name="moderate intensity keeps the genre base's macro and mbc values" classname="com.hardbasseq.eq.preset.PresetIntensityResolverTest" time="0.001"/>
+  <testcase name="higher intensity tightens the bass compressor, lower intensity loosens it" classname="com.hardbasseq.eq.preset.PresetIntensityResolverTest" time="0.0"/>
+  <testcase name="aggressive intensity adds bass and punch on top of the genre base" classname="com.hardbasseq.eq.preset.PresetIntensityResolverTest" time="0.002"/>
+  <testcase name="flat ignores intensity entirely" classname="com.hardbasseq.eq.preset.PresetIntensityResolverTest" time="0.0"/>
+  <testcase name="resolved id round-trips back to the same genre and intensity via parse" classname="com.hardbasseq.eq.preset.PresetIntensityResolverTest" time="0.001"/>
+  <testcase name="parse returns null for an id that isn't a resolved genre-intensity combination" classname="com.hardbasseq.eq.preset.PresetIntensityResolverTest" time="0.0"/>
+  <testcase name="mbc threshold and ratio stay within the engine's safe ranges at every intensity" classname="com.hardbasseq.eq.preset.PresetIntensityResolverTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.data.preset.PresetJsonSerializerTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:45.221Z" hostname="vmd206980" time="0.095">
+  <properties/>
+  <testcase name="importFromJson_rejectsNegativeFrequency" classname="com.hardbasseq.eq.data.preset.PresetJsonSerializerTest" time="0.053"/>
+  <testcase name="exportAndImport_roundTripPreservesPreset" classname="com.hardbasseq.eq.data.preset.PresetJsonSerializerTest" time="0.034"/>
+  <testcase name="importFromJson_rejectsInvalidGain" classname="com.hardbasseq.eq.data.preset.PresetJsonSerializerTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.auto.AppAutoCatalogTest" tests="9" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:23.847Z" hostname="vmd206980" time="0.193">
+  <properties/>
+  <testcase name="starting a playlist track queues the whole playlist from that track" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.044"/>
+  <testcase name="a spoken playlist name starts that playlist" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.009"/>
+  <testcase name="playlists are folders and their tracks are playable" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.069"/>
+  <testcase name="likes are loaded once for browsing and reused for starting a track" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.032"/>
+  <testcase name="discovery tracks are listed and queued" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.006"/>
+  <testcase name="something in no playlist is searched on soundcloud" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.007"/>
+  <testcase name="unknown ids give nothing" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.006"/>
+  <testcase name="the root has the three folders" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.005"/>
+  <testcase name="saying nothing plays the newest playlist or else the likes" classname="com.hardbasseq.eq.auto.AppAutoCatalogTest" time="0.004"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

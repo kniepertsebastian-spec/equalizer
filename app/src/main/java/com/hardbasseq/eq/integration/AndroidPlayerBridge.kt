@@ -2,7 +2,6 @@ package com.hardbasseq.eq.integration
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import com.hardbasseq.eq.preset.TargetPoint
 import com.soundcloud.equalizer.player.PlayerActivity
 import com.soundcloud.equalizer.player.playback.PlayerCurve
@@ -18,18 +17,9 @@ class AndroidPlayerBridge
         @param:ApplicationContext private val context: Context,
     ) : PlayerBridge {
         override fun launchPlayer(source: PlayerSource) {
-            // YouTube audio cannot be played by the built-in player (terms of service): the choice opens
-            // the YouTube app, and the equalizer attaches if that app announces its audio session.
-            if (source == PlayerSource.YOUTUBE) {
-                context.startActivity(
-                    Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                )
-                return
-            }
             val sourceExtra =
                 when (source) {
                     PlayerSource.SOUNDCLOUD -> PlayerActivity.SOURCE_SOUNDCLOUD
-                    PlayerSource.YOUTUBE -> PlayerActivity.SOURCE_YOUTUBE
                 }
             val intent =
                 Intent(context, PlayerActivity::class.java).apply {

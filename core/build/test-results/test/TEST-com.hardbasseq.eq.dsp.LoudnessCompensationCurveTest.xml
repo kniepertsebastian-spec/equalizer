@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:47.135Z" hostname="vmd206980" time="0.007">
+  <properties/>
+  <testcase name="aboveReferenceLevel_noCompensation" classname="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" time="0.002"/>
+  <testcase name="halfwayToFullDrop_appliesHalfMaxBoost" classname="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" time="0.0"/>
+  <testcase name="trebleBoostIsSmallerThanBassBoost" classname="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" time="0.0"/>
+  <testcase name="composesWithCorrectionAndVoicingCurvesViaCurveComposer" classname="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" time="0.0"/>
+  <testcase name="midrangeStaysUnaffected" classname="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" time="0.0"/>
+  <testcase name="beyondFullDrop_boostIsClampedNotExtrapolated" classname="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" time="0.0"/>
+  <testcase name="maxBoostIsClampedToSafeRange" classname="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" time="0.001"/>
+  <testcase name="atReferenceLevel_noCompensation" classname="com.hardbasseq.eq.dsp.LoudnessCompensationCurveTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

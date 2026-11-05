@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:26.720Z" hostname="vmd206980" time="0.077">
+  <properties/>
+  <testcase name="a duplicate or invalid artist name says so" classname="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" time="0.01"/>
+  <testcase name="a failed refresh shows the error and keeps the list" classname="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" time="0.006"/>
+  <testcase name="playing starts the playlist at the chosen track without stream urls" classname="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" time="0.003"/>
+  <testcase name="opening the screen builds this weeks list for saved artists" classname="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" time="0.007"/>
+  <testcase name="swiping a track away removes it for good" classname="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" time="0.01"/>
+  <testcase name="removing an artist removes their suggestions" classname="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" time="0.011"/>
+  <testcase name="adding an artist saves the name and fetches their uploads right away" classname="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" time="0.008"/>
+  <testcase name="playing an empty list does nothing" classname="com.hardbasseq.eq.ui.player.DiscoveryViewModelTest" time="0.016"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -1,21 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">HardBass EQ</string>
+    <string name="app_name">Baschtls Gedröhne</string>
     <string name="compat_status_unknown">Compatibility not checked yet</string>
     <string name="show_debug_effects">Show audio effects (debug)</string>
     <string name="hide_debug_effects">Hide debug view</string>
     <string name="debug_effects_title">Available audio effects</string>
     <string name="debug_effects_empty">No effect descriptors found.</string>
-    <string name="show_spike_section">Show session-attach spike (M0)</string>
-    <string name="hide_spike_section">Hide session-attach spike</string>
-    <string name="spike_title">Session-attach spike (M0)</string>
-    <string name="spike_description">Plays a quiet test tone in its own audio session, attaches Equalizer/DynamicsProcessing to it, and reads back the real band/gain capabilities this device reports.</string>
-    <string name="spike_start">Start test tone + probe effects</string>
-    <string name="spike_start_sweep">Start (sweep 20 Hz–20 kHz)</string>
-    <string name="spike_running">Running…</string>
-    <string name="spike_stop">Stop</string>
-    <string name="session_service_notification_title">HardBass EQ is listening</string>
-    <string name="session_service_notification_text">Watching for a player\'s audio session in the background so the equalizer can attach as soon as one opens.</string>
+    <string name="session_service_notification_title">Baschtls Gedröhne is listening</string>
+    <string name="session_service_notification_text">Waiting for a player\'s audio session so the equalizer can attach. Closes by itself after %1$d minutes without one.</string>
     <!-- UX roadmap: navigation, source selection, player sections, EQ status -->
     <string name="nav_player">Player</string>
     <string name="nav_equalizer">Equalizer</string>
@@ -23,11 +15,10 @@
     <string name="tab_playlists">Playlists</string>
     <string name="tab_queue">Queue</string>
     <string name="source_soundcloud">SoundCloud</string>
-    <string name="source_youtube">YouTube</string>
     <string name="source_other">Other player</string>
     <string name="source_selector_description">Choose source, currently %1$s</string>
     <string name="source_other_title">Other player (Spotify &amp; co.)</string>
-    <string name="source_other_text">Start the music in the other app. HardBass EQ attaches to its audio session as soon as it reports one. Spotify does; some apps (for example YouTube and YouTube Music) may not. Under “Equalizer” you can see whether the EQ is really active.</string>
+    <string name="source_other_text">Start the music in the other app. Baschtls Gedröhne attaches to its audio session as soon as it reports one. Spotify does; some other apps may not. Under “Equalizer” you can see whether the EQ is really active.</string>
     <string name="action_ok">OK</string>
     <string name="action_retry">Try again</string>
     <string name="action_to_player">Go to player</string>
@@ -40,7 +31,7 @@
     <string name="spotify_eq_hint">Turn off Spotify\'s own equalizer</string>
     <string name="spotify_eq_help_open">How to turn off Spotify\'s equalizer</string>
     <string name="spotify_eq_help_title">Turn off Spotify\'s equalizer</string>
-    <string name="spotify_eq_help_text">Spotify has an equalizer of its own. With both on, the same frequencies get boosted twice and the bass distorts sooner. HardBass EQ cannot switch Spotify\'s off for you.\n\nIn Spotify, open Settings, then Playback, then Equalizer, and switch it off.\n\nWhile you are there: under Volume level, pick Normal instead of Loud. Loud adds a limiter of its own on top of the one in HardBass EQ.</string>
+    <string name="spotify_eq_help_text">Spotify has an equalizer of its own. With both on, the same frequencies get boosted twice and the bass distorts sooner. Baschtls Gedröhne cannot switch Spotify\'s off for you.\n\nIn Spotify, open Settings, then Playback, then Equalizer, and switch it off.\n\nWhile you are there: under Volume level, pick Normal instead of Loud. Loud adds a limiter of its own on top of the one in Baschtls Gedröhne.</string>
     <string name="spotify_eq_help_done">Got it</string>
     <string name="eq_status_active">EQ active</string>
     <string name="eq_status_waiting">Waiting for playback</string>
@@ -108,7 +99,7 @@
     <string name="macro_haerte_desc">Edge and aggression in the upper mids and highs. Higher means harsher.</string>
     <string name="services_title">Linked services</string>
     <string name="services_back">Back</string>
-    <string name="services_intro">Music accounts HardBass EQ is connected to. Sound profiles for headphones and outputs are not accounts: you find them in the Equalizer under “Sound profiles”.</string>
+    <string name="services_intro">Music accounts Baschtls Gedröhne is connected to. Sound profiles for headphones and outputs are not accounts: you find them in the Equalizer under “Sound profiles”.</string>
     <string name="services_open_profiles">Open sound profiles</string>
     <string name="service_status_connected">Connected</string>
     <string name="service_status_not_connected">Not connected</string>
@@ -140,7 +131,7 @@
     <string name="headroom_limiter_sometimes">The limiter will probably work now and then (estimate)</string>
     <string name="headroom_limiter_heavy">Heavy limiting is likely (estimate)</string>
     <string name="no_session_title">No audio session found</string>
-    <string name="no_session_text">HardBass EQ now also listens for new sessions in the background. If a player such as Spotify or SoundCloud has been running since before the installation or the last restart, this usually helps: pause the track and play it again, skip to the next track, or close the player app and restart it.</string>
+    <string name="no_session_text">Baschtls Gedröhne listens for new audio sessions only while it runs, and it closes by itself after a while without one. Open it before you start the player. If a player such as Spotify or SoundCloud has been running since before the installation or the last restart, this usually helps: pause the track and play it again, skip to the next track, or close the player app and restart it.</string>
     <string name="correction_title">My headphones</string>
     <string name="correction_detected">Detected device: %1$s</string>
     <string name="correction_suggestion">A matching AutoEQ correction profile is available (%1$s).</string>
@@ -181,8 +172,6 @@
     <string name="route_label">Route: %1$s</string>
     <string name="virtual_bass_title">Virtual bass</string>
     <string name="imported_profile_default">Imported profile</string>
-    <string name="export_file_open_failed">Could not open the file</string>
-    <string name="export_failed">Export failed: %1$s</string>
     <string name="preset_save_as_new">Save as new preset</string>
     <string name="preset_rename_title">Rename preset</string>
     <string name="preset_delete_title">Delete preset?</string>
@@ -195,9 +184,8 @@
     <string name="import_failed_title">Import failed</string>
     <string name="share_correction_profile">Share correction profile</string>
     <string name="diagnostics_button">Diagnostics &amp; report</string>
-    <string name="export_desktop_profile">Export desktop profile</string>
     <string name="source_picker_title">Play from...</string>
-    <string name="source_picker_text">No audio session found yet. Start the player so HardBass EQ has something to process.</string>
+    <string name="source_picker_text">No audio session found yet. Start the player so Baschtls Gedröhne has something to process.</string>
     <string name="action_cancel">Cancel</string>
     <string name="field_name">Name</string>
     <string name="player_pause">Pause</string>
@@ -278,7 +266,7 @@
     <string name="diag_back">Back to equalizer</string>
     <string name="update_available">New version %1$s available</string>
     <string name="update_downloading">Downloading APK …</string>
-    <string name="update_allow_install">Allow installing for HardBass EQ, then tap Update again.</string>
+    <string name="update_allow_install">Allow installing for Baschtls Gedröhne, then tap Update again.</string>
     <string name="update_progress_total">%1$s / %2$s MB downloaded</string>
     <string name="update_progress">%1$s MB downloaded</string>
     <string name="update_failed">Update failed</string>
@@ -334,7 +322,6 @@
     <string name="spotify_no_answer">Spotify did not answer</string>
     <string name="likes_read_failed">Likes could not be read: %1$s</string>
     <string name="artist_search_failed">Search for \"%1$s\" failed: %2$s</string>
-    <string name="source_youtube_app">YouTube app</string>
     <string name="discovery_no_answer">No answer from SoundCloud</string>
     <string name="discovery_name_exists">That name already exists (or is invalid)</string>
     <string name="discovery_searching">Searching for new uploads …</string>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Auto Backup for Android 11 and older. Everything is backed up, including the SoundCloud and
+  Spotify sign-in (SoundCloudLoginActivity.PREFS_NAME, SpotifyApiClient.PREFS): after restoring on a
+  new phone nobody should have to sign in again (open_questions.md Q16). No rules means no exclusions.
+-->
+<full-backup-content />
