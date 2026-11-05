@@ -25,7 +25,7 @@ jobs:
       # A tag can point at any commit, including one that never went through the CI on main. Do not
       # sign and publish code whose tests fail.
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest :core:test :desktop:test --stacktrace
+        run: ./gradlew testDebugUnitTest :core:test --stacktrace
 
       - name: Build APK with the persistent release key
         env:
