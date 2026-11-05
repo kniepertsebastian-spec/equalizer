@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hardbasseq.eq.BuildConfig
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.audio.spike.SessionAttachSpikeController
@@ -397,13 +398,16 @@ fun MainScreen(
                             ),
                         )
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    OutlinedButton(onClick = { showSpikeSection = !showSpikeSection }) {
-                        Text(
-                            stringResource(
-                                if (showSpikeSection) R.string.hide_spike_section else R.string.show_spike_section,
-                            ),
-                        )
+                    // The M0 session-attach spike is throwaway diagnostic code (docs/ARCHITECTURE.md): debug builds only.
+                    if (BuildConfig.DEBUG) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        OutlinedButton(onClick = { showSpikeSection = !showSpikeSection }) {
+                            Text(
+                                stringResource(
+                                    if (showSpikeSection) R.string.hide_spike_section else R.string.show_spike_section,
+                                ),
+                            )
+                        }
                     }
                 }
             }
@@ -423,7 +427,7 @@ fun MainScreen(
                 }
             }
 
-            if (showSpikeSection) {
+            if (BuildConfig.DEBUG && showSpikeSection) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
                     SessionAttachSpikeSection(controller = spikeController)
                 }

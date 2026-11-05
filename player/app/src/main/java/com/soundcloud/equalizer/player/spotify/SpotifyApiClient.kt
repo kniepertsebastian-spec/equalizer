@@ -64,8 +64,13 @@ class SpotifyApiClient private constructor(
         withContext(Dispatchers.IO) {
             val state = prefs.getString(KEY_STATE, "").orEmpty()
             val verifier = prefs.getString(KEY_VERIFIER, "").orEmpty()
-            prefs.edit().remove(KEY_STATE).remove(KEY_VERIFIER).apply()
-            when (val redirect = SpotifyAuth.parseRedirect(redirectUri, state)) {
+            val redirect = SpotifyAuth.parseRedirect(redirectUri, state)
+            // SpotifyLoginActivity is exported, so any app can send it an intent. One that does not carry the
+            // pending sign-in's state must not wipe that sign-in: keep it until a matching redirect uses it up.
+            if (redirect !is SpotifyAuth.Redirect.Invalid) {
+                prefs.edit().remove(KEY_STATE).remove(KEY_VERIFIER).apply()
+            }
+            when (redirect) {
                 SpotifyAuth.Redirect.Invalid -> PlayerText.get(R.string.err_spotify_login_mismatch)
                 is SpotifyAuth.Redirect.Denied -> PlayerText.get(R.string.err_spotify_login_cancelled, redirect.reason)
                 is SpotifyAuth.Redirect.Code ->

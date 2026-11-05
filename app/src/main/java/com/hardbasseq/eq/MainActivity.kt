@@ -47,6 +47,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // See HardBassEqApplication.startSessionService: a process created in the background could not start it.
+        (application as? HardBassEqApplication)?.startSessionService()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleShareIntent(intent)
