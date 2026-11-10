@@ -59,6 +59,9 @@ class AudioSessionForegroundService : LifecycleService() {
     @Inject
     lateinit var appVisibility: AppVisibility
 
+    @Inject
+    lateinit var playbackMonitor: com.hardbasseq.eq.audio.AudioPlaybackMonitor
+
     private var foregroundStarted = false
 
     override fun onCreate() {
@@ -70,6 +73,7 @@ class AudioSessionForegroundService : LifecycleService() {
 
         sessionRepository.startListening()
         routeRepository.startMonitoring()
+        playbackMonitor.startMonitoring()
 
         lifecycleScope.launch {
             sessionRepository.activeSession.collect { session ->
@@ -88,10 +92,23 @@ class AudioSessionForegroundService : LifecycleService() {
         }
 
         lifecycleScope.launch {
+            playbackMonitor.isAnyAppPlaying.collect { isPlaying ->
+                diagnosticsRecorder.record("System-wide audio playback: ${if (isPlaying) "started" else "stopped"}")
+            }
+        }
+
+        lifecycleScope.launch {
             // A session whose engine ended in Error is as good as none: nothing is being processed.
+            // Extended logic: also consider the service "busy" if any app is playing audio, even
+            // if we haven't captured its session yet. This gives apps time to broadcast their
+            // session-open intent after starting playback.
             val hasUsableSession =
-                combine(sessionRepository.activeSession, audioEngine.state) { session, state ->
-                    session != null && state !is AudioEngineState.Error
+                combine(
+                    sessionRepository.activeSession,
+                    audioEngine.state,
+                    playbackMonitor.isAnyAppPlaying,
+                ) { session, state, isPlaying ->
+                    (session != null && state !is AudioEngineState.Error) || isPlaying
                 }
             idleShutdown(hasUsableSession, appVisibility.visible, SESSION_IDLE_TIMEOUT).first()
             diagnosticsRecorder.record(
@@ -134,6 +151,7 @@ class AudioSessionForegroundService : LifecycleService() {
         sessionRepository.stopListening()
         routeRepository.stopMonitoring()
         volumeRepository.stopMonitoring()
+        playbackMonitor.stopMonitoring()
         audioEngine.markDetached()
         super.onDestroy()
     }
