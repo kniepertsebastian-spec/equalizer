@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.soundcloud.equalizer.player.soundcloud.SoundCloudClientTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:17:10.254Z" hostname="vmd206980" time="0.326">
+<testsuite name="com.soundcloud.equalizer.player.soundcloud.SoundCloudClientTest" tests="1" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:23:47.557Z" hostname="Baschtl96" time="0.009">
   <properties/>
-  <testcase name="testTrackParsing" classname="com.soundcloud.equalizer.player.soundcloud.SoundCloudClientTest" time="0.266"/>
+  <testcase name="testTrackParsing" classname="com.soundcloud.equalizer.player.soundcloud.SoundCloudClientTest" time="0.005"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

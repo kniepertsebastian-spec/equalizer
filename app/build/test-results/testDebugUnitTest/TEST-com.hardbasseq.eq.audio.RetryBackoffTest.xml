@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.audio.RetryBackoffTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:23.809Z" hostname="vmd206980" time="0.012">
+<testsuite name="com.hardbasseq.eq.audio.RetryBackoffTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:24:01.631Z" hostname="Baschtl96" time="0.003">
   <properties/>
-  <testcase name="delayMillisFor_neverGrowsUnboundedAcrossAttemptSequence" classname="com.hardbasseq.eq.audio.RetryBackoffTest" time="0.008"/>
-  <testcase name="delayMillisFor_followsTheSpecifiedExponentialSchedule" classname="com.hardbasseq.eq.audio.RetryBackoffTest" time="0.002"/>
+  <testcase name="delayMillisFor_neverGrowsUnboundedAcrossAttemptSequence" classname="com.hardbasseq.eq.audio.RetryBackoffTest" time="0.003"/>
+  <testcase name="delayMillisFor_followsTheSpecifiedExponentialSchedule" classname="com.hardbasseq.eq.audio.RetryBackoffTest" time="0.0"/>
   <testcase name="delayMillisFor_capsAtTheLastIntervalBeyondMaxAttempts" classname="com.hardbasseq.eq.audio.RetryBackoffTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

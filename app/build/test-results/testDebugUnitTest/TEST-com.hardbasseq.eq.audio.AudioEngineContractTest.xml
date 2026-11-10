@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.audio.AudioEngineContractTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:23.500Z" hostname="vmd206980" time="0.255">
+<testsuite name="com.hardbasseq.eq.audio.AudioEngineContractTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:24:01.567Z" hostname="Baschtl96" time="0.053">
   <properties/>
-  <testcase name="contract_detachingActiveEngineReturnsToListening" classname="com.hardbasseq.eq.audio.AudioEngineContractTest" time="0.245"/>
-  <testcase name="contract_initialStateIsDetached" classname="com.hardbasseq.eq.audio.AudioEngineContractTest" time="0.006"/>
-  <testcase name="contract_attachingSessionTransitionsToActive" classname="com.hardbasseq.eq.audio.AudioEngineContractTest" time="0.002"/>
+  <testcase name="contract_detachingActiveEngineReturnsToListening" classname="com.hardbasseq.eq.audio.AudioEngineContractTest" time="0.051"/>
+  <testcase name="contract_initialStateIsDetached" classname="com.hardbasseq.eq.audio.AudioEngineContractTest" time="0.001"/>
+  <testcase name="contract_attachingSessionTransitionsToActive" classname="com.hardbasseq.eq.audio.AudioEngineContractTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.service.AppVisibilityTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:24.905Z" hostname="vmd206980" time="0.007">
+<testsuite name="com.hardbasseq.eq.service.AppVisibilityTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:24:01.734Z" hostname="Baschtl96" time="0.001">
   <properties/>
-  <testcase name="is hidden again once every screen stopped" classname="com.hardbasseq.eq.service.AppVisibilityTest" time="0.003"/>
+  <testcase name="is hidden again once every screen stopped" classname="com.hardbasseq.eq.service.AppVisibilityTest" time="0.001"/>
   <testcase name="is not visible before any screen started" classname="com.hardbasseq.eq.service.AppVisibilityTest" time="0.0"/>
-  <testcase name="is visible while at least one screen is started" classname="com.hardbasseq.eq.service.AppVisibilityTest" time="0.002"/>
+  <testcase name="is visible while at least one screen is started" classname="com.hardbasseq.eq.service.AppVisibilityTest" time="0.0"/>
   <testcase name="an extra stop does not make the next start look like a hidden app" classname="com.hardbasseq.eq.service.AppVisibilityTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>

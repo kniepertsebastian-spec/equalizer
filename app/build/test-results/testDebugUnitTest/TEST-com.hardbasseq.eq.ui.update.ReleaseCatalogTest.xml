@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.ui.update.ReleaseCatalogTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:27.385Z" hostname="vmd206980" time="0.043">
+<testsuite name="com.hardbasseq.eq.ui.update.ReleaseCatalogTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:24:02.143Z" hostname="Baschtl96" time="0.004">
   <properties/>
-  <testcase name="rejects wrong package and untrusted download URL" classname="com.hardbasseq.eq.ui.update.ReleaseCatalogTest" time="0.014"/>
-  <testcase name="valid release is offered only above installed version code" classname="com.hardbasseq.eq.ui.update.ReleaseCatalogTest" time="0.0"/>
-  <testcase name="old releases without update metadata are ignored" classname="com.hardbasseq.eq.ui.update.ReleaseCatalogTest" time="0.029"/>
+  <testcase name="rejects wrong package and untrusted download URL" classname="com.hardbasseq.eq.ui.update.ReleaseCatalogTest" time="0.003"/>
+  <testcase name="valid release is offered only above installed version code" classname="com.hardbasseq.eq.ui.update.ReleaseCatalogTest" time="0.001"/>
+  <testcase name="old releases without update metadata are ignored" classname="com.hardbasseq.eq.ui.update.ReleaseCatalogTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

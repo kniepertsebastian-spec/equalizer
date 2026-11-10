@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:24.053Z" hostname="vmd206980" time="0.147">
+<testsuite name="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:24:01.663Z" hostname="Baschtl96" time="0.018">
   <properties/>
-  <testcase name="generateReport_usesRealAppVersionInsteadOfAHardcodedString" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.031"/>
-  <testcase name="generateReport_containsEssentialDiagnosticInfo" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.011"/>
-  <testcase name="generateReport_saysWhetherTheHighResolutionEqWasRequestedAndWhyItIsUnavailable" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.041"/>
-  <testcase name="generateReport_omitsDspAndEventSectionsWhenNotProvided" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.001"/>
-  <testcase name="generateReport_includesTimestampedRecentEvents" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.037"/>
+  <testcase name="generateReport_usesRealAppVersionInsteadOfAHardcodedString" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.005"/>
+  <testcase name="generateReport_containsEssentialDiagnosticInfo" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.0"/>
+  <testcase name="generateReport_saysWhetherTheHighResolutionEqWasRequestedAndWhyItIsUnavailable" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.005"/>
+  <testcase name="generateReport_omitsDspAndEventSectionsWhenNotProvided" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.0"/>
+  <testcase name="generateReport_includesTimestampedRecentEvents" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.005"/>
   <testcase name="generateReport_includesActiveDspStagesAndDistinguishesAppliedFromWaiting" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.001"/>
-  <testcase name="generateReport_statesEqStatusSessionPlayerAndLastError" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.009"/>
+  <testcase name="generateReport_statesEqStatusSessionPlayerAndLastError" classname="com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatterTest" time="0.001"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

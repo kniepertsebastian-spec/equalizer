@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.audio.media3.Media3DspPipelineTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-05T10:18:23.840Z" hostname="vmd206980" time="0.002">
+<testsuite name="com.hardbasseq.eq.audio.media3.Media3DspPipelineTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:24:01.637Z" hostname="Baschtl96" time="0.0">
   <properties/>
-  <testcase name="processAudioFramePcm16_appliesInputGain" classname="com.hardbasseq.eq.audio.media3.Media3DspPipelineTest" time="0.001"/>
-  <testcase name="processAudioFramePcm16_bypassReturnsOriginalSamples" classname="com.hardbasseq.eq.audio.media3.Media3DspPipelineTest" time="0.001"/>
+  <testcase name="processAudioFramePcm16_appliesInputGain" classname="com.hardbasseq.eq.audio.media3.Media3DspPipelineTest" time="0.0"/>
+  <testcase name="processAudioFramePcm16_bypassReturnsOriginalSamples" classname="com.hardbasseq.eq.audio.media3.Media3DspPipelineTest" time="0.0"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>
