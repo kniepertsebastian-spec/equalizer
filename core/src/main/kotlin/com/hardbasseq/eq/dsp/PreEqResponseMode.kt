@@ -23,7 +23,8 @@ package com.hardbasseq.eq.dsp
 enum class PreEqResponseMode {
     SMOOTH,
     BALANCED,
-    PRECISE;
+    PRECISE,
+    ;
 
     /** How many octaves a manual band adjustment's influence reaches to each side. */
     val manualDeltaReachOctaves: Float

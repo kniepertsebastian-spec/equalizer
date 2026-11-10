@@ -292,7 +292,8 @@ fun MainScreen(
                 onHighResolutionEqChanged = { viewModel.setHighResolutionEq(it) },
                 preEqResponseMode =
                     try {
-                        com.hardbasseq.eq.dsp.PreEqResponseMode.valueOf(settings.preEqResponseMode)
+                        com.hardbasseq.eq.dsp.PreEqResponseMode
+                            .valueOf(settings.preEqResponseMode)
                     } catch (e: Exception) {
                         com.hardbasseq.eq.dsp.PreEqResponseMode.DEFAULT
                     },
