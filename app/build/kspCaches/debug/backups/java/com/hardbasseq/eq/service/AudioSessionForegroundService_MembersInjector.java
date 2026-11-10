@@ -1,6 +1,7 @@
 package com.hardbasseq.eq.service;
 
 import com.hardbasseq.eq.audio.AudioEngine;
+import com.hardbasseq.eq.audio.AudioPlaybackMonitor;
 import com.hardbasseq.eq.audio.AudioRouteRepository;
 import com.hardbasseq.eq.audio.AudioSessionRepository;
 import com.hardbasseq.eq.audio.SystemVolumeRepository;
@@ -40,19 +41,23 @@ public final class AudioSessionForegroundService_MembersInjector implements Memb
 
   private final Provider<AppVisibility> appVisibilityProvider;
 
+  private final Provider<AudioPlaybackMonitor> playbackMonitorProvider;
+
   private AudioSessionForegroundService_MembersInjector(
       Provider<AudioSessionRepository> sessionRepositoryProvider,
       Provider<AudioRouteRepository> routeRepositoryProvider,
       Provider<SystemVolumeRepository> volumeRepositoryProvider,
       Provider<AudioEngine> audioEngineProvider,
       Provider<DiagnosticsRecorder> diagnosticsRecorderProvider,
-      Provider<AppVisibility> appVisibilityProvider) {
+      Provider<AppVisibility> appVisibilityProvider,
+      Provider<AudioPlaybackMonitor> playbackMonitorProvider) {
     this.sessionRepositoryProvider = sessionRepositoryProvider;
     this.routeRepositoryProvider = routeRepositoryProvider;
     this.volumeRepositoryProvider = volumeRepositoryProvider;
     this.audioEngineProvider = audioEngineProvider;
     this.diagnosticsRecorderProvider = diagnosticsRecorderProvider;
     this.appVisibilityProvider = appVisibilityProvider;
+    this.playbackMonitorProvider = playbackMonitorProvider;
   }
 
   @Override
@@ -63,6 +68,7 @@ public final class AudioSessionForegroundService_MembersInjector implements Memb
     injectAudioEngine(instance, audioEngineProvider.get());
     injectDiagnosticsRecorder(instance, diagnosticsRecorderProvider.get());
     injectAppVisibility(instance, appVisibilityProvider.get());
+    injectPlaybackMonitor(instance, playbackMonitorProvider.get());
   }
 
   public static MembersInjector<AudioSessionForegroundService> create(
@@ -71,8 +77,9 @@ public final class AudioSessionForegroundService_MembersInjector implements Memb
       Provider<SystemVolumeRepository> volumeRepositoryProvider,
       Provider<AudioEngine> audioEngineProvider,
       Provider<DiagnosticsRecorder> diagnosticsRecorderProvider,
-      Provider<AppVisibility> appVisibilityProvider) {
-    return new AudioSessionForegroundService_MembersInjector(sessionRepositoryProvider, routeRepositoryProvider, volumeRepositoryProvider, audioEngineProvider, diagnosticsRecorderProvider, appVisibilityProvider);
+      Provider<AppVisibility> appVisibilityProvider,
+      Provider<AudioPlaybackMonitor> playbackMonitorProvider) {
+    return new AudioSessionForegroundService_MembersInjector(sessionRepositoryProvider, routeRepositoryProvider, volumeRepositoryProvider, audioEngineProvider, diagnosticsRecorderProvider, appVisibilityProvider, playbackMonitorProvider);
   }
 
   @InjectedFieldSignature("com.hardbasseq.eq.service.AudioSessionForegroundService.sessionRepository")
@@ -109,5 +116,11 @@ public final class AudioSessionForegroundService_MembersInjector implements Memb
   public static void injectAppVisibility(AudioSessionForegroundService instance,
       AppVisibility appVisibility) {
     instance.appVisibility = appVisibility;
+  }
+
+  @InjectedFieldSignature("com.hardbasseq.eq.service.AudioSessionForegroundService.playbackMonitor")
+  public static void injectPlaybackMonitor(AudioSessionForegroundService instance,
+      AudioPlaybackMonitor playbackMonitor) {
+    instance.playbackMonitor = playbackMonitor;
   }
 }

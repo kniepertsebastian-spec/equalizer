@@ -184,6 +184,8 @@ int string headroom_ok 0x0
 int string hide_debug_effects 0x0
 int string high_res_eq_active 0x0
 int string high_res_eq_classic 0x0
+int string high_res_eq_response_mode_subtitle 0x0
+int string high_res_eq_response_mode_title 0x0
 int string high_res_eq_title 0x0
 int string high_res_eq_unavailable 0x0
 int string hp_power_bass_name 0x0
@@ -334,6 +336,12 @@ int string queue_go_playlists 0x0
 int string queue_go_search 0x0
 int string queue_now 0x0
 int string queue_title 0x0
+int string response_mode_balanced 0x0
+int string response_mode_balanced_desc 0x0
+int string response_mode_precise 0x0
+int string response_mode_precise_desc 0x0
+int string response_mode_smooth 0x0
+int string response_mode_smooth_desc 0x0
 int string retry_countdown 0x0
 int string route_label 0x0
 int string route_rename 0x0

@@ -11,10 +11,13 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.hardbasseq.eq.audio.AndroidAudioEffectRepository;
 import com.hardbasseq.eq.audio.AndroidAudioEngine;
+import com.hardbasseq.eq.audio.AndroidAudioPlaybackMonitor;
 import com.hardbasseq.eq.audio.AndroidAudioRouteRepository;
 import com.hardbasseq.eq.audio.AndroidAudioSessionRepository;
 import com.hardbasseq.eq.audio.AndroidSystemVolumeRepository;
 import com.hardbasseq.eq.audio.AudioEffectRepository;
+import com.hardbasseq.eq.audio.AudioPlaybackMonitor;
+import com.hardbasseq.eq.audio.NoOpAudioPlaybackMonitor;
 import com.hardbasseq.eq.auto.AndroidCarConnectionRepository;
 import com.hardbasseq.eq.auto.AppAutoCatalog;
 import com.hardbasseq.eq.auto.AutoBrowserService;
@@ -24,6 +27,7 @@ import com.hardbasseq.eq.data.db.AppDatabase;
 import com.hardbasseq.eq.data.db.CorrectionProfileDao;
 import com.hardbasseq.eq.data.db.DeviceProfileDao;
 import com.hardbasseq.eq.data.db.PresetDao;
+import com.hardbasseq.eq.di.AudioModule_Companion_ProvideAudioPlaybackMonitorFactory;
 import com.hardbasseq.eq.di.DatabaseModule_ProvideAppDatabaseFactory;
 import com.hardbasseq.eq.di.DatabaseModule_ProvideCorrectionProfileDaoFactory;
 import com.hardbasseq.eq.di.DatabaseModule_ProvideDeviceProfileDaoFactory;
@@ -615,6 +619,7 @@ public final class DaggerHardBassEqApplication_HiltComponents_SingletonC {
       AudioSessionForegroundService_MembersInjector.injectAudioEngine(instance2, singletonCImpl.androidAudioEngineProvider.get());
       AudioSessionForegroundService_MembersInjector.injectDiagnosticsRecorder(instance2, singletonCImpl.inMemoryDiagnosticsRecorderProvider.get());
       AudioSessionForegroundService_MembersInjector.injectAppVisibility(instance2, singletonCImpl.appVisibilityProvider.get());
+      AudioSessionForegroundService_MembersInjector.injectPlaybackMonitor(instance2, singletonCImpl.provideAudioPlaybackMonitorProvider.get());
       return instance2;
     }
   }
@@ -676,6 +681,12 @@ public final class DaggerHardBassEqApplication_HiltComponents_SingletonC {
 
     Provider<DataStoreSpotifyImportRepository> dataStoreSpotifyImportRepositoryProvider;
 
+    Provider<AndroidAudioPlaybackMonitor> androidAudioPlaybackMonitorProvider;
+
+    Provider<NoOpAudioPlaybackMonitor> noOpAudioPlaybackMonitorProvider;
+
+    Provider<AudioPlaybackMonitor> provideAudioPlaybackMonitorProvider;
+
     SingletonCImpl(ApplicationContextModule applicationContextModuleParam) {
       this.applicationContextModule = applicationContextModuleParam;
       initialize(applicationContextModuleParam);
@@ -727,6 +738,9 @@ public final class DaggerHardBassEqApplication_HiltComponents_SingletonC {
     @SuppressWarnings("unchecked")
     private void initialize2(final ApplicationContextModule applicationContextModuleParam) {
       this.dataStoreSpotifyImportRepositoryProvider = DoubleCheck.provider(new SwitchingProvider<DataStoreSpotifyImportRepository>(singletonCImpl, 22));
+      this.androidAudioPlaybackMonitorProvider = DoubleCheck.provider(new SwitchingProvider<AndroidAudioPlaybackMonitor>(singletonCImpl, 24));
+      this.noOpAudioPlaybackMonitorProvider = DoubleCheck.provider(new SwitchingProvider<NoOpAudioPlaybackMonitor>(singletonCImpl, 25));
+      this.provideAudioPlaybackMonitorProvider = DoubleCheck.provider(new SwitchingProvider<AudioPlaybackMonitor>(singletonCImpl, 23));
     }
 
     @Override
@@ -843,6 +857,15 @@ public final class DaggerHardBassEqApplication_HiltComponents_SingletonC {
 
           case 22: // com.hardbasseq.eq.playlist.DataStoreSpotifyImportRepository
           return (T) new DataStoreSpotifyImportRepository(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 23: // com.hardbasseq.eq.audio.AudioPlaybackMonitor
+          return (T) AudioModule_Companion_ProvideAudioPlaybackMonitorFactory.provideAudioPlaybackMonitor(singletonCImpl.androidAudioPlaybackMonitorProvider.get(), singletonCImpl.noOpAudioPlaybackMonitorProvider.get());
+
+          case 24: // com.hardbasseq.eq.audio.AndroidAudioPlaybackMonitor
+          return (T) new AndroidAudioPlaybackMonitor(ApplicationContextModule_ProvideContextFactory.provideContext(singletonCImpl.applicationContextModule));
+
+          case 25: // com.hardbasseq.eq.audio.NoOpAudioPlaybackMonitor
+          return (T) new NoOpAudioPlaybackMonitor();
 
           default: throw new AssertionError(id);
         }

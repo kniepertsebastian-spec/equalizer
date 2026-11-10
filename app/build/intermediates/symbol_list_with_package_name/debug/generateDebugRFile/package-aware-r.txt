@@ -185,6 +185,8 @@ string headroom_ok
 string hide_debug_effects
 string high_res_eq_active
 string high_res_eq_classic
+string high_res_eq_response_mode_subtitle
+string high_res_eq_response_mode_title
 string high_res_eq_title
 string high_res_eq_unavailable
 string hp_power_bass_name
@@ -335,6 +337,12 @@ string queue_go_playlists
 string queue_go_search
 string queue_now
 string queue_title
+string response_mode_balanced
+string response_mode_balanced_desc
+string response_mode_precise
+string response_mode_precise_desc
+string response_mode_smooth
+string response_mode_smooth_desc
 string retry_countdown
 string route_label
 string route_rename
