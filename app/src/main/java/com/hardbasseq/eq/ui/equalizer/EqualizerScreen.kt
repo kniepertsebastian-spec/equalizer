@@ -175,6 +175,8 @@ fun EqualizerScreen(
     onDismissDeviceKindPrompt: () -> Unit = {},
     preEqActive: Boolean = false,
     onHighResolutionEqChanged: ((Boolean) -> Unit)? = null,
+    preEqResponseMode: com.hardbasseq.eq.dsp.PreEqResponseMode = com.hardbasseq.eq.dsp.PreEqResponseMode.BALANCED,
+    onPreEqResponseModeChanged: ((com.hardbasseq.eq.dsp.PreEqResponseMode) -> Unit)? = null,
     onSelectAudioSession: (AudioSession) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -360,6 +362,8 @@ fun EqualizerScreen(
                         checked = settings.highResolutionEq,
                         active = preEqActive,
                         onCheckedChange = onChanged,
+                        responseMode = preEqResponseMode,
+                        onResponseModeChange = onPreEqResponseModeChanged,
                     )
                 }
             }

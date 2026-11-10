@@ -2,7 +2,9 @@ package com.hardbasseq.eq.ui.equalizer
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
@@ -13,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
+import com.hardbasseq.eq.dsp.PreEqResponseMode
 
 /**
  * Switch between the classic 5-band system equalizer and the 34-band DynamicsProcessing
@@ -24,6 +27,8 @@ internal fun HighResolutionEqRow(
     checked: Boolean,
     active: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    responseMode: PreEqResponseMode? = null,
+    onResponseModeChange: ((PreEqResponseMode) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val state =
@@ -52,6 +57,16 @@ internal fun HighResolutionEqRow(
                 )
             }
             Switch(checked = checked, onCheckedChange = onCheckedChange)
+        }
+
+        // Response mode selector: only shown when high-res EQ is active
+        if (active && responseMode != null && onResponseModeChange != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            PreEqResponseModeSelector(
+                currentMode = responseMode,
+                active = active,
+                onModeChange = onResponseModeChange,
+            )
         }
     }
 }

@@ -290,6 +290,13 @@ fun MainScreen(
                 isOwnPlayerSession = isOwnPlayerSession,
                 preEqActive = capabilities.preEqCutoffsHz.isNotEmpty(),
                 onHighResolutionEqChanged = { viewModel.setHighResolutionEq(it) },
+                preEqResponseMode =
+                    try {
+                        com.hardbasseq.eq.dsp.PreEqResponseMode.valueOf(settings.preEqResponseMode)
+                    } catch (e: Exception) {
+                        com.hardbasseq.eq.dsp.PreEqResponseMode.DEFAULT
+                    },
+                onPreEqResponseModeChanged = { viewModel.setPreEqResponseMode(it) },
                 deviceKindPrompt = deviceKindPrompt,
                 onAnswerDeviceKind = { viewModel.answerDeviceKind(it) },
                 onDismissDeviceKindPrompt = { viewModel.dismissDeviceKindPrompt() },
