@@ -27,4 +27,8 @@ data class ProcessingSettings(
     val highResolutionEq: Boolean = true,
     // One gain per band of PreEqLayout.CUTOFFS_HZ; empty = not in use.
     val preEqGainsDb: List<Float> = emptyList(),
+    // How the high-resolution EQ responds: SMOOTH (default, gentle), BALANCED, or PRECISE (aggressive).
+    // Controls Simpson integration vs midpoint sampling and manual delta spread.
+    // Serialized as string for forward compatibility.
+    val preEqResponseMode: String = "BALANCED",
 )

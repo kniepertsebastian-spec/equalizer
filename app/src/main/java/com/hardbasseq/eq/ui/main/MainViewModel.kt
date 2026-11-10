@@ -1128,7 +1128,7 @@ class MainViewModel
             )
         }
 
-        // Gains for the 16-band pre-EQ (empty while the classic equalizer is in use). The
+        // Gains for the 34-band pre-EQ (empty while the classic equalizer is in use). The
         // classic band sliders stay the editing surface: how far each one sits from the
         // curve is carried over as a manual delta that fades out towards its neighbours.
         private fun preEqGainsFor(classicBandGainsDb: Map<Int, Float>): List<Float> {
@@ -1150,7 +1150,13 @@ class MainViewModel
                     val delta = (classicBandGainsDb[band.index] ?: 0f) - (fromCurve[band.index] ?: 0f)
                     if (abs(delta) > MANUAL_DELTA_EPSILON_DB) TargetPoint(band.centerFreqHz.toFloat(), delta) else null
                 }
-            return PreEqMapper.map(curve, macros, caps.preEqCutoffsHz, deltas)
+            val responseMode =
+                try {
+                    com.hardbasseq.eq.dsp.PreEqResponseMode.valueOf(settings.preEqResponseMode)
+                } catch (e: Exception) {
+                    com.hardbasseq.eq.dsp.PreEqResponseMode.DEFAULT
+                }
+            return PreEqMapper.map(curve, macros, caps.preEqCutoffsHz, deltas, responseMode)
         }
 
         /** Switch between the classic 5-band equalizer and the DynamicsProcessing pre-EQ (experimental). */
@@ -1158,6 +1164,16 @@ class MainViewModel
             applySettings(_processingSettings.value.copy(highResolutionEq = enabled))
             // The band layout is fixed when the effect is created, so it has to be rebuilt.
             viewModelScope.launch { audioEngine.retry() }
+        }
+
+        /**
+         * Set the pre-EQ response mode: SMOOTH (gentle), BALANCED (default), or PRECISE (aggressive).
+         * Controls how manual band adjustments spread and whether Simpson integration is used.
+         * More precise = punchier bass, tighter control, but potentially more artifacts.
+         */
+        fun setPreEqResponseMode(mode: com.hardbasseq.eq.dsp.PreEqResponseMode) {
+            applySettings(_processingSettings.value.copy(preEqResponseMode = mode.name))
+            recalculateBandGains()
         }
 
         private fun recalculateBandGains(bands: List<EqualizerBandCapabilities> = audioEngine.capabilities.value.bands) {

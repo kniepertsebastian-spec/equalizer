@@ -49,23 +49,43 @@ class AndroidAudioPlaybackMonitor
         private val playbackCallback =
             object : AudioManager.AudioPlaybackCallback() {
                 override fun onPlaybackConfigChanged(configs: List<AudioPlaybackConfiguration>) {
-                    // Filter for active playback: state STARTED and not silent
+                    // Filter for active playback. For API 28, we check if configs list is non-empty.
+                    // For API 29+, we use isActive property which is more accurate.
                     val hasActivePlayback =
-                        configs.any { config ->
-                            config.isActive &&
-                                config.audioAttributes.usage != android.media.AudioAttributes.USAGE_UNKNOWN
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            hasActivePlaybackApi29(configs)
+                        } else {
+                            // API 28: configs list is non-empty means playback is happening
+                            configs.isNotEmpty() &&
+                                configs.any { config ->
+                                    config.audioAttributes.usage != android.media.AudioAttributes.USAGE_UNKNOWN
+                                }
                         }
 
                     if (_isAnyAppPlaying.value != hasActivePlayback) {
                         Log.d(
                             TAG,
-                            "Audio playback state changed: $hasActivePlayback (${configs.size} configs, " +
-                                "${configs.count { it.isActive }} active)",
+                            "Audio playback state changed: $hasActivePlayback (${configs.size} configs)",
                         )
                         _isAnyAppPlaying.value = hasActivePlayback
                     }
                 }
             }
+
+        @RequiresApi(Build.VERSION_CODES.Q)
+        private fun hasActivePlaybackApi29(configs: List<AudioPlaybackConfiguration>): Boolean {
+            // Use reflection to access isActive to avoid compilation errors on API < 29
+            return try {
+                val isActiveMethod = AudioPlaybackConfiguration::class.java.getMethod("isActive")
+                configs.any { config ->
+                    val isActive = isActiveMethod.invoke(config) as? Boolean ?: false
+                    isActive && config.audioAttributes.usage != android.media.AudioAttributes.USAGE_UNKNOWN
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to check isActive via reflection, falling back to size check", e)
+                configs.isNotEmpty()
+            }
+        }
 
         override fun startMonitoring() {
             if (isMonitoring) return

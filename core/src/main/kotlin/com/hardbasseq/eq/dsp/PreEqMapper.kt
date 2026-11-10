@@ -2,6 +2,7 @@ package com.hardbasseq.eq.dsp
 
 import com.hardbasseq.eq.preset.TargetPoint
 import kotlin.math.ln
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
@@ -65,54 +66,70 @@ data class PreEqMacros(
 )
 
 object PreEqMapper {
-    // How far the influence of a lone manual delta reaches, as a frequency ratio (two octaves).
-    private const val LONE_DELTA_REACH = 4f
-
     /**
-     * One gain per pre-EQ band: uses 3-point Simpson integration in log-frequency across
-     * [lowerHz, upperHz] so dense curves (like 127-point AutoEQ profiles or steep subsonic cuts)
-     * do not alias or jump harshly between narrow adjacent bands, while remaining mathematically
-     * identical to midpoint evaluation on linear segments.
+     * One gain per pre-EQ band, with configurable response mode.
+     *
+     * SMOOTH: Simpson integration (3-point) - smoothest, best anti-aliasing
+     * BALANCED: Simpson for curve + tighter manual deltas (1 octave reach)
+     * PRECISE: Midpoint sampling - sharpest, most aggressive
      *
      * @param manualDeltas how far the user moved a classic band from the curve, as points at
      *   the band centres; they fade out towards their neighbours instead of staying flat.
+     * @param responseMode controls smoothness vs precision (default: BALANCED)
      */
     fun map(
         curve: List<TargetPoint>,
         macros: PreEqMacros,
         cutoffsHz: List<Float>,
         manualDeltas: List<TargetPoint> = emptyList(),
+        responseMode: PreEqResponseMode = PreEqResponseMode.DEFAULT,
     ): List<Float> {
         val sortedCurve = curve.sortedBy { it.frequencyHz }
         val sortedDeltas = manualDeltas.sortedBy { it.frequencyHz }
         return cutoffsHz.mapIndexed { i, upperHz ->
             val lowerHz = if (i == 0) PreEqLayout.LOWEST_HZ else cutoffsHz[i - 1]
             val midHz = sqrt(lowerHz * upperHz)
-            val lowGain =
-                EqualizerInterpolator.resolveGainAtFrequency(lowerHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                    deltaAt(lowerHz, sortedDeltas)
-            val midGain =
-                EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                    deltaAt(midHz, sortedDeltas)
-            val highGain =
-                EqualizerInterpolator.resolveGainAtFrequency(upperHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                    deltaAt(upperHz, sortedDeltas)
-            val gain = (lowGain + 4f * midGain + highGain) / 6f
+
+            val gain =
+                if (responseMode.useSimpsonIntegration) {
+                    // Simpson integration: smooth, 3-point sampling
+                    val lowGain =
+                        EqualizerInterpolator.resolveGainAtFrequency(lowerHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                            deltaAt(lowerHz, sortedDeltas, responseMode)
+                    val midGain =
+                        EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                            deltaAt(midHz, sortedDeltas, responseMode)
+                    val highGain =
+                        EqualizerInterpolator.resolveGainAtFrequency(upperHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                            deltaAt(upperHz, sortedDeltas, responseMode)
+                    (lowGain + 4f * midGain + highGain) / 6f
+                } else {
+                    // Midpoint sampling: precise, single-point
+                    EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                        deltaAt(midHz, sortedDeltas, responseMode)
+                }
+
             gain.coerceIn(-PreEqLayout.MAX_GAIN_DB, PreEqLayout.MAX_GAIN_DB)
         }
     }
 
-    // Piecewise linear in log frequency between the delta points, falling to zero one
-    // neighbour-distance beyond the outermost points.
+    // Piecewise linear in log frequency between the delta points, falling to zero
+    // based on the response mode's reach distance.
     private fun deltaAt(
         freqHz: Float,
         deltas: List<TargetPoint>,
+        responseMode: PreEqResponseMode,
     ): Float {
         if (deltas.isEmpty()) return 0f
         val first = deltas.first()
         val last = deltas.last()
-        val lowReach = if (deltas.size > 1) first.frequencyHz / deltas[1].frequencyHz else 1f / LONE_DELTA_REACH
-        val highReach = if (deltas.size > 1) last.frequencyHz / deltas[deltas.size - 2].frequencyHz else LONE_DELTA_REACH
+
+        // Convert octaves to frequency ratio: 2^octaves
+        // e.g., 1 octave = 2x, 0.5 octave = 1.414x
+        val reachRatio = 2f.pow(responseMode.manualDeltaReachOctaves)
+
+        val lowReach = if (deltas.size > 1) first.frequencyHz / deltas[1].frequencyHz else 1f / reachRatio
+        val highReach = if (deltas.size > 1) last.frequencyHz / deltas[deltas.size - 2].frequencyHz else reachRatio
         val anchors =
             listOf(TargetPoint(first.frequencyHz * lowReach, 0f)) + deltas + TargetPoint(last.frequencyHz * highReach, 0f)
         if (freqHz <= anchors.first().frequencyHz || freqHz >= anchors.last().frequencyHz) return 0f

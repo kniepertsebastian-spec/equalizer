@@ -263,6 +263,14 @@
     <string name="high_res_eq_active">34-band pre-EQ active</string>
     <string name="high_res_eq_classic">Classic 5-band equalizer</string>
     <string name="high_res_eq_unavailable">Not available on this device, using the 5-band equalizer</string>
+    <string name="high_res_eq_response_mode_title">EQ Response</string>
+    <string name="high_res_eq_response_mode_subtitle">How aggressively the EQ reacts to adjustments</string>
+    <string name="response_mode_smooth">Smooth</string>
+    <string name="response_mode_smooth_desc">Gentle, anti-aliased curves. Best for tonal shaping. May sound softer.</string>
+    <string name="response_mode_balanced">Balanced (Recommended)</string>
+    <string name="response_mode_balanced_desc">Good compromise between precision and smoothness. Tighter manual control.</string>
+    <string name="response_mode_precise">Precise</string>
+    <string name="response_mode_precise_desc">Sharp, aggressive response. Punchier bass, tighter control. May cause artifacts on steep curves.</string>
     <string name="diag_back">Back to equalizer</string>
     <string name="update_available">New version %1$s available</string>
     <string name="update_downloading">Downloading APK …</string>
