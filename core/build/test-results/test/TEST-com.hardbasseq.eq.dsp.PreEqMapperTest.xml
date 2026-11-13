@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.dsp.PreEqMapperTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:47.223Z" hostname="vmd206980" time="0.011">
-  <properties/>
-  <testcase name="manual delta interpolates smoothly and decays to zero outside neighbor reach" classname="com.hardbasseq.eq.dsp.PreEqMapperTest" time="0.007"/>
-  <testcase name="34-band layout has exactly 34 strictly increasing cutoffs" classname="com.hardbasseq.eq.dsp.PreEqMapperTest" time="0.002"/>
-  <testcase name="flat curve with zero macros produces strictly zero gain across all 34 bands" classname="com.hardbasseq.eq.dsp.PreEqMapperTest" time="0.0"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

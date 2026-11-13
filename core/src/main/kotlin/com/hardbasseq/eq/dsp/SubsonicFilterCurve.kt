@@ -13,7 +13,8 @@ import com.hardbasseq.eq.preset.TargetPoint
 // source. The caveat of that path: the curve is mapped onto whatever bands the
 // system equalizer offers, so the real attenuation is only as steep as the
 // lowest band allows - a graphic approximation of the filter, not a true
-// high-pass (which would need an owned DSP path, see Media3DspPipeline).
+// high-pass (which would need an owned DSP path - the player's own chain,
+// PlayerDspPcm16, has one for the built-in player only).
 object SubsonicFilterCurve {
     const val MIN_CUTOFF_HZ = 20f
     const val MAX_CUTOFF_HZ = 80f

@@ -7,14 +7,29 @@ import org.junit.Test
 
 class PreEqMapperTest {
     @Test
-    fun `34-band layout has exactly 34 strictly increasing cutoffs`() {
+    fun `34-band layout has exactly 34 strictly increasing cutoffs without sub-bin crowding`() {
         val cutoffs = PreEqLayout.CUTOFFS_HZ
         assertEquals(34, cutoffs.size)
 
         var previous = PreEqLayout.LOWEST_HZ
         for (cutoff in cutoffs) {
             assertTrue("Expected $cutoff > $previous", cutoff > previous)
+            // Neighbouring edges at least ~18 % apart: closer bands share one STFT bin of
+            // DynamicsProcessing (about 23 Hz at a 20 ms frame) and smear the bass curve.
+            val ratio = cutoff / previous
+            assertTrue(
+                "Band edge $cutoff Hz is only ${(ratio - 1f) * 100f} % above $previous Hz",
+                ratio >= PreEqLayout.MIN_EDGE_RATIO,
+            )
             previous = cutoff
+        }
+    }
+
+    @Test
+    fun `layout has no 5 Hz steps in the bass`() {
+        val bassEdges = PreEqLayout.CUTOFFS_HZ.filter { it <= 100f }
+        bassEdges.zipWithNext().forEach { (a, b) ->
+            assertTrue("Edges $a and $b Hz are less than 6 Hz apart", b - a >= 6f)
         }
     }
 

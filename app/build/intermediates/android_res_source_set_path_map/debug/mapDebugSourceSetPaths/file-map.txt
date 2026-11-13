@@ -1,8 +1,0 @@
-com.hardbasseq.eq.app-pngs-0 /home/basti/equalizer/app/build/generated/res/pngs/debug
-com.hardbasseq.eq.app-updated_navigation_xml-1 /home/basti/equalizer/app/build/generated/updated_navigation_xml/debug
-com.hardbasseq.eq.app-packageDebugResources-2 /home/basti/equalizer/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
-com.hardbasseq.eq.app-packageDebugResources-3 /home/basti/equalizer/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
-com.hardbasseq.eq.app-debug-4 /home/basti/equalizer/app/build/intermediates/merged_res/debug/mergeDebugResources
-com.hardbasseq.eq.app-debug-5 /home/basti/equalizer/app/src/debug/res
-com.hardbasseq.eq.app-main-6 /home/basti/equalizer/app/src/main/res
-gradleHome-0 /home/basti/.gradle

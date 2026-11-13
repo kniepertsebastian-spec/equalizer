@@ -272,6 +272,19 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `tapping the playback notification asks the ui to show the player until consumed`() =
+        runTest {
+            val vm = viewModel()
+            assertFalse(vm.showPlayerRequest.value)
+
+            vm.requestShowPlayer()
+            assertTrue(vm.showPlayerRequest.value)
+
+            vm.consumeShowPlayerRequest()
+            assertFalse(vm.showPlayerRequest.value)
+        }
+
+    @Test
     fun `playing a saved playlist queues its tracks without stream urls`() =
         runTest {
             controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(1), track(2)))

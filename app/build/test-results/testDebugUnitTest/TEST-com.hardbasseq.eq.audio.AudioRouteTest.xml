@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.audio.AudioRouteTest" tests="2" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:24:01.621Z" hostname="Baschtl96" time="0.001">
-  <properties/>
-  <testcase name="car and speaker routes do not default to headphone acoustics" classname="com.hardbasseq.eq.audio.AudioRouteTest" time="0.001"/>
-  <testcase name="only car and bluetooth speaker routes imply a sound context" classname="com.hardbasseq.eq.audio.AudioRouteTest" time="0.0"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

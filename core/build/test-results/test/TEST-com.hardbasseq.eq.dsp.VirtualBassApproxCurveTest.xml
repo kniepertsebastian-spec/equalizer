@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.dsp.VirtualBassApproxCurveTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:47.301Z" hostname="vmd206980" time="0.004">
-  <properties/>
-  <testcase name="mix zero gives no curve" classname="com.hardbasseq.eq.dsp.VirtualBassApproxCurveTest" time="0.002"/>
-  <testcase name="the mix scales the gains" classname="com.hardbasseq.eq.dsp.VirtualBassApproxCurveTest" time="0.001"/>
-  <testcase name="mix one gives the documented points" classname="com.hardbasseq.eq.dsp.VirtualBassApproxCurveTest" time="0.0"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

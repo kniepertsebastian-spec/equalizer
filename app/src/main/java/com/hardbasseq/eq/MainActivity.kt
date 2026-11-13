@@ -17,6 +17,7 @@ import androidx.core.content.ContextCompat
 import com.hardbasseq.eq.ui.navigation.AppNavHost
 import com.hardbasseq.eq.ui.player.PlayerViewModel
 import com.hardbasseq.eq.ui.theme.HardBassEqTheme
+import com.soundcloud.equalizer.player.PlayerLaunch
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -32,7 +33,10 @@ class MainActivity : ComponentActivity() {
         requestNotificationPermissionIfNeeded()
         // Only on a fresh start: after a rotation the same intent is delivered again
         // and must not import the shared link a second time.
-        if (savedInstanceState == null) handleShareIntent(intent)
+        if (savedInstanceState == null) {
+            handleShareIntent(intent)
+            handleOpenPlayerIntent(intent)
+        }
         setContent {
             HardBassEqTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -51,6 +55,13 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleShareIntent(intent)
+        handleOpenPlayerIntent(intent)
+    }
+
+    // The playback notification, the lock screen card and the car's session open the Compose
+    // player screen here (they used to start the old View-based PlayerActivity).
+    private fun handleOpenPlayerIntent(intent: Intent?) {
+        if (intent?.action == PlayerLaunch.ACTION_OPEN_PLAYER) playerViewModel.requestShowPlayer()
     }
 
     // "Share" from the SoundCloud app (or any app) with this one as the target: the

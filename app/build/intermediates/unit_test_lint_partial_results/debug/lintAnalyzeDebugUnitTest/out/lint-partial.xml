@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<incidents format="6" by="lint 9.4.0" type="partial_results">
-    <map id="UnusedResources">
-        <entry
-            name="model"
-            string="string[auto_my_playlists(R),discovery_title(R),library_likes_title(R),feedback_saved(R),feedback_reset(R),import_saved(R),import_playing(R),import_no_link(R),bridge_found_started(R),bridge_pick_from_list(R),bridge_nothing_found(R),import_title_more(R),import_interrupted(R),import_cut_off_hint(R),import_nothing_new(R),import_addendum_title(R),import_skipped_note(R),import_spotify_signin_note(R),import_name_from_spotify(R),import_name_part(R),import_name_empty(R)];;;;"/>
-    </map>
-
-</incidents>

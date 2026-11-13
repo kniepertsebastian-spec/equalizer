@@ -13,6 +13,8 @@ import android.os.Binder
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Looper
 import android.support.v4.media.session.MediaSessionCompat
@@ -36,8 +38,12 @@ import androidx.media3.session.MediaStyleNotificationHelper
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.hardbasseq.eq.auto.AutoMediaId
+import com.hardbasseq.eq.playlist.PlaybackFailureAction
+import com.hardbasseq.eq.playlist.PlaybackFailureClassifier
+import com.hardbasseq.eq.playlist.PlaybackFailureKind
+import com.hardbasseq.eq.playlist.PlaybackFailurePolicy
 import com.hardbasseq.eq.playlist.QueueNavigation
-import com.soundcloud.equalizer.player.PlayerActivity
+import com.soundcloud.equalizer.player.PlayerLaunch
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
 import com.soundcloud.equalizer.player.playback.AutoCatalogHolder
 import com.soundcloud.equalizer.player.playback.AutoSessionState
@@ -53,6 +59,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 
 class AudioPlayerService : Service() {
@@ -103,6 +110,16 @@ class AudioPlayerService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val soundCloudClient = SoundCloudClient()
     private var loadJob: Job? = null
+
+    // What a failed track means (see PlaybackFailurePolicy): lost connection waits and retries the
+    // same track, only a track that cannot be played at all moves the queue on - at most three
+    // times in a row.
+    private val failurePolicy = PlaybackFailurePolicy()
+    private var networkRetry: Runnable? = null
+    private var lastStreamUrl: String? = null
+
+    // Where a retried track picks up: a stream that dropped mid-song continues from there.
+    private var retryPositionMs = 0L
 
     private val progressTicker = object : Runnable {
         override fun run() {
@@ -167,6 +184,7 @@ class AudioPlayerService : Service() {
                     override fun onIsPlayingChanged(isPlaying: Boolean) {
                         super.onIsPlayingChanged(isPlaying)
                         if (isPlaying) {
+                            failurePolicy.onPlaybackStarted()
                             openAudioSession()
                         }
                         // Covers every reason isPlaying can flip, not just taps on our
@@ -176,10 +194,16 @@ class AudioPlayerService : Service() {
                         publishNowPlaying()
                     }
 
-                    // A stream that fails mid-queue (expired URL, network loss) should not
-                    // strand the whole queue: skip to the next track.
+                    // A stream that fails mid-queue: with no connection every track would fail, so
+                    // skipping on would run through the whole queue. A network failure therefore
+                    // pauses and retries this track later; only a track that cannot be played
+                    // (expired URL, removed) moves on - see PlaybackFailurePolicy.
                     override fun onPlayerError(error: PlaybackException) {
-                        onTrackUnplayable()
+                        retryPositionMs = currentPosition.coerceAtLeast(0L)
+                        val networkCode =
+                            error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
+                                error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+                        handlePlaybackFailure(PlaybackFailureClassifier.classify(isOnline(), networkCode, error))
                     }
                 })
             }
@@ -224,6 +248,13 @@ class AudioPlayerService : Service() {
 
             override fun stop() = stopPlayer()
 
+            // Play and pause from the lock screen, a headset or the car go through the service,
+            // so they also restart a track that failed (the idle ExoPlayer ignores a plain play())
+            // and end a pending retry (see PlaybackFailurePolicy).
+            override fun play() = resumeTrack()
+
+            override fun pause() = pauseTrack()
+
             // "Play this" from the car (Android Auto) arrives as a media item that only
             // has an id; it stands for a whole folder of the car's browser, which becomes
             // the play queue. Anything else goes to ExoPlayer as usual.
@@ -251,12 +282,8 @@ class AudioPlayerService : Service() {
                 if (!startFromCar(listOf(mediaItem))) super.setMediaItem(mediaItem, resetPosition)
             }
         }
-        val openPlayer = PendingIntent.getActivity(
-            this, 0, Intent(this, PlayerActivity::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
         mediaSession = MediaSession.Builder(this, queueAwarePlayer)
-            .setSessionActivity(openPlayer)
+            .setSessionActivity(openPlayerPendingIntent())
             .setCallback(object : MediaSession.Callback {
                 // Items from a car carry only an id (see startFromCar); keep them as they are
                 // instead of letting the session reject items without a stream address.
@@ -325,6 +352,7 @@ class AudioPlayerService : Service() {
 
     // A single track outside any queue (kept for ACTION_PLAY and older callers).
     fun playTrack(streamUrl: String, title: String, artist: String) {
+        resetFailureState()
         loadJob?.cancel()
         queueIndex = -1
         currentTitle = title
@@ -341,10 +369,19 @@ class AudioPlayerService : Service() {
      * short-lived, and tracks from a saved playlist never had one.
      */
     fun playIndex(index: Int) {
+        resetFailureState()
+        loadQueueTrack(index)
+    }
+
+    // Also used to skip on after an unplayable track and to retry the current one, which must
+    // not clear the failure counters the way a user's own choice does (see playIndex).
+    private fun loadQueueTrack(index: Int) {
         val queue = PlaybackQueueState.queue.value
         if (!QueueNavigation.isValid(index, queue.size)) return
         val track = queue[index]
 
+        val startPositionMs = retryPositionMs
+        retryPositionMs = 0L
         queueIndex = index
         currentTitle = track.title
         currentArtist = track.artist
@@ -360,7 +397,11 @@ class AudioPlayerService : Service() {
         loadJob = serviceScope.launch {
             val token = SoundCloudLoginActivity.getSavedToken(this@AudioPlayerService)
             soundCloudClient.setUserAuthToken(token)
-            val resolved = runCatching { soundCloudClient.getTrack(track.id) }.getOrNull()
+            val lookup = runCatching { soundCloudClient.getTrack(track.id) }
+            // Another track was chosen while this one resolved: its answer no longer matters
+            // (and a cancellation must not be mistaken for a failed lookup below).
+            ensureActive()
+            val resolved = lookup.getOrNull()
             val url = resolved?.streamUrl ?: track.streamUrl
             isPreviewStream = resolved?.isPreview == true
             if (isPreviewStream) {
@@ -372,10 +413,13 @@ class AudioPlayerService : Service() {
                 Toast.makeText(this@AudioPlayerService, hint, Toast.LENGTH_LONG).show()
             }
             if (url.isNullOrEmpty()) {
-                onTrackUnplayable()
+                // No stream address: no connection (retry later) or a track SoundCloud gives
+                // no stream for (skip).
+                retryPositionMs = startPositionMs
+                handlePlaybackFailure(PlaybackFailureClassifier.classify(isOnline(), cause = lookup.exceptionOrNull()))
             } else {
                 PlayedTracksState.mark(track.id)
-                startStream(url)
+                startStream(url, startPositionMs)
             }
         }
     }
@@ -397,15 +441,17 @@ class AudioPlayerService : Service() {
         publishNowPlaying()
     }
 
-    private fun startStream(streamUrl: String) {
+    private fun startStream(streamUrl: String, startPositionMs: Long = 0L) {
         val player = exoPlayer ?: return
+        lastStreamUrl = streamUrl
         isLoadingTrack = false
         val metadata = MediaMetadata.Builder()
             .setTitle(currentTitle)
             .setArtist(currentArtist)
             .setArtworkUri(currentArtworkUrl?.let { Uri.parse(it) })
             .build()
-        player.setMediaItem(MediaItem.Builder().setUri(streamUrl).setMediaMetadata(metadata).build())
+        val item = MediaItem.Builder().setUri(streamUrl).setMediaMetadata(metadata).build()
+        if (startPositionMs > 0L) player.setMediaItem(item, startPositionMs) else player.setMediaItem(item)
         player.prepare()
         player.play()
         startProgressTicker()
@@ -413,15 +459,83 @@ class AudioPlayerService : Service() {
         openAudioSession()
     }
 
-    // The current track cannot be played (no stream, stream error): say so and
-    // carry on with the queue instead of hanging on it.
-    private fun onTrackUnplayable() {
+    // The current track failed. What follows depends on why (see PlaybackFailurePolicy).
+    private fun handlePlaybackFailure(kind: PlaybackFailureKind) {
         isLoadingTrack = false
+        when (val action = failurePolicy.onFailure(kind)) {
+            is PlaybackFailureAction.RetryLater -> waitAndRetry(action)
+            PlaybackFailureAction.SkipToNext -> skipUnplayableTrack()
+            PlaybackFailureAction.GiveUp -> giveUp(kind)
+        }
+    }
+
+    // No connection: pause on this track and try it again after a growing wait, from where it
+    // stopped. The queue stays as it is.
+    private fun waitAndRetry(action: PlaybackFailureAction.RetryLater) {
+        cancelNetworkRetry()
+        exoPlayer?.pause()
+        if (action.attempt == 1) {
+            Toast.makeText(this, getString(R.string.svc_network_waiting), Toast.LENGTH_SHORT).show()
+        }
+        publishNowPlaying()
+        val retry = Runnable {
+            networkRetry = null
+            restartCurrentTrack()
+        }
+        networkRetry = retry
+        mainHandler.postDelayed(retry, action.delayMs)
+    }
+
+    // This track cannot be played (no stream, stream error while online): say so and carry on
+    // with the queue instead of hanging on it.
+    private fun skipUnplayableTrack() {
         if (currentTitle.isNotEmpty()) {
             Toast.makeText(this, getString(R.string.svc_not_playable, currentTitle), Toast.LENGTH_SHORT).show()
         }
         val next = if (queueIndex < 0) null else QueueNavigation.next(queueIndex, PlaybackQueueState.queue.value.size)
-        if (next != null) playIndex(next) else publishNowPlaying()
+        // The position belongs to the track that failed, not to the one that follows.
+        retryPositionMs = 0L
+        if (next != null) loadQueueTrack(next) else publishNowPlaying()
+    }
+
+    // Too many failures in a row: stay paused on the current track; pressing play loads it again.
+    private fun giveUp(kind: PlaybackFailureKind) {
+        exoPlayer?.pause()
+        val message = if (kind == PlaybackFailureKind.NETWORK) R.string.svc_network_gave_up else R.string.svc_skips_gave_up
+        Toast.makeText(this, getString(message), Toast.LENGTH_LONG).show()
+        publishNowPlaying()
+    }
+
+    // Loads the current track again: a queue track gets a fresh stream address (they expire),
+    // a single track its last one.
+    private fun restartCurrentTrack() {
+        if (queueIndex >= 0) {
+            loadQueueTrack(queueIndex)
+        } else {
+            val url = lastStreamUrl ?: return
+            val startPositionMs = retryPositionMs
+            retryPositionMs = 0L
+            startStream(url, startPositionMs)
+        }
+    }
+
+    // A choice of the user (a new track, stop, play after a failure) starts with a clean slate.
+    private fun resetFailureState() {
+        failurePolicy.reset()
+        cancelNetworkRetry()
+        retryPositionMs = 0L
+    }
+
+    private fun cancelNetworkRetry() {
+        networkRetry?.let { mainHandler.removeCallbacks(it) }
+        networkRetry = null
+    }
+
+    private fun isOnline(): Boolean {
+        val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     private fun startProgressTicker() {
@@ -452,15 +566,27 @@ class AudioPlayerService : Service() {
     }
 
     fun pauseTrack() {
+        // A pause during the wait for the connection means: do not start again by yourself.
+        cancelNetworkRetry()
         exoPlayer?.pause()
     }
 
     fun resumeTrack() {
-        exoPlayer?.play()
+        val player = exoPlayer ?: return
+        // After a failure the player is idle: playing again means loading the track again.
+        if (player.playbackState == Player.STATE_IDLE && !isLoadingTrack && (queueIndex >= 0 || lastStreamUrl != null)) {
+            failurePolicy.reset()
+            cancelNetworkRetry()
+            restartCurrentTrack()
+            return
+        }
+        player.play()
         openAudioSession()
     }
 
     fun stopPlayer() {
+        resetFailureState()
+        lastStreamUrl = null
         loadJob?.cancel()
         mainHandler.removeCallbacks(progressTicker)
         exoPlayer?.stop()
@@ -517,6 +643,7 @@ class AudioPlayerService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        cancelNetworkRetry()
         mainHandler.removeCallbacks(progressTicker)
         serviceScope.cancel()
         closeAudioSession()
@@ -557,19 +684,20 @@ class AudioPlayerService : Service() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
+    // Tapping the notification, the lock screen card or the car's "open on phone" shows the
+    // Compose player in MainActivity (the old View-based PlayerActivity is gone).
+    private fun openPlayerPendingIntent(): PendingIntent = PendingIntent.getActivity(
+        this, 0, PlayerLaunch.openPlayerIntent(this),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
     @OptIn(UnstableApi::class)
     private fun buildNotification(title: String, artist: String, isPlaying: Boolean): Notification {
-        val intent = Intent(this, PlayerActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(artist)
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(openPlayerPendingIntent())
             .setOngoing(isPlaying)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .addAction(android.R.drawable.ic_media_previous, getString(R.string.svc_action_previous), actionIntent(ACTION_PREVIOUS, 1))

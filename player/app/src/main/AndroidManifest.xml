@@ -11,18 +11,7 @@
     <application>
 
         <!--
-          Not a launcher entry point - HardBass EQ's own MainActivity starts this
-          explicitly (via PlayerBridge) once the user picks a source after switching
-          the master bar on. Same-app now, so exported=false; the manifest merger
-          folds this into HardBassEQ's single application, no separate app icon.
-        -->
-        <activity
-            android:name=".PlayerActivity"
-            android:exported="false"
-            android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
-
-        <!--
-          Needs an explicit AppCompat-descended theme, same as PlayerActivity above:
+          Needs an explicit AppCompat-descended theme:
           with none set here it fell back to the merged app's own application theme
           (Theme.HardBassEQ, parent android:Theme.Material.Light.NoActionBar - not an
           AppCompat/Material Components theme). AppCompatActivity.setContentView()
