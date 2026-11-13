@@ -1253,8 +1253,8 @@ class MainViewModelTest {
             viewModel.selectPreset(BuiltInPresets.Flat)
             viewModel.setContextMode(SoundContext.CAR)
             dispatcher.scheduler.advanceUntilIdle()
-            // The band that contains 110 Hz in the pre-EQ layout (90..115 Hz).
-            val band = PreEqLayout.CUTOFFS_HZ.indexOf(115f)
+            // The band that contains 110 Hz in the pre-EQ layout (100..122 Hz).
+            val band = PreEqLayout.CUTOFFS_HZ.indexOfFirst { it >= 110f }
 
             sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
             dispatcher.scheduler.advanceUntilIdle()

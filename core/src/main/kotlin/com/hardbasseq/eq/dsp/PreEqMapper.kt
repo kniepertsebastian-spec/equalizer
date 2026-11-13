@@ -6,56 +6,65 @@ import kotlin.math.pow
 import kotlin.math.sqrt
 
 /**
- * Band layout of the DynamicsProcessing pre-EQ: about a third of an octave in the bass, where
- * kick, cabin resonance, subsonic cut and the virtual-bass approximation live, coarser above.
+ * Band layout of the DynamicsProcessing pre-EQ: 34 logarithmically spaced bands
+ * (about 1/3 octave, 25 Hz to 20 kHz).
+ *
+ * Why not denser in the bass: Android's DynamicsProcessing works on an STFT whose bin width is
+ * roughly 23 Hz at a 20 ms frame (and wider at longer frames). Bands narrower than that - the
+ * old 31/36/40/45/50/55 Hz steps of 5 Hz - share a bin, so the bass curve got blurrier than the
+ * UI showed. Every band edge here is at least [MIN_EDGE_RATIO] (about 18 %) above the previous
+ * one (PreEqMapperTest enforces it), while 14 bands still sit at or below 250 Hz.
  * If a device cannot create this many bands, the engine falls back to the classic equalizer.
  */
 object PreEqLayout {
-    /** Upper edge of each band; the lower edge of the first band is [LOWEST_HZ]. */
+    /** Upper edge of each of the 34 bands; the lower edge of the first band is [LOWEST_HZ]. */
     val CUTOFFS_HZ: List<Float> =
         listOf(
-            20f,
-            25f,
-            31f,
-            36f,
-            40f,
+            24f,
+            30f,
+            37f,
             45f,
-            50f,
             55f,
-            62f,
-            70f,
-            80f,
-            90f,
+            67f,
+            82f,
             100f,
-            115f,
-            130f,
+            122f,
             150f,
-            175f,
-            200f,
-            240f,
-            280f,
-            340f,
-            400f,
+            185f,
+            225f,
+            275f,
+            335f,
+            410f,
             500f,
-            630f,
-            800f,
-            1000f,
-            1400f,
-            2000f,
-            3000f,
-            4000f,
-            6000f,
-            8000f,
-            12000f,
+            615f,
+            750f,
+            920f,
+            1120f,
+            1370f,
+            1680f,
+            2050f,
+            2500f,
+            3050f,
+            3720f,
+            4550f,
+            5550f,
+            6800f,
+            8300f,
+            10150f,
+            12400f,
+            15500f,
             20000f,
         )
 
-    /** The earlier, coarser layout: tried when a device refuses [CUTOFFS_HZ]. */
+    /** The earlier, coarser 16-band layout: tried when a device refuses [CUTOFFS_HZ]. */
     val COARSE_CUTOFFS_HZ: List<Float> =
         listOf(25f, 40f, 55f, 70f, 90f, 115f, 150f, 200f, 280f, 400f, 630f, 1000f, 2000f, 4000f, 8000f, 20000f)
 
-    const val LOWEST_HZ = 15f
+    const val LOWEST_HZ = 18f
     const val MAX_GAIN_DB = 15f
+
+    /** Smallest allowed ratio between neighbouring band edges (about 18 % wider). */
+    const val MIN_EDGE_RATIO = 1.18f
 }
 
 /** The macro sliders' contribution, kept separate so the mapper stays a pure function. */
