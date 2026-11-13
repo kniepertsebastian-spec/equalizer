@@ -35,6 +35,8 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.diagnostics.DiagnosticsEvent
 import com.hardbasseq.eq.diagnostics.DiagnosticsReportFormatter
+import com.hardbasseq.eq.diagnostics.OutputAudioInfo
+import com.hardbasseq.eq.diagnostics.ProcessExitRecord
 import com.hardbasseq.eq.ui.theme.spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -49,6 +51,8 @@ fun DiagnosticsScreen(
     recentEvents: List<DiagnosticsEvent> = emptyList(),
     playerSource: String? = null,
     androidAutoConnected: Boolean? = null,
+    processExits: List<ProcessExitRecord> = emptyList(),
+    outputAudio: OutputAudioInfo? = null,
 ) {
     val spacing = MaterialTheme.spacing
     val clipboardManager = LocalClipboardManager.current
@@ -61,6 +65,8 @@ fun DiagnosticsScreen(
             recentEvents = recentEvents,
             playerSource = playerSource,
             androidAutoConnected = androidAutoConnected,
+            processExits = processExits,
+            outputAudio = outputAudio,
         )
 
     Scaffold(

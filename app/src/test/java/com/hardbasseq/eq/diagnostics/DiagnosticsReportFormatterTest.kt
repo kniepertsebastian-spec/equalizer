@@ -1,11 +1,13 @@
 package com.hardbasseq.eq.diagnostics
 
+import android.app.ApplicationExitInfo
 import com.hardbasseq.eq.BuildConfig
 import com.hardbasseq.eq.audio.AudioCapabilities
 import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
 import com.hardbasseq.eq.audio.ProcessingSettings
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -155,5 +157,93 @@ class DiagnosticsReportFormatterTest {
         assertTrue(report.contains("EQ Path: classic 1-band"))
         assertTrue(report.contains("High-resolution EQ requested: true"))
         assertTrue(report.contains("High-resolution EQ unavailable: IllegalArgumentException: too many bands"))
+    }
+
+    @Test
+    fun generateReport_listsProcessExitsAndNamesTheLastFault() {
+        val report =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Active(1),
+                capabilities = capabilities,
+                route = route,
+                processExits =
+                    listOf(
+                        ProcessExitRecord(2_000_000L, "USER_REQUESTED", null, 100),
+                        ProcessExitRecord(1_000_000L, "CRASH", "ForegroundServiceStartNotAllowedException", 400),
+                    ),
+            )
+
+        assertTrue(report.contains("Last Process Exit: CRASH at"))
+        assertTrue(report.contains("--- Process Exit History"))
+        assertTrue(report.contains("CRASH - ForegroundServiceStartNotAllowedException"))
+        assertTrue(report.contains("USER_REQUESTED"))
+    }
+
+    @Test
+    fun generateReport_saysNothingWasRecordedWithoutExits() {
+        val report =
+            DiagnosticsReportFormatter.generateReport(AudioEngineState.Active(1), capabilities, route)
+
+        assertTrue(report.contains("Last Process Exit: none recorded"))
+        assertFalse(report.contains("Process Exit History"))
+    }
+
+    @Test
+    fun generateReport_marksHarmlessExitAsNotAFault() {
+        val report =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Active(1),
+                capabilities = capabilities,
+                route = route,
+                processExits = listOf(ProcessExitRecord(1_000_000L, "USER_REQUESTED", null, 100)),
+            )
+
+        assertTrue(report.contains("USER_REQUESTED at"))
+        assertTrue(report.contains("(not a fault)"))
+    }
+
+    @Test
+    fun generateReport_showsBluetoothSampleRateEncodingsAndCodecLimit() {
+        val report =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Active(1),
+                capabilities = capabilities,
+                route = route,
+                outputAudio =
+                    OutputAudioInfo(
+                        deviceType = "BLUETOOTH_A2DP",
+                        isBluetooth = true,
+                        nativeSampleRateHz = 48_000,
+                        supportedSampleRatesHz = listOf(44_100, 48_000),
+                        encodings = listOf("PCM_16"),
+                    ),
+            )
+
+        assertTrue(report.contains("Output Device Type: BLUETOOTH_A2DP"))
+        assertTrue(report.contains("Native Output Sample Rate: 48000 Hz"))
+        assertTrue(report.contains("Bluetooth Sample Rates: 44100 Hz, 48000 Hz"))
+        assertTrue(report.contains("Bluetooth Encodings: PCM_16"))
+        assertTrue(report.contains("Bluetooth Codec: not readable"))
+    }
+
+    @Test
+    fun generateReport_nonBluetoothOutputHasNoCodecLine() {
+        val report =
+            DiagnosticsReportFormatter.generateReport(
+                engineState = AudioEngineState.Active(1),
+                capabilities = capabilities,
+                route = route,
+                outputAudio = OutputAudioInfo("BUILTIN_SPEAKER", false, 48_000, emptyList(), emptyList()),
+            )
+
+        assertTrue(report.contains("Output Device Type: BUILTIN_SPEAKER"))
+        assertFalse(report.contains("Bluetooth Codec"))
+    }
+
+    @Test
+    fun exitReasonName_mapsKnownAndUnknownCodes() {
+        assertEquals("CRASH", exitReasonName(ApplicationExitInfo.REASON_CRASH))
+        assertEquals("LOW_MEMORY", exitReasonName(ApplicationExitInfo.REASON_LOW_MEMORY))
+        assertEquals("UNKNOWN(999)", exitReasonName(999))
     }
 }

@@ -31,6 +31,10 @@ import com.hardbasseq.eq.correction.CorrectionProfileRepository
 import com.hardbasseq.eq.data.correction.CorrectionProfileJsonSerializer
 import com.hardbasseq.eq.di.DefaultDispatcher
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
+import com.hardbasseq.eq.diagnostics.NoSystemDiagnosticsSource
+import com.hardbasseq.eq.diagnostics.OutputAudioInfo
+import com.hardbasseq.eq.diagnostics.ProcessExitRecord
+import com.hardbasseq.eq.diagnostics.SystemDiagnosticsSource
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.EqualizerInterpolator
 import com.hardbasseq.eq.dsp.HeadphoneComfortCurve
@@ -147,6 +151,11 @@ data class CompareState(
     val eqLevelDeltaDb: Float,
 )
 
+data class SystemDiagnosticsSnapshot(
+    val processExits: List<ProcessExitRecord> = emptyList(),
+    val outputAudio: OutputAudioInfo? = null,
+)
+
 @HiltViewModel
 class MainViewModel
     @Inject
@@ -165,6 +174,7 @@ class MainViewModel
         private val deviceAliases: DeviceAliasStore = InMemoryDeviceAliasStore(),
         private val sessionRepository: AudioSessionRepository = NoAudioSessionRepository,
         private val carConnectionRepository: CarConnectionRepository = NoCarConnectionRepository,
+        private val systemDiagnostics: SystemDiagnosticsSource = NoSystemDiagnosticsSource,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -212,6 +222,12 @@ class MainViewModel
         }
 
         val diagnosticsEvents = diagnosticsRecorder.events
+
+        // Read when the diagnostics screen opens (roadmap 06, P6-4/P5-8): platform calls, so off the main thread.
+        suspend fun loadSystemDiagnostics(): SystemDiagnosticsSnapshot =
+            withContext(backgroundDispatcher) {
+                SystemDiagnosticsSnapshot(systemDiagnostics.recentProcessExits(), systemDiagnostics.outputAudioInfo())
+            }
 
         // Chat feature: "quality changes for headphones" - loudness compensation.
         // Exposed so EqualizerScreen's own headroom preview can mirror exactly the

@@ -10,6 +10,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+private val EXIT_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
 private val EVENT_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSS").withZone(ZoneId.systemDefault())
 
 object DiagnosticsReportFormatter {
@@ -21,6 +22,8 @@ object DiagnosticsReportFormatter {
         recentEvents: List<DiagnosticsEvent> = emptyList(),
         playerSource: String? = null,
         androidAutoConnected: Boolean? = null,
+        processExits: List<ProcessExitRecord> = emptyList(),
+        outputAudio: OutputAudioInfo? = null,
     ): String =
         buildString {
             val isEffectivelyActive =
@@ -40,6 +43,7 @@ object DiagnosticsReportFormatter {
             appendLine("Player: ${playerSource ?: "unknown"}")
             androidAutoConnected?.let { appendLine("Android Auto: ${if (it) "connected" else "not connected"}") }
             appendLine("Last Error: ${lastError(engineState) ?: "none"}")
+            appendLine("Last Process Exit: ${lastExitLine(processExits)}")
             appendLine()
             appendLine("--- Capabilities ---")
             appendLine("Has Equalizer: ${capabilities.hasEqualizer}")
@@ -77,6 +81,16 @@ object DiagnosticsReportFormatter {
                         "applied=${isEffectivelyActive && capabilities.hasMbc && processingSettings.mbcEnabled})",
                 )
             }
+            outputAudio?.let { appendOutputAudio(it) }
+            if (processExits.isNotEmpty()) {
+                appendLine()
+                appendLine("--- Process Exit History (survives restarts) ---")
+                processExits.forEach { exit ->
+                    val time = EXIT_TIME_FORMATTER.format(Instant.ofEpochMilli(exit.timestampMillis))
+                    val detail = exit.description?.let { " - $it" } ?: ""
+                    appendLine("[$time] ${exit.reason}$detail")
+                }
+            }
             if (recentEvents.isNotEmpty()) {
                 appendLine()
                 appendLine("--- Recent Session Events ---")
@@ -87,6 +101,27 @@ object DiagnosticsReportFormatter {
             }
             appendLine("====================================")
         }
+
+    private fun StringBuilder.appendOutputAudio(info: OutputAudioInfo) {
+        appendLine()
+        appendLine("--- Output Audio ---")
+        appendLine("Output Device Type: ${info.deviceType}")
+        appendLine("Native Output Sample Rate: ${info.nativeSampleRateHz?.let { "$it Hz" } ?: "unknown"}")
+        if (info.isBluetooth) {
+            appendLine("Bluetooth Sample Rates: ${info.supportedSampleRatesHz.joinToString(", ") { "$it Hz" }.ifEmpty { "not announced" }}")
+            appendLine("Bluetooth Encodings: ${info.encodings.joinToString(", ").ifEmpty { "not announced" }}")
+            appendLine("Bluetooth Codec: not readable (Android exposes the negotiated A2DP codec only via a hidden API)")
+        } else {
+            appendLine("Output Encodings: ${info.encodings.joinToString(", ").ifEmpty { "not announced" }}")
+        }
+    }
+
+    private fun lastExitLine(exits: List<ProcessExitRecord>): String {
+        val abnormal = exits.firstOrNull { it.isAbnormal() }
+        val shown = abnormal ?: exits.firstOrNull() ?: return "none recorded"
+        val time = EXIT_TIME_FORMATTER.format(Instant.ofEpochMilli(shown.timestampMillis))
+        return "${shown.reason} at $time" + if (abnormal == null) " (not a fault)" else ""
+    }
 
     private fun eqStatusLine(
         state: AudioEngineState,
