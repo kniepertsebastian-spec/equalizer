@@ -49,3 +49,21 @@ Der Player-Tab ist eine einzige Scroll-Liste (`PlayerScreen.kt`, laut Review 1.0
 
 ## Freigabepunkt
 Nach Vorlage des Plans anhalten. Keine UI-Dateien ändern, keine Komponenten implementieren und keine bestehenden Screens umbauen, bis der Nutzer den Plan ausdrücklich freigegeben hat.
+
+---
+
+## Stand (13. November 2026)
+
+- [x] Umsetzungsplan erstellt: [`docs/PLAYER_REDESIGN.md`](../PLAYER_REDESIGN.md)
+  - [x] Ist-Zustand am Code geprüft (Abschnitt 1)
+  - [x] Informationsarchitektur, Navigationsfluss, Einstiege und Back-Verhalten (Abschnitt 2)
+  - [x] Textuelle UI-Spezifikation mit Wireframes für Bibliothek, Mini-Player, „Now Playing", Queue- und Sound-Sheet; Zustandsmatrix leer/lädt/Fehler/spielt/pausiert/Vorschau/keine Verbindung (Abschnitt 3)
+  - [x] Zustands- und Datenfluss ohne zweite Player-Zustandsquelle; neue Daten (Zuletzt gehört, Qualitäts-Etikett, Signal-Anzeige) (Abschnitt 4)
+  - [x] Komponenten- und Dateiaufteilung, Migrationsreihenfolge S1–S10 (Abschnitte 5, 6)
+  - [x] Barrierefreiheit, Bildschirmgrößen, Insets, Animationen (Abschnitt 7)
+  - [x] Abhängigkeiten zu Roadmap 02, 04, P4-1 und P6-2 (Abschnitt 8)
+  - [x] Akzeptanzkriterien und Testplan (Abschnitte 9, 10)
+- [ ] **Freigabe durch den Nutzer**, inklusive der offenen Entscheidungen E1–E5 (Abschnitt 11)
+- [ ] Umsetzung (erst nach Freigabe)
+
+Es wurden keine UI- oder Produktionsdateien geändert.
