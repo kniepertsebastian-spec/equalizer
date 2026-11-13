@@ -47,6 +47,7 @@ import com.hardbasseq.eq.ui.theme.SonicAmber
 import com.hardbasseq.eq.ui.theme.SonicPaper
 import com.hardbasseq.eq.ui.theme.SonicSteel
 import com.hardbasseq.eq.ui.theme.spacing
+import com.soundcloud.equalizer.player.model.TrackItem
 
 // The three areas of the player screen, always reachable through the tab row.
 enum class PlayerTab(
@@ -137,6 +138,8 @@ fun LazyListScope.searchItems(
     state: SearchUiState,
     onSearch: () -> Unit,
     onPlay: (Int) -> Unit,
+    onPlayNext: (TrackItem) -> Unit,
+    onAddToQueue: (TrackItem) -> Unit,
 ) {
     item {
         val spacing = MaterialTheme.spacing
@@ -209,6 +212,15 @@ fun LazyListScope.searchItems(
                             .filter { it.isNotBlank() }
                             .joinToString(" · "),
                     onPlay = { onPlay(index) },
+                    showCover = true,
+                    artworkUrl = track.artworkUrl,
+                    menu = {
+                        TrackQueueMenu(
+                            trackTitle = track.title,
+                            onPlayNext = { onPlayNext(track) },
+                            onAddToQueue = { onAddToQueue(track) },
+                        )
+                    },
                 )
             }
     }

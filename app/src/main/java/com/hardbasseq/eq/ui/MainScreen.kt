@@ -67,6 +67,9 @@ import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.equalizer.appLabelFor
 import com.hardbasseq.eq.ui.equalizer.localizedSourceLabel
 import com.hardbasseq.eq.ui.main.MainViewModel
+import com.hardbasseq.eq.ui.player.CoverThumb
+import com.hardbasseq.eq.ui.player.isProblem
+import com.hardbasseq.eq.ui.player.noticeText
 import com.hardbasseq.eq.ui.theme.spacing
 import com.hardbasseq.eq.ui.update.ReleaseUpdateNotice
 import com.soundcloud.equalizer.player.playback.NowPlaying
@@ -501,6 +504,8 @@ private fun NowPlayingBar(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.medium, vertical = spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                CoverThumb(url = nowPlaying.artworkUrl)
+                Spacer(modifier = Modifier.width(spacing.small))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = nowPlaying.title,
@@ -510,10 +515,18 @@ private fun NowPlayingBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    // What the player has to say (no connection, skipped track) takes the
+                    // artist's place, so it is seen without opening the player.
+                    val notice = nowPlaying.notice
                     Text(
-                        text = nowPlaying.artist,
+                        text = if (notice != null) noticeText(notice) else nowPlaying.artist,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color =
+                            if (notice?.isProblem() == true) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

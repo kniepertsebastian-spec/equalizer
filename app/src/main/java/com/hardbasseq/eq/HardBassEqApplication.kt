@@ -9,6 +9,12 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
+import coil3.disk.DiskCache
+import coil3.memory.MemoryCache
+import coil3.request.crossfade
 import com.hardbasseq.eq.auto.AppAutoCatalog
 import com.hardbasseq.eq.discovery.DiscoveryWorker
 import com.hardbasseq.eq.service.AppVisibility
@@ -16,11 +22,14 @@ import com.hardbasseq.eq.service.AudioSessionForegroundService
 import com.soundcloud.equalizer.player.PlayerText
 import com.soundcloud.equalizer.player.playback.AutoCatalogHolder
 import dagger.hilt.android.HiltAndroidApp
+import okio.Path.Companion.toOkioPath
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltAndroidApp
-class HardBassEqApplication : Application() {
+class HardBassEqApplication :
+    Application(),
+    SingletonImageLoader.Factory {
     @Inject
     lateinit var autoCatalog: AppAutoCatalog
 
@@ -40,6 +49,21 @@ class HardBassEqApplication : Application() {
         startSessionService()
         scheduleDiscoveryRefresh()
     }
+
+    // Covers in the player (lists and the large one) come from SoundCloud's servers: kept in
+    // memory while scrolling and on disk across app starts, so they are not downloaded again.
+    override fun newImageLoader(context: PlatformContext): ImageLoader =
+        ImageLoader
+            .Builder(context)
+            .memoryCache { MemoryCache.Builder().maxSizePercent(context, COVER_MEMORY_SHARE).build() }
+            .diskCache {
+                DiskCache
+                    .Builder()
+                    .directory(cacheDir.resolve(COVER_CACHE_DIR).toOkioPath())
+                    .maxSizeBytes(COVER_DISK_CACHE_BYTES)
+                    .build()
+            }.crossfade(true)
+            .build()
 
     // A process that was created in the background (the discovery worker below, Android Auto binding
     // the media browser) may not start a foreground service on Android 12+: that throws an
@@ -71,5 +95,8 @@ class HardBassEqApplication : Application() {
         const val TAG = "HardBassEqApplication"
         const val DISCOVERY_WORK_NAME = "discovery_weekly_refresh"
         const val DISCOVERY_CHECK_HOURS = 6L
+        const val COVER_CACHE_DIR = "covers"
+        const val COVER_DISK_CACHE_BYTES = 64L * 1024 * 1024
+        const val COVER_MEMORY_SHARE = 0.15
     }
 }

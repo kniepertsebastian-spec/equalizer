@@ -463,6 +463,11 @@ wird bei Titel- oder Statuswechsel aktualisiert.
 
 ### Android Auto (1. Oktober 2026)
 
+> **Abgelöst durch Roadmap 02 (November 2026):** `AutoBrowserService`, `AutoSessionState` und der
+> `ForwardingPlayer` mit `startFromCar` sind entfallen. Das Auto browst jetzt direkt über die
+> Media-Library-Session des `AudioPlayerService` (siehe „Player-Fundament“ unten). Inhalt,
+> Zugriffsregel und Sprachsuche sind gleich geblieben.
+
 HardBass EQ meldet sich bei Android Auto als Medien-App: `AutoBrowserService`
 (`MediaBrowserServiceCompat`, im Manifest mit `automotive_app_desc.xml`) zeigt dem Auto drei
 Ordner – „Meine Playlists“ (mit ihren Titeln), „Interesting new uploads“, „Likes“ (nur mit
@@ -725,3 +730,37 @@ Grundlage: `open_questions.md` (Review zu PR #61), Antworten von Sebastian. Umse
 | 26 | Ein Root-README anlegen, doppelte Doku löschen. | `README.md` im Root. `docs/` ist maßgeblich; der Ordner „roadmaps and documentations“ enthielt nur (teils veraltete) Kopien und ist weg, seine drei einzigartigen Roadmaps (`roadmap-ux.md`, `roadmap-private.md`, `roadmap-private-status.md`) liegen jetzt in `docs/`. |
 | 27 | `<queries>` mit Launcher-Apps: Sebastian braucht es, „um die richtigen Prozesse für Tonspuren abzufangen“. | Bleibt. Klarstellung: Die Sessions kommen per Broadcast (mit Paketname), `<queries>` wird nur gebraucht, um daraus den App-Namen für die Liste zu lesen (`AudioSourceList`). Für den Play Store wäre eine feste Paketliste bekannter Musik-Apps die engere Alternative; bei privater Verteilung nicht nötig. |
 | 28 | Limiter testet Sebastian praktisch bei jeder Autofahrt. „Anhängen an Fremd-Sessions“ war ihm unklar. | Gemeint ist der Normalfall des EQs: Spotify & Co. melden ihre Audio-Session per Broadcast, der EQ hängt Equalizer/DynamicsProcessing daran. Welche Apps und welche Geräte das zuverlässig tun, steht in `docs/TEST_MATRIX.md`. Offen: welches Telefon und welche Apps im Auto. |
+
+## Player-Fundament (Roadmap 02, November 2026)
+
+- **Queue in ExoPlayer:** Die ganze Warteschlange liegt als Media-Items im Player. Jeder Eintrag trägt
+  nur die Titel-ID (`QueueMediaId`, Platzhalter `hardbasseq-sc://track/<id>`). Die Stream-Adresse
+  wird erst aufgelöst, wenn ExoPlayer den Eintrag lädt (`ResolvingTrackMediaSource`). Das ist der
+  laufende Titel und, während er spielt, der nächste (Vorladen, kein Netzabruf mehr zwischen den
+  Titeln).
+- **Bewusst keine `ResolvingDataSource`:** SoundCloud liefert einen Titel als Datei oder als HLS.
+  Welche ExoPlayer-Quelle passt, steht erst nach der Auflösung fest. Eine Data-Source kann aber nur
+  die Adresse tauschen, nicht den Quelltyp. ExoPlayer bereitet Playlist-Einträge mit
+  `useLazyPreparation` (Standard) erst beim Laden vor, deshalb wird nicht die ganze Queue auf
+  einmal aufgelöst.
+- **Ein Dienst für alles:** `AudioPlayerService` ist ein `MediaLibraryService`. Benachrichtigung
+  (Media3, eigenes Symbol `ic_notification_player`), Sperrbildschirm, Bluetooth, Wear und Android
+  Auto (Browsen über `AppAutoCatalog`, „Dies abspielen“, Sprachsuche) hängen an einer Session. Den
+  Vordergrund-Start macht Media3 selbst, mit Typ `mediaPlayback` und abgefangener
+  `ForegroundServiceStartNotAllowedException`. `androidx.media:media` ist entfernt.
+- **Rest-`ForwardingPlayer`:** Er biegt keine Queue mehr um. Er sorgt nur dafür, dass Play, Weiter und
+  Zurück von außen (Sperrbildschirm, Auto, Kopfhörer) die Fehlerzähler aus P0-2 zurücksetzen und
+  nach einem Fehler den Titel wieder vorbereiten.
+- **Fehler (P0-2) unverändert in der Wirkung:** Netzfehler pausieren und versuchen denselben Titel
+  später neu. Nicht abspielbare Titel werden übersprungen, höchstens dreimal in Folge. Ein
+  abgelaufener Link (HTTP-Fehler, nachdem der Titel schon lief) wird einmal neu aufgelöst. Hinweise
+  erscheinen als Zeile im Player und in der Mini-Leiste (`PlayerNotice`), nicht mehr als Toast.
+- **Neue Funktionen:** Shuffle, Wiederholen (aus / ganze Queue / dieser Titel), „Als Nächstes
+  spielen“ (auch im Shuffle direkt danach, `QueueOrder`), „Zur Queue“, Einträge verschieben und
+  entfernen.
+- **Cover:** Coil 3.4.0 (letzte Version für Kotlin 2.3) mit Speicher- und Plattencache (64 MB,
+  `cacheDir/covers`). Cover stehen in Suche, Queue, Playlists, Bibliothek, Discovery und der
+  Mini-Leiste.
+- **Nicht verifiziert** (kein Gerät in der Entwicklungsumgebung): hörbare Lücke beim Titelwechsel,
+  Vorladen, HLS-Titel, Android Auto, Benachrichtigung/Sperrbildschirm/Bluetooth, abgelaufene Links
+  nach langer Pause. Siehe Abschlussbericht in Roadmap 02.

@@ -28,6 +28,7 @@ import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.PlayedTracksState
+import com.soundcloud.equalizer.player.playback.RepeatSetting
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -811,6 +812,35 @@ class PlayerViewModel
 
         fun playQueueIndex(index: Int) = controller.skipToIndex(index)
 
+        /** Puts [track] right after the one that plays now (or starts it when nothing is loaded). */
+        fun playNext(track: TrackItem) = controller.playNext(listOf(track))
+
+        /** Puts [track] at the end of the queue (or starts it when nothing is loaded). */
+        fun addToQueue(track: TrackItem) = controller.addToQueue(listOf(track))
+
+        fun playNextFromPlaylist(track: SavedTrack) = controller.playNext(listOf(track.toTrackItem()))
+
+        fun addToQueueFromPlaylist(track: SavedTrack) = controller.addToQueue(listOf(track.toTrackItem()))
+
+        /** Moves the queue entry at [from] to [to]; positions outside the queue are ignored. */
+        fun moveQueueItem(
+            from: Int,
+            to: Int,
+        ) {
+            val size = queue.value.size
+            if (from == to || from !in 0 until size || to !in 0 until size) return
+            controller.moveQueueItem(from, to)
+        }
+
+        fun removeQueueItem(index: Int) {
+            if (index in queue.value.indices) controller.removeQueueItem(index)
+        }
+
+        fun toggleShuffle() = controller.setShuffle(nowPlaying.value?.shuffle != true)
+
+        /** Repeat steps through off -> whole queue -> this track -> off. */
+        fun cycleRepeat() = controller.setRepeat(nextRepeat(nowPlaying.value?.repeat ?: RepeatSetting.OFF))
+
         fun next() = controller.next()
 
         fun previous() = controller.previous()
@@ -830,6 +860,13 @@ class PlayerViewModel
         // track plays.
         private fun SavedTrack.toTrackItem() =
             TrackItem(id = id, title = title, artist = artist, artworkUrl = artworkUrl, streamUrl = null, durationMs = durationMs)
+    }
+
+internal fun nextRepeat(current: RepeatSetting): RepeatSetting =
+    when (current) {
+        RepeatSetting.OFF -> RepeatSetting.ALL
+        RepeatSetting.ALL -> RepeatSetting.ONE
+        RepeatSetting.ONE -> RepeatSetting.OFF
     }
 
 private const val CANDIDATE_LIMIT = 10

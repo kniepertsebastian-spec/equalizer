@@ -109,7 +109,8 @@ fun LazyListScope.discoveryItems(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
-                Column(modifier = Modifier.weight(1f).padding(vertical = 8.dp)) {
+                CoverThumb(url = item.track.artworkUrl)
+                Column(modifier = Modifier.weight(1f).padding(start = 8.dp, top = 8.dp, bottom = 8.dp)) {
                     Text(
                         text = item.track.title,
                         style = MaterialTheme.typography.bodyMedium,

@@ -136,9 +136,10 @@ dependencies {
     implementation(libs.datastore.preferences)
     // Weekly background refresh of "Interesting new uploads".
     implementation(libs.work.runtime.ktx)
-    // MediaBrowserServiceCompat: the media browser Android Auto connects to.
-    implementation(libs.media)
     implementation(libs.car.app)
+    // Covers in the player's lists and the large cover, cached in memory and on disk.
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.junit)

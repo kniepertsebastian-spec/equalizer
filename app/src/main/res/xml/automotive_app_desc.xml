@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tells Android Auto that this app is a media app (see AutoBrowserService). -->
+<!-- Tells Android Auto that this app is a media app (the browser is AudioPlayerService in :player). -->
 <automotiveApp>
     <uses name="media" />
 </automotiveApp>

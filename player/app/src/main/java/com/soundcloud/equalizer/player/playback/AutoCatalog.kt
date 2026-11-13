@@ -1,6 +1,5 @@
 package com.soundcloud.equalizer.player.playback
 
-import android.support.v4.media.session.MediaSessionCompat
 import com.soundcloud.equalizer.player.model.TrackItem
 
 // One entry of the list a car (Android Auto) shows: a folder to open or a track to play.
@@ -30,16 +29,10 @@ interface AutoCatalog {
     suspend fun queueForSearch(query: String): AutoQueue?
 }
 
-// Same-process hand-over points between the app (browser service, catalog) and the
-// player service (media session), like NowPlayingState.
+// Same-process hand-over point between the app (which owns the catalog, set up in
+// HardBassEqApplication) and the player service, whose media library session answers the
+// car, like NowPlayingState.
 object AutoCatalogHolder {
     @Volatile
     var catalog: AutoCatalog? = null
-}
-
-object AutoSessionState {
-    // Token of the player's media session; the car's browser service gives it to Android
-    // Auto so that the controls (play, pause, next, "play this") reach the player.
-    @Volatile
-    var sessionToken: MediaSessionCompat.Token? = null
 }

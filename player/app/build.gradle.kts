@@ -25,6 +25,13 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    testOptions {
+        unitTests {
+            // Robolectric (ResolvingTrackMediaSourceTest runs a real ExoPlayer) needs the resources.
+            isIncludeAndroidResources = true
+        }
+    }
+
     lint {
         // This module's code predates being part of this repo (merged in from the
         // former standalone Audioplayer repo, whose own CI never ran Android Lint at
@@ -57,9 +64,8 @@ dependencies {
     // HLS streams: SoundCloud offers some full-length (Go) streams only that way.
     implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
     implementation("androidx.media3:media3-ui:1.11.1")
+    // MediaLibraryService: notification, lock screen, Bluetooth, Wear and Android Auto from one session.
     implementation("androidx.media3:media3-session:1.11.1")
-    // MediaSessionCompat.Token: the car browser (Android Auto) works with the platform session.
-    implementation("androidx.media:media:1.7.0")
 
     // Networking / Async / JSON
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
@@ -69,6 +75,12 @@ dependencies {
     // Android ships org.json; the JVM unit tests run against stubs, so they need a real one.
     testImplementation("org.json:json:20240303")
     testImplementation("org.mockito:mockito-core:5.11.0")
+    // A real ExoPlayer with fake renderers and clock for the queue's stream lookup; Robolectric
+    // in the version media3-test-utils-robolectric 1.11.1 is built against.
+    testImplementation("androidx.media3:media3-test-utils:1.11.1")
+    testImplementation("androidx.media3:media3-test-utils-robolectric:1.11.1")
+    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }

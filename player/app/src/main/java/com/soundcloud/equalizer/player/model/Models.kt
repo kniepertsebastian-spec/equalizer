@@ -10,6 +10,9 @@ data class TrackItem(
     // True when the resolved stream is only SoundCloud's ~30 second preview of a
     // Go track (see StreamSelection). Only known once a stream was resolved.
     val isPreview: Boolean = false,
+    // True when [streamUrl] is an HLS playlist rather than a plain file: ExoPlayer needs a
+    // different source for it. Only known once a stream was resolved.
+    val isHlsStream: Boolean = false,
     // Upload time in epoch milliseconds, 0 when SoundCloud did not say.
     val createdAtMs: Long = 0L,
     // What the uploader set as genre ("" if none) and SoundCloud's raw tag_list (space

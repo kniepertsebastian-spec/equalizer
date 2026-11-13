@@ -229,7 +229,7 @@ class SoundCloudClient(
     suspend fun resolveStreamUrl(transcodingsJsonArray: JSONArray, clientId: String): String? =
         resolveStream(transcodingsJsonArray, clientId)?.url
 
-    private class ResolvedStream(val url: String, val isPreview: Boolean)
+    private class ResolvedStream(val url: String, val isPreview: Boolean, val isHls: Boolean)
 
     // Picks the best stream SoundCloud offers for a track - full length before a
     // ~30 s preview (StreamSelection) - and resolves it to a playable URL. Requests
@@ -260,7 +260,7 @@ class SoundCloudClient(
 
             if (jsonStr.isBlank()) return@withContext null
             val streamUrl = JSONObject(jsonStr).optString("url", null) ?: return@withContext null
-            ResolvedStream(streamUrl, chosen.snipped)
+            ResolvedStream(streamUrl, chosen.snipped, isHls = chosen.protocol == "hls")
         }
 
     /**
@@ -472,12 +472,14 @@ class SoundCloudClient(
 
         var streamUrl: String? = null
         var isPreview = false
+        var isHls = false
         val mediaObj = obj.optJSONObject("media")
         val transcodings = mediaObj?.optJSONArray("transcodings")
         if (resolveStream && transcodings != null && transcodings.length() > 0) {
             val stream = resolveStream(transcodings, clientId)
             streamUrl = stream?.url
             isPreview = stream?.isPreview == true
+            isHls = stream?.isHls == true
         }
 
         return TrackItem(
@@ -488,6 +490,7 @@ class SoundCloudClient(
             streamUrl = streamUrl,
             durationMs = duration,
             isPreview = isPreview,
+            isHlsStream = isHls,
             createdAtMs = IsoTime.parseMillis(optStringOrNull(obj, "created_at")) ?: 0L,
             genre = optStringOrNull(obj, "genre").orEmpty(),
             tagList = optStringOrNull(obj, "tag_list").orEmpty()

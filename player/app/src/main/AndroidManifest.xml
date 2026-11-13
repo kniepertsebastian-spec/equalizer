@@ -45,11 +45,21 @@
             </intent-filter>
         </activity>
 
+        <!--
+          The built-in player: one media library session for the notification, the lock screen,
+          Bluetooth, Wear and Android Auto, which also browses the app's playlists through it.
+          Exported for the system and the car; AudioPlayerService only lets the system, Android
+          Auto and the assistant browse. The app's manifest adds the Android Auto entries
+          (browser and voice search) next to its automotive declaration.
+        -->
         <service
             android:name=".service.AudioPlayerService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android:exported="true"
+            android:foregroundServiceType="mediaPlayback">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

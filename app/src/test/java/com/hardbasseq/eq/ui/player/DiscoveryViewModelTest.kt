@@ -13,6 +13,7 @@ import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.NowPlaying
+import com.soundcloud.equalizer.player.playback.RepeatSetting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -229,6 +230,21 @@ class DiscoveryViewModelTest {
         }
 
         override fun skipToIndex(index: Int) = unused()
+
+        override fun playNext(tracks: List<TrackItem>) = unused()
+
+        override fun addToQueue(tracks: List<TrackItem>) = unused()
+
+        override fun moveQueueItem(
+            from: Int,
+            to: Int,
+        ) = unused()
+
+        override fun removeQueueItem(index: Int) = unused()
+
+        override fun setShuffle(enabled: Boolean) = unused()
+
+        override fun setRepeat(setting: RepeatSetting) = unused()
 
         override fun next() = unused()
 
