@@ -1,5 +1,8 @@
 package com.hardbasseq.eq.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +58,7 @@ import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.equalizer.appLabelFor
 import com.hardbasseq.eq.ui.equalizer.localizedSourceLabel
 import com.hardbasseq.eq.ui.main.MainViewModel
+import com.hardbasseq.eq.ui.share.SharePresetDialog
 import com.hardbasseq.eq.ui.update.ReleaseUpdateNotice
 
 @Composable
@@ -98,8 +102,10 @@ fun MainScreen(
     var showMoreTools by rememberSaveable { mutableStateOf(false) }
     var showSaveAsNewDialog by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Preset?>(null) }
+    var shareTarget by remember { mutableStateOf<Preset?>(null) }
 
     val context = LocalContext.current
+    val clipboard = remember(context) { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
 
     val resources = LocalResources.current
     // M5 "Import, Export und Teilen ... über Android Storage Access Framework/
@@ -143,6 +149,25 @@ fun MainScreen(
                 showSaveAsNewDialog = false
             },
             onDismiss = { showSaveAsNewDialog = false },
+        )
+    }
+
+    shareTarget?.let { target ->
+        val link = remember(target) { viewModel.presetShareLink(target) }
+        SharePresetDialog(
+            presetName = target.name,
+            link = link,
+            onShareLink = {
+                val send =
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, link)
+                        putExtra(Intent.EXTRA_SUBJECT, target.name)
+                    }
+                context.startActivity(Intent.createChooser(send, resources.getString(R.string.preset_share)))
+            },
+            onCopyLink = { clipboard.setPrimaryClip(ClipData.newPlainText(target.name, link)) },
+            onDismiss = { shareTarget = null },
         )
     }
 
@@ -325,6 +350,16 @@ fun MainScreen(
                 onDuplicatePreset = { viewModel.duplicatePreset(it) },
                 onRenamePresetRequest = { renameTarget = it },
                 onDeletePresetRequest = { viewModel.requestDeletePreset(it) },
+                onSharePreset = { shareTarget = it },
+                onImportPresetLinkRequested = {
+                    val clip =
+                        clipboard.primaryClip
+                            ?.takeIf { it.itemCount > 0 }
+                            ?.getItemAt(0)
+                            ?.coerceToText(context)
+                            ?.toString()
+                    viewModel.importPresetLink(clip.orEmpty())
+                },
                 onMacroBassChanged = { viewModel.setMacroBass(it) },
                 onMacroPunchChanged = { viewModel.setMacroPunch(it) },
                 onMacroHaerteChanged = { viewModel.setMacroHaerte(it) },

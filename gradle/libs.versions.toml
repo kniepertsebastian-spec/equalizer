@@ -27,6 +27,8 @@ kotlinxSerialization = "1.7.3"
 # Coil 3.4.0 is the newest release built for Kotlin 2.3 (3.5+ need the 2.4 stdlib, see ADR 0001
 # for why Kotlin stays on 2.3.20); its OkHttp (4.12) is the one :player already uses.
 coil = "3.4.0"
+# QR code encoder for sharing presets (roadmap 06, P5-4). Pure Java, no Android/Play-services dependency.
+zxing = "3.5.3"
 
 [libraries]
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
@@ -37,6 +39,7 @@ car-app = { module = "androidx.car.app:app", version = "1.4.0" }
 work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }

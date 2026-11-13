@@ -47,6 +47,13 @@
                 <action android:name="com.hardbasseq.eq.action.OPEN_PLAYER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- A shared preset: hardbasseq://preset?... (link or scanned QR code), see PresetShareCodec. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="hardbasseq" android:host="preset" />
+            </intent-filter>
             <!-- Share target for text, used for SoundCloud links. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

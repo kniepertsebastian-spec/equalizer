@@ -175,6 +175,16 @@
     <string name="import_preview_headroom">Required headroom: %1$s dB</string>
     <string name="import_preview_extreme">This boost is unusually strong - please check before you import.</string>
     <string name="import_failed_title">Import failed</string>
+    <string name="share_preset_title">Share \"%1$s\"</string>
+    <string name="share_preset_qr_description">QR code with the link to the preset %1$s</string>
+    <string name="share_preset_qr_hint">Scan with a camera app on the other phone, or send the link.</string>
+    <string name="share_preset_too_long_for_qr">This preset is too detailed for a QR code. Send or copy the link instead.</string>
+    <string name="share_preset_send">Send link</string>
+    <string name="preset_share">Share</string>
+    <string name="preset_import_link">Paste link</string>
+    <string name="feedback_preset_imported">Preset \"%1$s\" imported</string>
+    <string name="feedback_preset_link_invalid">This is not a valid preset link</string>
+    <string name="feedback_preset_link_empty">Copy a preset link first, then paste it here</string>
     <string name="share_correction_profile">Share correction profile</string>
     <string name="diagnostics_button">Diagnostics &amp; report</string>
     <string name="source_picker_title">Play from...</string>

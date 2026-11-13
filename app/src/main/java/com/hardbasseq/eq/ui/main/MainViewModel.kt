@@ -29,6 +29,7 @@ import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
 import com.hardbasseq.eq.data.correction.CorrectionProfileJsonSerializer
+import com.hardbasseq.eq.data.preset.PresetShareCodec
 import com.hardbasseq.eq.di.DefaultDispatcher
 import com.hardbasseq.eq.diagnostics.DiagnosticsRecorder
 import com.hardbasseq.eq.diagnostics.NoSystemDiagnosticsSource
@@ -870,6 +871,28 @@ class MainViewModel
                 persistLiveSettings()
                 feedback(R.string.feedback_saved, newPreset.name)
             }
+        }
+
+        // P5-4: the link a preset is shared as (also what the QR code encodes).
+        fun presetShareLink(preset: Preset): String = PresetShareCodec.encode(preset)
+
+        // P5-4: a pasted or scanned link becomes an ordinary, editable user preset and is selected -
+        // the same as a duplicate, so it can be renamed or deleted like any other.
+        fun importPresetLink(text: String) {
+            if (text.isBlank()) {
+                feedback(R.string.feedback_preset_link_empty)
+                return
+            }
+            PresetShareCodec.decode(text).fold(
+                onSuccess = { preset ->
+                    viewModelScope.launch {
+                        presetRepository.save(preset)
+                        selectPreset(preset)
+                        feedback(R.string.feedback_preset_imported, preset.name)
+                    }
+                },
+                onFailure = { feedback(R.string.feedback_preset_link_invalid) },
+            )
         }
 
         fun duplicatePreset(preset: Preset) {

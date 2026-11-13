@@ -162,6 +162,8 @@ fun EqualizerScreen(
     onDuplicatePreset: (Preset) -> Unit,
     onRenamePresetRequest: (Preset) -> Unit,
     onDeletePresetRequest: (Preset) -> Unit,
+    onSharePreset: (Preset) -> Unit,
+    onImportPresetLinkRequested: () -> Unit,
     onMacroBassChanged: (Float) -> Unit,
     onMacroPunchChanged: (Float) -> Unit,
     onMacroHaerteChanged: (Float) -> Unit,
@@ -519,13 +521,22 @@ fun EqualizerScreen(
                         Caption(text = intensities.last().displayName, color = style.mutedText)
                     }
                 }
-                if (customPresets.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         text = stringResource(R.string.presets_custom),
                         style = MaterialTheme.typography.titleSmall,
                         color = style.text,
-                        modifier = Modifier.padding(top = spacing.small),
+                        modifier = Modifier.weight(1f),
                     )
+                    // P5-4: a preset link someone sent (or a scanned QR code, which opens the app directly).
+                    TextButton(onClick = onImportPresetLinkRequested) {
+                        Text(stringResource(R.string.preset_import_link))
+                    }
+                }
+                if (customPresets.isNotEmpty()) {
                     PresetGrid(
                         presets = customPresets,
                         activePresetId = activePreset.id,
@@ -533,6 +544,7 @@ fun EqualizerScreen(
                         onDuplicatePreset = onDuplicatePreset,
                         onRenamePresetRequest = onRenamePresetRequest,
                         onDeletePresetRequest = onDeletePresetRequest,
+                        onSharePreset = onSharePreset,
                         spacing = spacing,
                         style = style,
                     )
@@ -993,6 +1005,7 @@ private fun PresetGrid(
     onDuplicatePreset: (Preset) -> Unit,
     onRenamePresetRequest: (Preset) -> Unit,
     onDeletePresetRequest: (Preset) -> Unit,
+    onSharePreset: (Preset) -> Unit,
     spacing: Spacing,
     style: EqualizerDesignStyle,
 ) {
@@ -1010,6 +1023,7 @@ private fun PresetGrid(
                         onDuplicate = { onDuplicatePreset(preset) },
                         onRenameRequest = { onRenamePresetRequest(preset) },
                         onDeleteRequest = { onDeletePresetRequest(preset) },
+                        onShare = { onSharePreset(preset) },
                         modifier = Modifier.weight(1f),
                         style = style,
                     )
@@ -1098,6 +1112,7 @@ private fun PresetCard(
     onDuplicate: () -> Unit,
     onRenameRequest: () -> Unit,
     onDeleteRequest: () -> Unit,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle,
 ) {
@@ -1152,6 +1167,13 @@ private fun PresetCard(
                         onClick = {
                             showMenu = false
                             onDuplicate()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.preset_share)) },
+                        onClick = {
+                            showMenu = false
+                            onShare()
                         },
                     )
                     if (!preset.metadata.builtIn) {

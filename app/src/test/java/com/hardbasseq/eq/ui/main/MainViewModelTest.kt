@@ -500,6 +500,38 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `importPresetLink saves a shared preset as an editable copy and selects it`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            val link = viewModel.presetShareLink(BuiltInPresets.DeepRumble)
+
+            viewModel.importPresetLink(link)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val imported = presetRepository.savedPresets.single()
+            assertEquals(BuiltInPresets.DeepRumble.name, imported.name)
+            assertFalse(imported.metadata.builtIn)
+            assertFalse(imported.id == BuiltInPresets.DeepRumble.id)
+            assertEquals(imported.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `importPresetLink ignores text that is not a preset link`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.importPresetLink("hello world")
+            viewModel.importPresetLink("")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(presetRepository.savedPresets.isEmpty())
+        }
+
+    @Test
     fun `renamePreset ignores built-in presets`() =
         runTest {
             val presetRepository = FakePresetRepository()
