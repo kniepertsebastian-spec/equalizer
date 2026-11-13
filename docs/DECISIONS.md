@@ -765,6 +765,26 @@ Grundlage: `open_questions.md` (Review zu PR #61), Antworten von Sebastian. Umse
   Vorladen, HLS-Titel, Android Auto, Benachrichtigung/Sperrbildschirm/Bluetooth, abgelaufene Links
   nach langer Pause. Siehe Abschlussbericht in Roadmap 02.
 
+## Virtual Bass: analytisches Signal statt Gleichrichter (Roadmap 03, P4-3, November 2026)
+
+Konzept und Messwerte: `docs/DSP_VIRTUAL_BASS.md`.
+
+- **Obertöne über das analytische Signal:** Ein IIR-Hilbert-Paar (`HilbertAllpassPair`, je vier
+  Allpässe erster Ordnung) liefert Hüllkurve und Phase des Bassbands ohne Glättung. Die Kennlinie
+  ist eine gewichtete Summe der Tschebyschow-Polynome T2 und T3 auf der normierten Phase, skaliert
+  mit der Hüllkurve. Ergebnis: genau 2. und 3. Harmonische, Verhältnis einstellbar
+  (`thirdHarmonicShare`, Standard 0,25), pegelunabhängig, keine Differenztöne unter dem Bass.
+- **Verworfen:** Spitzenwert-Hüllkurvenfolger mit normierter Kennlinie direkt auf dem Signal
+  (Restwelligkeit bei 40 Hz wird selbst zur Verzerrung, Gleichanteil-Sprünge bei Pegelwechseln)
+  und weiterhin Gleichrichter + Sättigung (Pegelabhängigkeit, keine 3. Harmonische).
+- **Hüllkurvenfolger nur für das Gate:** −66 … −54 dBFS, Attack 10 ms, Release 150 ms. Die
+  Normierung macht das analytische Signal exakt, deshalb darf der Folger träge sein.
+- **`drive` entfällt** (es gibt keine Sättigung mehr); nirgends außer in `BassExciter` gesetzt.
+- **Lautheit:** `OUTPUT_TRIM` so kalibriert, dass die Oberton-Summe eines 100-Hz-Tons dem Pegel der
+  P0-5-Version entspricht. Presets werden nicht lauter.
+- **Keine UI-Änderung:** `thirdHarmonicShare` und `cutoffHz` bleiben auf Standardwerten. Eine
+  Einstellung in der Oberfläche wäre eine eigene, freizugebende UI-Entscheidung.
+- **Offen:** Hörprobe und CPU-Messung am Gerät (`docs/TEST_MATRIX.md` K26–K28).
 ## Stream-Auswahl nach Codec und Bitrate (Roadmap 03, P4-1, November 2026)
 
 - `StreamSelection.pick` wählt jetzt nach Qualität statt „progressive zuerst": Vollversion vor 30-s-Vorschau, dann AAC 256 > AAC 160 > MP3 128 > niedrige AAC-Stufe, bei Gleichstand progressive vor HLS. AAC zählt mit Faktor 1,25, weil es bei gleicher Bitrate besser klingt als MP3; dadurch schlägt MP3 128 ein AAC 96, aber AAC 160 (200) ist besser als MP3.

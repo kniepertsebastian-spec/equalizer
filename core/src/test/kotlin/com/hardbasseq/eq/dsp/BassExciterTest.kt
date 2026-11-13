@@ -5,17 +5,28 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.log10
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+// Roadmap 03, P4-3. Levels are in dB relative to the input amplitude, measured with a single-bin
+// DFT over exactly one second after one second of settling (whole periods for integer
+// frequencies, so no leakage from the fundamental). Concept and the measured values of the old
+// rectifier design for comparison: docs/DSP_VIRTUAL_BASS.md.
 class BassExciterTest {
     private val sampleRateHz = 48000f
 
     private companion object {
         const val INPUT_AMPLITUDE = 0.3f
+
+        // 20·log10(sqrt(0.25) / sqrt(0.75)): 3rd re 2nd at the default share.
+        const val DEFAULT_THIRD_RE_SECOND_DB = -4.77
     }
+
+    // --- Bypass and safety --------------------------------------------------------------------
 
     @Test
     fun disabled_isBypass() {
@@ -38,57 +49,18 @@ class BassExciterTest {
     }
 
     @Test
-    fun lowFrequencyTone_generatesSecondHarmonic() {
-        val fundamentalHz = 55f
-        val secondHarmonicHz = fundamentalHz * 2f
-        val sampleCount = 8192
-        val input = sineWave(freqHz = fundamentalHz, amplitude = 0.3f, sampleCount = sampleCount)
+    fun silence_staysSilent() {
+        val exciter = fullMix()
 
-        val bypassed = BassExciter(BassExciterSettings(enabled = false))
-        val bypassOutput = FloatArray(sampleCount) { bypassed.process(input[it], sampleRateHz) }
+        val output = FloatArray(4800) { exciter.processUnclamped(0f, sampleRateHz) }
 
-        val exciter =
-            BassExciter(
-                BassExciterSettings(enabled = true, cutoffHz = 150f, mix = 1f, drive = 1f),
-            )
-        val excitedOutput = FloatArray(sampleCount) { exciter.process(input[it], sampleRateHz) }
-
-        val harmonicEnergyBypassed = goertzelMagnitude(bypassOutput, secondHarmonicHz, sampleRateHz)
-        val harmonicEnergyExcited = goertzelMagnitude(excitedOutput, secondHarmonicHz, sampleRateHz)
-
-        // The bypass path can't have any 110 Hz content at all (input is a pure
-        // 55 Hz tone) - the exciter must introduce a clearly measurable amount.
-        assertTrue(
-            "expected excited 2nd-harmonic energy ($harmonicEnergyExcited) to clearly " +
-                "exceed bypass ($harmonicEnergyBypassed)",
-            harmonicEnergyExcited > harmonicEnergyBypassed + 5.0,
-        )
-    }
-
-    @Test
-    fun outOfBandTone_leftEssentiallyUnchanged() {
-        // 5 kHz sits far above any reasonable bass cutoff - the lowpass stage
-        // should strip it from the band that feeds the rectifier, so the
-        // exciter should barely touch it.
-        val sampleCount = 2048
-        val input = sineWave(freqHz = 5000f, amplitude = 0.3f, sampleCount = sampleCount)
-
-        val exciter = BassExciter(BassExciterSettings(enabled = true, cutoffHz = 150f, mix = 1f, drive = 1f))
-        val output = FloatArray(sampleCount) { exciter.process(input[it], sampleRateHz) }
-
-        var sumSquaredError = 0.0
-        for (i in input.indices) {
-            val error = (output[i] - input[i]).toDouble()
-            sumSquaredError += error * error
-        }
-        val rmsError = sqrt(sumSquaredError / sampleCount)
-        assertTrue("expected rmsError ($rmsError) to be small for an out-of-band tone", rmsError < 0.05)
+        assertTrue(output.all { it == 0f })
     }
 
     @Test
     fun output_neverExceedsFullScale() {
         val input = sineWave(freqHz = 55f, amplitude = 1f, sampleCount = 4096)
-        val exciter = BassExciter(BassExciterSettings(enabled = true, cutoffHz = 150f, mix = 1f, drive = 1f))
+        val exciter = fullMix()
 
         for (sample in input) {
             val output = exciter.process(sample, sampleRateHz)
@@ -96,85 +68,225 @@ class BassExciterTest {
         }
     }
 
-    // P0-5: the high-pass behind the rectifier used to sit at the isolation cutoff (150 Hz) and
-    // took ~11 dB off the octave above a 40 Hz tone, the very region small drivers need.
-    // Levels are the 2nd harmonic in dB relative to the input amplitude (0.3, -10.5 dBFS),
-    // measured over whole periods after the filters have settled. Before the fix the same
-    // measurement gave -18.7 dB (40 Hz), -12.9 dB (60 Hz) and -9.4 dB (100 Hz).
     @Test
-    fun secondHarmonicLevel_isPinnedAt40_60And100Hz() {
-        assertEquals(-9.9, secondHarmonicDb(40f), 1.0)
-        assertEquals(-8.9, secondHarmonicDb(60f), 1.0)
-        assertEquals(-9.7, secondHarmonicDb(100f), 1.0)
-    }
-
-    @Test
-    fun secondHarmonicLevel_isFlatAcrossTheBassRange() {
-        val levels = listOf(40f, 60f, 100f).map { secondHarmonicDb(it) }
-
-        val spread = levels.max() - levels.min()
-        assertTrue("2nd harmonic spread of $spread dB across 40/60/100 Hz ($levels) is too uneven", spread <= 2.0)
-        // The old design was 9 dB weaker at 40 Hz than at 100 Hz.
-        assertTrue("40 Hz harmonic ${levels[0]} dB is still far below 100 Hz ${levels[2]} dB", levels[0] > levels[2] - 3.0)
-    }
-
-    @Test
-    fun secondHarmonicLevel_at100HzStaysAtTheCalibratedReference() {
-        // OUTPUT_TRIM keeps existing presets from getting louder: 100 Hz sat at -9.4 dB before.
-        assertEquals(-9.4, secondHarmonicDb(100f), 0.8)
-    }
-
-    @Test
-    fun drive_changesTheHarmonicLevel() {
-        val low = secondHarmonicDb(60f, drive = 0f)
-        val mid = secondHarmonicDb(60f, drive = 0.5f)
-        val high = secondHarmonicDb(60f, drive = 1f)
-
-        // abs(x * drive) / drive used to cancel out: all three were identical.
-        assertTrue("drive 0 -> 0.5 should raise the harmonic: $low -> $mid", mid > low + 1.0)
-        assertTrue("drive 0.5 -> 1 should raise the harmonic: $mid -> $high", high > mid + 1.0)
-    }
-
-    @Test
-    fun harmonicsAboveTwiceTheCutoff_areLimited() {
-        // 100 Hz tone: the 2nd harmonic (200 Hz) sits inside the 300 Hz low-pass, the 6th (600 Hz)
-        // is beyond it. Without the upper low-pass the 6th harmonic was only ~20 dB below the 2nd.
-        val second = harmonicDb(fundamentalHz = 100f, harmonic = 2)
-        val sixth = harmonicDb(fundamentalHz = 100f, harmonic = 6)
-
-        assertTrue("6th harmonic ($sixth dB) should be >= 25 dB below the 2nd ($second dB)", sixth <= second - 25.0)
-    }
-
-    @Test
-    fun settings_clampCutoffMixAndDrive() {
-        val settings = BassExciterSettings(cutoffHz = 10000f, mix = 5f, drive = -2f).clamped()
+    fun settings_clampCutoffMixAndShare() {
+        val settings = BassExciterSettings(cutoffHz = 10000f, mix = 5f, thirdHarmonicShare = -2f).clamped()
 
         assertEquals(BassExciterSettings.MAX_CUTOFF_HZ, settings.cutoffHz, 0.001f)
         assertEquals(1f, settings.mix, 0.001f)
-        assertEquals(0f, settings.drive, 0.001f)
+        assertEquals(0f, settings.thirdHarmonicShare, 0.001f)
     }
 
-    private fun secondHarmonicDb(
-        fundamentalHz: Float,
-        drive: Float = BassExciterSettings().drive,
-    ): Double = harmonicDb(fundamentalHz, harmonic = 2, drive = drive)
+    // --- Frequency response -------------------------------------------------------------------
 
-    // Level of the n-th harmonic in dB relative to the input amplitude. One second of warm-up,
-    // then exactly one second measured: a whole number of periods for integer frequencies, so
-    // the single-bin DFT has no leakage from the fundamental.
+    @Test
+    fun outOfBandTones_passUnchanged() {
+        for (freqHz in listOf(1000f, 5000f)) {
+            val input = sineWave(freqHz, amplitude = 0.3f, sampleCount = 19200)
+            val exciter = fullMix()
+            val output = FloatArray(input.size) { exciter.processUnclamped(input[it], sampleRateHz) }
+
+            // Steady state only: switching a sine on is itself a broadband click whose low end
+            // briefly reaches the generator.
+            var sumSquaredError = 0.0
+            for (i in 9600 until input.size) {
+                val error = (output[i] - input[i]).toDouble()
+                sumSquaredError += error * error
+            }
+            val rmsError = sqrt(sumSquaredError / 9600)
+            // The dry path is the input itself; what the isolation low-pass lets through stays
+            // below the 16-bit floor (3e-5).
+            assertTrue("rms error $rmsError at $freqHz Hz", rmsError < 3e-5)
+        }
+    }
+
+    @Test
+    fun secondHarmonicLevel_isPinnedAcrossTheBassRange() {
+        // Default share, mix 1. The P0-5 rectifier measured -9.9 / -8.9 / -9.7 dB here, but spread
+        // energy over the 4th, 6th, ... harmonics as well; the total below is what is matched.
+        assertEquals(-12.2, harmonicDb(40f, 2), 0.5)
+        assertEquals(-10.8, harmonicDb(60f, 2), 0.5)
+        assertEquals(-10.8, harmonicDb(100f, 2), 0.5)
+    }
+
+    @Test
+    fun harmonicLevel_isFlatFrom40To120Hz() {
+        val levels = listOf(40f, 60f, 80f, 100f, 120f).map { totalHarmonicDb(it) }
+
+        val spread = levels.max() - levels.min()
+        assertTrue("harmonic spread $spread dB across 40..120 Hz ($levels)", spread <= 2.0)
+    }
+
+    @Test
+    fun totalHarmonicLevel_at100HzMatchesTheP05Reference() {
+        // The P0-5 exciter put the 2nd harmonic of this tone at -9.7 dB; presets must not get louder.
+        assertEquals(-9.7, totalHarmonicDb(100f), 0.5)
+    }
+
+    @Test
+    fun tonesAboveTheCutoff_generateLittle() {
+        val atCutoffBand = totalHarmonicDb(80f)
+        // 4th-order isolation: one octave above the 150 Hz cutoff is 24 dB down before the
+        // generator, then the harmonic low-pass takes more.
+        assertTrue(totalHarmonicDb(300f) < atCutoffBand - 25.0)
+        assertTrue(totalHarmonicDb(600f) < atCutoffBand - 60.0)
+    }
+
+    @Test
+    fun differentSampleRates_giveTheSameHarmonicLevels() {
+        val reference = harmonicDb(60f, 2)
+        for (rate in listOf(44100f, 96000f)) {
+            assertEquals("2nd harmonic at $rate Hz", reference, harmonicDb(60f, 2, sampleRate = rate), 0.3)
+        }
+    }
+
+    // --- 2nd / 3rd harmonic ratio and purity ---------------------------------------------------
+
+    @Test
+    fun defaultShare_putsTheThirdAbout5dBBelowTheSecond() {
+        val second = harmonicDb(60f, 2)
+        val third = harmonicDb(60f, 3)
+
+        assertEquals(DEFAULT_THIRD_RE_SECOND_DB, third - second, 1.0)
+    }
+
+    @Test
+    fun shareZero_givesOnlyTheOctave() {
+        val second = harmonicDb(60f, 2, share = 0f)
+        val third = harmonicDb(60f, 3, share = 0f)
+
+        assertTrue("3rd $third dB should be >= 60 dB below 2nd $second dB", third < second - 60.0)
+    }
+
+    @Test
+    fun shareOne_givesOnlyTheThird() {
+        val second = harmonicDb(60f, 2, share = 1f)
+        val third = harmonicDb(60f, 3, share = 1f)
+
+        assertTrue("2nd $second dB should be >= 60 dB below 3rd $third dB", second < third - 60.0)
+    }
+
+    @Test
+    fun halfShare_balancesSecondAndThird() {
+        assertEquals(harmonicDb(80f, 2, share = 0.5f), harmonicDb(80f, 3, share = 0.5f), 1.0)
+    }
+
+    @Test
+    fun share_keepsTheTotalHarmonicPower() {
+        // 80 Hz: 160 and 240 Hz both sit flat in the harmonic band-pass.
+        val levels = listOf(0f, 0.25f, 0.5f, 1f).map { totalHarmonicDb(80f, share = it) }
+
+        assertTrue("total harmonic level moves with the share: $levels", levels.max() - levels.min() <= 0.5)
+    }
+
+    @Test
+    fun noHarmonicsAboveTheThird() {
+        // The full-wave rectifier put the 4th harmonic only ~12 dB below the 2nd.
+        val second = harmonicDb(60f, 2)
+        for (n in 4..6) {
+            val level = harmonicDb(60f, n)
+            assertTrue("harmonic $n at $level dB, 2nd at $second dB", level < second - 50.0)
+        }
+    }
+
+    @Test
+    fun twoTones_produceNoDifferenceTone() {
+        // 50 + 70 Hz: any square law makes 20 Hz (sub-sonic mud); the old rectifier left it at
+        // -27 dB. The analytic signal only multiplies upwards.
+        val amplitude = 0.2f
+        val input = sineWave(50f, amplitude, 96000).zip(sineWave(70f, amplitude, 96000)) { a, b -> a + b }
+        val exciter = fullMix()
+        val output = FloatArray(input.size) { exciter.processUnclamped(input[it], sampleRateHz) }
+        val measured = output.copyOfRange(48000, output.size)
+
+        val difference = 20.0 * log10(singleBinAmplitude(measured, 20f, sampleRateHz) / amplitude)
+        assertTrue("20 Hz difference tone at $difference dB", difference < -50.0)
+    }
+
+    // --- Level behaviour (envelope follower and gate) -----------------------------------------
+
+    @Test
+    fun harmonicRatio_isIndependentOfTheInputLevel() {
+        val reference = harmonicDb(60f, 2)
+        for (levelDb in listOf(0.0, -6.0, -20.0, -40.0)) {
+            val amplitude = 10.0.pow(levelDb / 20.0).toFloat()
+            assertEquals("at $levelDb dBFS", reference, harmonicDb(60f, 2, amplitude = amplitude), 0.3)
+        }
+    }
+
+    @Test
+    fun gate_fadesHarmonicsOutBelowTheThreshold() {
+        val open = harmonicDb(60f, 2)
+        val inside = harmonicDb(60f, 2, amplitude = 10.0.pow(-60.0 / 20.0).toFloat())
+        val closed = harmonicDb(60f, 2, amplitude = 10.0.pow(-70.0 / 20.0).toFloat())
+
+        assertTrue("-60 dBFS should be partly gated: $inside vs $open", inside < open - 3.0 && inside > open - 30.0)
+        assertTrue("-70 dBFS should be gated: $closed", closed < open - 60.0)
+    }
+
+    @Test
+    fun harmonics_followAToneBurst() {
+        val exciter = fullMix()
+        val burst = sineWave(60f, INPUT_AMPLITUDE, 24000)
+        val silence = FloatArray(24000)
+        val input = burst + silence
+        val harmonics = FloatArray(input.size) { exciter.processUnclamped(input[it], sampleRateHz) - input[it] }
+
+        // 20 ms after the onset the harmonics are at least at half their steady-state peak.
+        val steadyPeak = peak(harmonics, 12000, 24000)
+        val earlyPeak = peak(harmonics, 960, 1440)
+        assertTrue("onset: $earlyPeak vs steady $steadyPeak", earlyPeak > 0.5f * steadyPeak)
+
+        // 100 ms after the burst they are gone (no hanging envelope).
+        val tail = peak(harmonics, 24000 + 4800, input.size)
+        assertTrue("tail $tail vs steady $steadyPeak", tail < 0.01f * steadyPeak)
+    }
+
+    @Test
+    fun reset_dropsTheFilterMemory() {
+        val exciter = fullMix()
+        sineWave(60f, INPUT_AMPLITUDE, 4800).forEach { exciter.processUnclamped(it, sampleRateHz) }
+
+        exciter.reset()
+
+        assertEquals(0f, exciter.processUnclamped(0f, sampleRateHz), 0f)
+    }
+
+    // --- Helpers ------------------------------------------------------------------------------
+
+    private fun fullMix(share: Float = BassExciterSettings.DEFAULT_THIRD_HARMONIC_SHARE): BassExciter =
+        BassExciter(BassExciterSettings(enabled = true, cutoffHz = 150f, mix = 1f, thirdHarmonicShare = share))
+
+    private fun totalHarmonicDb(
+        fundamentalHz: Float,
+        share: Float = BassExciterSettings.DEFAULT_THIRD_HARMONIC_SHARE,
+    ): Double {
+        val second = 10.0.pow(harmonicDb(fundamentalHz, 2, share = share) / 10.0)
+        val third = 10.0.pow(harmonicDb(fundamentalHz, 3, share = share) / 10.0)
+        return 10.0 * log10(second + third)
+    }
+
     private fun harmonicDb(
         fundamentalHz: Float,
         harmonic: Int,
-        drive: Float = BassExciterSettings().drive,
+        share: Float = BassExciterSettings.DEFAULT_THIRD_HARMONIC_SHARE,
+        amplitude: Float = INPUT_AMPLITUDE,
+        sampleRate: Float = sampleRateHz,
     ): Double {
-        val exciter = BassExciter(BassExciterSettings(enabled = true, cutoffHz = 150f, mix = 1f, drive = drive))
-        val sampleCount = sampleRateHz.toInt()
-        val input = sineWave(fundamentalHz, INPUT_AMPLITUDE, sampleCount * 2)
-        val output = FloatArray(input.size) { exciter.processUnclamped(input[it], sampleRateHz) }
+        val exciter = fullMix(share)
+        val sampleCount = sampleRate.toInt()
+        val input = sineWave(fundamentalHz, amplitude, sampleCount * 2, sampleRate)
+        val output = FloatArray(input.size) { exciter.processUnclamped(input[it], sampleRate) }
         val measured = output.copyOfRange(sampleCount, output.size)
-        val amplitude = singleBinAmplitude(measured, fundamentalHz * harmonic, sampleRateHz)
-        return 20.0 * log10(amplitude / INPUT_AMPLITUDE)
+        val level = singleBinAmplitude(measured, fundamentalHz * harmonic, sampleRate)
+        return 20.0 * log10(level.coerceAtLeast(1e-15) / amplitude)
     }
+
+    private fun peak(
+        samples: FloatArray,
+        from: Int,
+        to: Int,
+    ): Float = (from until to).maxOf { abs(samples[it]) }
 
     // Amplitude of one frequency by direct correlation; exact when the window holds whole periods.
     private fun singleBinAmplitude(
@@ -196,35 +308,9 @@ class BassExciterTest {
         freqHz: Float,
         amplitude: Float,
         sampleCount: Int,
+        sampleRate: Float = sampleRateHz,
     ): FloatArray =
         FloatArray(sampleCount) { i ->
-            (amplitude * sin(2.0 * PI * freqHz * i / sampleRateHz)).toFloat()
+            (amplitude * sin(2.0 * PI * freqHz * i / sampleRate)).toFloat()
         }
-
-    // Single-bin DFT (Goertzel algorithm) - measures how much energy a signal
-    // has at exactly targetFreqHz without needing a full FFT dependency just
-    // for this one test.
-    private fun goertzelMagnitude(
-        samples: FloatArray,
-        targetFreqHz: Float,
-        sampleRateHz: Float,
-    ): Double {
-        val n = samples.size
-        val k = 0.5 + n * targetFreqHz / sampleRateHz
-        val w = 2.0 * PI * k / n
-        val cosine = cos(w)
-        val coeff = 2.0 * cosine
-
-        var q1 = 0.0
-        var q2 = 0.0
-        for (sample in samples) {
-            val q0 = coeff * q1 - q2 + sample
-            q2 = q1
-            q1 = q0
-        }
-
-        val real = q1 - q2 * cosine
-        val imag = q2 * sin(w)
-        return sqrt(real * real + imag * imag)
-    }
 }
