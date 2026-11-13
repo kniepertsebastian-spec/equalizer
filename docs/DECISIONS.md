@@ -792,3 +792,22 @@ Konzept und Messwerte: `docs/DSP_VIRTUAL_BASS.md`.
 - Opus wird ausgeschlossen: HLS mit Ogg-Segmenten spielt ExoPlayer nicht ab.
 - Ein Bass-Boost verstärkt Codec-Artefakte im Hochton; ein EQ stellt entfernte Information nicht wieder her. Deshalb ist die Quellqualität der größte Hebel, vor allem wegen der angekündigten Abschaltung von Progressive-MP3.
 - Gerätetest und Abgleich mit einer echten `transcodings`-Antwort stehen aus (siehe Roadmap 03).
+
+## Player-Redesign S1–S5 (Roadmap 05, November 2026)
+
+Plan: `docs/PLAYER_REDESIGN.md`, freigegeben mit E1–E5 wie empfohlen.
+
+- **„Now playing“ ist eine Ebene der App-Shell, keine Route.** Mini-Player und Vollbild sind ein
+  Element in zwei Größen (`PlayerSheetState`, Ausklappgrad 0..1). Der Tab darunter bleibt
+  erhalten, die Geste ist durchgehend. Ziehen über `Modifier.draggable` + `Animatable` statt
+  `AnchoredDraggable`, dessen API sich zwischen Compose-Versionen mehrfach geändert hat.
+- **Eine Zustandsquelle:** Mini-Player, „Now playing“ und Queue lesen `PlayerViewModel.nowPlaying/queue`
+  (aus `NowPlayingState`/`PlaybackQueueState`). `MainViewModel` reicht keinen Player-Zustand mehr
+  an die Oberfläche. Der EQ-Tab bekommt nur noch „Player hat einen Titel“ als Parameter.
+- **Queue:** Neue Reihenfolge geht erst beim Loslassen an den Dienst (ein Befehl statt einer pro
+  Pixel). Undo beim Entfernen hängt an und verschiebt (kein „einfügen an“ im Dienst).
+- **Kontext-Chips und Player-DSP** liegen im Sound-Sheet hinter dem EQ-Chip, nicht mehr auf der
+  Player-Seite.
+- **Compose-UI-Tests mit Robolectric** in `:app` (`robolectric` 4.16, `compose-ui-test-junit4`;
+  Android-Ressourcen in Unit-Tests eingeschaltet). Sie laufen mit einer schlichten `Application`,
+  damit der Hilt-Graph nicht mitgebaut wird.

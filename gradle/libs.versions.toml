@@ -13,6 +13,7 @@ lifecycle = "2.10.0"
 activityCompose = "1.10.1"
 navigationCompose = "2.9.7"
 junit = "4.13.2"
+robolectric = "4.16"
 coroutinesTest = "1.11.0"
 # detekt is deliberately NOT added yet: its stable release does not support
 # Kotlin 2.3.20 (only the 2.0.0-alpha line does, see docs/adr/0003). ktlint
@@ -58,6 +59,7 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
 compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
 junit = { module = "junit:junit", version.ref = "junit" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 
 [plugins]

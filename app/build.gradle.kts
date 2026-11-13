@@ -65,6 +65,8 @@ android {
             // implementation. Falling back to harmless defaults (Log.w() no-ops
             // and returns 0) instead of throwing is the standard fix.
             isReturnDefaultValues = true
+            // Compose UI tests of the player run under Robolectric and need the resources.
+            isIncludeAndroidResources = true
         }
     }
 
@@ -144,6 +146,10 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Compose UI tests of the player (mini player, Now playing, queue) on the JVM.
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

@@ -1,7 +1,7 @@
 # Player-Redesign „Sonic Control" – Umsetzungsplan (Roadmap 05)
 
 Stand: 13. November 2026, Code-Stand `main` 5d5b190 (nach Roadmap 02 und P4-1).
-**Status: Plan zur Freigabe.** Bis zur ausdrücklichen Freigabe wird keine UI-Datei geändert.
+**Status:** Freigegeben am 13. November 2026 (E1–E5 wie empfohlen). S1–S5 umgesetzt, Stand und Abweichungen in Roadmap 05. S6–S9 folgen nach dem Gerätetest, S10 nach Roadmap 04.
 
 Grundlage: `docs/roadmaps_in_progress/05-phase-3-player-redesign-plan-und-freigabe.md`, `CLAUDE.md`
 („Sonic Control"), `docs/DECISIONS.md`. Die App ist komplett Englisch (`DECISIONS.md`, Oktober 2026).

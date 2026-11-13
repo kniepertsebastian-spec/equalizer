@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -64,6 +65,8 @@ import com.hardbasseq.eq.ui.player.common.SwipeAwayRow
 import com.hardbasseq.eq.ui.player.markWhenCurrent
 import com.hardbasseq.eq.ui.player.textAlpha
 import com.hardbasseq.eq.ui.player.trackPlayState
+import com.hardbasseq.eq.ui.theme.SonicAmber
+import com.hardbasseq.eq.ui.theme.SonicGraphiteControl
 import com.hardbasseq.eq.ui.theme.SonicPaper
 import com.hardbasseq.eq.ui.theme.SonicSteel
 import com.hardbasseq.eq.ui.theme.spacing
@@ -141,7 +144,16 @@ fun QueueSheet(
                     )
                 }
             }
-            SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+            // Graphite with an amber action, like the rest of the player (Material's default is a
+            // light, purple snackbar).
+            SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = SonicGraphiteControl,
+                    contentColor = SonicPaper,
+                    actionColor = SonicAmber,
+                )
+            }
         }
     }
 }

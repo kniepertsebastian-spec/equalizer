@@ -63,7 +63,22 @@ Nach Vorlage des Plans anhalten. Keine UI-Dateien ändern, keine Komponenten imp
   - [x] Barrierefreiheit, Bildschirmgrößen, Insets, Animationen (Abschnitt 7)
   - [x] Abhängigkeiten zu Roadmap 02, 04, P4-1 und P6-2 (Abschnitt 8)
   - [x] Akzeptanzkriterien und Testplan (Abschnitte 9, 10)
-- [ ] **Freigabe durch den Nutzer**, inklusive der offenen Entscheidungen E1–E5 (Abschnitt 11)
-- [ ] Umsetzung (erst nach Freigabe)
+- [x] **Freigabe durch den Nutzer** (13. November 2026, „klingt gut, setz das so um“): E1–E5 wie empfohlen. E1 dauerhaft speichern, E2 Like/Wellenform erst nach Roadmap 04, E3 Signal-Anzeige standardmäßig an, E4 Antippen spielt nur, E5 zuerst S1–S5.
 
-Es wurden keine UI- oder Produktionsdateien geändert.
+## Umsetzung S1–S5 (13. November 2026)
+
+- [x] **S1** `PlayerScreen.kt` zerlegt (Playlists-Tab, Zeilen, Dialoge, Seekbar in `library/`, `nowplaying/`); 1.063 → 212 Zeilen, keine neue Datei über 400 Zeilen
+- [x] **S2** Mini-Player in der Shell, beide Tabs (`mini/MiniPlayer.kt`, `shell/PlayerShell.kt`); `NowPlayingBar` und `MainViewModel.nowPlaying`/`toggleNowPlayingPlayback` entfernt
+- [x] **S3** „Now playing“ als ausziehbare Ebene (`nowplaying/NowPlayingScreen.kt`, `shell/PlayerSheetState.kt`): Ziehen, ⌄, Predictive Back, Benachrichtigung/Sperrbildschirm öffnen aufgeklappt (`requestNowPlaying`), Querformat zweispaltig
+- [x] **S4** Queue-Sheet (`queue/QueueSheet.kt`, `QueueReorder.kt`): Ziehgriff, Wegwischen mit Undo, „Clear upcoming“ mit Undo, TalkBack-Aktionen; Queue-Tab entfernt
+- [x] **S5** Sound-Sheet hinter EQ-Chip und Mini-Player-Lampe (`sound/SoundSheet.kt`): Kontext-Chips, DSP-Karte, „Open equalizer“
+- [x] Unit-Tests: `NowPlayingUiTest` (7), `SheetSettleTest` (2), `QueueReorderTest` (4), `PlayerViewModelTest` (+6)
+- [x] Compose-UI-Tests mit Robolectric (`PlayerShellUiTest`, 6 Tests, schreibt Screenshots nach `app/build/player-screenshots/`)
+- [x] Lokal: `assembleDebug`, `testDebugUnitTest`, `:core:test`, `ktlintCheck`, `lintDebug` grün (keine neuen Lint-Warnungen)
+- [ ] **Gerätetest** T-P1–T-P4, T-P6, T-P7 (`docs/TEST_MATRIX.md`), danach S6–S9 (E5)
+
+**Abweichungen vom Plan (bewusst, klein):**
+- Das Cover wandert nicht vom Mini-Thumbnail ins große Cover. Die Ebene schiebt sich als Ganzes von unten hoch. Der Morph ist Feinschliff nach dem Gerätetest.
+- Ausgabegerät nur als Anzeige, kein System-Ausgabewähler (im Plan als Rückfall vorgesehen).
+- Queue-Sheet zeigt die ganze Queue (gespielte Titel mit Haken, laufender Titel umrandet) statt getrennter Abschnitte „Now playing“/„Next up“. Der Ziehgriff braucht keinen Long-Press, weil er nur ein Griff ist.
+- Undo beim Entfernen: anhängen und an die alte Stelle verschieben (der Dienst kennt kein „einfügen an“). Beide Befehle laufen in Reihenfolge durch den Dienst.

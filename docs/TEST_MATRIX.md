@@ -607,3 +607,19 @@ Automatisiert (`:core:test`): `BassExciterTest` (Frequenzgang, Pegel und Verhäl
 | K26 | 👤 Hörprobe H1–H5 mit Testsignalen, Telefonlautsprecher und kleine Box, Virtual Bass aus/an | ein tiefer Ton statt zweier Töne; kein Doppelschlag beim Kick; kein Brummen unter 50 + 70 Hz; kein Pumpen beim Ausblenden (offen) |
 | K27 | 👤 Hörprobe H6: Hardstyle/Uptempo, 808-Hip-Hop, akustischer Bass im eigenen Player, Presets Car und Box | Bass präsenter als mit der P0-5-Version, nicht lauter, keine Verzerrung in Stimmen; kein Knacken bei Seek/Titelwechsel (offen) |
 | K28 | 👤 CPU/Akku 30 min mit Virtual Bass (= K9 für die neue Version) | unauffällig gegenüber ausgeschaltet (offen) |
+
+## Player-Redesign S1–S5 (Roadmap 05, 13. November 2026)
+
+Automatisiert: `NowPlayingUiTest`, `SheetSettleTest`, `QueueReorderTest`, `PlayerViewModelTest`,
+`PlayerShellUiTest` (Robolectric, Compose: Mini-Player, „Now playing“ hoch und quer, Queue-Sheet mit
+TalkBack-Aktionen; Screenshots unter `app/build/player-screenshots/`).
+
+| # | Prüfung | Erwartung |
+|---|---|---|
+| T-P1 | 👤 Suche → Titel → Mini-Player → hochziehen → Queue öffnen, Titel ziehen und wegwischen, Undo → zuklappen → EQ-Tab → Mini-Player Play/Pause/Weiter | Reihenfolge stimmt mit der Wiedergabe überein; Undo stellt die Stelle wieder her (offen) |
+| T-P2 | 👤 Wischgesten am Mini-Player und an Kopf/Cover von „Now playing“, Back und Predictive Back (Android 14+), Rotation mit offenem Vollbild und offenem Sheet | folgt dem Finger, schnappt sauber; Back schließt zuerst das Sheet, dann die Ebene (offen) |
+| T-P3 | 👤 TalkBack: Mini-Player (Aktionen Play/Pause, Next), Lampe, „Close player“, Queue-Aktionen Move up/down/Remove; Schrift 200 % | alles erreichbar und vorgelesen; nichts abgeschnitten (offen) |
+| T-P4 | 👤 Flugmodus, Vorschau-Titel, nicht abspielbarer Titel | Hinweis mit Symbol in Mini-Player und Vollbild, „Try again“ nach Abbruch, `PREVIEW`-Etikett (offen) |
+| T-P6 | 👤 Benachrichtigung und Sperrbildschirm antippen | Player-Tab mit aufgeklapptem „Now playing“; Android Auto unverändert (offen) |
+| T-P7 | 👤 Kleines Telefon, Querformat, Tablet/Foldable | Cover und Steuerung passen, Querformat zweispaltig (offen) |
+| T-P8 | 👤 Sound-Sheet über EQ-Chip und Lampe: Kontextmodus, Mono-Bass, Limiter umschalten, „Open equalizer“ | wirkt wie vorher auf der Player-Seite; „Open equalizer“ klappt zu und wechselt den Tab (offen) |
