@@ -53,6 +53,7 @@ fun DiagnosticsScreen(
     androidAutoConnected: Boolean? = null,
     processExits: List<ProcessExitRecord> = emptyList(),
     outputAudio: OutputAudioInfo? = null,
+    extendedAppDetection: Boolean? = null,
 ) {
     val spacing = MaterialTheme.spacing
     val clipboardManager = LocalClipboardManager.current
@@ -67,6 +68,7 @@ fun DiagnosticsScreen(
             androidAutoConnected = androidAutoConnected,
             processExits = processExits,
             outputAudio = outputAudio,
+            extendedAppDetection = extendedAppDetection,
         )
 
     Scaffold(

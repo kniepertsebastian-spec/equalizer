@@ -191,6 +191,7 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
                         androidAutoConnected = androidAutoConnected,
                         processExits = systemDiagnostics.processExits,
                         outputAudio = systemDiagnostics.outputAudio,
+                        extendedAppDetection = systemDiagnostics.extendedAppDetection,
                         onBackClicked = { navController.popBackStack() },
                     )
                 }

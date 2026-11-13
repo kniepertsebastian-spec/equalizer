@@ -153,6 +153,7 @@ data class CompareState(
 data class SystemDiagnosticsSnapshot(
     val processExits: List<ProcessExitRecord> = emptyList(),
     val outputAudio: OutputAudioInfo? = null,
+    val extendedAppDetection: Boolean? = null,
 )
 
 @HiltViewModel
@@ -270,7 +271,11 @@ class MainViewModel
         // Read when the diagnostics screen opens (roadmap 06, P6-4/P5-8): platform calls, so off the main thread.
         suspend fun loadSystemDiagnostics(): SystemDiagnosticsSnapshot =
             withContext(backgroundDispatcher) {
-                SystemDiagnosticsSnapshot(systemDiagnostics.recentProcessExits(), systemDiagnostics.outputAudioInfo())
+                SystemDiagnosticsSnapshot(
+                    systemDiagnostics.recentProcessExits(),
+                    systemDiagnostics.outputAudioInfo(),
+                    systemDiagnostics.extendedAppDetectionGranted(),
+                )
             }
 
         // Chat feature: "quality changes for headphones" - loudness compensation.

@@ -246,4 +246,25 @@ class DiagnosticsReportFormatterTest {
         assertEquals("LOW_MEMORY", exitReasonName(ApplicationExitInfo.REASON_LOW_MEMORY))
         assertEquals("UNKNOWN(999)", exitReasonName(999))
     }
+
+    @Test
+    fun generateReport_tellsWhetherTheOptionalDumpGrantIsThere() {
+        val without =
+            DiagnosticsReportFormatter.generateReport(
+                AudioEngineState.Active(1),
+                capabilities,
+                route,
+                extendedAppDetection = false,
+            )
+        val with = DiagnosticsReportFormatter.generateReport(AudioEngineState.Active(1), capabilities, route, extendedAppDetection = true)
+        val unknown = DiagnosticsReportFormatter.generateReport(AudioEngineState.Active(1), capabilities, route)
+
+        assertTrue(
+            without.contains(
+                "Extended App Detection (DUMP): not granted (optional: adb shell pm grant com.hardbasseq.eq android.permission.DUMP)",
+            ),
+        )
+        assertTrue(with.contains("Extended App Detection (DUMP): granted"))
+        assertFalse(unknown.contains("Extended App Detection"))
+    }
 }

@@ -12,7 +12,9 @@ import com.hardbasseq.eq.audio.AudioEngine
 import com.hardbasseq.eq.audio.AudioPlaybackMonitor
 import com.hardbasseq.eq.audio.AudioRouteRepository
 import com.hardbasseq.eq.audio.AudioSessionRepository
+import com.hardbasseq.eq.audio.DumpsysSessionScanner
 import com.hardbasseq.eq.audio.NoOpAudioPlaybackMonitor
+import com.hardbasseq.eq.audio.SessionScanner
 import com.hardbasseq.eq.audio.SystemVolumeRepository
 import com.hardbasseq.eq.auto.AndroidCarConnectionRepository
 import com.hardbasseq.eq.auto.CarConnectionRepository
@@ -63,4 +65,8 @@ abstract class AudioModule {
                 noOpMonitor
             }
     }
+
+    @Binds
+    @Singleton
+    abstract fun bindSessionScanner(impl: DumpsysSessionScanner): SessionScanner
 }

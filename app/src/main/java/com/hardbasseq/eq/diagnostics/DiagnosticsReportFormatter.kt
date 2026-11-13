@@ -24,6 +24,7 @@ object DiagnosticsReportFormatter {
         androidAutoConnected: Boolean? = null,
         processExits: List<ProcessExitRecord> = emptyList(),
         outputAudio: OutputAudioInfo? = null,
+        extendedAppDetection: Boolean? = null,
     ): String =
         buildString {
             val isEffectivelyActive =
@@ -44,6 +45,12 @@ object DiagnosticsReportFormatter {
             androidAutoConnected?.let { appendLine("Android Auto: ${if (it) "connected" else "not connected"}") }
             appendLine("Last Error: ${lastError(engineState) ?: "none"}")
             appendLine("Last Process Exit: ${lastExitLine(processExits)}")
+            extendedAppDetection?.let {
+                appendLine(
+                    "Extended App Detection (DUMP): " +
+                        if (it) "granted" else "not granted (optional: adb shell pm grant com.hardbasseq.eq android.permission.DUMP)",
+                )
+            }
             appendLine()
             appendLine("--- Capabilities ---")
             appendLine("Has Equalizer: ${capabilities.hasEqualizer}")

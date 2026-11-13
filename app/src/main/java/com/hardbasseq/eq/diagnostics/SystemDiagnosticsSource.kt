@@ -2,6 +2,7 @@ package com.hardbasseq.eq.diagnostics
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioDeviceInfo
 import android.media.AudioFormat
 import android.media.AudioManager
@@ -17,12 +18,17 @@ interface SystemDiagnosticsSource {
 
     /** Null if no output device is known. */
     fun outputAudioInfo(): OutputAudioInfo?
+
+    /** Whether the optional DUMP permission (extended app detection, roadmap 06 P5-2) was granted over ADB. */
+    fun extendedAppDetectionGranted(): Boolean
 }
 
 object NoSystemDiagnosticsSource : SystemDiagnosticsSource {
     override fun recentProcessExits(limit: Int): List<ProcessExitRecord> = emptyList()
 
     override fun outputAudioInfo(): OutputAudioInfo? = null
+
+    override fun extendedAppDetectionGranted(): Boolean = false
 }
 
 @Singleton
@@ -47,6 +53,9 @@ class AndroidSystemDiagnosticsSource
                     }
             }.getOrDefault(emptyList())
         }
+
+        override fun extendedAppDetectionGranted(): Boolean =
+            context.checkSelfPermission("android.permission.DUMP") == PackageManager.PERMISSION_GRANTED
 
         override fun outputAudioInfo(): OutputAudioInfo? =
             runCatching {
