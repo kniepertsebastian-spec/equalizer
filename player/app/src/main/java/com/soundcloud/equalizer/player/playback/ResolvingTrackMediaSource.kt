@@ -35,15 +35,16 @@ import java.util.concurrent.Executors
  * default), so a long queue does not look up every track at once.
  *
  * @param onResolved told on the main thread which stream a track got (preview or full length)
+ * @param lookups where lookups run; they block on the network, so their own threads and never
+ *   ExoPlayer's playback thread. Tests pass one that runs them at once, in step with the fake clock.
  */
 @OptIn(UnstableApi::class)
 class ResolvingTrackMediaSourceFactory(
     private val delegate: MediaSource.Factory,
     private val resolver: StreamResolver,
     private val onResolved: (trackId: Long, stream: ResolvedStream) -> Unit,
+    private val lookups: ExecutorService = Executors.newCachedThreadPool(),
 ) : MediaSource.Factory {
-    // Lookups block on the network: their own threads, never ExoPlayer's playback thread.
-    private val lookups: ExecutorService = Executors.newCachedThreadPool()
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun setDrmSessionManagerProvider(drmSessionManagerProvider: DrmSessionManagerProvider): MediaSource.Factory {
