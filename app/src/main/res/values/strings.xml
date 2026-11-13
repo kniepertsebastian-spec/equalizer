@@ -242,6 +242,17 @@
     <string name="context_mode_title">Sound mode</string>
     <string name="action_create">Create</string>
     <string name="artwork_description">Cover</string>
+    <string name="sleep_timer_title">Sleep timer</string>
+    <string name="sleep_timer_minutes">%1$d min</string>
+    <string name="sleep_timer_end_of_track">End of track</string>
+    <string name="sleep_timer_running">Pauses in %1$s</string>
+    <string name="sleep_timer_running_end_of_track">Pauses when this track ends</string>
+    <string name="sleep_timer_cancel">Cancel</string>
+    <string name="sleep_timer_desc">The volume fades out during the last seconds. Only for the built-in player.</string>
+    <string name="track_fade_title">Fade between tracks</string>
+    <string name="track_fade_off">Off</string>
+    <string name="track_fade_seconds">%1$d s</string>
+    <string name="track_fade_desc">The track fades out at its end and the next one fades in. Tracks do not overlap.</string>
     <string name="dsp_card_note">Only works in the built-in player, not in Spotify &amp; co.</string>
     <string name="dsp_mono_bass_title">Mono bass (recommended)</string>
     <string name="dsp_mono_bass_desc">Deep bass below %1$s Hz in the center - tighter, especially with in-ear headphones</string>

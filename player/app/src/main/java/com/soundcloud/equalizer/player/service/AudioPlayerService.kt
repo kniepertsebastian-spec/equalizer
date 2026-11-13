@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
+import android.os.SystemClock
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -47,10 +48,13 @@ import com.hardbasseq.eq.playlist.QueueOrder
 import com.soundcloud.equalizer.player.PlayerLaunch
 import com.soundcloud.equalizer.player.R
 import com.soundcloud.equalizer.player.model.TrackItem
+import com.hardbasseq.eq.playback.SleepTimerSetting
 import com.soundcloud.equalizer.player.playback.AutoCatalogHolder
 import com.soundcloud.equalizer.player.playback.AutoNode
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
+import com.soundcloud.equalizer.player.playback.PlaybackFadeController
+import com.soundcloud.equalizer.player.playback.PlaybackFadeState
 import com.soundcloud.equalizer.player.playback.PlaybackQueueState
 import com.soundcloud.equalizer.player.playback.PlayedTracksState
 import com.soundcloud.equalizer.player.playback.PlayerDspAudioProcessor
@@ -61,6 +65,7 @@ import com.soundcloud.equalizer.player.playback.QueueRequests
 import com.soundcloud.equalizer.player.playback.RepeatSetting
 import com.soundcloud.equalizer.player.playback.ResolvedStream
 import com.soundcloud.equalizer.player.playback.ResolvingTrackMediaSourceFactory
+import com.soundcloud.equalizer.player.playback.SleepTimerState
 import com.soundcloud.equalizer.player.playback.SoundCloudStreamResolver
 import com.soundcloud.equalizer.player.playback.TrackMediaItems
 import kotlinx.coroutines.CancellationException
@@ -104,6 +109,15 @@ class AudioPlayerService : MediaLibraryService() {
         const val ACTION_SET_REPEAT = "com.soundcloud.equalizer.player.SET_REPEAT"
         const val ACTION_MOVE_QUEUE_ITEM = "com.soundcloud.equalizer.player.MOVE_QUEUE_ITEM"
         const val ACTION_REMOVE_QUEUE_ITEM = "com.soundcloud.equalizer.player.REMOVE_QUEUE_ITEM"
+        const val ACTION_START_SLEEP_TIMER = "com.soundcloud.equalizer.player.START_SLEEP_TIMER"
+        const val ACTION_CANCEL_SLEEP_TIMER = "com.soundcloud.equalizer.player.CANCEL_SLEEP_TIMER"
+
+        // PlaybackFadeState was changed: pick the new length up (a running track follows at once).
+        const val ACTION_FADE_CHANGED = "com.soundcloud.equalizer.player.FADE_CHANGED"
+
+        // Minutes; SLEEP_END_OF_TRACK instead pauses when the current track ends.
+        const val EXTRA_SLEEP_MINUTES = "extra_sleep_minutes"
+        const val SLEEP_END_OF_TRACK = -1
         const val EXTRA_QUEUE_INDEX = "extra_queue_index"
         const val EXTRA_POSITION_MS = "extra_position_ms"
         const val EXTRA_SHUFFLE = "extra_shuffle"
@@ -116,6 +130,9 @@ class AudioPlayerService : MediaLibraryService() {
         // How often the playback position is published for the progress bar - only while
         // something plays.
         private const val PROGRESS_INTERVAL_MS = 500L
+
+        // The sleep timer's countdown and the track-edge fades need finer steps than the progress bar.
+        private const val FADE_TICK_MS = 100L
 
         // The car's browser: lists, not grids, for folders and tracks alike.
         private const val CONTENT_STYLE_SUPPORTED = "android.media.browse.CONTENT_STYLE_SUPPORTED"
@@ -168,6 +185,26 @@ class AudioPlayerService : MediaLibraryService() {
     private var currentTrackHasPlayed = false
     private var streamRefreshedForCurrentTrack = false
 
+    private var fades: PlaybackFadeController? = null
+
+    private val fadeTicker =
+        object : Runnable {
+            override fun run() {
+                val controller = fades ?: return
+                controller.trackFadeMs = PlaybackFadeState.trackFadeMs.value
+                controller.tick()
+                if (controller.needsTicks) mainHandler.postDelayed(this, FADE_TICK_MS)
+            }
+        }
+
+    // (Re)starts the fade ticker when something needs it; harmless to call when it already runs.
+    private fun startFadeTicker() {
+        val controller = fades ?: return
+        controller.trackFadeMs = PlaybackFadeState.trackFadeMs.value
+        mainHandler.removeCallbacks(fadeTicker)
+        if (controller.needsTicks) mainHandler.post(fadeTicker) else controller.tick()
+    }
+
     private val progressTicker =
         object : Runnable {
             override fun run() {
@@ -179,6 +216,7 @@ class AudioPlayerService : MediaLibraryService() {
     override fun onCreate() {
         super.onCreate()
         PlayerDspState.load(this)
+        PlaybackFadeState.load(this)
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider
                 .Builder(this)
@@ -191,6 +229,13 @@ class AudioPlayerService : MediaLibraryService() {
 
         val exoPlayer = buildPlayer()
         player = exoPlayer
+        fades =
+            PlaybackFadeController(
+                player = exoPlayer,
+                elapsedRealtimeMs = SystemClock::elapsedRealtime,
+                publish = SleepTimerState::publish,
+                pause = { pausePlayer(exoPlayer) },
+            )
         val librarySession =
             MediaLibrarySession
                 .Builder(this, SessionPlayer(exoPlayer), LibraryCallback())
@@ -266,6 +311,7 @@ class AudioPlayerService : MediaLibraryService() {
                     currentTrackId(exoPlayer)?.let(PlayedTracksState::mark)
                     openAudioSession()
                     startProgressTicker()
+                    startFadeTicker()
                 } else {
                     // Paused, buffering, ended: one last position, then the ticker rests.
                     stopProgressTicker()
@@ -280,6 +326,7 @@ class AudioPlayerService : MediaLibraryService() {
                 currentTrackHasPlayed = false
                 streamRefreshedForCurrentTrack = false
                 publishNowPlaying()
+                startFadeTicker()
             }
 
             override fun onTimelineChanged(
@@ -295,7 +342,10 @@ class AudioPlayerService : MediaLibraryService() {
             override fun onPlayWhenReadyChanged(
                 playWhenReady: Boolean,
                 reason: Int,
-            ) = publishNowPlaying()
+            ) {
+                if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) fades?.onPausedAtEndOfItem()
+                publishNowPlaying()
+            }
 
             override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) = publishNowPlaying()
 
@@ -438,6 +488,17 @@ class AudioPlayerService : MediaLibraryService() {
             ACTION_PAUSE -> pausePlayer(exoPlayer)
             ACTION_STOP -> stopPlayer(exoPlayer)
             ACTION_TOGGLE_PLAYBACK -> if (isPlayingOrLoading(exoPlayer)) pausePlayer(exoPlayer) else resumePlayer(exoPlayer)
+            ACTION_START_SLEEP_TIMER -> {
+                val minutes = intent.getIntExtra(EXTRA_SLEEP_MINUTES, 0)
+                val setting =
+                    if (minutes == SLEEP_END_OF_TRACK) SleepTimerSetting.EndOfTrack else SleepTimerSetting.AfterMinutes(minutes)
+                if (minutes == SLEEP_END_OF_TRACK || minutes > 0) {
+                    fades?.startSleepTimer(setting)
+                    startFadeTicker()
+                }
+            }
+            ACTION_CANCEL_SLEEP_TIMER -> fades?.cancelSleepTimer()
+            ACTION_FADE_CHANGED -> startFadeTicker()
             ACTION_SET_SHUFFLE -> exoPlayer.shuffleModeEnabled = intent.getBooleanExtra(EXTRA_SHUFFLE, false)
             ACTION_SET_REPEAT ->
                 exoPlayer.repeatMode =
@@ -560,6 +621,7 @@ class AudioPlayerService : MediaLibraryService() {
 
     private fun stopPlayer(exoPlayer: ExoPlayer) {
         resetFailureState()
+        fades?.cancelSleepTimer()
         exoPlayer.stop()
         exoPlayer.clearMediaItems()
         closeAudioSession()
@@ -666,6 +728,9 @@ class AudioPlayerService : MediaLibraryService() {
     override fun onDestroy() {
         cancelNetworkRetry()
         stopProgressTicker()
+        mainHandler.removeCallbacks(fadeTicker)
+        fades?.release()
+        fades = null
         libraryScope.cancel()
         closeAudioSession()
         NowPlayingState.update(null)
