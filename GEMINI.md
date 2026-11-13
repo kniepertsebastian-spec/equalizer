@@ -11,7 +11,7 @@ HardBass EQ: Equalizer für Android mit begleitendem Player.
 - Lies zuerst die relevanten Dateien, Tests und vorhandenen Projektanweisungen.
 - Folge der aktuellen Architektur und bestehenden Konventionen.
 - Prüfe vor Änderungen die maßgebliche Roadmap und Dokumentation; lies nicht die gesamte Historie.
-- `roadmap-2026.md` ist die aktuelle Produkt- und Technik-Roadmap. `roadmap.md` bleibt das historische Entwicklungs-Session-Log.
+- Maßgeblich ist `docs/roadmaps_in_progress/00-INDEX.md` mit den sechs offenen Roadmap-Paketen. Alles unter `docs/roadmaps_finished/` (u. a. `roadmap-2026.md`, `roadmap.md` als Session-Log) ist Archiv.
 - `docs/ARCHITECTURE.md`, `docs/QUALITY.md`, `docs/TEST_MATRIX.md`, `docs/DEPENDENCIES.md` und ADRs bei Bedarf konsultieren.
 - Dokumentationskopien nur gemeinsam aktualisieren, wenn beide laut Dokumentationsregeln gepflegt werden müssen.
 - Implementiere die kleinste vollständige Lösung. Keine sachfremden Refactorings.

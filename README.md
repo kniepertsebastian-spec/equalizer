@@ -132,19 +132,14 @@ Project documentation is maintained in the `docs/` directory.
 
 | File | Description |
 |---|---|
-| `docs/roadmap-ux.md` | Current UI and product development plan. |
-| `docs/roadmap-2026.md` | Product and technical roadmap for 2026. |
+| `docs/roadmaps_in_progress/00-INDEX.md` | The one valid work plan: index of the six open roadmap packages. |
+| `docs/roadmaps_finished/` | Archive of finished and historical roadmaps (UX, 2026, engineering review, context/DSP, private group, session log). Kept for reference, not maintained. |
 | `docs/DECISIONS.md` | Architecture decisions and implementation rationale. |
 | `docs/ARCHITECTURE.md` | Audio engine and service architecture. |
 | `docs/STATE_MACHINE.md` | Audio engine and background service state transitions. |
 | `docs/TEST_MATRIX.md` | Device testing and test coverage, including outstanding tests. |
 | `docs/DEPENDENCIES.md` | Library and dependency versions. |
 | `docs/adr/` | Architecture Decision Records. |
-| `docs/roadmap.md` | Development session log. |
-| `roadmap.md` | Technical review and development roadmap. |
-| `roadmap-kontext-dsp.md` | Roadmap for context-based profiles and DSP. |
-| `docs/roadmap-private.md` | Roadmap for the private user group. |
-| `docs/roadmap-private-status.md` | Current status of the private user group roadmap. |
 
 ## SoundCloud Integration
 
