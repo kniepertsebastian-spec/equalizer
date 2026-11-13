@@ -66,6 +66,12 @@ jobs:
           path: core/build/reports/tests/test
           if-no-files-found: warn
 
+      # Roadmap 06, P6-3: the instrumented tests need a device and are not run here, but they must
+      # at least keep compiling. The release build (R8, P6-6) is built too, so a missing keep rule
+      # that makes shrinking fail shows up before a release tag does.
+      - name: Compile instrumented tests and build the release APK
+        run: ./gradlew :app:compileDebugAndroidTestKotlin :app:assembleRelease --stacktrace
+
       - name: Run Android Lint
         run: ./gradlew lintDebug lintRelease --stacktrace
 
