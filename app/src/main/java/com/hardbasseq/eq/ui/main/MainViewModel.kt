@@ -64,8 +64,6 @@ import com.hardbasseq.eq.profile.InMemoryDeviceAliasStore
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
 import com.hardbasseq.eq.text.TextProvider
-import com.soundcloud.equalizer.player.playback.NowPlaying
-import com.soundcloud.equalizer.player.playback.NowPlayingState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -174,8 +172,6 @@ class MainViewModel
 
         private val _showSourcePicker = MutableStateFlow(false)
         val showSourcePicker: StateFlow<Boolean> = _showSourcePicker.asStateFlow()
-
-        val nowPlaying: StateFlow<NowPlaying?> = NowPlayingState.current
 
         private val _effectDescriptors = MutableStateFlow<List<AudioEffectDescriptor>>(emptyList())
         val effectDescriptors: StateFlow<List<AudioEffectDescriptor>> = _effectDescriptors.asStateFlow()
@@ -1000,10 +996,6 @@ class MainViewModel
         // again.
         fun openSourcePicker() {
             _showSourcePicker.value = true
-        }
-
-        fun toggleNowPlayingPlayback() {
-            playerBridge.togglePlayback()
         }
 
         fun reopenPlayer() {

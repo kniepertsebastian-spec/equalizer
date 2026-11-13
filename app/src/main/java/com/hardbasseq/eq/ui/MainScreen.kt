@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -19,21 +18,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,7 +35,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -52,13 +42,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.audio.AudioEffectDescriptor
 import com.hardbasseq.eq.integration.PlayerSource
-import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.preset.BuiltInGenrePresets
 import com.hardbasseq.eq.preset.Preset
 import com.hardbasseq.eq.preset.PresetIntensity
@@ -67,18 +55,14 @@ import com.hardbasseq.eq.ui.equalizer.EqualizerScreen
 import com.hardbasseq.eq.ui.equalizer.appLabelFor
 import com.hardbasseq.eq.ui.equalizer.localizedSourceLabel
 import com.hardbasseq.eq.ui.main.MainViewModel
-import com.hardbasseq.eq.ui.player.CoverThumb
-import com.hardbasseq.eq.ui.player.isProblem
-import com.hardbasseq.eq.ui.player.noticeText
-import com.hardbasseq.eq.ui.theme.spacing
 import com.hardbasseq.eq.ui.update.ReleaseUpdateNotice
-import com.soundcloud.equalizer.player.playback.NowPlaying
 
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
     onNavigateToDiagnostics: () -> Unit = {},
-    onOpenFullPlayer: () -> Unit = {},
+    // The built-in player has a track loaded (mini player and "Now playing" live in the app shell).
+    playerLoaded: Boolean = false,
     onOpenServices: () -> Unit = {},
 ) {
     val showDebugEffects by viewModel.showDebugEffects.collectAsStateWithLifecycle()
@@ -108,7 +92,6 @@ fun MainScreen(
     val isDirty by viewModel.isDirty.collectAsStateWithLifecycle()
     val pendingDeletePreset by viewModel.pendingDeletePreset.collectAsStateWithLifecycle()
     val showSourcePicker by viewModel.showSourcePicker.collectAsStateWithLifecycle()
-    val nowPlaying by viewModel.nowPlaying.collectAsStateWithLifecycle()
     val compare by viewModel.compare.collectAsStateWithLifecycle()
     // Leaving the equalizer ends a running Original/EQ comparison, so the next track is not heard "as original" by accident.
     DisposableEffect(Unit) { onDispose { viewModel.endCompare() } }
@@ -257,15 +240,6 @@ fun MainScreen(
         // The navigation bar of the app shell below handles the bottom inset.
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            nowPlaying?.let { playing ->
-                NowPlayingBar(
-                    nowPlaying = playing,
-                    onTogglePlayback = { viewModel.toggleNowPlayingPlayback() },
-                    onOpenPlayer = onOpenFullPlayer,
-                )
-            }
-        },
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             ReleaseUpdateNotice()
@@ -287,7 +261,7 @@ fun MainScreen(
                 onRenameRoute = { viewModel.renameCurrentRoute(it) },
                 pathLabel =
                     activeAudioSession?.let { appLabelFor(context, it.packageName) }
-                        ?: if (nowPlaying != null) stringResource(R.string.source_soundcloud) else null,
+                        ?: if (playerLoaded) stringResource(R.string.source_soundcloud) else null,
                 audioSessions = audioSessions,
                 activeAudioSession = activeAudioSession,
                 isOwnPlayerSession = isOwnPlayerSession,
@@ -465,90 +439,6 @@ private fun PresetNameDialog(
             }
         },
     )
-}
-
-// Small persistent "now playing" strip for the in-app SoundCloud player, docked to
-// the bottom like Spotify's own mini-player - reflects AudioPlayerService's state
-// (see NowPlayingState) without needing the full player screen open. Tapping it reopens
-// that screen; the play/pause button controls playback
-// directly, without leaving the equalizer.
-@Composable
-private fun NowPlayingBar(
-    nowPlaying: NowPlaying,
-    onTogglePlayback: () -> Unit,
-    onOpenPlayer: () -> Unit,
-) {
-    val spacing = MaterialTheme.spacing
-    // Docked to the navigation bar rather than floating above the content: a strip of the
-    // same raised graphite, with the playback position as its top edge.
-    Surface(
-        onClick = onOpenPlayer,
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-    ) {
-        Column {
-            // Tapping the bar opens the full player; the progress line is the hint
-            // that there is more to it than a title.
-            if (nowPlaying.durationMs > 0) {
-                LinearProgressIndicator(
-                    progress = { PlayerFormat.progress(nowPlaying.positionMs, nowPlaying.durationMs) },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
-                    trackColor = MaterialTheme.colorScheme.outline,
-                    drawStopIndicator = {},
-                    gapSize = 0.dp,
-                )
-            } else {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.medium, vertical = spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                CoverThumb(url = nowPlaying.artworkUrl)
-                Spacer(modifier = Modifier.width(spacing.small))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = nowPlaying.title,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    // What the player has to say (no connection, skipped track) takes the
-                    // artist's place, so it is seen without opening the player.
-                    val notice = nowPlaying.notice
-                    Text(
-                        text = if (notice != null) noticeText(notice) else nowPlaying.artist,
-                        style = MaterialTheme.typography.bodySmall,
-                        color =
-                            if (notice?.isProblem() == true) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Spacer(modifier = Modifier.width(spacing.small))
-                TextButton(onClick = onOpenPlayer) { Text(stringResource(R.string.action_to_player)) }
-                IconButton(onClick = onTogglePlayback) {
-                    Icon(
-                        imageVector = if (nowPlaying.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription =
-                            if (nowPlaying.isPlaying) {
-                                stringResource(
-                                    R.string.player_pause,
-                                )
-                            } else {
-                                stringResource(R.string.player_play)
-                            },
-                    )
-                }
-            }
-        }
-    }
 }
 
 @Composable

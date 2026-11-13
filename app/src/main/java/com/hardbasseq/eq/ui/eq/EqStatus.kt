@@ -71,13 +71,6 @@ fun EqStatusLine(
     modifier: Modifier = Modifier,
 ) {
     val colors = MaterialTheme.colorScheme
-    val lampColor =
-        when (kind) {
-            EqStatusKind.ACTIVE -> colors.secondary
-            EqStatusKind.OFF -> colors.onSurfaceVariant
-            EqStatusKind.ERROR, EqStatusKind.UNSUPPORTED, EqStatusKind.LOST -> colors.error
-            EqStatusKind.WAITING, EqStatusKind.CONNECTING -> colors.tertiary
-        }
     val label =
         if (kind == EqStatusKind.ACTIVE && pathLabel != null) {
             stringResource(R.string.eq_status_active_for, pathLabel)
@@ -95,19 +88,7 @@ fun EqStatusLine(
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(
-            modifier =
-                Modifier
-                    .padding(top = 6.dp)
-                    .size(10.dp)
-                    .then(
-                        when (kind) {
-                            EqStatusKind.ACTIVE -> Modifier.clip(CircleShape).background(lampColor)
-                            EqStatusKind.OFF -> Modifier.border(1.5.dp, lampColor, CircleShape)
-                            else -> Modifier.background(lampColor)
-                        },
-                    ),
-        )
+        EqStatusLamp(kind = kind, modifier = Modifier.padding(top = 6.dp))
         Column {
             Text(text = label, style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
             kind.hintRes?.let { hint ->
@@ -115,4 +96,33 @@ fun EqStatusLine(
             }
         }
     }
+}
+
+// The status lamp on its own (mini player, now playing). Shape carries the state as well as
+// the color: filled when the effect runs, a ring when it is off, a square for problems.
+@Composable
+fun EqStatusLamp(
+    kind: EqStatusKind,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    val lampColor =
+        when (kind) {
+            EqStatusKind.ACTIVE -> colors.secondary
+            EqStatusKind.OFF -> colors.onSurfaceVariant
+            EqStatusKind.ERROR, EqStatusKind.UNSUPPORTED, EqStatusKind.LOST -> colors.error
+            EqStatusKind.WAITING, EqStatusKind.CONNECTING -> colors.tertiary
+        }
+    Box(
+        modifier =
+            modifier
+                .size(10.dp)
+                .then(
+                    when (kind) {
+                        EqStatusKind.ACTIVE -> Modifier.clip(CircleShape).background(lampColor)
+                        EqStatusKind.OFF -> Modifier.border(1.5.dp, lampColor, CircleShape)
+                        else -> Modifier.background(lampColor)
+                    },
+                ),
+    )
 }

@@ -249,6 +249,19 @@ class PlayerViewModel
             _requestedTab.value = null
         }
 
+        /** Switches the player page to [tab] (e.g. "Go to search" from the empty queue). */
+        fun requestTab(tab: PlayerTab) {
+            _requestedTab.value = tab
+        }
+
+        // "Now playing" should open full screen (notification, lock screen), once.
+        private val _expandPlayerRequest = MutableStateFlow(false)
+        val expandPlayerRequest: StateFlow<Boolean> = _expandPlayerRequest.asStateFlow()
+
+        fun consumeExpandPlayerRequest() {
+            _expandPlayerRequest.value = false
+        }
+
         fun consumeShowPlayerRequest() {
             _showPlayerRequest.value = false
         }
@@ -260,6 +273,12 @@ class PlayerViewModel
          */
         fun requestShowPlayer() {
             _showPlayerRequest.value = true
+        }
+
+        /** Like [requestShowPlayer], and "Now playing" opens full screen on top. */
+        fun requestNowPlaying() {
+            _showPlayerRequest.value = true
+            _expandPlayerRequest.value = true
         }
 
         fun dismissImportMessage() {
@@ -834,6 +853,34 @@ class PlayerViewModel
 
         fun removeQueueItem(index: Int) {
             if (index in queue.value.indices) controller.removeQueueItem(index)
+        }
+
+        /**
+         * Undo of a removal: [track] goes back to [index]. The player has no "insert at", so it
+         * is appended and then moved; the service handles both requests in the order they are sent.
+         */
+        fun reinsertQueueItem(
+            track: TrackItem,
+            index: Int,
+        ) {
+            val appendedAt = queue.value.size
+            controller.addToQueue(listOf(track))
+            if (index in 0 until appendedAt) controller.moveQueueItem(appendedAt, index)
+        }
+
+        /** Removes everything after the track that plays now; returns what was removed (for Undo). */
+        fun clearUpcoming(): List<TrackItem> {
+            val current = nowPlaying.value?.queueIndex ?: return emptyList()
+            val all = queue.value
+            if (current !in all.indices || current == all.lastIndex) return emptyList()
+            // From the end, so the positions still to remove stay valid.
+            for (index in all.lastIndex downTo current + 1) controller.removeQueueItem(index)
+            return all.subList(current + 1, all.size).toList()
+        }
+
+        /** Undo of [clearUpcoming]: the tracks go back to the end of the queue, in their order. */
+        fun restoreUpcoming(tracks: List<TrackItem>) {
+            if (tracks.isNotEmpty()) controller.addToQueue(tracks)
         }
 
         fun toggleShuffle() = controller.setShuffle(nowPlaying.value?.shuffle != true)
