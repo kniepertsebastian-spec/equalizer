@@ -85,7 +85,7 @@ P2-1 ist ein Architekturumbau. Vor dem Coden erst Ist-Zustand, Media3-Version, S
 
 ## Abschlussbericht
 
-**Branch / PR:** `claude/gifted-mayer-pszodc` (neu von `main` 4f47a55 nach dem Merge von PR #63), Draft-PR folgt.
+**Branch / PR:** `claude/gifted-mayer-pszodc` (neu von `main` 4f47a55 nach dem Merge von PR #63), Draft-PR #64.
 
 ### Commits
 | Punkt | Commit |
@@ -116,7 +116,7 @@ Ein gemeinsamer Commit, weil alle vier Punkte dieselben Dateien ändern (`AudioP
 - **Lokal** (Android-SDK 37 im Container, Lizenzen mit Freigabe von Sebastian akzeptiert): `ktlintCheck`, `assembleDebug`, `testDebugUnitTest`, `:core:test`, `lintDebug`, `lintRelease`: alle grün.
   - `:core` 313 Tests (neu `QueueOrderTest` 5, `QueueMediaIdTest` 4; `QueueNavigationTest` 3 entfallen), `:app` 262 Tests (`PlayerViewModelTest` +5), `:player` 8 Tests (neu `ResolvingTrackMediaSourceTest` 7, Robolectric mit echtem ExoPlayer).
   - Lint: keine Fehler in `:app`. In `:player` meldet Lint wie bisher den `RestrictedApi`-Fehler in `SoundCloudLoginActivity` (bricht dort nicht ab) und neu die Warnung `ExportedService` für den Player-Dienst. Android Auto braucht ihn exportiert, wie vorher `AutoBrowserService`.
-- **CI:** siehe PR.
+- **CI:** PR #64.
 
 ### Offene Punkte (Gerätetests)
 1. **Titelwechsel ohne hörbare Lücke** mit echten SoundCloud-Streams, progressiv und HLS (Go+), mit eingeschaltetem EQ und Virtual Bass.
