@@ -1,7 +1,9 @@
 package com.hardbasseq.eq
 
 import android.app.Application
+import android.content.ComponentName
 import android.content.Intent
+import android.service.quicksettings.TileService
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.work.Constraints
@@ -17,6 +19,10 @@ import coil3.memory.MemoryCache
 import coil3.request.crossfade
 import com.hardbasseq.eq.auto.AppAutoCatalog
 import com.hardbasseq.eq.discovery.DiscoveryWorker
+import com.hardbasseq.eq.quick.EqToggleTileService
+import com.hardbasseq.eq.quick.NextPresetTileService
+import com.hardbasseq.eq.quick.QuickControls
+import com.hardbasseq.eq.quick.QuickWidgetProvider
 import com.hardbasseq.eq.service.AppVisibility
 import com.hardbasseq.eq.service.AudioSessionForegroundService
 import com.soundcloud.equalizer.player.PlayerText
@@ -37,8 +43,20 @@ class HardBassEqApplication :
     @Inject
     lateinit var appVisibility: AppVisibility
 
+    // The tiles and the home-screen widget (roadmap 06, P5-1).
+    @Inject
+    lateinit var quickControls: QuickControls
+
     override fun onCreate() {
         super.onCreate()
+        quickControls.onSurfacesChanged = {
+            val context = this
+            runCatching {
+                TileService.requestListeningState(context, ComponentName(context, EqToggleTileService::class.java))
+                TileService.requestListeningState(context, ComponentName(context, NextPresetTileService::class.java))
+                QuickWidgetProvider.updateAll(context, quickControls.state.value, quickControls.hasConsumer)
+            }
+        }
         PlayerText.init(this)
         // What the car (Android Auto) may browse and play; also read by the player service.
         AutoCatalogHolder.catalog = autoCatalog

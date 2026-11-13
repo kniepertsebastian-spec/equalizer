@@ -3,4 +3,8 @@
     <!-- Mirrors ui/theme/Color.kt for the window theme, which is set before Compose runs. -->
     <color name="sonic_graphite">#FF16181B</color>
     <color name="sonic_graphite_raised">#FF1E2125</color>
+    <!-- Home-screen widget (RemoteViews cannot use the Compose theme): amber = on, steel = off. -->
+    <color name="widget_accent">#FFFFA826</color>
+    <color name="widget_muted">#FF8D949D</color>
+    <color name="widget_text">#FFEAE7E2</color>
 </resources>

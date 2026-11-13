@@ -15,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.hardbasseq.eq.data.preset.PresetShareCodec
+import com.hardbasseq.eq.quick.QuickCommandIntents
 import com.hardbasseq.eq.ui.main.MainViewModel
 import com.hardbasseq.eq.ui.navigation.AppNavHost
 import com.hardbasseq.eq.ui.player.PlayerViewModel
@@ -73,6 +74,11 @@ class MainActivity : ComponentActivity() {
     // "Share" from the SoundCloud app (or any app) with this one as the target: the
     // shared text carries the link, which the player screen imports.
     private fun handleShareIntent(intent: Intent?) {
+        // A tile or the widget asked for something while no screen of the app was alive.
+        QuickCommandIntents.commandOf(intent)?.let { command ->
+            mainViewModel.queueQuickCommand(command)
+            return
+        }
         // A scanned QR code or tapped link: hardbasseq://preset?... (roadmap 06, P5-4).
         val link = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString
         if (link != null && PresetShareCodec.isShareLink(link)) {

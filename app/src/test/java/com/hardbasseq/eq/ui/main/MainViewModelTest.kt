@@ -41,6 +41,7 @@ import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.profile.DeviceProfileRepository
+import com.hardbasseq.eq.quick.QuickCommand
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
 import com.hardbasseq.eq.text.FakeTextProvider
@@ -529,6 +530,33 @@ class MainViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertTrue(presetRepository.savedPresets.isEmpty())
+        }
+
+    @Test
+    fun `quick command toggles the master switch`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.masterEnabled
+
+            viewModel.handleQuickCommand(QuickCommand.TOGGLE_MASTER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(!before, viewModel.processingSettings.value.masterEnabled)
+        }
+
+    @Test
+    fun `quick command steps to the next preset and wraps around`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val ids = viewModel.allPresets.value.map { it.id }
+            val start = viewModel.activePreset.value.id
+
+            viewModel.handleQuickCommand(QuickCommand.NEXT_PRESET)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(ids[(ids.indexOf(start) + 1) % ids.size], viewModel.activePreset.value.id)
         }
 
     @Test

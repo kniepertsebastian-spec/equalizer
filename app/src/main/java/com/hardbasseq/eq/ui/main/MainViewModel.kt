@@ -57,6 +57,7 @@ import com.hardbasseq.eq.preset.BuiltInPresets
 import com.hardbasseq.eq.preset.GenrePreset
 import com.hardbasseq.eq.preset.LimiterConfig
 import com.hardbasseq.eq.preset.Preset
+import com.hardbasseq.eq.preset.PresetCycle
 import com.hardbasseq.eq.preset.PresetIntensity
 import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetMetadata
@@ -66,10 +67,14 @@ import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.profile.DeviceAliasStore
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.profile.InMemoryDeviceAliasStore
+import com.hardbasseq.eq.quick.QuickCommand
+import com.hardbasseq.eq.quick.QuickControls
+import com.hardbasseq.eq.quick.QuickState
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
 import com.hardbasseq.eq.text.TextProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -176,6 +181,7 @@ class MainViewModel
         private val sessionRepository: AudioSessionRepository = NoAudioSessionRepository,
         private val carConnectionRepository: CarConnectionRepository = NoCarConnectionRepository,
         private val systemDiagnostics: SystemDiagnosticsSource = NoSystemDiagnosticsSource,
+        private val quickControls: QuickControls = QuickControls(),
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -392,6 +398,7 @@ class MainViewModel
         // ViewModel's temporary just-constructed defaults over the real saved
         // state before it's even been read back.
         private var hasRestoredState = false
+        private val stateRestored = CompletableDeferred<Unit>()
 
         // Session listening/attach and route monitoring are owned by
         // AudioSessionForegroundService now, not this ViewModel - that keeps them
@@ -399,6 +406,19 @@ class MainViewModel
         // screen is open (see roadmap.md Session 13). This ViewModel only reacts to
         // capability changes the (singleton) engine reports.
         init {
+            quickControls.consumerAttached()
+            viewModelScope.launch {
+                // Tiles and widget show this; republished on every change that matters to them.
+                combine(_processingSettings, _activePreset) { settings, preset ->
+                    QuickState(masterEnabled = settings.masterEnabled, presetName = preset.name)
+                }.collect { state -> if (hasRestoredState) quickControls.publish(state) }
+            }
+            viewModelScope.launch {
+                quickControls.commands.collect { command ->
+                    stateRestored.await()
+                    handleQuickCommand(command)
+                }
+            }
             viewModelScope.launch {
                 audioEngine.capabilities.collect { caps ->
                     recalculateBandGains(caps.bands)
@@ -514,6 +534,8 @@ class MainViewModel
             }
 
             hasRestoredState = true
+            stateRestored.complete(Unit)
+            quickControls.publish(QuickState(_processingSettings.value.masterEnabled, _activePreset.value.name))
 
             // Route-specific binding takes precedence over the plain "last active"
             // LiveSettings restored above, if this route has one - that's the
@@ -982,6 +1004,31 @@ class MainViewModel
                 subsonicCutoffHz = settings.subsonicCutoffHz,
                 virtualBassMix = settings.virtualBassMix,
             )
+        }
+
+        // From the quick-settings tiles, the widget, or an intent that opened the app for one.
+        fun handleQuickCommand(command: QuickCommand) {
+            when (command) {
+                QuickCommand.TOGGLE_MASTER -> setMasterEnabled(!_processingSettings.value.masterEnabled)
+                QuickCommand.NEXT_PRESET -> {
+                    val presets = allPresets.value
+                    val nextId = PresetCycle.nextId(presets.map { it.id }, _activePreset.value.id) ?: return
+                    presets.firstOrNull { it.id == nextId }?.let { selectPreset(it) }
+                }
+            }
+        }
+
+        // For a command that opened the app: the saved state has to be loaded before it is acted on.
+        fun queueQuickCommand(command: QuickCommand) {
+            viewModelScope.launch {
+                stateRestored.await()
+                handleQuickCommand(command)
+            }
+        }
+
+        override fun onCleared() {
+            quickControls.consumerDetached()
+            super.onCleared()
         }
 
         fun setMasterEnabled(enabled: Boolean) {

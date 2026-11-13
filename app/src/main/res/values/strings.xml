@@ -185,6 +185,15 @@
     <string name="feedback_preset_imported">Preset \"%1$s\" imported</string>
     <string name="feedback_preset_link_invalid">This is not a valid preset link</string>
     <string name="feedback_preset_link_empty">Copy a preset link first, then paste it here</string>
+    <string name="tile_eq_label">Equalizer</string>
+    <string name="tile_eq_on">On</string>
+    <string name="tile_eq_off">Off</string>
+    <string name="tile_eq_on_caps">EQ ON</string>
+    <string name="tile_eq_off_caps">EQ OFF</string>
+    <string name="tile_preset_label">Next preset</string>
+    <string name="widget_description">Switch the equalizer on or off and change the preset</string>
+    <string name="widget_toggle_description">Switch equalizer on or off</string>
+    <string name="widget_next_preset_description">Next preset</string>
     <string name="share_correction_profile">Share correction profile</string>
     <string name="diagnostics_button">Diagnostics &amp; report</string>
     <string name="source_picker_title">Play from...</string>
