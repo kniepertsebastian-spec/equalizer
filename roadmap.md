@@ -1,281 +1,228 @@
-# HardBass EQ – Technical Review & Engineering Roadmap
+# HardBass EQ – Roadmap
 
-Stand: Oktober 2026 | Fokus: Stabilität (Android 14/15 & Samsung OneUI), Audio-Lifecycle, Standby-Effizienz, 34-Band-DSP & Klangqualität.
+Stand: 13. November 2026. Grundlage: Code-Review des gesamten Repos (`:app`, `:core`, `:player`).
+Die Review war rein statisch: kein Build, kein Gerätetest, keine Hörprobe.
+Diese Datei ersetzt die Roadmap vom Oktober 2026; deren offene Punkte sind unten übernommen (Abschnitt 8).
 
----
+**Gesamtnote der Review: 6,5 / 10.** Der DSP-Kern und die Effekt-Engine sind stark, der Player und die SoundCloud-Anbindung ziehen die Note nach unten.
 
-## 1. Critical / Blocker (Nachgewiesene Absturzursachen & schwerwiegende Funktionsfehler)
+| Bereich | Note |
+|---|---|
+| DSP-Kern (`:core/dsp`) | 8 |
+| Effekt-Engine und Service-Lifecycle | 7,5 |
+| Equalizer-Oberfläche (nur Code gelesen) | 7 |
+| Tests, CI, Release-Pipeline | 7 |
+| Codequalität und Wartbarkeit | 6 |
+| Player-Technik (Wiedergabe, Queue, Fehlerbehandlung) | 5 |
+| Player-Oberfläche | 4,5 |
+| SoundCloud-Zugang (Login, API) | 3 |
 
-### [CRIT-01] Unbehandelte `ForegroundServiceStartNotAllowedException` & `START_STICKY` in `AudioSessionForegroundService` (Android 14/15 Crash & Samsung "Tiefes Standby"-Warnung)
-- **Priorität:** Critical / Blocker
-- **Kategorie:** Stabilität / Android 14 & 15 Lifecycle
-- **Status:** Erledigt (in Review-Patch umgesetzt)
-- **Begründung / Code-Evidenz (Bestätigter Fehler):**
-  - `app/src/main/java/com/hardbasseq/eq/service/AudioSessionForegroundService.kt` (Zeile 46 & 75–81), `app/build.gradle.kts` (`targetSdk = 36`), `app/src/AndroidManifest.xml` (`foregroundServiceType="mediaPlayback"`).
-  - `startForeground(NOTIFICATION_ID, buildNotification())` wurde ohne `ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK` und ohne `try/catch` aufgerufen. Zudem gab `onStartCommand` `START_STICKY` zurück.
-  - Wenn Android 14/15 (z. B. Samsung Galaxy S21 Ultra SM-G998B, API 35, nach Android-Auto-Trennung oder Prozess-Cleanup) den Service wegen `START_STICKY` im Hintergrund neu startet, während die App weder sichtbar ist noch aktiv Audio abspielt, wirft das System `ForegroundServiceStartNotAllowedException`.
-  - Da `InMemoryDiagnosticsRecorder` nur im RAM lebt, ging der Crash-Grund beim nächsten App-Start verloren (`Last Error: none`), während Samsungs Device Care (`Freecess`) die wiederholten Prozess-Crashes zählte und die Warnung *„HardBass EQ stürzt häufig ab. Versetze die App in ein tiefes Standby“* anzeigte.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/service/AudioSessionForegroundService.kt`
-- **Vorgeschlagene / Umgesetzte Lösung:**
-  - Umstellung auf `ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), fgsType)` mit explizitem `FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK`.
-  - Absicherung durch `try/catch (Exception)` mit Diagnose-Protokollierung und sauberem `stopSelf()` statt Prozess-Absturz.
-  - Änderung des Rückgabewerts in `onStartCommand` von `START_STICKY` auf `START_NOT_STICKY`.
-- **Akzeptanzkriterien:**
-  - Ein Hintergrund-Startversuch des Services ohne Berechtigung darf niemals zum Prozess-Crash führen.
-  - Ablehnungen durch das OS werden im `DiagnosticsRecorder` protokolliert.
-- **Abhängigkeiten / Risiken:** Keine; erhält alle bestehenden Funktionen im regulären Betrieb.
+Aufwand: **S** = wenige Stunden, **M** = ein bis drei Tage, **L** = mehr als drei Tage.
 
 ---
 
-### [CRIT-02] Race Condition zwischen `markDetached()` (Main-Thread) und laufenden Coroutines in `AndroidAudioEngine`
-- **Priorität:** Critical / Blocker
-- **Kategorie:** Thread-Sicherheit / Native AudioEffect Lifecycle
-- **Status:** Erledigt (in Review-Patch umgesetzt)
-- **Begründung / Code-Evidenz (Bestätigter Fehler):**
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEngine.kt` (Zeile 81–88 & 237–253).
-  - `markDetached()` wurde aus `AudioSessionForegroundService.onDestroy()` auf dem Main-Thread **ohne `mutex`** aufgerufen und gab `equalizer` und `dynamicsProcessing` direkt frei, während `apply()` oder `attachLocked()` auf `Dispatchers.Default` gleichzeitig auf dieselben nativen Instanzen zugreifen konnten.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEngine.kt`
-- **Vorgeschlagene / Umgesetzte Lösung:**
-  - `@Volatile` auf den Effekt-Referenzen, lokales Nullsetzen vor `.release()` in `releaseEffectsLocked()` und `mutex.tryLock()` mit Fallback auf `engineScope.launch { mutex.withLock { ... } }` in `markDetached()`.
-- **Akzeptanzkriterien:**
-  - Kein paralleler Zugriff auf `Equalizer` oder `DynamicsProcessing` während `onDestroy()` / `markDetached()`.
+## Phase 0 – Sofort: Fehler und Altlasten (klein, hoher Nutzen)
+
+### P0-1 Zurückgerollten 34-Band-Fix wiederherstellen (S)
+- **Befund:** Die alte Roadmap führt HIGH-02 (logarithmisches Raster ohne 5-Hz-Abstände) als erledigt. Der Commit `9409917` („ci red fix", 28.10.2026) hat ihn wieder entfernt. `PreEqLayout.CUTOFFS_HZ` enthält erneut `31, 36, 40, 45, 50, 55 Hz` und `LOWEST_HZ = 15f` (`core/.../dsp/PreEqMapper.kt`).
+- **Folge:** Die Bassbänder liegen enger als die FFT-Auflösung von `DynamicsProcessing` (bei 20 ms Frame rund 23 Hz). Mehrere Bänder teilen sich ein Bin, die Kurve im Bass ist dadurch unschärfer, als die Oberfläche zeigt.
+- **Fertig, wenn:** Nachbarbänder mindestens rund 18 % auseinanderliegen, `PreEqMapperTest` das prüft und CI grün ist.
+
+### P0-2 Queue läuft bei Netzausfall komplett durch (S)
+- **Befund:** `onPlayerError` ruft ohne Prüfung der Fehlerart `onTrackUnplayable()` auf, das sofort den nächsten Titel startet (`AudioPlayerService.kt`). Ohne Netz schlägt jeder Titel fehl, die ganze Queue wird mit Toasts übersprungen.
+- **Fertig, wenn:** Netzfehler pausieren und mit Wartezeit erneut versuchen; nur echte „Titel nicht abspielbar"-Fälle springen weiter, höchstens dreimal hintereinander.
+
+### P0-3 Benachrichtigung öffnet den alten XML-Player (S)
+- **Befund:** `setSessionActivity` und der Content-Intent der Benachrichtigung zeigen auf `PlayerActivity` (altes View-Layout aus dem früheren Audioplayer-Repo), nicht auf den Compose-Player in `MainActivity`.
+- **Fertig, wenn:** Benachrichtigung, Sperrbildschirm und Android Auto den Compose-Player öffnen und `PlayerActivity`, `activity_player.xml` und `TrackAdapter` gelöscht sind.
+
+### P0-4 Build-Ausgabe aus dem Repo entfernen (S)
+- **Befund:** 6.494 Dateien unter `app/build`, `core/build`, `player/app/build` und `build/` sind eingecheckt, ebenso `local.properties` mit einem lokalen Pfad. `.gitignore` listet beides, die Dateien wurden aber vorher hinzugefügt.
+- **Fertig, wenn:** `git rm -r --cached` für diese Pfade gelaufen ist und `git ls-files | grep /build/` leer bleibt.
+
+### P0-5 Virtual Bass: wirkungslosen Drive-Regler und Filterlage korrigieren (S–M)
+- **Befund 1:** `abs(x · drive) / drive` ist identisch mit `abs(x)`. Der Parameter `drive` in `BassExciter.kt` ändert rechnerisch nichts.
+- **Befund 2:** Der Hochpass hinter dem Gleichrichter sitzt auf derselben Frequenz wie der Tiefpass davor (150 Hz). Die Oktave über einem 40-Hz-Grundton (80 Hz) wird damit um rund 11 dB gedämpft, während Obertöne von 100–150-Hz-Tönen fast ungedämpft in den unteren Mitten landen. Der Effekt wirkt also dort am schwächsten, wo kleine Treiber ihn brauchen.
+- **Fertig, wenn:** Der Hochpass tiefer liegt (etwa 60–70 Hz), ein Tiefpass die Obertöne nach oben begrenzt (etwa 300 Hz) und ein Test den Pegel der zweiten Harmonischen für 40, 60 und 100 Hz festschreibt. Siehe auch P4-3.
+
+### P0-6 Ungenutzten Code entfernen (S)
+- `app/.../audio/media3/Media3DspPipeline.kt` samt Test (alt: DEBT-02).
+- `Crossfeed.kt` ist fertig und getestet, aber nirgends angeschlossen: entweder in Phase 4 nutzen (P4-4) oder löschen.
+- Veralteter Kommentar „Media3 1.3.1" in `PlayerDspPcm16.kt`; eingebunden ist 1.11.1.
 
 ---
 
-## 2. High (Audio-Lifecycle, Standby, DSP-Ausfälle und Klangqualitätsprobleme)
+## Phase 1 – SoundCloud-Zugang auf solide Füße stellen
 
-### [HIGH-01] Klangverlust & Pumpen (auch ohne 34-Band-Modus) durch überaggressives MBC-Auto-Makeup-Gain (+6 dB) direkt in den 10:1 Hard-Limiter
-- **Priorität:** High
-- **Kategorie:** Klangqualität / DSP-Gain-Staging
-- **Status:** Erledigt (in Review-Patch umgesetzt)
-- **Begründung / Code-Evidenz (Bestätigter Fehler):**
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEngine.kt` (Zeile 317–362).
-  - Die Formel `((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.85f).coerceIn(0f, 6f)` addierte bei `-8 dB` Threshold und `3.0:1` Ratio pauschal **+4,53 dB (bis zu +6 dB) `postGain`** auf alle 4 Bänder des Multiband-Kompressors (inkl. Mitten bei 1500 Hz und Höhen bei 20 kHz), während gleichzeitig das `inputGainDb` in `MainViewModel` gelockert wurde (im Diagnosebericht nur `-1.35 dB`).
-  - Dadurch fuhr das Signal dauerhaft in den nachgeschalteten Brickwall-Limiter (`threshold = -0.3 dB`, `1 ms` Attack, `10:1` Ratio), was Transienten zerquetschte und Mitten/Höhen bei jedem Bassschlag wegdrückte.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEngine.kt`
-- **Vorgeschlagene / Umgesetzte Lösung:**
-  - Reduzierung des MBC-Makeup-Faktors auf `0.45f` (Cap `3.0 dB`) sowie abgestuftes `postGain` für Mitten (`0.6x`) und Höhen (`0.5x`) plus Erhöhung der Limiter-Attack-Zeit von `1 ms` auf `2 ms` zum Erhalt des Kick-Transienten-Clicks.
-- **Akzeptanzkriterien:**
-  - Kein permanentes Anschlagen des Limiters bei moderater Lautstärke; klare Mitten und Höhen bleiben bei Kicks stabil.
+Ausgangslage: Login per WebView mit gefälschtem Desktop-User-Agent, Abgreifen des `oauth_token`-Cookies, `client_id` aus dem JavaScript der Webseite, alle Abrufe über die inoffizielle `api-v2`. Google blockiert die Anmeldung in eingebetteten WebViews absichtlich; jede weitere Tarnung ist ein Wettlauf, der ohne Vorwarnung wieder bricht.
 
----
+### P1-1 Sofort-Lösung ohne Code: Anmeldung per E-Mail und Passwort (S)
+- Für das SoundCloud-Konto über „Passwort vergessen" ein Passwort setzen und im vorhandenen WebView mit E-Mail anmelden. Google ist dann nicht beteiligt.
+- **Vorher prüfen:** Der Kommentar in `SoundCloudLoginActivity.kt` behauptet, es gebe kein E-Mail-Formular mehr. Das am Gerät gegenprüfen.
 
-### [HIGH-02] 34-Band-PreEq-Frequenzverteilung (`PreEqLayout.CUTOFFS_HZ`) hat Sub-Bin-Clustering im Tiefbass (5-Hz-Abstände) und zu grobe Auflösung in Mitten/Präsenz
-- **Priorität:** High
-- **Kategorie:** Klangqualität / 34-Band-Equalizer
-- **Status:** Erledigt (in Review-Patch umgesetzt)
-- **Begründung / Code-Evidenz (Bestätigter Fehler):**
-  - `core/src/src/main/kotlin/com/hardbasseq/eq/dsp/PreEqMapper.kt` (Zeile 13–50).
-  - Die bisherigen 34 Bänder enthielten im Bass Abstände von nur 4–5 Hz (`31, 36, 40, 45, 50, 55 Hz`), was schmaler ist als die physikalische FFT-Bin-Breite von Androids `DynamicsProcessing` STFT-Engine (~46–93 Hz bei 48 kHz). Das erzeugt bei starken Pegeldifferenzen (Subsonic-Cut vs. Kick-Boost) Phasenverschmierung/Pre-Ringing, während oberhalb von 1 kHz nur 8 grobe Bänder existierten.
-- **Betroffene Dateien:**
-  - `core/src/src/main/kotlin/com/hardbasseq/eq/dsp/PreEqMapper.kt`
-- **Vorgeschlagene / Umgesetzte Lösung:**
-  - Neuverteilung der 34 Bänder auf ein streng logarithmisches ~1/3-Oktav-Raster von `24 Hz` bis `20000 Hz` (`LOWEST_HZ = 18f`), das sowohl hohe Auflösung im Bass (14 Bänder <= 275 Hz) als auch feine Kontrolle über Mitten, Präsenz und Höhen bietet.
-- **Akzeptanzkriterien:**
-  - Alle 34 Bänder sind streng monoton steigend und wahren einen Mindestabstand von >= 18 % (ca. 1/4 bis 1/3 Oktave) ohne STFT-Sub-Bin-Überlappung.
+### P1-2 Zielbild: offizielle SoundCloud-API mit OAuth 2.1 und PKCE (L)
+- Anmeldung in einem Chrome Custom Tab, Rücksprung über `hardbasseq://soundcloud-callback`. Das ist dasselbe Muster wie `SpotifyLoginActivity`. Im echten Browser funktioniert die Google-Anmeldung, weil SoundCloud dort der Vertragspartner von Google ist.
+- Voraussetzung: eigene App bei SoundCloud registrieren (`client_id`, `client_secret`). Eingabe der eigenen Zugangsdaten in „Verknüpfte Dienste", wie heute bei Spotify.
+- `SoundCloudClient` auf `api.soundcloud.com` umstellen: `/me`, Likes, Playlists, Suche, `/tracks/{id}/streams`. Access-Token läuft nach etwa einer Stunde ab, Refresh-Token ist einmalig verwendbar: Erneuerung mit Sperre gegen parallele Anfragen bauen.
+- **Bekannte Einschränkung:** Die offizielle API liefert für Go+-Katalogtitel voraussichtlich nur Vorschau oder gar keinen Stream. Vor der Umstellung mit dem eigenen Konto testen, welche der regelmäßig gehörten Titel betroffen sind.
+- **Hinweis:** Die Entwickler-Doku war aus der Review-Sitzung nicht erreichbar. Endpunkte und Limits beim Umsetzen gegen `developers.soundcloud.com` prüfen.
+
+### P1-3 Rückfallweg behalten und bequemer machen (S)
+- Manuelle Token-Eingabe bleibt. Ergänzen: Einfügen aus der Zwischenablage mit einem Tipp und Prüfung des Tokens gegen `/me`, bevor gespeichert wird.
+
+### P1-4 Sackgassen (nicht weiterverfolgen)
+- Cookies aus einem Custom Tab lesen: technisch nicht möglich, die Cookie-Speicher sind getrennt.
+- Natives Google Sign-In oder Credential Manager: das Token gilt für die eigene App, SoundCloud akzeptiert es nicht.
+- Weitere User-Agent- oder Header-Tricks, eigene Browser-Engine (GeckoView): verstößt gegen Googles Vorgabe für eingebettete Browser und kann jederzeit abgeschaltet werden.
 
 ---
 
-### [HIGH-03] Unbeabsichtigte Überlagerung von bis zu 8 Zielkurven (insb. automatische `HeadphoneComfortCurve` -1.5 dB Präsenzsenke + `LoudnessCompensationCurve` bei Bluetooth)
-- **Priorität:** High
-- **Kategorie:** Klangqualität / Signalweg-Architektur
-- **Status:** Offen (Plan erstellt, erfordert Prüfung in `MainViewModel.kt`)
-- **Begründung / Code-Evidenz (Bestätigter Befund):**
-  - `app/src/main/java/com/hardbasseq/eq/ui/equalizer/EqualizerScreen.kt` (Zeile 173–205), `app/src/main/java/com/hardbasseq/eq/audio/AudioRoute.kt` (Zeile 38–42), `core/src/src/main/kotlin/com/hardbasseq/eq/dsp/HeadphoneComfortCurve.kt` (Zeile 28–39).
-  - Für jedes normale Bluetooth-Gerät (`AudioDeviceType.BLUETOOTH`) setzt `defaultHeadphoneAcoustics()` standardmäßig `effectiveHeadphoneAcoustics = true`.
-  - Dadurch werden automatisch `HeadphoneComfortCurve` (+2.5 dB Bass, **-1.5 dB Senke bei 4.5 kHz**, -1.0 dB bei 8 kHz) UND `LoudnessCompensationCurve` (bis zu +9 dB Bass / +3.6 dB Höhen abhängig von der Systemlautstärke) auf das gewählte Preset und das AutoEQ-Profil aufaddiert.
-  - Die pauschale -1.5 dB Senke bei 4.5 kHz nimmt dem Klang genau die Präsenz/Klarheit, während der zusätzliche Loudness-Bass-Boost das Headroom-Budget aufbraucht.
-- **Betroffene Dateien:**
-  - `core/src/src/main/kotlin/com/hardbasseq/eq/dsp/HeadphoneComfortCurve.kt`
-  - `core/src/src/main/kotlin/com/hardbasseq/eq/dsp/HeadphonePower.kt`
-  - `app/src/main/java/com/hardbasseq/eq/ui/main/MainViewModel.kt`
-- **Vorgeschlagene Lösung:**
-  - `HeadphonePower.DEFAULT_LOUDNESS_DB` standardmäßig auf `0f` (Opt-in statt Opt-out) setzen und die feste `-1.5 dB` Präsenzsenke bei `4500 Hz` in `HeadphoneComfortCurve` entfernen oder optional machen, damit der Klang bei aktiviertem Kopfhörer-Modus nicht ungefragt dumpfer wird.
-- **Akzeptanzkriterien:**
-  - Ein Wechsel auf „Flat“ mit verbundenen Bluetooth-Kopfhörern erzeugt ohne expliziten Nutzer-Eingriff einen neutralen 0-dB-Frequenzgang.
+## Phase 2 – Player-Fundament (Technik unter der Oberfläche)
+
+### P2-1 Queue an ExoPlayer übergeben (L)
+- **Befund:** ExoPlayer hält immer nur einen Titel. Die Queue liegt im Service, jeder Wechsel bedeutet Pause, Netzabruf, `setMediaItem`, `prepare`. Dadurch gibt es Lücken zwischen Titeln und kein Vorladen.
+- **Lösung:** Ganze Queue als Media-Items setzen, Stream-Adresse erst beim Laden auflösen (`ResolvingDataSource`). Der Service wird ein `MediaLibraryService`: Benachrichtigung, Sperrbildschirm, Bluetooth, Android Auto und Wear kommen dann aus einer Quelle; der getrennte `AutoBrowserService` und der `ForwardingPlayer`-Umbau entfallen.
+- **Fertig, wenn:** Der nächste Titel vorgeladen ist und der Wechsel ohne hörbare Lücke läuft.
+
+### P2-2 Shuffle, Wiederholen, „Als Nächstes spielen", Queue umsortieren (M)
+- Fehlt komplett; folgt nach P2-1 fast von selbst aus den ExoPlayer-Funktionen.
+
+### P2-3 Bildlader mit Cache (S)
+- **Befund:** `ArtworkImage` lädt per `URL.openConnection()` ohne Cache und nur das eine große Cover. Listen (Suche, Queue, Playlists) haben keine Cover.
+- **Lösung:** Coil einbinden, Cover in allen Listenzeilen.
+
+### P2-4 Kleinere Service-Punkte (S)
+- `startForeground` in `AudioPlayerService` ohne `ServiceCompat`, Typ und `try/catch` (derselbe Fehler, der in der EQ-Service-Klasse als CRIT-01 behoben wurde).
+- Fortschritts-Ticker läuft auch im Pausenzustand zweimal pro Sekunde weiter.
+- Toasts aus dem Service durch Zustände in der Oberfläche ersetzen.
+- Benachrichtigungs-Icon ist `android.R.drawable.ic_media_play`: eigenes Icon.
+- `PlayerDspAudioProcessor.queueInput` legt pro Puffer ein neues `ShortArray` an: wiederverwenden.
 
 ---
 
-### [HIGH-04] Fehlende statische Capability-Erkennung vor dem ersten Session-Attach (`Has Equalizer: false` im Diagnosebericht)
-- **Priorität:** High
-- **Kategorie:** Audio-Engine / Diagnostik
-- **Status:** Erledigt (in Review-Patch umgesetzt)
-- **Begründung / Code-Evidenz (Bestätigter Fehler):**
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEngine.kt` (Zeile 32) & `AndroidAudioEffectRepository.kt`.
-  - `AndroidAudioEngine` initialisierte `_capabilities` mit `AudioCapabilities()` (alle Flags `false`) und nutzte `AndroidAudioEffectRepository` überhaupt nicht. Solange keine Session aktiv war (`Listening`), meldete der Diagnosebericht fälschlicherweise `Has Equalizer: false` und `Has DynamicsProcessing: false`.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEngine.kt`
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEffectRepository.kt`
-- **Vorgeschlagene / Umgesetzte Lösung:**
-  - Injektion von `AudioEffectRepository` in `AndroidAudioEngine` und Initialisierung von `_capabilities` über `AudioCapabilitiesMapper.map(...)`.
-- **Akzeptanzkriterien:**
-  - Auch im Zustand `Listening` / `Detached` zeigt der Diagnosebericht die wahren Plattform-Capabilities (`Has Equalizer: true`, `Has DynamicsProcessing: true`) an.
+## Phase 3 – Player-Redesign „Sonic Control"
+
+Laut `CLAUDE.md` gilt: erst Plan, dann Freigabe, dann Code. **Dieser Abschnitt ist der Plan; umgesetzt wird erst nach ausdrücklicher Freigabe.**
+
+**Warum der Player heute „am Rand" wirkt:** Der ganze Player-Tab ist eine einzige Scroll-Liste (`PlayerScreen.kt`, 1.054 Zeilen). Cover und Transport stehen oben, darunter Tabs mit Suche, Playlists und Queue, danach Kontext-Chips und die DSP-Karte. Wer in den Suchergebnissen scrollt, schiebt die Steuerung aus dem Bild. Eine Mini-Leiste gibt es nur im Equalizer-Tab.
+
+### P3-1 Drei Ebenen wie bei Spotify, SoundCloud und YouTube Music (L)
+1. **Bibliothek** als Startseite des Player-Tabs: Suchfeld oben, darunter Abschnitte (Zuletzt gehört, Likes, Playlists, Neue Uploads), alle Zeilen mit Cover.
+2. **Mini-Player** fest über der Navigationsleiste in *beiden* Tabs: Cover, Titel, Interpret, Play/Pause, Weiter, Fortschrittslinie, EQ-Statuspunkt.
+3. **„Läuft gerade"** als Vollbild, das aus dem Mini-Player nach oben aufzieht und sich nach unten wegwischen lässt.
+
+### P3-2 Aufbau von „Läuft gerade" (M)
+- Großes Cover, Titel, Interpret, Like, „Zur Playlist".
+- Suchleiste als **Wellenform** des Titels: SoundClouds Erkennungsmerkmal und passend zur technischen Linie.
+- Transportzeile: Shuffle, Zurück, Play, Weiter, Wiederholen.
+- Untere Zeile: Ausgabegerät (z. B. „Bluetooth · Name"), EQ-Chip mit Mini-Kurve (vorhandener `PlayerSoundChip`), Queue-Knopf.
+- Queue als Bottom-Sheet mit Umsortieren und Wegwischen.
+
+### P3-3 Eigene Handschrift statt Kopie (M)
+- **Live-Spektrum hinter der EQ-Kurve** und eine **Limiter-Anzeige** (Pegelreduktion in dB). Der eigene Player hat Zugriff auf die PCM-Daten; das kann keiner der großen Player zeigen. Grün nur für „Signal wird verarbeitet", Amber für Bedienelemente.
+- Qualitäts-Etikett am Titel (z. B. „AAC 160 · 44,1 kHz") und klar markierte Vorschau-Titel.
+
+### P3-4 Aufräumen der Seite (S)
+- Kontext-Chips und DSP-Karte (Mono-Bass, Limiter) aus dem Player in ein „Klang"-Sheet hinter dem EQ-Chip verschieben.
+- Playlist-Import aus Link in einen eigenen Dialog; die Seite wird dadurch zur Bibliothek.
+- `PlayerScreen.kt` in einzelne Dateien je Bereich teilen.
 
 ---
 
-### [HIGH-05] Unnötiges Hintergrund-Monitoring von `SystemVolumeRepository` ohne aktive Audio-Session
-- **Priorität:** High
-- **Kategorie:** Standby / Ressourcenverbrauch
-- **Status:** Erledigt (in Review-Patch umgesetzt)
-- **Begründung / Code-Evidenz (Bestätigter Fehler):**
-  - `app/src/main/java/com/hardbasseq/eq/service/AudioSessionForegroundService.kt` (Zeile 50) & `SystemVolumeRepository.kt`.
-  - `volumeRepository.startMonitoring()` lief dauerhaft ab Service-Start, selbst wenn `activeSession == null` war. Jede Lautstärkeänderung im System feuerte den Broadcast-Receiver und aktualisierte `currentLevelDb`.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/service/AudioSessionForegroundService.kt`
-- **Vorgeschlagene / Umgesetzte Lösung:**
-  - `volumeRepository.startMonitoring()` wird erst bei `session != null` aktiviert und bei `session == null` sofort via `volumeRepository.stopMonitoring()` gestoppt.
-- **Akzeptanzkriterien:**
-  - Im Zustand `Listening` (ohne Audio-Session) ist kein `VOLUME_CHANGED_ACTION` Receiver aktiv.
+## Phase 4 – Klangqualität
+
+### P4-1 Bessere Quelle wählen: AAC statt MP3 128 (S–M) — größter Einzelhebel
+- **Befund:** `StreamSelection` bevorzugt „progressive" vor HLS und wertet weder Codec noch Qualitätsstufe aus. Progressive ist bei SoundCloud MP3 mit 128 kbit/s; über HLS gibt es AAC 160 und mit Go+ AAC 256. Kein Equalizer holt zurück, was der Codec entfernt hat, und ein Bass-Boost macht MP3-Artefakte im Hochton eher hörbar.
+- **Zusätzliches Risiko:** SoundCloud hat angekündigt, die MP3-Progressive-Streams zugunsten von AAC-HLS abzuschalten. Aktuellen Stand prüfen.
+- **Fertig, wenn:** Die Auswahl nach Qualität sortiert (AAC 256, AAC 160, MP3 128) und HLS am Gerät geprüft ist.
+
+### P4-2 Lautheit pro Titel messen und angleichen (M)
+- **Befund:** Der eigene Player senkt um den vollen stärksten Boost ab (`CurveEqualizer.preGain`). Bei +12 dB Bass wird alles 12 dB leiser, auch leise gemasterte Titel, die den Platz gar nicht bräuchten.
+- **Lösung:** Lautheit nach ITU-R BS.1770 (LUFS) beim Abspielen messen, je Titel-ID merken, Vorverstärkung daran ausrichten. Der Limiter bleibt als Sicherung.
+- **Nutzen:** gleichmäßige Lautstärke zwischen Titeln und spürbar mehr Pegel bei leisen Titeln.
+
+### P4-3 Virtual Bass neu aufbauen (M)
+- Nach P0-5: Kennlinie mit einstellbarem Verhältnis von zweiter und dritter Harmonischer statt reiner Gleichrichtung, Bandpass für die Obertöne, Hüllkurvenfolger, damit der Effekt bei leisen Stellen nicht überproportional wird.
+
+### P4-4 Crossfeed im eigenen Player anschließen (S)
+- `Crossfeed.kt` existiert mit Tests. Für Kopfhörer im eigenen Player einschalten; verringert die Ermüdung bei hart links/rechts gemischten Titeln. Für fremde Apps bleibt es technisch unmöglich.
+
+### P4-5 Dynamischer Bass im eigenen Player (M)
+- Der Systempfad hat einen 4-Band-Kompressor, der eigene Player keinen. Ein pegelabhängiges Bass-Shelf (voller Boost bei leisen Stellen, weniger bei lauten) bringt mehr gefühlten Bass, ohne dass der Limiter bei jedem Kick eingreift.
+
+### P4-6 Limiter verfeinern (M)
+- True-Peak-Erkennung mit 4-fach-Polyphasenfilter statt Catmull-Rom-Schätzung.
+- Zweistufiges Release (schnell für einzelne Spitzen, langsam für Dauerlast) statt fester 80 ms.
+
+### P4-7 Float-Verarbeitung bis zum Ausgang prüfen (M)
+- Die Kette rechnet intern in Float, gibt aber PCM16 mit Dither aus. Mit Media3 1.11.1 prüfen, ob Float-Ausgabe zusammen mit eigenen Prozessoren möglich ist. Nutzen bei 128–256-kbit/s-Quellen klein; nach P4-1 und P4-2 einordnen.
+
+### P4-8 Systempfad (Spotify und andere fremde Apps) (M)
+- **Kurvenstapel entschärfen (alt: HIGH-03, weiter offen):** Bis zu acht Kurven werden addiert. Bei jedem Bluetooth-Gerät kommen ungefragt −1,5 dB bei 4,5 kHz und bis zu +9 dB Loudness-Bass dazu (`HeadphoneComfortCurve.kt`, `HeadphonePower.DEFAULT_LOUDNESS_DB = 9f`). „Flat" ist damit nicht flat. Standard auf 0 setzen, Präsenzsenke optional machen.
+- **Kurvenlogik doppelt:** Dieselbe Kombination steht in `MainViewModel.combinedCurve()` und noch einmal in `EqualizerScreen.kt`. Eine Quelle daraus machen, sonst zeigt die Grafik irgendwann etwas anderes als die Engine.
+- **Geräte-Korrektur in den Post-EQ:** `DynamicsProcessing` hat eine ungenutzte Post-EQ-Stufe. AutoEq-Korrektur dorthin legen, Geschmackskurve im Pre-EQ lassen; so teilen sich beide nicht dieselben Bänder.
+- **Getrennte Kanäle:** Pro-Ohr-Abgleich (Balance, einseitige Hörschwäche) ist über die Kanal-APIs möglich.
+
+### P4-9 Persönliche Abstimmung (L)
+- Hörtest mit Sinustönen pro Ohr, daraus eine Ausgleichskurve.
+- Vollständige AutoEq-Datenbank online durchsuchbar statt nur der eingebauten Auswahl; im eigenen Player als echte parametrische Filter statt Annäherung über 14 feste Bänder.
 
 ---
 
-## 3. Medium (34-Band-Verbesserungen, Diagnostik, Performance und UI)
+## Phase 5 – Neue Funktionen
 
-### [MED-01] Sofortige Re-Konfiguration beim Umschalten des 34-Band-Schalters (`highResolutionEq`) zur Laufzeit
-- **Priorität:** Medium
-- **Kategorie:** 34-Band-Equalizer / Audio-Engine
-- **Status:** Erledigt (in Review-Patch umgesetzt)
-- **Begründung / Code-Evidenz (Bestätigter Fehler):**
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEngine.kt` (Zeile 134–142 & 255–261).
-  - `createDynamicsConfig` wurde nur innerhalb von `attachLocked()` aufgerufen. Wenn der Nutzer `highResolutionEq` während einer bereits laufenden Session ein- oder ausschaltete, wurde `DynamicsProcessing` in `apply()` nicht mit der neuen `PreEq`-Konfiguration neu aufgebaut.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/audio/AndroidAudioEngine.kt`
-- **Vorgeschlagene / Umgesetzte Lösung:**
-  - `apply()` prüft `previousHighRes != settings.highResolutionEq` und führt bei aktivem Attach automatisch ein sauberes Re-Attach mit der neuen `DynamicsProcessing.Config` durch; außerdem prüft `usePreEq` in `applyInternal()` explizit `settings.highResolutionEq`.
-- **Akzeptanzkriterien:**
-  - Das Ein- und Ausschalten des 34-Band-Modus während laufender Musik schaltet deterministisch zwischen `DynamicsProcessing.PreEq` und dem klassischen `Equalizer` um.
+| ID | Funktion | Aufwand |
+|---|---|---|
+| P5-1 | Schnelleinstellungs-Kachel und Widget: EQ an/aus, Preset wechseln | S |
+| P5-2 | Mehr fremde Apps erkennen: optionale Freigabe per Shizuku/ADB (`DUMP`), wie es Wavelet anbietet, für Apps ohne Session-Broadcast | M |
+| P5-3 | Parametrischer Modus: Frequenz, Güte und Verstärkung je Band frei wählbar | M |
+| P5-4 | Presets teilen per Link oder QR-Code; Import von AutoEq- und Wavelet-Dateien | S–M |
+| P5-5 | Profile je App (Spotify anders als YouTube), zusätzlich zu den Profilen je Gerät | M |
+| P5-6 | Sleep-Timer und Überblenden zwischen Titeln | S–M |
+| P5-7 | Lokale Dateien als zweite Quelle im eigenen Player: volle DSP-Kette, unabhängig von SoundCloud | M |
+| P5-8 | Bluetooth-Codec und Abtastrate im Diagnosebericht anzeigen | S |
 
 ---
 
-### [MED-02] Diagnosebericht unterscheidet nicht zwischen konfigurierten Settings und tatsächlich auf der Hardware aktiven DSP-Stufen
-- **Priorität:** Medium
-- **Kategorie:** Diagnostik
-- **Status:** Erledigt (in Review-Patch umgesetzt)
-- **Begründung / Code-Evidenz (Bestätigter Fehler):**
-  - `app/src/main/java/com/hardbasseq/eq/diagnostics/DiagnosticsReportFormatter.kt` (Zeile 53–63).
-  - Unter `--- Active DSP Stages ---` wurden die Werte aus `ProcessingSettings` ausgegeben, auch wenn `engineState == Listening` und `hasDynamicsProcessing == false` war.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/diagnostics/DiagnosticsReportFormatter.kt`
-- **Vorgeschlagene / Umgesetzte Lösung:**
-  - Ausgabe von `Hardware Processing Applied: true/false` sowie `applied=true/false` hinter Input Gain, Limiter und MBC.
-- **Akzeptanzkriterien:**
-  - Im Zustand `WAITING` zeigt der Diagnosebericht eindeutig `Hardware Processing Applied: false` und `applied=false`.
+## Phase 6 – Wartbarkeit und Absicherung
+
+- **P6-1 Große Dateien teilen (M):** `MainViewModel.kt` (1.448 Zeilen), `EqualizerScreen.kt` (1.451), `PlayerViewModel.kt` (834). Kurvenberechnung, Geräteprofile und Vergleichsmodus in eigene Klassen.
+- **P6-2 `:player` angleichen (M):** Versionen stehen fest im Modul statt im Versionskatalog, Lint ist abgeschaltet (`abortOnError = false`), kein Hilt, Zustand in globalen Objekten (`PlayerDspState`, `NowPlayingState`, `PlayerCurveState`).
+- **P6-3 Gerätetests (M):** Es gibt 72 Testdateien, aber keinen einzigen Test auf einem Gerät. Mindestens: Service-Start aus dem Hintergrund, Attach an eine Session, Room-Migration.
+- **P6-4 Absturzgrund über Neustarts merken (S, alt: MED-04):** `ActivityManager.getHistoricalProcessExitReasons()` in den Diagnosebericht.
+- **P6-5 Roadmaps zusammenführen (S):** Fünf weitere Roadmap-Dateien mit zusammen rund 4.200 Zeilen (`docs/roadmap*.md`, `roadmap-kontext-dsp.md`). Erledigtes ins Archiv, eine gültige Datei.
+- **P6-6 R8 für Release (M):** Macht keinen Klangunterschied. Bringt ein kleineres APK und schnellere Schleifen im Audio-Thread; braucht Keep-Regeln und einen Gerätetest.
+- **P6-7 Statusangaben prüfen (S):** Ein Punkt gilt erst als erledigt, wenn der Code auf `main` es zeigt (siehe P0-1).
 
 ---
 
-### [MED-03] UI-Hauptkurve (`NeonCurve`) zeigt im 34-Band-Modus weiterhin nur die 5 Punkte des klassischen System-EQs
-- **Priorität:** Medium
-- **Kategorie:** UI / 34-Band-Equalizer
-- **Status:** Offen
-- **Begründung / Code-Evidenz (Bestätigter Befund):**
-  - `app/src/main/java/com/hardbasseq/eq/ui/equalizer/EqualizerScreen.kt` (Zeile 216–220).
-  - `val bandPoints = bands.sortedBy { it.centerFreqHz }.map { ... }` verwendet immer die 5 Hardware-Bänder aus `capabilities.bands`, auch wenn `preEqActive == true` ist und tatsächlich die 34 `preEqGainsDb`-Bänder angewendet werden.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/ui/equalizer/EqualizerScreen.kt`
-- **Vorgeschlagene Lösung:**
-  - Wenn `preEqActive == true` und `settings.preEqGainsDb.isNotEmpty()`, sollte `curvePoints` die 34 Band-Mittenfrequenzen mit `settings.preEqGainsDb` darstellen, damit die gezeichnete Kurve exakt den 34-Band-Frequenzgang widerspiegelt.
-- **Akzeptanzkriterien:**
-  - Beim Aktivieren von `highResolutionEq` zeigt `NeonCurve` die hochaufgelöste 34-Band-Kurve statt der 5-Band-Näherung.
+## 7. Empfohlene Reihenfolge
+
+1. Phase 0 komplett (ein bis zwei Tage, behebt echte Fehler).
+2. P1-1 testen, P4-1 umsetzen (bessere Quelle, sofort hörbar).
+3. P2-1 bis P2-3 (Fundament), danach Freigabe für Phase 3 einholen und das Redesign bauen.
+4. P4-2, P4-3, P4-8 (Klang).
+5. P1-2 (offizielle API), sobald die App-Registrierung bei SoundCloud steht.
+6. Phase 5 und 6 nach Bedarf.
 
 ---
 
-### [MED-04] Persistenter Last-Crash-Eintrag über Prozess-Tode hinweg
-- **Priorität:** Medium
-- **Kategorie:** Diagnostik
-- **Status:** Offen
-- **Begründung / Code-Evidenz (Bestätigter Befund):**
-  - `app/src/main/java/com/hardbasseq/eq/diagnostics/DiagnosticsRecorder.kt` (Zeile 27–38).
-  - Da `InMemoryDiagnosticsRecorder` alle Ereignisse nur im RAM hält, sind nach einem echten Prozess-Crash oder ANR beim nächsten Öffnen der App alle vorherigen Events verloren (`Last Error: none`).
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/diagnostics/DiagnosticsRecorder.kt`
-- **Vorgeschlagene Lösung:**
-  - Abfrage von `ActivityManager.getHistoricalProcessExitReasons()` (ab API 30) im `DiagnosticsReportFormatter`, um den letzten Exit-Grund des Systems (`REASON_CRASH`, `REASON_ANR`, `REASON_EXCESSIVE_RESOURCE_USAGE`, `REASON_USER_REQUESTED`) datenschutzarm im Diagnosebericht auszugeben.
-- **Akzeptanzkriterien:**
-  - Nach einem Hintergrund-Kill oder Crash nennt der Diagnosebericht den letzten `ApplicationExitInfo`-Grund samt Zeitstempel.
+## 8. Übernommen aus der Roadmap vom Oktober 2026
 
----
-
-## 4. Low / Future (Sinnvolle zusätzliche Funktionen & langfristige Verbesserungen)
-
-### [LOW-01] Stereo-Linked LookaheadLimiter in `PlayerDspPcm16`
-- **Priorität:** Low / Future
-- **Kategorie:** Klangqualität (In-App-Player)
-- **Status:** Offen
-- **Begründung / Code-Evidenz:**
-  - `core/src/src/main/kotlin/com/hardbasseq/eq/dsp/PlayerDspPcm16.kt` (Zeile 12–13 & 46).
-  - Aktuell läuft pro Stereokanal eine unabhängige `LookaheadLimiter`-Instanz, was bei starken einseitigen Transienten das Stereobild kurzzeitig verschieben kann.
-- **Betroffene Dateien:**
-  - `core/src/src/main/kotlin/com/hardbasseq/eq/dsp/PlayerDspPcm16.kt`
-  - `core/src/src/main/kotlin/com/hardbasseq/eq/dsp/LookaheadLimiter.kt`
-- **Vorgeschlagene Lösung:**
-  - Gemeinsame Gain-Reduction-Berechnung über `max(abs(L), abs(R))` im Stereo-Betrieb.
-- **Akzeptanzkriterien:**
-  - Ein einseitiger Impuls auf L senkt L und R um exakt denselben Faktor ab (Phasen-/Panning-Treue).
-
----
-
-## 5. Tests (Fehlende Tests & notwendige Geräte-/Android-Kompatibilitätsprüfungen)
-
-### [TEST-01] Unit-Tests für 34-Band `PreEqMapper` (Neutralität, Monotonie, Sub-Bin-Abstand & Manual-Deltas)
-- **Priorität:** High
-- **Kategorie:** Tests
-- **Status:** Erledigt (Testklasse bereitgestellt)
-- **Begründung / Code-Evidenz:**
-  - Absicherung der überarbeiteten 34-Band-Frequenzverteilung (`PreEqLayout.CUTOFFS_HZ`) und der `PreEqMapper.map()`-Berechnung bei flacher Kurve, Makro-Änderungen und manuellen Band-Deltas.
-- **Betroffene Dateien:**
-  - `core/src/src/test/kotlin/com/hardbasseq/eq/dsp/PreEqMapperTest.kt`
-- **Akzeptanzkriterien:**
-  - Flache Kurve + 0-Makros ergeben exakt `0.0f` auf allen 34 Bändern; alle Bandgrenzen sind streng monoton steigend.
-
----
-
-### [TEST-02] Verifikation auf realem Samsung Galaxy S21 Ultra (SM-G998B, Android 15 / OneUI 7) mit Android Auto
-- **Priorität:** High
-- **Kategorie:** Hardware-/Geräteverifikation
-- **Status:** Offen (Benötigt physisches Testgerät des Freundes)
-- **Begründung / Code-Evidenz:**
-  - In der lokalen Testumgebung steht kein physisches SM-G998B mit Android Auto Head-Unit zur Verfügung.
-- **Vorgeschlagene Prüfschritte:**
-  1. APK mit `CRIT-01`, `HIGH-01`, `HIGH-02`, `HIGH-04` und `MED-02` auf dem SM-G998B installieren.
-  2. Diagnosebericht direkt nach App-Start (ohne laufende Musik) exportieren -> prüfen, dass `Has Equalizer: true` und `Has DynamicsProcessing: true` sowie `Hardware Processing Applied: false` gemeldet werden.
-  3. Android Auto verbinden, Musik (z. B. Spotify oder interner Player) starten, Android Auto trennen -> prüfen, dass weder ein Crash noch eine Samsung Device Care Standby-Warnung auftritt.
-- **Akzeptanzkriterien:**
-  - Keine Standby-/Crash-Warnung nach 48 Stunden Alltagsbetrieb inkl. Android-Auto-Wechseln.
-
----
-
-## 6. Technical Debt (Wartbarkeitsprobleme & notwendige Bereinigungen)
-
-### [DEBT-01] Doppeltes `src/src/`-Verzeichnis und verwaister Ordner `Neuer Ordner` im `:core`-Modul
-- **Priorität:** Medium
-- **Kategorie:** Technical Debt / Build-Struktur
-- **Status:** Offen
-- **Begründung / Code-Evidenz:**
-  - Im Repository liegen alle `:core`-Quellen unter `core/src/src/main/kotlin/...` statt im Gradle-Standardpfad `core/src/main/kotlin/...`; außerdem existiert ein leerer Ordner `core/Neuer Ordner/`.
-- **Betroffene Dateien:**
-  - `core/build.gradle.kts`
-  - `core/src/src/...`
-  - `core/Neuer Ordner/`
-- **Vorgeschlagene Lösung:**
-  - Löschen von `core/Neuer Ordner/` und Verschieben von `core/src/src/*` nach `core/src/*` (inkl. Anpassung etwaiger `sourceSets` in `core/build.gradle.kts`).
-- **Akzeptanzkriterien:**
-  - `./gradlew testDebugUnitTest` läuft mit regulärem Gradle-Verzeichnislayout (`core/src/main/kotlin`) grün durch.
-
----
-
-### [DEBT-02] Redundante Klasse `Media3DspPipeline.kt` in `:app`
-- **Priorität:** Low
-- **Kategorie:** Technical Debt / Toter Code
-- **Status:** Offen
-- **Begründung / Code-Evidenz:**
-  - `app/src/main/java/com/hardbasseq/eq/audio/media3/Media3DspPipeline.kt` enthält nur eine primitive Input-Gain-Schleife und wird im produktiven Code nicht genutzt, da die echte In-App-DSP-Pipeline in `:core` (`PlayerDspPcm16.kt` / `BassExciterPcm16.kt`) und `:player` liegt.
-- **Betroffene Dateien:**
-  - `app/src/main/java/com/hardbasseq/eq/audio/media3/Media3DspPipeline.kt`
-  - `app/src/test/java/com/hardbasseq/eq/audio/media3/Media3DspPipelineTest.kt`
-- **Vorgeschlagene Lösung:**
-  - Entfernen der ungenutzten Stub-Klasse nach Überführung etwaiger Basis-Tests nach `PlayerDspPcm16Test`.
-- **Akzeptanzkriterien:**
-  - Keine ungenutzten DSP-Pipeline-Klassen im `:app`-Modul.
+| Alt-ID | Thema | Stand laut Code | Jetzt |
+|---|---|---|---|
+| CRIT-01 | Foreground-Service-Absturz im EQ-Service | erledigt (`ServiceCompat`, `START_NOT_STICKY`) | gleicher Fehler im Player-Service: P2-4 |
+| CRIT-02 | Race in `markDetached()` | erledigt | – |
+| HIGH-01 | Makeup-Gain treibt den Limiter | erledigt | – |
+| HIGH-02 | 34-Band-Raster | **zurückgerollt** | P0-1 |
+| HIGH-03 | Kurvenstapel bei Bluetooth | offen | P4-8 |
+| HIGH-04 | Capabilities vor dem ersten Attach | erledigt | – |
+| HIGH-05 | Lautstärke-Monitoring ohne Session | laut alter Roadmap erledigt, nicht nachgeprüft | – |
+| MED-01 | Umschalten 34-Band zur Laufzeit | erledigt | – |
+| MED-02 | Diagnose: konfiguriert gegen aktiv | laut alter Roadmap erledigt, nicht nachgeprüft | – |
+| MED-03 | Grafik zeigt im 34-Band-Modus nur die Gerätebänder | offen (`EqualizerScreen.kt`, `bandPoints`) | mit P4-8 erledigen |
+| MED-04 | Letzter Absturzgrund | offen | P6-4 |
+| LOW-01 | Limiter kanalgekoppelt | erledigt (`LookaheadLimiter(channelCount)`) | – |
+| TEST-02 | Test auf Galaxy S21 Ultra mit Android Auto | offen, braucht das Gerät | bleibt |
+| DEBT-01 | `core/src/src` | erledigt | – |
+| DEBT-02 | `Media3DspPipeline` | offen | P0-6 |
