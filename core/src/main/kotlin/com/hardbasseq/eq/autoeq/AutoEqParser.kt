@@ -23,7 +23,11 @@ object AutoEqParser {
             // AutoEQ GraphicEQ format line example: "GraphicEQ: 20 0; 40 1.5; 80 2.5; 160 -1.0"
             val graphicEqLine = text.lines().firstOrNull { it.trim().startsWith("GraphicEQ:", ignoreCase = true) }
 
-            if (graphicEqLine != null) {
+            val parametricCurve = if (graphicEqLine == null) ParametricEqTextParser.parse(text) else null
+
+            if (parametricCurve != null) {
+                targetPoints.addAll(parametricCurve)
+            } else if (graphicEqLine != null) {
                 val content = graphicEqLine.substringAfter("GraphicEQ:").trim()
                 val pairs = content.split(";")
                 for (pair in pairs) {

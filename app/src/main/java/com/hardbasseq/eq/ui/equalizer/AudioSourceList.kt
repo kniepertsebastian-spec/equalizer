@@ -14,6 +14,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,6 +52,8 @@ fun AudioSourceList(
     activeSession: AudioSession?,
     onSelect: (AudioSession) -> Unit,
     modifier: Modifier = Modifier,
+    appProfileBound: Boolean = false,
+    onAppProfileBoundChange: ((Boolean) -> Unit)? = null,
 ) {
     if (sessions.isEmpty()) return
     val context = LocalContext.current
@@ -95,6 +98,24 @@ fun AudioSourceList(
                         )
                     }
                 }
+            }
+        }
+        // P5-5: the sound of the selected app is remembered, so Spotify and YouTube can sound different.
+        val appLabel = activeSession?.let { appLabelFor(context, it.packageName) }
+        if (activeSession != null && onAppProfileBoundChange != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        stringResource(R.string.app_profile_title, appLabel ?: unknown),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(stringResource(R.string.app_profile_desc), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = appProfileBound, onCheckedChange = onAppProfileBoundChange)
             }
         }
     }

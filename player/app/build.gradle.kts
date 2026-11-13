@@ -31,15 +31,6 @@ android {
             isIncludeAndroidResources = true
         }
     }
-
-    lint {
-        // This module's code predates being part of this repo (merged in from the
-        // former standalone Audioplayer repo, whose own CI never ran Android Lint at
-        // all) and hasn't had a lint pass yet - don't let :app's root `lintDebug
-        // lintRelease` CI step fail the whole build over it. Follow-up: run lint on
-        // this module on its own, fix what it finds, then drop this override.
-        abortOnError = false
-    }
 }
 
 kotlin {
@@ -53,34 +44,34 @@ dependencies {
     // Pure-Kotlin DSP (BassExciterPcm16) used by the virtual-bass audio processor.
     implementation(project(":core"))
 
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.appcompat:appcompat:1.7.0")
-    implementation("com.google.android.material:material:1.12.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.webkit:webkit:1.11.0")
+    implementation(libs.core.ktx.player)
+    implementation(libs.appcompat)
+    implementation(libs.material)
+    implementation(libs.constraintlayout)
+    implementation(libs.webkit)
 
     // Media3 / ExoPlayer
-    implementation("androidx.media3:media3-exoplayer:1.11.1")
+    implementation(libs.media3.exoplayer)
     // HLS streams: SoundCloud offers some full-length (Go) streams only that way.
-    implementation("androidx.media3:media3-exoplayer-hls:1.11.1")
-    implementation("androidx.media3:media3-ui:1.11.1")
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.ui)
     // MediaLibraryService: notification, lock screen, Bluetooth, Wear and Android Auto from one session.
-    implementation("androidx.media3:media3-session:1.11.1")
+    implementation(libs.media3.session)
 
     // Networking / Async / JSON
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.coroutines.android)
 
-    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.junit)
     // Android ships org.json; the JVM unit tests run against stubs, so they need a real one.
-    testImplementation("org.json:json:20240303")
-    testImplementation("org.mockito:mockito-core:5.11.0")
+    testImplementation(libs.org.json)
+    testImplementation(libs.mockito.core)
     // A real ExoPlayer with fake renderers and clock for the queue's stream lookup; Robolectric
     // in the version media3-test-utils-robolectric 1.11.1 is built against.
-    testImplementation("androidx.media3:media3-test-utils:1.11.1")
-    testImplementation("androidx.media3:media3-test-utils-robolectric:1.11.1")
-    testImplementation("org.robolectric:robolectric:4.16")
-    testImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    testImplementation(libs.media3.test.utils)
+    testImplementation(libs.media3.test.utils.robolectric)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.espresso.core)
 }

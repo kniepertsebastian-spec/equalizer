@@ -42,6 +42,8 @@ import com.hardbasseq.eq.ui.eq.EqStatusLine
 import com.hardbasseq.eq.ui.equalizer.ContextModeChips
 import com.hardbasseq.eq.ui.equalizer.MiniCurve
 import com.hardbasseq.eq.ui.equalizer.SonicStyle
+import com.hardbasseq.eq.ui.player.PlaybackTimersCard
+import com.hardbasseq.eq.ui.player.PlaybackTimersViewModel
 import com.hardbasseq.eq.ui.player.PlayerDspCard
 import com.hardbasseq.eq.ui.player.PlayerDspViewModel
 import com.hardbasseq.eq.ui.theme.SonicRule
@@ -63,9 +65,12 @@ fun SoundSheet(
     onOpenEqualizer: () -> Unit,
     onDismiss: () -> Unit,
     dspViewModel: PlayerDspViewModel = hiltViewModel(),
+    timersViewModel: PlaybackTimersViewModel = hiltViewModel(),
 ) {
     val spacing = MaterialTheme.spacing
     val dsp by dspViewModel.settings.collectAsStateWithLifecycle()
+    val sleepTimer by timersViewModel.sleepTimer.collectAsStateWithLifecycle()
+    val trackFadeMs by timersViewModel.trackFadeMs.collectAsStateWithLifecycle()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
             modifier =
@@ -122,6 +127,13 @@ fun SoundSheet(
                 onMonoBass = dspViewModel::setMonoBass,
                 onCutoff = dspViewModel::setMonoBassCutoff,
                 onLimiter = dspViewModel::setLimiter,
+            )
+            PlaybackTimersCard(
+                sleepTimer = sleepTimer,
+                trackFadeMs = trackFadeMs,
+                onStartSleepTimer = timersViewModel::startSleepTimer,
+                onCancelSleepTimer = timersViewModel::cancelSleepTimer,
+                onTrackFadeSeconds = timersViewModel::setTrackFadeSeconds,
             )
             Button(onClick = onOpenEqualizer, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Default.GraphicEq, contentDescription = null)

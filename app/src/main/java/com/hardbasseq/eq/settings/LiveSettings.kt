@@ -2,6 +2,7 @@ package com.hardbasseq.eq.settings
 
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.dsp.HeadphonePower
+import com.hardbasseq.eq.dsp.ParametricBand
 import kotlinx.serialization.Serializable
 
 // The full live editing state - which preset it's based on, whether it's been
@@ -34,4 +35,6 @@ data class LiveSettings(
     val headphonePower: HeadphonePower = HeadphonePower(),
     // Chosen sound goal (SoundGoal.id), null = "Ausgewogen". Defaulted for older saved settings.
     val activeGoal: String? = null,
+    // P5-3: the free bands of the parametric mode. Defaulted for older saved settings.
+    val parametricBands: List<ParametricBand> = emptyList(),
 )

@@ -25,6 +25,13 @@ interface AudioSessionRepository {
     fun stopListening()
 
     fun setActiveSession(session: AudioSession?)
+
+    /**
+     * Roadmap 06, P5-2: the sessions an optional `dumpsys` scan found (apps that send no broadcast).
+     * They join the list next to the announced ones and leave it again when the scan stops finding
+     * them; an announced session is never replaced by a scanned one.
+     */
+    fun updateScannedSessions(scanned: List<AudioSession>) = Unit
 }
 
 @Singleton
@@ -105,5 +112,27 @@ class AndroidAudioSessionRepository
 
         override fun setActiveSession(session: AudioSession?) {
             _activeSession.value = session
+        }
+
+        // Session ids that are in the list only because a scan found them.
+        private val scannedIds = mutableSetOf<Int>()
+
+        @Synchronized
+        override fun updateScannedSessions(scanned: List<AudioSession>) {
+            val found = scanned.associateBy { it.sessionId }
+            val gone = scannedIds.filter { it !in found }.toSet()
+            var list = _sessions.value.filterNot { it.sessionId in gone }
+            scannedIds.removeAll(gone)
+            found.values.forEach { session ->
+                if (list.none { it.sessionId == session.sessionId }) {
+                    list = list + session
+                    scannedIds.add(session.sessionId)
+                }
+            }
+            _sessions.value = list
+            val active = _activeSession.value
+            if (active == null || active.sessionId in gone) {
+                _activeSession.value = list.lastOrNull()
+            }
         }
     }

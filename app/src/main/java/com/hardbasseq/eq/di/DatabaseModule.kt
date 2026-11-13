@@ -3,9 +3,11 @@ package com.hardbasseq.eq.di
 import android.content.Context
 import androidx.room.Room
 import com.hardbasseq.eq.data.db.AppDatabase
+import com.hardbasseq.eq.data.db.AppProfileDao
 import com.hardbasseq.eq.data.db.CorrectionProfileDao
 import com.hardbasseq.eq.data.db.DeviceProfileDao
 import com.hardbasseq.eq.data.db.MIGRATION_1_2
+import com.hardbasseq.eq.data.db.MIGRATION_2_3
 import com.hardbasseq.eq.data.db.PresetDao
 import dagger.Module
 import dagger.Provides
@@ -27,7 +29,7 @@ object DatabaseModule {
                 context,
                 AppDatabase::class.java,
                 "hardbasseq.db",
-            ).addMigrations(MIGRATION_1_2)
+            ).addMigrations(MIGRATION_1_2, MIGRATION_2_3)
             // Only guards against a future downgrade (newer DB opened by an older
             // app build); upgrades go through the explicit migrations above.
             // Per-row corruption (one bad custom preset) is handled in
@@ -41,6 +43,9 @@ object DatabaseModule {
 
     @Provides
     fun provideDeviceProfileDao(db: AppDatabase): DeviceProfileDao = db.deviceProfileDao()
+
+    @Provides
+    fun provideAppProfileDao(db: AppDatabase): AppProfileDao = db.appProfileDao()
 
     @Provides
     fun provideCorrectionProfileDao(db: AppDatabase): CorrectionProfileDao = db.correctionProfileDao()

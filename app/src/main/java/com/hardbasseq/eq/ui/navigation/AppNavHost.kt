@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -35,6 +36,7 @@ import com.hardbasseq.eq.ui.MainScreen
 import com.hardbasseq.eq.ui.diagnostics.DiagnosticsScreen
 import com.hardbasseq.eq.ui.eq.EqStatus
 import com.hardbasseq.eq.ui.main.MainViewModel
+import com.hardbasseq.eq.ui.main.SystemDiagnosticsSnapshot
 import com.hardbasseq.eq.ui.player.DiscoveryViewModel
 import com.hardbasseq.eq.ui.player.LinkedServicesScreen
 import com.hardbasseq.eq.ui.player.PlayerScreen
@@ -175,6 +177,10 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
                     val lastPlayerSource by viewModel.lastPlayerSource.collectAsStateWithLifecycle()
                     val androidAutoConnected by viewModel.androidAutoConnected.collectAsStateWithLifecycle()
 
+                    val systemDiagnostics by produceState(SystemDiagnosticsSnapshot()) {
+                        value = viewModel.loadSystemDiagnostics()
+                    }
+
                     DiagnosticsScreen(
                         state = state,
                         capabilities = capabilities,
@@ -183,6 +189,9 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
                         recentEvents = diagnosticsEvents,
                         playerSource = lastPlayerSource?.name,
                         androidAutoConnected = androidAutoConnected,
+                        processExits = systemDiagnostics.processExits,
+                        outputAudio = systemDiagnostics.outputAudio,
+                        extendedAppDetection = systemDiagnostics.extendedAppDetection,
                         onBackClicked = { navController.popBackStack() },
                     )
                 }

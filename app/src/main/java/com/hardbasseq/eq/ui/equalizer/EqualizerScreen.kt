@@ -1,78 +1,42 @@
 package com.hardbasseq.eq.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Balance
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.SportsMma
-import androidx.compose.material.icons.filled.Waves
-import androidx.compose.material.icons.filled.Whatshot
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
@@ -82,7 +46,6 @@ import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.audio.AudioSession
 import com.hardbasseq.eq.audio.DeviceKind
 import com.hardbasseq.eq.audio.EqualizerBandCapabilities
-import com.hardbasseq.eq.audio.MAX_RETRY_ATTEMPTS
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.autoeq.AutoEqCatalogEntry
 import com.hardbasseq.eq.context.SoundContext
@@ -94,6 +57,7 @@ import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
+import com.hardbasseq.eq.dsp.ParametricBand
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.dsp.VirtualBassApproxCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
@@ -109,9 +73,7 @@ import com.hardbasseq.eq.ui.eq.EqStatusLine
 import com.hardbasseq.eq.ui.main.CompareSide
 import com.hardbasseq.eq.ui.main.CompareState
 import com.hardbasseq.eq.ui.theme.SonicNumerals
-import com.hardbasseq.eq.ui.theme.Spacing
 import com.hardbasseq.eq.ui.theme.spacing
-import kotlinx.coroutines.delay
 
 @Composable
 fun EqualizerScreen(
@@ -162,6 +124,8 @@ fun EqualizerScreen(
     onDuplicatePreset: (Preset) -> Unit,
     onRenamePresetRequest: (Preset) -> Unit,
     onDeletePresetRequest: (Preset) -> Unit,
+    onSharePreset: (Preset) -> Unit,
+    onImportPresetLinkRequested: () -> Unit,
     onMacroBassChanged: (Float) -> Unit,
     onMacroPunchChanged: (Float) -> Unit,
     onMacroHaerteChanged: (Float) -> Unit,
@@ -169,6 +133,12 @@ fun EqualizerScreen(
     onRetryAttach: () -> Unit,
     audioSessions: List<AudioSession> = emptyList(),
     activeAudioSession: AudioSession? = null,
+    parametricBands: List<ParametricBand> = emptyList(),
+    onAddParametricBand: () -> Unit = {},
+    onChangeParametricBand: (Int, ParametricBand) -> Unit = { _, _ -> },
+    onRemoveParametricBand: (Int) -> Unit = {},
+    appProfileBound: Boolean = false,
+    onAppProfileBoundChanged: ((Boolean) -> Unit)? = null,
     isOwnPlayerSession: Boolean = true,
     deviceKindPrompt: AudioRoute? = null,
     onAnswerDeviceKind: (DeviceKind) -> Unit = {},
@@ -351,6 +321,8 @@ fun EqualizerScreen(
                     sessions = audioSessions,
                     activeSession = activeAudioSession,
                     onSelect = onSelectAudioSession,
+                    appProfileBound = appProfileBound,
+                    onAppProfileBoundChange = onAppProfileBoundChanged,
                 )
                 Text(
                     text = stringResource(R.string.eq_playback_only_note),
@@ -519,13 +491,22 @@ fun EqualizerScreen(
                         Caption(text = intensities.last().displayName, color = style.mutedText)
                     }
                 }
-                if (customPresets.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         text = stringResource(R.string.presets_custom),
                         style = MaterialTheme.typography.titleSmall,
                         color = style.text,
-                        modifier = Modifier.padding(top = spacing.small),
+                        modifier = Modifier.weight(1f),
                     )
+                    // P5-4: a preset link someone sent (or a scanned QR code, which opens the app directly).
+                    TextButton(onClick = onImportPresetLinkRequested) {
+                        Text(stringResource(R.string.preset_import_link))
+                    }
+                }
+                if (customPresets.isNotEmpty()) {
                     PresetGrid(
                         presets = customPresets,
                         activePresetId = activePreset.id,
@@ -533,6 +514,7 @@ fun EqualizerScreen(
                         onDuplicatePreset = onDuplicatePreset,
                         onRenamePresetRequest = onRenamePresetRequest,
                         onDeletePresetRequest = onDeletePresetRequest,
+                        onSharePreset = onSharePreset,
                         spacing = spacing,
                         style = style,
                     )
@@ -615,6 +597,15 @@ fun EqualizerScreen(
                     )
                 }
             }
+
+            ParametricBandsSection(
+                bands = parametricBands,
+                onAdd = onAddParametricBand,
+                onChange = onChangeParametricBand,
+                onRemove = onRemoveParametricBand,
+                spacing = spacing,
+                style = style,
+            )
 
             // M4: applied input gain, limiter status and threshold, warning levels and MBC
             // transparency - always visible, as segment meters plus the exact values. All of
@@ -932,520 +923,3 @@ fun EqualizerScreen(
 
 // Size of the LED meters' scale: 12 dB fills a chain.
 private const val METER_RANGE_DB = 12f
-
-// Genre picker: one choice per genre with its own curve, scrolling sideways, so every
-// genre is visible and one tap away. The genre shows in the curve, not in a color theme.
-@Composable
-private fun GenreChoices(
-    genres: List<GenrePreset>,
-    selected: GenrePreset?,
-    onSelect: (GenrePreset) -> Unit,
-    style: EqualizerDesignStyle,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        genres.forEach { genre ->
-            val isSelected = genre.id == selected?.id
-            Surface(
-                selected = isSelected,
-                onClick = { onSelect(genre) },
-                modifier =
-                    Modifier
-                        .width(120.dp)
-                        .height(84.dp)
-                        .semantics { contentDescription = genre.displayName },
-                shape = MaterialTheme.shapes.small,
-                color = if (isSelected) style.accent.copy(alpha = 0.14f) else style.surfaceVariant,
-                border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) style.accent else style.border),
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(10.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    MiniCurve(
-                        points = genre.base.targetCurve,
-                        color = if (isSelected) style.accent else style.mutedText,
-                        modifier = Modifier.fillMaxWidth().height(28.dp),
-                    )
-                    Text(
-                        text = genre.displayName,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        color = style.text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-    }
-}
-
-// Three-per-row grid of the user's own presets. Static/chunked rather than
-// LazyVerticalGrid since the list is small.
-@Composable
-private fun PresetGrid(
-    presets: List<Preset>,
-    activePresetId: String,
-    onPresetSelected: (Preset) -> Unit,
-    onDuplicatePreset: (Preset) -> Unit,
-    onRenamePresetRequest: (Preset) -> Unit,
-    onDeletePresetRequest: (Preset) -> Unit,
-    spacing: Spacing,
-    style: EqualizerDesignStyle,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-        presets.chunked(3).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.small),
-            ) {
-                row.forEach { preset ->
-                    PresetCard(
-                        preset = preset,
-                        selected = preset.id == activePresetId,
-                        onClick = { onPresetSelected(preset) },
-                        onDuplicate = { onDuplicatePreset(preset) },
-                        onRenameRequest = { onRenamePresetRequest(preset) },
-                        onDeleteRequest = { onDeletePresetRequest(preset) },
-                        modifier = Modifier.weight(1f),
-                        style = style,
-                    )
-                }
-                repeat(3 - row.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        }
-    }
-}
-
-// Horizontally scrollable row of selectable profiles: a name and its source, no icon.
-// M5 (AutoEQ import) is what actually populates this beyond BuiltInCorrectionProfiles.None.
-@Composable
-private fun CorrectionProfileRow(
-    profiles: List<CorrectionProfile>,
-    activeProfileId: String,
-    onProfileSelected: (CorrectionProfile) -> Unit,
-    onExportProfile: (CorrectionProfile) -> Unit,
-    spacing: Spacing,
-    style: EqualizerDesignStyle,
-) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(spacing.small),
-    ) {
-        profiles.forEach { profile ->
-            val selected = profile.id == activeProfileId
-            Surface(
-                selected = selected,
-                onClick = { onProfileSelected(profile) },
-                modifier = Modifier.heightIn(min = 56.dp),
-                shape = MaterialTheme.shapes.small,
-                color = if (selected) style.accent.copy(alpha = 0.14f) else style.surfaceVariant,
-                border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) style.accent else style.border),
-            ) {
-                Row(
-                    modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.padding(end = 8.dp)) {
-                        Text(
-                            text = profile.localizedName(),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = style.text,
-                        )
-                        Text(
-                            text = profile.localizedSource(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = style.mutedText,
-                        )
-                        profile.deviceName?.let { device ->
-                            Text(
-                                text = stringResource(R.string.profile_for_device, device),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = style.mutedText,
-                            )
-                        }
-                    }
-                    // M5 "Import, Export und Teilen ... integrieren" - only for
-                    // imported/custom profiles, mirroring PresetCard's own
-                    // built-in-vs-custom distinction (built-ins have nothing
-                    // device-specific worth exporting).
-                    if (!profile.builtIn) {
-                        IconButton(onClick = { onExportProfile(profile) }) {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = stringResource(R.string.profile_export, profile.localizedName()),
-                                tint = style.mutedText,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PresetCard(
-    preset: Preset,
-    selected: Boolean,
-    onClick: () -> Unit,
-    onDuplicate: () -> Unit,
-    onRenameRequest: () -> Unit,
-    onDeleteRequest: () -> Unit,
-    modifier: Modifier = Modifier,
-    style: EqualizerDesignStyle,
-) {
-    val contentColor = if (selected) style.text else style.mutedText
-    var showMenu by remember { mutableStateOf(false) }
-
-    Surface(
-        selected = selected,
-        onClick = onClick,
-        modifier = modifier.height(64.dp),
-        shape = MaterialTheme.shapes.small,
-        color = if (selected) style.accent.copy(alpha = 0.14f) else style.surfaceVariant,
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) style.accent else style.border),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(start = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = presetIcon(preset.id),
-                contentDescription = null,
-                tint = if (selected) style.accent else contentColor,
-                modifier = Modifier.size(20.dp),
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = preset.name,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                color = contentColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Box {
-                // 48 dp target, so the menu is hit reliably next to the preset itself.
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = stringResource(R.string.preset_more_actions, preset.name),
-                        tint = contentColor,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-                // "Duplizieren" works on any preset, built-in included - it's the
-                // way to turn one into an editable starting point. "Umbenennen"/
-                // "Löschen" only make sense for custom presets: "Built-ins bleiben
-                // unveränderlich" (M2 acceptance criterion).
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.preset_duplicate)) },
-                        onClick = {
-                            showMenu = false
-                            onDuplicate()
-                        },
-                    )
-                    if (!preset.metadata.builtIn) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.preset_rename)) },
-                            onClick = {
-                                showMenu = false
-                                onRenameRequest()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.preset_delete)) },
-                            onClick = {
-                                showMenu = false
-                                onDeleteRequest()
-                            },
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-private fun presetIcon(presetId: String): ImageVector =
-    when (presetId) {
-        "builtin_clean_punch" -> Icons.Filled.SportsMma
-        "builtin_deep_rumble" -> Icons.Filled.Waves
-        "builtin_kick_attack" -> Icons.Filled.Bolt
-        "builtin_balanced" -> Icons.Filled.Balance
-        "builtin_flat" -> Icons.Filled.Remove
-        "builtin_raw_power" -> Icons.Filled.PowerSettingsNew
-        "builtin_fast_attack" -> Icons.Filled.Speed
-        "builtin_maximum_distortion" -> Icons.Filled.Block
-        "builtin_final_smash" -> Icons.Filled.Whatshot
-        else -> Icons.Filled.Equalizer
-    }
-
-// docs/STATE_MACHINE.md §5: "Erneuter Versuch in {sekunden}s (Versuch
-// {attempt}/5)" - ticks down live so the acceptance criterion ("kein
-// dauerhafter Kontrollverlust") is visible to the user, not just true in
-// the abstract.
-@Composable
-private fun retryingStatusText(state: AudioEngineState.Retrying): String {
-    var remainingSeconds by remember(state) { mutableStateOf(secondsUntil(state.nextRetryAtMillis)) }
-    LaunchedEffect(state) {
-        while (remainingSeconds > 0) {
-            delay(1000)
-            remainingSeconds = secondsUntil(state.nextRetryAtMillis)
-        }
-    }
-    return stringResource(R.string.retry_countdown, remainingSeconds, state.attempt, MAX_RETRY_ATTEMPTS)
-}
-
-private fun secondsUntil(millis: Long): Long = ((millis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
-
-// "Kopfhörer-Power": Bass, Dynamik und Loudness im Kopfhörer-Modus einstellbar,
-// dazu die Presets "Standard" (altes Verhalten) und "Knall".
-@Composable
-private fun HeadphonePowerSection(
-    power: HeadphonePower,
-    onPowerChanged: (HeadphonePower) -> Unit,
-    style: EqualizerDesignStyle,
-) {
-    val spacing = MaterialTheme.spacing
-    Section {
-        SectionHeader(title = stringResource(R.string.hp_power_title))
-        Text(
-            text = stringResource(R.string.hp_power_warning),
-            style = MaterialTheme.typography.bodySmall,
-            color = style.mutedText,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-            OutlinedButton(onClick = { onPowerChanged(HeadphonePower.DEFAULT) }, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.hp_power_standard))
-            }
-            Button(onClick = { onPowerChanged(HeadphonePower.KNALL) }, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.hp_power_knall))
-            }
-        }
-        ValueSlider(
-            label = stringResource(R.string.hp_power_bass_name),
-            description = null,
-            value = power.bassDb,
-            onValueChange = { onPowerChanged(power.copy(bassDb = it)) },
-            valueRange = 0f..HeadphonePower.MAX_BASS_DB,
-            style = style,
-        )
-        ValueSlider(
-            label = stringResource(R.string.hp_power_loudness_name),
-            description = null,
-            value = power.loudnessMaxDb,
-            onValueChange = { onPowerChanged(power.copy(loudnessMaxDb = it)) },
-            valueRange = 0f..HeadphonePower.MAX_LOUDNESS_DB,
-            valueText = if (power.loudnessMaxDb > 0f) null else stringResource(R.string.module_off),
-            style = style,
-        )
-        SwitchRow(
-            title = stringResource(R.string.hp_power_dynamics),
-            description = stringResource(R.string.hp_power_dynamics_desc),
-            checked = power.easeDynamics,
-            onCheckedChange = { onPowerChanged(power.copy(easeDynamics = it)) },
-            style = style,
-        )
-        Text(
-            text = stringResource(R.string.hp_power_player_only),
-            style = MaterialTheme.typography.bodySmall,
-            color = style.mutedText,
-        )
-    }
-}
-
-/** A labelled switch row; the whole row is the touch target. */
-@Composable
-private fun SwitchRow(
-    title: String,
-    description: String?,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    style: EqualizerDesignStyle,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-            Text(text = title, style = MaterialTheme.typography.bodyMedium, color = style.text)
-            if (description != null) {
-                Text(text = description, style = MaterialTheme.typography.bodySmall, color = style.mutedText)
-            }
-        }
-        // The row handles the toggle, so the switch itself only shows the state.
-        Switch(checked = checked, onCheckedChange = null)
-    }
-}
-
-/** A dB control: name and exact value on one line, the slider below, then what it does. */
-@Composable
-private fun ValueSlider(
-    label: String,
-    description: String?,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    style: EqualizerDesignStyle,
-    valueText: String? = null,
-) {
-    val shown = valueText ?: CurveGeometry.formatGain(value)
-    Column {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = style.text, modifier = Modifier.weight(1f))
-            Text(text = shown, style = SonicNumerals.value, color = style.text)
-        }
-        Slider(
-            modifier =
-                Modifier.semantics {
-                    contentDescription = label
-                    stateDescription = shown
-                },
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            colors = sonicSliderColors(style),
-        )
-        if (description != null) {
-            Text(text = description, style = MaterialTheme.typography.bodySmall, color = style.mutedText)
-        }
-    }
-}
-
-// One band as a slider row: frequency, slider, value. The band selected on the graph is
-// marked with an amber frequency and a tonal background.
-@Composable
-private fun BandSliderRow(
-    band: GraphBand,
-    selected: Boolean,
-    onGainChange: (Float) -> Unit,
-    style: EqualizerDesignStyle,
-) {
-    val frequency = CurveGeometry.formatFrequency(band.frequencyHz)
-    val value = CurveGeometry.formatGain(band.gainDb)
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.small)
-                .background(if (selected) style.surface else Color.Transparent)
-                .padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = frequency,
-            style = SonicNumerals.value,
-            color = if (selected) style.accent else style.mutedText,
-            modifier = Modifier.width(64.dp),
-        )
-        Slider(
-            modifier =
-                Modifier.weight(1f).semantics {
-                    contentDescription = frequency
-                    stateDescription = value
-                },
-            value = band.gainDb,
-            onValueChange = onGainChange,
-            valueRange = band.minGainDb..band.maxGainDb,
-            colors = sonicSliderColors(style),
-        )
-        Text(
-            text = value,
-            style = SonicNumerals.value,
-            color = style.text,
-            textAlign = TextAlign.End,
-            modifier = Modifier.width(76.dp),
-        )
-    }
-}
-
-@Composable
-private fun sonicSliderColors(style: EqualizerDesignStyle) =
-    SliderDefaults.colors(
-        thumbColor = style.accent,
-        activeTrackColor = style.accent,
-        inactiveTrackColor = style.surfaceVariant,
-        activeTickColor = Color.Transparent,
-        inactiveTickColor = Color.Transparent,
-    )
-
-// Gives the current output device a name of the user's own ("My headphones"); empty = reset.
-@Composable
-private fun RenameRouteDialog(
-    currentName: String,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var name by rememberSaveable { mutableStateOf(currentName) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.route_rename_title)) },
-        text = {
-            Column {
-                Text(stringResource(R.string.route_rename_hint), style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true)
-            }
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(name) }) { Text(stringResource(R.string.action_save)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
-
-// Quick A/B: the original sound plays while the button is held, the EQ again on release.
-@Composable
-private fun HoldToCompareButton(
-    onPress: () -> Unit,
-    onRelease: () -> Unit,
-    style: EqualizerDesignStyle,
-    modifier: Modifier = Modifier,
-) {
-    var pressed by remember { mutableStateOf(false) }
-    val label = stringResource(R.string.compare_hold)
-    Surface(
-        modifier =
-            modifier
-                .heightIn(min = 52.dp)
-                .semantics {
-                    contentDescription = label
-                    role = Role.Button
-                }.pointerInput(Unit) {
-                    detectTapGestures(
-                        onPress = {
-                            pressed = true
-                            onPress()
-                            try {
-                                tryAwaitRelease()
-                            } finally {
-                                pressed = false
-                                onRelease()
-                            }
-                        },
-                    )
-                },
-        shape = MaterialTheme.shapes.small,
-        color = if (pressed) style.text else style.surfaceVariant,
-        border = BorderStroke(1.dp, if (pressed) style.text else style.border),
-    ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(14.dp)) {
-            Text(
-                text = stringResource(if (pressed) R.string.compare_hold_active else R.string.compare_hold),
-                style = MaterialTheme.typography.labelLarge,
-                color = if (pressed) style.background else style.text,
-            )
-        }
-    }
-}

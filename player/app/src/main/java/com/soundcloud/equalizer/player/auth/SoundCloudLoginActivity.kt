@@ -66,6 +66,9 @@ class SoundCloudLoginActivity : AppCompatActivity() {
         // flow ("This browser or app may not be secure") regardless of UA
         // spoofing - this is the actual mechanism behind that block, not the UA
         // string. Clearing the allow-list removes the header for every origin.
+        // RestrictedApi: the feature constant is marked library-group-only in webkit 1.11, but there
+        // is no other way to ask whether the allow-list can be set.
+        @SuppressLint("RestrictedApi")
         private fun disableRequestedWithHeader(webView: WebView) {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
                 WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())

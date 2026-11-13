@@ -623,3 +623,26 @@ TalkBack-Aktionen; Screenshots unter `app/build/player-screenshots/`).
 | T-P6 | 👤 Benachrichtigung und Sperrbildschirm antippen | Player-Tab mit aufgeklapptem „Now playing“; Android Auto unverändert (offen) |
 | T-P7 | 👤 Kleines Telefon, Querformat, Tablet/Foldable | Cover und Steuerung passen, Querformat zweispaltig (offen) |
 | T-P8 | 👤 Sound-Sheet über EQ-Chip und Lampe: Kontextmodus, Mono-Bass, Limiter umschalten, „Open equalizer“ | wirkt wie vorher auf der Player-Seite; „Open equalizer“ klappt zu und wechselt den Tab (offen) |
+
+## Neue Funktionen und Wartbarkeit (Roadmap 06, 13. November 2026)
+
+Automatisiert (lokal grün): `:core:test` 375, `:app:testDebugUnitTest` 333, `:player:testDebugUnitTest` 17, ktlint, lint.
+Nicht ausgeführt, da kein Gerät: die Instrumentationstests (`./gradlew :app:connectedDebugAndroidTest`:
+`DatabaseMigrationTest`, `SessionServiceBackgroundStartTest`, `EngineAttachToSessionTest`).
+
+| # | Prüfung | Erwartung |
+|---|---|---|
+| K29 | 👤 Instrumentationstests auf Gerät oder Emulator (API 28 und 35) | alle drei grün; `EngineAttachToSessionTest` wird auf einem Gerät ohne Equalizer-Effekt übersprungen, nicht rot (offen) |
+| K30 | 👤 Schnelleinstellungen: beide Kacheln hinzufügen, EQ an/aus, nächstes Preset, einmal mit offener App, einmal nach Wegwischen aus der Übersicht | Zustand der Kachel stimmt mit der App überein; ohne laufende App öffnet die Kachel die App und führt den Befehl aus (offen) |
+| K31 | 👤 Widget auf dem Homescreen: EQ-Schalter und Preset-Knopf, bei laufender und bei beendeter App | wie K30; Beschriftung „EQ ON“/„EQ OFF“ stimmt (offen) |
+| K32 | 👤 Preset teilen: Dialog, QR-Code mit zweitem Telefon (Kamera-App) scannen, Link per Chat senden und einfügen | Preset erscheint als eigenes, wählbares Preset; ein verfälschter Link wird abgelehnt (offen) |
+| K33 | 👤 AutoEQ: `GraphicEQ.txt` (auch Wavelet-Export) und `ParametricEQ.txt` importieren | Vorschau zeigt Bereich und Boost; Kurve passt zur Quelldatei (offen) |
+| K34 | 👤 Parametrische Bänder: Band anlegen, Frequenz, Güte, Verstärkung ziehen; im eigenen Player und über den System-Equalizer (Spotify) | Änderung hörbar und in der Kurve sichtbar; im eigenen Player genauer als über den System-Equalizer (offen) |
+| K35 | 👤 App-Profil: Spotify-Preset A merken, YouTube-Preset B, zwischen den Apps wechseln, Route wechseln | jede App bekommt ihren Klang zurück; nach Routenwechsel gewinnt das App-Profil (offen) |
+| K36 | 👤 Sleep-Timer 15 min (zum Testen: kurzer Wert per Debug), „Ende des Titels“, Abbrechen; Bildschirm aus | Lautstärke blendet in den letzten 15 s aus, danach Pause; „Ende des Titels“ pausiert genau am Titelende; Abbrechen stellt die Lautstärke her (offen) |
+| K37 | 👤 Ein-/Ausblenden zwischen Titeln 4 s und 12 s, kurze Titel, Springen und Seek | kein Knacken, kein dauerhaft leiser Titel, Lautstärke nach dem Aus wieder voll (offen) |
+| K38 | 👤 Lokale Dateien (mp3, flac, m4a, ogg) im eigenen Player; EQ, Virtual Bass, Mono-Bass, Limiter; App neu starten, Auto | klingt wie SoundCloud-Titel mit derselben Einstellung; Titel nicht in Playlists speicherbar mit Hinweis (offen) |
+| K39 | 👤 Erweiterte App-Erkennung: `adb shell pm grant com.hardbasseq.eq android.permission.DUMP`, dann eine App ohne Session-Broadcast abspielen | App erscheint in der Quellenliste, EQ lässt sich anbinden; Diagnosebericht zeigt „granted“. Ausgabe von `dumpsys audio` des Geräts in den Bericht kopieren, falls nichts erscheint (offen) |
+| K40 | 👤 Diagnosebericht: App abstürzen lassen oder per `adb shell am force-stop` beenden, neu starten, Bericht öffnen; Bluetooth-Kopfhörer verbinden | „Last Process Exit“ und Verlauf zeigen den Grund; Bluetooth-Zeile nennt Raten/Encodings und sagt, dass der Codec nicht lesbar ist (offen) |
+| K41 | 👤 Signierte Release-APK mit R8: Start, Session-Attach, Preset speichern und laden, Teilen/Import, Kacheln, Player, Android Auto | alles wie in Debug, keine `ClassNotFound`/Serialisierungsfehler; bei Fehler Regeln in `app/proguard-rules.pro` ergänzen (offen) |
+

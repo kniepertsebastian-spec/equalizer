@@ -2,8 +2,12 @@ package com.hardbasseq.eq.di
 
 import com.hardbasseq.eq.discovery.AndroidDiscoverySource
 import com.hardbasseq.eq.discovery.DiscoverySource
+import com.hardbasseq.eq.integration.AndroidLocalTrackReader
+import com.hardbasseq.eq.integration.AndroidPlaybackTimers
 import com.hardbasseq.eq.integration.AndroidPlayerBridge
 import com.hardbasseq.eq.integration.AndroidPlayerController
+import com.hardbasseq.eq.integration.LocalTrackReader
+import com.hardbasseq.eq.integration.PlaybackTimers
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerController
 import dagger.Binds
@@ -22,6 +26,14 @@ abstract class IntegrationModule {
     @Binds
     @Singleton
     abstract fun bindPlayerController(impl: AndroidPlayerController): PlayerController
+
+    @Binds
+    @Singleton
+    abstract fun bindLocalTrackReader(impl: AndroidLocalTrackReader): LocalTrackReader
+
+    @Binds
+    @Singleton
+    abstract fun bindPlaybackTimers(impl: AndroidPlaybackTimers): PlaybackTimers
 
     @Binds
     @Singleton

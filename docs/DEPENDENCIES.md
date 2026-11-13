@@ -24,6 +24,7 @@ ersten Projekt-Setup (M0, Aufgabe 1 "Android-Projekt initialisieren").
 | Room | 2.8.5 | Vorher `2.7.0-alpha13` (5. November 2026). Der exportierte Schema-Hash (`app/schemas/.../2.json`) blieb gleich, bestehende Datenbanken öffnen sich unverändert. |
 | media3 (`:player`) | 1.11.1 | Vorher 1.3.1. `MediaSession.sessionCompatToken` gibt es nicht mehr; `AudioPlayerService` verpackt jetzt `platformToken` (`MediaSessionCompat.Token.fromToken`). Auf dem Gerät mit Android Auto prüfen (`docs/TEST_MATRIX.md` K25). |
 | kotlinx-coroutines-android (`:player`) | 1.11.0 | Vorher 1.8.0. |
+| zxing core (`:app`) | 3.5.3 | Neu (Roadmap 06, P5-4): QR-Code-Erzeugung zum Teilen von Presets. Reines Java, kein Play-Services-Bezug, nur Encoder genutzt (kein Scanner/Kamera). |
 | okhttp (`:player`) | 4.12.0 | Unverändert: letzte 4.x-Version; 5.x wäre ein Major-Sprung. |
 
 ## Wichtiger Hinweis zur Verifikation

@@ -1,5 +1,8 @@
 package com.hardbasseq.eq.ui.player.library
 
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +24,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -30,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -83,6 +88,22 @@ fun LazyListScope.playlistsTabItems(
                     style = MaterialTheme.typography.bodySmall,
                     color = SonicSteel,
                 )
+                Spacer(modifier = Modifier.height(spacing.small))
+                // P5-7: files on the device, as a second source next to SoundCloud.
+                val context = LocalContext.current
+                val pickFiles =
+                    rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+                        // Kept readable for as long as the queue holds them (a restart of the player service, the car).
+                        uris.forEach { uri ->
+                            runCatching {
+                                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                        }
+                        viewModel.playLocalFiles(uris.map { it.toString() })
+                    }
+                OutlinedButton(onClick = { pickFiles.launch(arrayOf("audio/*")) }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.local_files_button))
+                }
                 Spacer(modifier = Modifier.height(spacing.small))
                 OutlinedTextField(
                     value = linkText,

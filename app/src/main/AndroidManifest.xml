@@ -1,11 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!--
+      Optional (roadmap 06, P5-2): only ever granted by the user over ADB
+      (adb shell pm grant com.hardbasseq.eq android.permission.DUMP). With it the session list also
+      finds apps that send no audio-session broadcast. Without it nothing changes.
+    -->
+    <uses-permission
+        android:name="android.permission.DUMP"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- Lets the session list show other apps' names (package visibility, Android 11+). -->
     <queries>
@@ -47,6 +57,13 @@
                 <action android:name="com.hardbasseq.eq.action.OPEN_PLAYER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
+            <!-- A shared preset: hardbasseq://preset?... (link or scanned QR code), see PresetShareCodec. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="hardbasseq" android:host="preset" />
+            </intent-filter>
             <!-- Share target for text, used for SoundCloud links. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
@@ -66,6 +83,40 @@
             android:name=".service.AudioSessionForegroundService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <!-- Quick-settings tiles (roadmap 06, P5-1): EQ on/off and next preset. -->
+        <service
+            android:name=".quick.EqToggleTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification_eq"
+            android:label="@string/tile_eq_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+        <service
+            android:name=".quick.NextPresetTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_notification_eq"
+            android:label="@string/tile_preset_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".quick.QuickWidgetProvider"
+            android:exported="true"
+            android:label="@string/tile_eq_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_widget_info" />
+        </receiver>
 
         <!--
           Android Auto: this app is a media app. The browser the car connects to is the player's

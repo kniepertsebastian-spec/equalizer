@@ -50,7 +50,12 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Roadmap 06, P6-6: R8 shrinks and optimises the release APK (smaller, and faster loops
+            // in the audio thread). It never changes how anything sounds. The keep rules are in
+            // proguard-rules.pro; a release build still needs one run on a device (docs/TEST_MATRIX.md).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("hardbassRelease")
         }
     }
@@ -68,6 +73,11 @@ android {
             // Compose UI tests of the player run under Robolectric and need the resources.
             isIncludeAndroidResources = true
         }
+    }
+
+    sourceSets {
+        // The exported Room schemas are what MigrationTestHelper opens the old database from.
+        getByName("androidTest").assets.srcDir("$projectDir/schemas")
     }
 
     compileOptions {
@@ -143,6 +153,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -150,6 +161,13 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
+
+    // Tests on a device or emulator (roadmap 06, P6-3): ./gradlew :app:connectedDebugAndroidTest
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.rules)
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.room.ktx)
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

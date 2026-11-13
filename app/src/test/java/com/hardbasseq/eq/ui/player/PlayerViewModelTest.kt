@@ -3,12 +3,15 @@ package com.hardbasseq.eq.ui.player
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
+import com.hardbasseq.eq.integration.LocalTrackReader
+import com.hardbasseq.eq.integration.NoLocalTrackReader
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.SpotifyImportLedger
 import com.hardbasseq.eq.link.SpotifyImportPlan
 import com.hardbasseq.eq.link.SpotifyImportState
 import com.hardbasseq.eq.link.SpotifyPlaylist
 import com.hardbasseq.eq.link.SpotifyTrack
+import com.hardbasseq.eq.playlist.LocalTrackId
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
 import com.hardbasseq.eq.playlist.SpotifyImportRepository
@@ -56,7 +59,74 @@ class PlayerViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = PlayerViewModel(controller, repository, spotifyImports, texts)
+    private fun viewModel(localTracks: LocalTrackReader = NoLocalTrackReader) =
+        PlayerViewModel(controller, repository, spotifyImports, texts, localTracks)
+
+    private class FakeLocalTracks(
+        private val readable: Set<String>,
+    ) : LocalTrackReader {
+        override suspend fun read(addresses: List<String>): List<TrackItem> =
+            addresses.filter { it in readable }.map {
+                TrackItem(id = LocalTrackId.of(it), title = it, artist = "", artworkUrl = null, streamUrl = it, durationMs = 1000)
+            }
+    }
+
+    @Test
+    fun `playLocalFiles plays the readable files as the queue`() =
+        runTest {
+            val vm = viewModel(FakeLocalTracks(setOf("content://a", "content://b")))
+
+            vm.playLocalFiles(listOf("content://a", "content://b"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals(listOf("content://a", "content://b"), tracks.map { it.streamUrl })
+            assertEquals(0, start)
+            assertTrue(tracks.all { LocalTrackId.isLocal(it.id) })
+        }
+
+    @Test
+    fun `playLocalFiles tells how many files were skipped`() =
+        runTest {
+            val vm = viewModel(FakeLocalTracks(setOf("content://a")))
+
+            vm.playLocalFiles(listOf("content://a", "content://broken"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                1,
+                controller.playedQueues
+                    .single()
+                    .first.size,
+            )
+            assertEquals(t(R.string.local_files_some_skipped, 1), vm.importState.value.message)
+        }
+
+    @Test
+    fun `playLocalFiles with nothing readable reports an error and plays nothing`() =
+        runTest {
+            val vm = viewModel(FakeLocalTracks(emptySet()))
+
+            vm.playLocalFiles(listOf("content://broken"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(controller.playedQueues.isEmpty())
+            assertTrue(vm.importState.value.isError)
+        }
+
+    @Test
+    fun `a file from the device cannot be saved into a playlist`() =
+        runTest {
+            val vm = viewModel()
+            val local = track(LocalTrackId.of("content://a"))
+
+            vm.createPlaylist("Mine", firstTrack = local)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertEquals(t(R.string.local_files_not_in_playlists), vm.importState.value.message)
+            assertTrue(repository.playlistsNow().isEmpty())
+        }
 
     private fun track(
         id: Long,
@@ -1492,6 +1562,8 @@ class PlayerViewModelTest {
     private class FakePlaylistRepository : PlaylistRepository {
         private val state = MutableStateFlow<List<SavedPlaylist>>(emptyList())
         override val playlists: Flow<List<SavedPlaylist>> = state
+
+        fun playlistsNow(): List<SavedPlaylist> = state.value
 
         override suspend fun save(playlist: SavedPlaylist) {
             state.value = state.value.filterNot { it.id == playlist.id } + playlist

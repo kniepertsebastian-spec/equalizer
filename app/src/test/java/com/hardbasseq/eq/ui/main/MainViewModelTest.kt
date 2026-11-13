@@ -23,11 +23,15 @@ import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.correction.BuiltInCorrectionProfiles
 import com.hardbasseq.eq.correction.CorrectionProfile
 import com.hardbasseq.eq.correction.CorrectionProfileRepository
+import com.hardbasseq.eq.data.profile.AppProfileEntity
 import com.hardbasseq.eq.data.profile.DeviceProfileEntity
 import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
+import com.hardbasseq.eq.dsp.ParametricBand
+import com.hardbasseq.eq.dsp.ParametricCurve
+import com.hardbasseq.eq.dsp.ParametricFilterBounds
 import com.hardbasseq.eq.dsp.PreEqLayout
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
@@ -40,7 +44,9 @@ import com.hardbasseq.eq.preset.PresetIntensityResolver
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.preset.TargetPoint
+import com.hardbasseq.eq.profile.AppProfileRepository
 import com.hardbasseq.eq.profile.DeviceProfileRepository
+import com.hardbasseq.eq.quick.QuickCommand
 import com.hardbasseq.eq.settings.AppSettingsRepository
 import com.hardbasseq.eq.settings.LiveSettings
 import com.hardbasseq.eq.text.FakeTextProvider
@@ -497,6 +503,65 @@ class MainViewModelTest {
             assertFalse(copy.id == BuiltInPresets.DeepRumble.id)
             assertFalse(copy.metadata.builtIn)
             assertEquals(copy.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `importPresetLink saves a shared preset as an editable copy and selects it`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            val link = viewModel.presetShareLink(BuiltInPresets.DeepRumble)
+
+            viewModel.importPresetLink(link)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val imported = presetRepository.savedPresets.single()
+            assertEquals(BuiltInPresets.DeepRumble.name, imported.name)
+            assertFalse(imported.metadata.builtIn)
+            assertFalse(imported.id == BuiltInPresets.DeepRumble.id)
+            assertEquals(imported.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `importPresetLink ignores text that is not a preset link`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.importPresetLink("hello world")
+            viewModel.importPresetLink("")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(presetRepository.savedPresets.isEmpty())
+        }
+
+    @Test
+    fun `quick command toggles the master switch`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.masterEnabled
+
+            viewModel.handleQuickCommand(QuickCommand.TOGGLE_MASTER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(!before, viewModel.processingSettings.value.masterEnabled)
+        }
+
+    @Test
+    fun `quick command steps to the next preset and wraps around`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val ids = viewModel.allPresets.value.map { it.id }
+            val start = viewModel.activePreset.value.id
+
+            viewModel.handleQuickCommand(QuickCommand.NEXT_PRESET)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(ids[(ids.indexOf(start) + 1) % ids.size], viewModel.activePreset.value.id)
         }
 
     @Test
@@ -1121,6 +1186,131 @@ class MainViewModelTest {
             sessions.setActiveSession(AudioSession(sessionId = 2, packageName = BuildConfig.APPLICATION_ID))
             dispatcher.scheduler.advanceUntilIdle()
             assertTrue(viewModel.isOwnPlayerSession.value)
+        }
+
+    @Test
+    fun `an app with a remembered sound gets it when it becomes the active session`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            val spotify = AudioSession(sessionId = 1, packageName = "com.spotify.music")
+            val youtube = AudioSession(sessionId = 2, packageName = "com.google.android.youtube")
+
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            viewModel.setAppProfileBound(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.appProfileBound.value)
+
+            sessions.setActiveSession(youtube)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse("YouTube has no profile of its own", viewModel.appProfileBound.value)
+            viewModel.selectPreset(BuiltInPresets.KickAttack)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `while an app is bound every later choice is remembered for it`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            val other = AudioSession(sessionId = 2, packageName = "other.app")
+            val spotify = AudioSession(sessionId = 1, packageName = "com.spotify.music")
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setAppProfileBound(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectPreset(BuiltInPresets.RawPower)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(other)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.RawPower.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `forgetting the app profile stops applying it`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            val spotify = AudioSession(sessionId = 1, packageName = "com.spotify.music")
+            val other = AudioSession(sessionId = 2, packageName = "other.app")
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            viewModel.setAppProfileBound(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setAppProfileBound(false)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.appProfileBound.value)
+
+            sessions.setActiveSession(other)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.Flat.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `a parametric band changes the band gains and marks the sound as edited`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.bandGainsDb
+
+            viewModel.addParametricBand()
+            viewModel.updateParametricBand(0, viewModel.parametricBands.value[0].copy(frequencyHz = 60f, gainDb = 9f, q = 1f))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, viewModel.parametricBands.value.size)
+            assertTrue(
+                "the low band got louder",
+                viewModel.processingSettings.value.bandGainsDb.values
+                    .sum() > before.values.sum(),
+            )
+            assertTrue(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `parametric bands are limited persisted and restored`() =
+        runTest {
+            val settingsRepository = FakeAppSettingsRepository()
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = settingsRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            repeat(ParametricCurve.MAX_BANDS + 3) { viewModel.addParametricBand() }
+            viewModel.updateParametricBand(0, ParametricBand(frequencyHz = 5f, gainDb = 99f, q = 0f))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(ParametricCurve.MAX_BANDS, viewModel.parametricBands.value.size)
+            val first = viewModel.parametricBands.value[0]
+            assertEquals(ParametricFilterBounds.MIN_FREQUENCY_HZ, first.frequencyHz, 0f)
+            assertEquals(ParametricFilterBounds.MAX_GAIN_DB, first.gainDb, 0f)
+
+            val restored = createViewModel(emptyList(), appSettingsRepository = settingsRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(viewModel.parametricBands.value, restored.parametricBands.value)
+
+            restored.removeParametricBand(0)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(ParametricCurve.MAX_BANDS - 1, restored.parametricBands.value.size)
         }
 
     @Test
@@ -1895,6 +2085,7 @@ class MainViewModelTest {
         deviceProfileRepository: DeviceProfileRepository = FakeDeviceProfileRepository(),
         sessionRepository: AudioSessionRepository = FakeAudioSessionRepository(),
         carConnectionRepository: FakeCarConnectionRepository = FakeCarConnectionRepository(),
+        appProfileRepository: AppProfileRepository = FakeAppProfileRepository(),
     ): MainViewModel =
         MainViewModel(
             repository = FakeAudioEffectRepository(descriptors),
@@ -1910,6 +2101,7 @@ class MainViewModelTest {
             texts = FakeTextProvider(),
             sessionRepository = sessionRepository,
             carConnectionRepository = carConnectionRepository,
+            appProfileRepository = appProfileRepository,
             backgroundDispatcher = dispatcher,
         )
 
@@ -1938,6 +2130,27 @@ class MainViewModelTest {
 
     private class FakeCarConnectionRepository : CarConnectionRepository {
         override val carConnected = MutableStateFlow(false)
+    }
+
+    private class FakeAppProfileRepository : AppProfileRepository {
+        private val profiles = MutableStateFlow<List<AppProfileEntity>>(emptyList())
+        override val allProfiles: Flow<List<AppProfileEntity>> = profiles
+
+        override suspend fun getProfile(packageName: String): AppProfileEntity? =
+            profiles.value.firstOrNull { it.packageName == packageName }
+
+        override suspend fun saveProfile(
+            packageName: String,
+            boundPresetId: String,
+            boundCorrectionProfileId: String,
+        ) {
+            profiles.value = profiles.value.filterNot { it.packageName == packageName } +
+                AppProfileEntity(packageName, boundPresetId, boundCorrectionProfileId)
+        }
+
+        override suspend fun deleteProfile(packageName: String) {
+            profiles.value = profiles.value.filterNot { it.packageName == packageName }
+        }
     }
 
     private class FakeAudioSessionRepository : AudioSessionRepository {
