@@ -1,6 +1,7 @@
 package com.soundcloud.equalizer.player.playback
 
 import androidx.media3.common.C
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import com.hardbasseq.eq.playback.PlaybackFade
 import com.hardbasseq.eq.playback.SleepTimerSetting
@@ -11,6 +12,7 @@ import com.hardbasseq.eq.playback.SleepTimerStatus
  * the player's own volume ([ExoPlayer.setVolume], relative to the system volume) and pause it; the
  * service calls [tick] while [needsTicks] and does nothing else with it.
  */
+@UnstableApi
 class PlaybackFadeController(
     private val player: ExoPlayer,
     private val elapsedRealtimeMs: () -> Long,
