@@ -11,6 +11,14 @@
 - **Zusätzliches Risiko:** SoundCloud hat angekündigt, die MP3-Progressive-Streams zugunsten von AAC-HLS abzuschalten. Aktuellen Stand prüfen.
 - **Fertig, wenn:** Die Auswahl nach Qualität sortiert (AAC 256, AAC 160, MP3 128) und HLS am Gerät geprüft ist.
 
+**Stand P4-1 (Umsetzung, Gerätetest offen):**
+- [x] Auswahl nach Qualität: `StreamSelection.pick` sortiert Vollversion vor Vorschau, dann Codec/Bitrate (AAC 256 > AAC 160 > MP3 128 > niedrige AAC-Stufe), bei Gleichstand progressive vor HLS. Codec und Bitrate kommen aus `preset` (`aac_256k`, `aac_160k`, `mp3_1_0`, …) und `format.mime_type` der Transcodings; fehlen beide, gilt „progressive = MP3" wie bisher.
+- [x] Opus wird nie gewählt (kommt als Ogg-Segmente in HLS, die ExoPlayers HLS-Quelle nicht abspielt).
+- [x] `SoundCloudClient.resolveStream` reicht `preset` und `mime_type` an die Auswahl weiter; die HLS-Weiche aus P2-1 (`isHls` → M3U8-Quelle) bleibt unverändert und gilt damit auch für AAC-HLS.
+- [x] Unit-Tests: `StreamSelectionTest` (11 Fälle: Rangfolge, Reihenfolge der Liste egal, AAC 96 vs. MP3, Opus, Mime-Erkennung ohne Preset, Rückfall ohne Codec-Angaben, Vorschau-Regeln).
+- [ ] **Offen: HLS/AAC am Gerät.** Hier nicht prüfbar (kein Gerät, kein SoundCloud-Zugriff). Zu prüfen: (1) Titel spielt über AAC-HLS ohne Fehler und lückenlos in die nächste Queue-Position; (2) Log/Debug zeigt, dass wirklich `aac_160k` bzw. mit Go+ `aac_256k` gewählt wurde; (3) Titel, die nur MP3 anbieten, spielen weiter; (4) Seek und Wiederaufnahme nach langer Pause (abgelaufener Link) mit HLS.
+- [ ] **Offen: tatsächlich verfügbare Stream-Varianten.** Preset-Namen und Mime-Typen sind aus dem Verhalten der v2-API abgeleitet, nicht gegen eine aktuelle Antwort geprüft. Die offizielle Ankündigung nennt für die öffentliche API AAC-HLS (`hls_aac_160_url`, Rückfall `hls_aac_96_url`) und die Abschaltung von Progressive-MP3, HLS-MP3 und HLS-Opus zum Jahreswechsel 2025 (Quellen nennen auch den 15.11.2025). Der heutige Stand der internen v2-API (die diese App nutzt) ist nicht belegt. Mit einer echten `transcodings`-Antwort gegenprüfen und die Namen in `StreamSelection` bei Abweichung anpassen.
+
 ## P4-3 Virtual Bass neu aufbauen (M)
 
 Nach P0-5: Kennlinie mit einstellbarem Verhältnis von zweiter und dritter Harmonischer statt reiner Gleichrichtung, Bandpass für die Obertöne, Hüllkurvenfolger, damit der Effekt bei leisen Stellen nicht überproportional wird.

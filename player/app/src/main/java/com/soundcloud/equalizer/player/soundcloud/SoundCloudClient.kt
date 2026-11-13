@@ -232,16 +232,27 @@ class SoundCloudClient(
     private class ResolvedStream(val url: String, val isPreview: Boolean, val isHls: Boolean)
 
     // Picks the best stream SoundCloud offers for a track - full length before a
-    // ~30 s preview (StreamSelection) - and resolves it to a playable URL. Requests
+    // ~30 s preview, then the best codec and bitrate (StreamSelection) - and resolves it to a playable URL. Requests
     // carry the signed-in user's token when there is one, which is what makes a
     // SoundCloud Go subscription's full-length streams appear in the list at all.
     private suspend fun resolveStream(transcodingsJsonArray: JSONArray, clientId: String): ResolvedStream? =
         withContext(Dispatchers.IO) {
             val options = (0 until transcodingsJsonArray.length()).mapNotNull { i ->
                 val tc = transcodingsJsonArray.getJSONObject(i)
-                val protocol = tc.optJSONObject("format")?.optString("protocol") ?: return@mapNotNull null
+                val format = tc.optJSONObject("format")
+                val protocol = format?.optString("protocol") ?: return@mapNotNull null
                 val url = tc.optString("url")
-                if (url.isBlank()) null else StreamOption(protocol, tc.optBoolean("snipped", false), url)
+                if (url.isBlank()) {
+                    null
+                } else {
+                    StreamOption(
+                        protocol = protocol,
+                        snipped = tc.optBoolean("snipped", false),
+                        url = url,
+                        preset = tc.optString("preset"),
+                        mimeType = format.optString("mime_type"),
+                    )
+                }
             }
             val chosen = StreamSelection.pick(options) ?: return@withContext null
             val targetUrl = chosen.url
