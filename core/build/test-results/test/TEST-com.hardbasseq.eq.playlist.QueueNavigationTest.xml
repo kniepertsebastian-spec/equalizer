@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.playlist.QueueNavigationTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:48.829Z" hostname="vmd206980" time="0.001">
-  <properties/>
-  <testcase name="next advances and stops at the end" classname="com.hardbasseq.eq.playlist.QueueNavigationTest" time="0.0"/>
-  <testcase name="previous goes back only early in a track" classname="com.hardbasseq.eq.playlist.QueueNavigationTest" time="0.0"/>
-  <testcase name="validates indexes" classname="com.hardbasseq.eq.playlist.QueueNavigationTest" time="0.001"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

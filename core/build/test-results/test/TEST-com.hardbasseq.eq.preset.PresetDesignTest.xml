@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.preset.PresetDesignTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-05T09:27:49.176Z" hostname="vmd206980" time="0.021">
-  <properties/>
-  <testcase name="everyGenrePresetSelectsItsExpectedDesignAtEveryIntensity" classname="com.hardbasseq.eq.preset.PresetDesignTest" time="0.016"/>
-  <testcase name="duplicatedPresetKeepsItsDesignAfterRename" classname="com.hardbasseq.eq.preset.PresetDesignTest" time="0.0"/>
-  <testcase name="everyLegacyBuiltInPresetSelectsItsRequestedDesign" classname="com.hardbasseq.eq.preset.PresetDesignTest" time="0.004"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>

@@ -1,1 +1,0 @@
--keep,allowobfuscation,allowshrinking class com.hardbasseq.eq.ui.main.MainViewModel

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.hardbasseq.eq.audio.AudioCapabilitiesMapperTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-11-10T19:24:01.552Z" hostname="Baschtl96" time="0.014">
-  <properties/>
-  <testcase name="duplicate descriptors of the same type still count individually" classname="com.hardbasseq.eq.audio.AudioCapabilitiesMapperTest" time="0.009"/>
-  <testcase name="recognizes equalizer and dynamics processing, ignores unknown effects" classname="com.hardbasseq.eq.audio.AudioCapabilitiesMapperTest" time="0.0"/>
-  <testcase name="empty descriptor list yields no capabilities" classname="com.hardbasseq.eq.audio.AudioCapabilitiesMapperTest" time="0.001"/>
-  <system-out><![CDATA[]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
