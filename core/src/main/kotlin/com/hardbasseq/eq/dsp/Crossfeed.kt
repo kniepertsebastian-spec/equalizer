@@ -1,5 +1,9 @@
 package com.hardbasseq.eq.dsp
 
+// STATUS: fertig und getestet (CrossfeedTest), aber nirgends angeschlossen. Ob die Klasse
+// über den eigenen Wiedergabepfad des Players genutzt oder gelöscht wird, ist offen und wird
+// mit P4-4 entschieden (Roadmap 03); bis dahin bewusst nicht gelöscht (Roadmap 01, P0-6).
+//
 // Priorisierte Umsetzungsliste aus dem Nothing/Dirac-Opteo-Chat, Punkt 5:
 // Über Lautsprecher hört jedes Ohr beide Kanäle - zeitversetzt, gedämpft und
 // gefiltert durch den Umweg um den Kopf ("akustisches Übersprechen"). Bei

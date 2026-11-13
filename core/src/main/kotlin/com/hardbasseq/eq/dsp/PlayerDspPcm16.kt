@@ -15,8 +15,10 @@ import com.hardbasseq.eq.preset.TargetPoint
 // with everything off the buffer is left untouched. Android-free like the rest of :core -
 // the Media3 processor that feeds it lives in :player.
 //
-// PCM16 rather than float out: Media3 1.3.1 runs its speed processor (Sonic) behind
-// this one, and that accepts 16-bit only.
+// PCM16 out: the chain was built when Media3's speed processor (Sonic, behind this one)
+// accepted 16-bit only (Media3 1.3.1). That is outdated: Media3 1.11.1's SonicAudioProcessor
+// takes PCM16 and float (checked in its configure()), so a float output is possible. Whether
+// it is worth the change is open (roadmap item P4-7); until then the result goes back to PCM16.
 data class PlayerDspSettings(
     val monoBassEnabled: Boolean = true,
     val monoBassCutoffHz: Float = DEFAULT_MONO_BASS_CUTOFF_HZ,
