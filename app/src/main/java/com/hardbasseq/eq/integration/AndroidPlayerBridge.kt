@@ -3,7 +3,7 @@ package com.hardbasseq.eq.integration
 import android.content.Context
 import android.content.Intent
 import com.hardbasseq.eq.preset.TargetPoint
-import com.soundcloud.equalizer.player.PlayerActivity
+import com.soundcloud.equalizer.player.PlayerLaunch
 import com.soundcloud.equalizer.player.playback.PlayerCurve
 import com.soundcloud.equalizer.player.playback.PlayerCurveState
 import com.soundcloud.equalizer.player.playback.VirtualBassState
@@ -16,17 +16,10 @@ class AndroidPlayerBridge
     constructor(
         @param:ApplicationContext private val context: Context,
     ) : PlayerBridge {
+        // SoundCloud is the only source and the player screen is the same for every source, so
+        // [source] needs no extra: the Compose player in MainActivity is brought forward.
         override fun launchPlayer(source: PlayerSource) {
-            val sourceExtra =
-                when (source) {
-                    PlayerSource.SOUNDCLOUD -> PlayerActivity.SOURCE_SOUNDCLOUD
-                }
-            val intent =
-                Intent(context, PlayerActivity::class.java).apply {
-                    putExtra(PlayerActivity.EXTRA_SOURCE, sourceExtra)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-            context.startActivity(intent)
+            context.startActivity(PlayerLaunch.openPlayerIntent(context))
         }
 
         override fun stopPlayer() {

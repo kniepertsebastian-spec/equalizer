@@ -128,8 +128,9 @@ class PlayerViewModel
         private val _importState = MutableStateFlow(ImportUiState())
         val importState: StateFlow<ImportUiState> = _importState.asStateFlow()
 
-        // Set when a link was shared into the app from elsewhere, so the UI can bring
-        // the player screen forward; cleared by consumeShowPlayerRequest().
+        // Set when a link was shared into the app from elsewhere or the playback notification
+        // was tapped, so the UI can bring the player screen forward; cleared by
+        // consumeShowPlayerRequest().
         private val _showPlayerRequest = MutableStateFlow(false)
         val showPlayerRequest: StateFlow<Boolean> = _showPlayerRequest.asStateFlow()
 
@@ -249,6 +250,15 @@ class PlayerViewModel
 
         fun consumeShowPlayerRequest() {
             _showPlayerRequest.value = false
+        }
+
+        /**
+         * The playback notification, the lock screen or the car was tapped (see PlayerLaunch):
+         * bring the player screen forward. The text of [showPlayerRequest]'s comment applies,
+         * only the trigger differs.
+         */
+        fun requestShowPlayer() {
+            _showPlayerRequest.value = true
         }
 
         fun dismissImportMessage() {

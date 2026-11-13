@@ -39,6 +39,14 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!--
+              Brings the player screen forward: the playback notification, the lock screen card and
+              the car's session (see PlayerLaunch in :player, which defines the same action name).
+            -->
+            <intent-filter>
+                <action android:name="com.hardbasseq.eq.action.OPEN_PLAYER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <!-- Share target for text, used for SoundCloud links. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

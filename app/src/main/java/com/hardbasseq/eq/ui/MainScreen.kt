@@ -466,8 +466,8 @@ private fun PresetNameDialog(
 
 // Small persistent "now playing" strip for the in-app SoundCloud player, docked to
 // the bottom like Spotify's own mini-player - reflects AudioPlayerService's state
-// (see NowPlayingState) without needing PlayerActivity's full track-browsing screen
-// open. Tapping it reopens that screen; the play/pause button controls playback
+// (see NowPlayingState) without needing the full player screen open. Tapping it reopens
+// that screen; the play/pause button controls playback
 // directly, without leaving the equalizer.
 @Composable
 private fun NowPlayingBar(
