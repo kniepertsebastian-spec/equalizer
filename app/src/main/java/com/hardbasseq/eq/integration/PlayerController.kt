@@ -14,6 +14,9 @@ import com.soundcloud.equalizer.player.playback.LinkResolver
 import com.soundcloud.equalizer.player.playback.NowPlaying
 import com.soundcloud.equalizer.player.playback.NowPlayingState
 import com.soundcloud.equalizer.player.playback.PlaybackQueueState
+import com.soundcloud.equalizer.player.playback.QueueRequest
+import com.soundcloud.equalizer.player.playback.QueueRequests
+import com.soundcloud.equalizer.player.playback.RepeatSetting
 import com.soundcloud.equalizer.player.service.AudioPlayerService
 import com.soundcloud.equalizer.player.spotify.SpotifyApiClient
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -61,6 +64,23 @@ interface PlayerController {
         tracks: List<TrackItem>,
         startIndex: Int,
     )
+
+    // Right after the track that plays now (a new queue when nothing is loaded).
+    fun playNext(tracks: List<TrackItem>)
+
+    // At the end of the queue (a new queue when nothing is loaded).
+    fun addToQueue(tracks: List<TrackItem>)
+
+    fun moveQueueItem(
+        from: Int,
+        to: Int,
+    )
+
+    fun removeQueueItem(index: Int)
+
+    fun setShuffle(enabled: Boolean)
+
+    fun setRepeat(setting: RepeatSetting)
 
     fun skipToIndex(index: Int)
 
@@ -147,8 +167,39 @@ class AndroidPlayerController
             startIndex: Int,
         ) {
             if (tracks.isEmpty()) return
-            PlaybackQueueState.setQueue(tracks)
-            skipToIndex(startIndex.coerceIn(0, tracks.lastIndex))
+            request(QueueRequest.Replace(tracks, startIndex.coerceIn(0, tracks.lastIndex)))
+        }
+
+        override fun playNext(tracks: List<TrackItem>) {
+            if (tracks.isNotEmpty()) request(QueueRequest.PlayNext(tracks))
+        }
+
+        override fun addToQueue(tracks: List<TrackItem>) {
+            if (tracks.isNotEmpty()) request(QueueRequest.Append(tracks))
+        }
+
+        override fun moveQueueItem(
+            from: Int,
+            to: Int,
+        ) = send(AudioPlayerService.ACTION_MOVE_QUEUE_ITEM) {
+            putExtra(AudioPlayerService.EXTRA_FROM_INDEX, from)
+            putExtra(AudioPlayerService.EXTRA_TO_INDEX, to)
+        }
+
+        override fun removeQueueItem(index: Int) =
+            send(AudioPlayerService.ACTION_REMOVE_QUEUE_ITEM) { putExtra(AudioPlayerService.EXTRA_QUEUE_INDEX, index) }
+
+        override fun setShuffle(enabled: Boolean) =
+            send(AudioPlayerService.ACTION_SET_SHUFFLE) { putExtra(AudioPlayerService.EXTRA_SHUFFLE, enabled) }
+
+        override fun setRepeat(setting: RepeatSetting) =
+            send(AudioPlayerService.ACTION_SET_REPEAT) { putExtra(AudioPlayerService.EXTRA_REPEAT, setting.name) }
+
+        // The tracks wait in QueueRequests (an intent cannot carry them); the intent tells the
+        // service to take them out.
+        private fun request(request: QueueRequest) {
+            QueueRequests.submit(request)
+            send(AudioPlayerService.ACTION_QUEUE_REQUEST)
         }
 
         override fun skipToIndex(index: Int) =

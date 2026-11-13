@@ -427,4 +427,25 @@
     <string name="macro_haerte_name">Harshness</string>
     <string name="hp_power_bass_name">Bass strength</string>
     <string name="hp_power_loudness_name">Loudness at low volume</string>
+    <!-- Built-in player: queue, shuffle/repeat and what the player has to say (Roadmap 02). -->
+    <string name="track_more_actions">More for %1$s</string>
+    <string name="queue_play_next">Play next</string>
+    <string name="queue_add">Add to queue</string>
+    <string name="queue_move_up">Move up</string>
+    <string name="queue_move_down">Move down</string>
+    <string name="queue_remove">Remove from queue</string>
+    <string name="queue_shuffle_order_hint">Shuffle is on: the list keeps its order, playback picks at random.</string>
+    <string name="player_shuffle">Shuffle</string>
+    <string name="player_repeat">Repeat</string>
+    <string name="player_repeat_off">Off</string>
+    <string name="player_repeat_all">Whole queue</string>
+    <string name="player_repeat_one">This track</string>
+    <string name="state_on">On</string>
+    <string name="state_off">Off</string>
+    <string name="notice_waiting_for_network">No connection - paused, trying again shortly</string>
+    <string name="notice_not_playable">Not playable, skipped: %1$s</string>
+    <string name="notice_network_gave_up">Still no connection - paused. Press play to try again</string>
+    <string name="notice_too_many_unplayable">Several tracks in a row could not be played - paused</string>
+    <string name="preview_hint_sign_in">Sign in to the player with your SoundCloud Go account for the full length</string>
+    <string name="preview_hint_account">SoundCloud gives no full length for this track with your account</string>
 </resources>

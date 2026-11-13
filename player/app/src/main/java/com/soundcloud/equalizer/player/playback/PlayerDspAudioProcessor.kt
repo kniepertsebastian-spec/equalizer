@@ -23,6 +23,10 @@ class PlayerDspAudioProcessor : BaseAudioProcessor() {
     private var sampleRateHz = 0
     private var appliedCurve: PlayerCurve? = null
 
+    // Reused from buffer to buffer (it only grows): a new array for every buffer, many times a
+    // second, kept the garbage collector busy during playback.
+    private var samples = ShortArray(0)
+
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         // Anything but 16-bit PCM (float output, 24-bit, ...) stays unprocessed: NOT_SET
         // marks this processor inactive so ExoPlayer skips it entirely, instead of failing
@@ -48,15 +52,16 @@ class PlayerDspAudioProcessor : BaseAudioProcessor() {
         }
 
         val shorts = inputBuffer.asShortBuffer()
-        val samples = ShortArray(shorts.remaining())
-        shorts.get(samples)
+        val count = shorts.remaining()
+        if (samples.size < count) samples = ShortArray(count)
+        shorts.get(samples, 0, count)
         inputBuffer.position(inputBuffer.limit())
 
-        dsp.process(samples, 0, samples.size, sampleRateHz)
+        dsp.process(samples, 0, count, sampleRateHz)
 
-        val output = replaceOutputBuffer(samples.size * 2)
-        output.asShortBuffer().put(samples)
-        output.position(samples.size * 2)
+        val output = replaceOutputBuffer(count * 2)
+        output.asShortBuffer().put(samples, 0, count)
+        output.position(count * 2)
         output.flip()
     }
 

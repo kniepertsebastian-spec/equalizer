@@ -1,8 +1,6 @@
 package com.hardbasseq.eq.ui.player
 
-import android.graphics.BitmapFactory
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,11 +23,9 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -55,16 +51,12 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -83,6 +75,7 @@ import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.playlist.PlaylistSearch
 import com.hardbasseq.eq.playlist.SavedPlaylist
+import com.hardbasseq.eq.playlist.SavedTrack
 import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.ui.eq.EqStatus
 import com.hardbasseq.eq.ui.eq.EqStatusLine
@@ -94,9 +87,7 @@ import com.hardbasseq.eq.ui.theme.SonicRule
 import com.hardbasseq.eq.ui.theme.SonicSteel
 import com.hardbasseq.eq.ui.theme.spacing
 import com.soundcloud.equalizer.player.model.TrackItem
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.net.URL
+import com.soundcloud.equalizer.player.playback.RepeatSetting
 
 // The full player: what the mini bar at the bottom of the main screen expands into.
 // Cover, seek bar, previous/next, the current queue, and the saved playlists with
@@ -222,14 +213,20 @@ fun PlayerScreen(
 
             item {
                 val playing = nowPlaying
+                val artworkDescription = stringResource(R.string.artwork_description)
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     ArtworkFrame(modifier = Modifier.fillMaxWidth(0.72f)) {
-                        ArtworkImage(
+                        CoverImage(
                             url = PlayerFormat.largeArtwork(playing?.artworkUrl),
-                            modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium),
+                            modifier =
+                                Modifier
+                                    .fillMaxSize()
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .semantics { contentDescription = artworkDescription },
+                            placeholderIconSize = 64.dp,
                         )
                     }
                     Spacer(modifier = Modifier.height(spacing.medium))
@@ -256,6 +253,20 @@ fun PlayerScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error,
                         )
+                        Text(
+                            text = stringResource(if (signedIn) R.string.preview_hint_account else R.string.preview_hint_sign_in),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = style.mutedText,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    playing?.notice?.let { notice ->
+                        Text(
+                            text = noticeText(notice),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (notice.isProblem()) MaterialTheme.colorScheme.error else style.mutedText,
+                            textAlign = TextAlign.Center,
+                        )
                     }
                     Spacer(modifier = Modifier.height(spacing.small))
                     SeekBar(
@@ -266,8 +277,9 @@ fun PlayerScreen(
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(spacing.medium),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.small),
                     ) {
+                        ShuffleButton(enabled = playing != null, on = playing?.shuffle == true, onToggle = viewModel::toggleShuffle)
                         IconButton(onClick = viewModel::previous, enabled = playing != null, modifier = Modifier.size(56.dp)) {
                             Icon(
                                 Icons.Default.SkipPrevious,
@@ -298,6 +310,11 @@ fun PlayerScreen(
                                 modifier = Modifier.size(32.dp),
                             )
                         }
+                        RepeatButton(
+                            enabled = playing != null,
+                            setting = playing?.repeat ?: RepeatSetting.OFF,
+                            onCycle = viewModel::cycleRepeat,
+                        )
                     }
                     IconButton(
                         onClick = { viewModel.currentTrack()?.let { playlistDialog = PlaylistDialogRequest(it) } },
@@ -325,6 +342,8 @@ fun PlayerScreen(
                     state = searchState,
                     onSearch = { viewModel.search(searchText) },
                     onPlay = viewModel::playSearchResult,
+                    onPlayNext = viewModel::playNext,
+                    onAddToQueue = viewModel::addToQueue,
                 )
 
                 discoveryItems(
@@ -448,6 +467,8 @@ fun PlayerScreen(
                                         onDelete = { viewModel.deletePlaylist(playlist) },
                                         onSendToSoundCloud = { viewModel.syncToSoundCloud(listOf(playlist)) },
                                         onRemoveTrack = { viewModel.removeFromPlaylist(playlist, it) },
+                                        onPlayNext = viewModel::playNextFromPlaylist,
+                                        onAddToQueue = viewModel::addToQueueFromPlaylist,
                                         currentTrackId = currentTrackId,
                                         playedIds = playedIds,
                                     )
@@ -504,6 +525,8 @@ fun PlayerScreen(
                                                 "${(match.score * 100).toInt()} %",
                                             ).joinToString(" · "),
                                         onPlay = { viewModel.playBridgeMatch(match) },
+                                        showCover = true,
+                                        artworkUrl = match.track.artworkUrl,
                                     )
                                 }
                             }
@@ -563,6 +586,8 @@ fun PlayerScreen(
                                     title = playlist.title,
                                     subtitle = stringResource(R.string.tracks_count, playlist.trackCount),
                                     onPlay = { viewModel.playLibraryPlaylist(playlist) },
+                                    showCover = true,
+                                    artworkUrl = playlist.artworkUrl,
                                 )
                             }
                         }
@@ -579,6 +604,8 @@ fun PlayerScreen(
                                     title = playlist.title,
                                     subtitle = stringResource(R.string.tracks_count, playlist.trackCount),
                                     onPlay = { viewModel.playLibraryPlaylist(playlist) },
+                                    showCover = true,
+                                    artworkUrl = playlist.artworkUrl,
                                 )
                             }
                         }
@@ -603,6 +630,13 @@ fun PlayerScreen(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
+                            if (playing.shuffle) {
+                                Text(
+                                    text = stringResource(R.string.queue_shuffle_order_hint),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = SonicSteel,
+                                )
+                            }
                         }
                     }
                 }
@@ -631,6 +665,8 @@ fun PlayerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
+                            CoverThumb(url = track.artworkUrl)
+                            Spacer(modifier = Modifier.size(spacing.small))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = track.title,
@@ -655,12 +691,15 @@ fun PlayerScreen(
                                     color = SonicSteel,
                                 )
                             }
-                            IconButton(onClick = { playlistDialog = PlaylistDialogRequest(track) }) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.PlaylistAdd,
-                                    contentDescription = stringResource(R.string.queue_add_to_playlist),
-                                )
-                            }
+                            QueueEntryMenu(
+                                trackTitle = track.title,
+                                canMoveUp = index > 0,
+                                canMoveDown = index < queue.lastIndex,
+                                onMoveUp = { viewModel.moveQueueItem(index, index - 1) },
+                                onMoveDown = { viewModel.moveQueueItem(index, index + 1) },
+                                onRemove = { viewModel.removeQueueItem(index) },
+                                onAddToPlaylist = { playlistDialog = PlaylistDialogRequest(track) },
+                            )
                         }
                     }
                 }
@@ -747,6 +786,9 @@ internal fun LibraryRow(
     title: String,
     subtitle: String,
     onPlay: () -> Unit,
+    showCover: Boolean = false,
+    artworkUrl: String? = null,
+    menu: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier =
@@ -757,6 +799,10 @@ internal fun LibraryRow(
                 .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (showCover) {
+            CoverThumb(url = artworkUrl)
+            Spacer(modifier = Modifier.size(MaterialTheme.spacing.small))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
@@ -771,6 +817,7 @@ internal fun LibraryRow(
         IconButton(onClick = onPlay) {
             Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.player_play))
         }
+        menu?.invoke()
     }
 }
 
@@ -784,6 +831,8 @@ private fun PlaylistRow(
     onDelete: () -> Unit,
     onSendToSoundCloud: () -> Unit,
     onRemoveTrack: (Long) -> Unit,
+    onPlayNext: (SavedTrack) -> Unit,
+    onAddToQueue: (SavedTrack) -> Unit,
     currentTrackId: Long?,
     playedIds: Set<Long>,
 ) {
@@ -864,6 +913,8 @@ private fun PlaylistRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
+                    CoverThumb(url = track.artworkUrl)
+                    Spacer(modifier = Modifier.size(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = track.title,
@@ -880,14 +931,13 @@ private fun PlaylistRow(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                    IconButton(onClick = { onPlayTrack(hit.index) }) {
-                        Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play_from_here))
-                    }
-                    if (playlist.sourceUrl == null) {
-                        IconButton(onClick = { onRemoveTrack(track.id) }) {
-                            Icon(Icons.Default.Close, contentDescription = stringResource(R.string.playlist_remove_track))
-                        }
-                    }
+                    TrackQueueMenu(
+                        trackTitle = track.title,
+                        onPlayNext = { onPlayNext(track) },
+                        onAddToQueue = { onAddToQueue(track) },
+                        onPlayFromHere = { onPlayTrack(hit.index) },
+                        onRemoveFromPlaylist = if (playlist.sourceUrl == null) ({ onRemoveTrack(track.id) }) else null,
+                    )
                 }
             }
         }
@@ -1010,45 +1060,4 @@ private fun PlaylistDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
-}
-
-// No image-loading library in this app, and one cover at a time is all this screen
-// shows: a plain download on the IO dispatcher, re-run whenever the URL changes.
-@Composable
-private fun ArtworkImage(
-    url: String?,
-    modifier: Modifier,
-) {
-    val bitmap by produceState<ImageBitmap?>(initialValue = null, url) {
-        value = null
-        if (url != null) {
-            value =
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        val connection =
-                            URL(url).openConnection().apply {
-                                connectTimeout = 10_000
-                                readTimeout = 10_000
-                            }
-                        connection.getInputStream().use { BitmapFactory.decodeStream(it) }?.asImageBitmap()
-                    }.getOrNull()
-                }
-        }
-    }
-    val loaded = bitmap
-    if (loaded != null) {
-        Image(
-            bitmap = loaded,
-            contentDescription = stringResource(R.string.artwork_description),
-            contentScale = ContentScale.Crop,
-            modifier = modifier,
-        )
-    } else {
-        Box(
-            modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Default.MusicNote, contentDescription = null, modifier = Modifier.size(64.dp))
-        }
-    }
 }

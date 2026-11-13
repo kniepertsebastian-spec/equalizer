@@ -68,16 +68,17 @@
             android:foregroundServiceType="mediaPlayback" />
 
         <!--
-          Android Auto: the media browser the car shows (playlists, new uploads, likes) and
-          the declaration that this app is a media app. See AutoBrowserService.
+          Android Auto: this app is a media app. The browser the car connects to is the player's
+          own AudioPlayerService (a MediaLibraryService, declared in :player's manifest); these
+          entries are merged into that declaration.
         -->
         <service
-            android:name=".auto.AutoBrowserService"
+            android:name="com.soundcloud.equalizer.player.service.AudioPlayerService"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
-            <!-- Voice search in the car ("play X"): handled by the player's media session. -->
+            <!-- Voice search in the car ("play X"): answered by the session (onSetMediaItems). -->
             <intent-filter>
                 <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
                 <category android:name="android.intent.category.DEFAULT" />

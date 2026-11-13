@@ -32,19 +32,7 @@
     <string name="err_not_public">The track or playlist is not public or does not exist</string>
     <string name="err_spotify_page_http">Spotify is not answering (HTTP %1$s)</string>
     <string name="spotify_signed_in">Signed in with Spotify</string>
-    <string name="svc_preview_signin">Preview only - sign in to the player with your SoundCloud Go account</string>
-    <string name="svc_preview_account">Preview only - SoundCloud gives no full length for this track with your account</string>
-    <string name="svc_not_playable">Not playable: %1$s</string>
-    <string name="svc_network_waiting">No connection - paused, trying again shortly</string>
-    <string name="svc_network_gave_up">Still no connection - paused. Press play to try again</string>
-    <string name="svc_skips_gave_up">Several tracks in a row could not be played - paused</string>
-    <string name="svc_default_title">SoundCloud track</string>
-    <string name="svc_default_artist">Artist</string>
     <string name="svc_channel_name">Baschtls Gedröhne playback</string>
-    <string name="svc_action_previous">Previous</string>
-    <string name="svc_action_pause">Pause</string>
-    <string name="svc_action_play">Play</string>
-    <string name="svc_action_next">Next</string>
     <string name="login_manual_token">Enter token manually</string>
     <string name="login_token_title">Paste SoundCloud token</string>
     <string name="login_token_help">1. Open Chrome and sign in to soundcloud.com with Google.\n2. Create a bookmark with this address: javascript:prompt(\'Cookie\',document.cookie)\n3. Open the bookmark while you are logged in to soundcloud.com - your cookies appear in the popup.\n4. Copy the value after \"oauth_token=\" up to the next \";\" and paste it below.</string>

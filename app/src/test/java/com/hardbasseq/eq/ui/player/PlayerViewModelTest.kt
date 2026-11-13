@@ -18,6 +18,7 @@ import com.soundcloud.equalizer.player.model.LibraryOverview
 import com.soundcloud.equalizer.player.model.PlaylistItem
 import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.NowPlaying
+import com.soundcloud.equalizer.player.playback.RepeatSetting
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -1139,10 +1140,83 @@ class PlayerViewModelTest {
             assertEquals("Kick", vm.nowPlaying.value?.title)
         }
 
+    @Test
+    fun `play next and add to queue hand the track to the player`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.playNext(track(3))
+            vm.addToQueue(track(4))
+
+            assertEquals(listOf("playNext:[3]", "append:[4]"), controller.commands)
+        }
+
+    @Test
+    fun `a playlist entry can be played next or added to the queue`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(7))
+            dispatcher.scheduler.advanceUntilIdle()
+            val saved =
+                vm.playlists.value
+                    .single()
+                    .tracks
+                    .single()
+
+            vm.playNextFromPlaylist(saved)
+            vm.addToQueueFromPlaylist(saved)
+
+            assertEquals(listOf("playNext:[7]", "append:[7]"), controller.commands)
+        }
+
+    @Test
+    fun `queue entries move and go only within the queue`() =
+        runTest {
+            controller.queueFlow.value = listOf(track(1), track(2), track(3))
+            val vm = viewModel()
+
+            vm.moveQueueItem(0, 1)
+            vm.moveQueueItem(2, 1)
+            // Outside the queue, or no move at all: nothing is sent.
+            vm.moveQueueItem(0, 3)
+            vm.moveQueueItem(-1, 0)
+            vm.moveQueueItem(1, 1)
+            vm.removeQueueItem(2)
+            vm.removeQueueItem(3)
+
+            assertEquals(listOf("move:0->1", "move:2->1", "remove:2"), controller.commands)
+        }
+
+    @Test
+    fun `shuffle toggles against what the player reports`() =
+        runTest {
+            val vm = viewModel()
+            controller.nowPlayingFlow.value = NowPlaying(title = "Kick", artist = "DJ", isPlaying = true, shuffle = false)
+            vm.toggleShuffle()
+            controller.nowPlayingFlow.value = NowPlaying(title = "Kick", artist = "DJ", isPlaying = true, shuffle = true)
+            vm.toggleShuffle()
+
+            assertEquals(listOf("shuffle:true", "shuffle:false"), controller.commands)
+        }
+
+    @Test
+    fun `repeat cycles off, whole queue, this track, off`() =
+        runTest {
+            val vm = viewModel()
+            RepeatSetting.entries.forEach { setting ->
+                controller.nowPlayingFlow.value = NowPlaying(title = "Kick", artist = "DJ", isPlaying = true, repeat = setting)
+                vm.cycleRepeat()
+            }
+
+            assertEquals(listOf("repeat:ALL", "repeat:ONE", "repeat:OFF"), controller.commands)
+            assertEquals(RepeatSetting.ALL, nextRepeat(RepeatSetting.OFF))
+        }
+
     private class FakePlayerController : PlayerController {
         val nowPlayingFlow = MutableStateFlow<NowPlaying?>(null)
         override val nowPlaying: StateFlow<NowPlaying?> = nowPlayingFlow.asStateFlow()
-        override val queue: StateFlow<List<TrackItem>> = MutableStateFlow(emptyList<TrackItem>()).asStateFlow()
+        val queueFlow = MutableStateFlow(emptyList<TrackItem>())
+        override val queue: StateFlow<List<TrackItem>> = queueFlow.asStateFlow()
 
         var nextResult: LinkImportResult = LinkImportResult.Failed("not configured")
         val resolvedUrls = mutableListOf<String>()
@@ -1158,6 +1232,33 @@ class PlayerViewModelTest {
 
         override fun skipToIndex(index: Int) {
             commands.add("skip:$index")
+        }
+
+        override fun playNext(tracks: List<TrackItem>) {
+            commands.add("playNext:${tracks.map { it.id }}")
+        }
+
+        override fun addToQueue(tracks: List<TrackItem>) {
+            commands.add("append:${tracks.map { it.id }}")
+        }
+
+        override fun moveQueueItem(
+            from: Int,
+            to: Int,
+        ) {
+            commands.add("move:$from->$to")
+        }
+
+        override fun removeQueueItem(index: Int) {
+            commands.add("remove:$index")
+        }
+
+        override fun setShuffle(enabled: Boolean) {
+            commands.add("shuffle:$enabled")
+        }
+
+        override fun setRepeat(setting: RepeatSetting) {
+            commands.add("repeat:$setting")
         }
 
         override fun next() {
