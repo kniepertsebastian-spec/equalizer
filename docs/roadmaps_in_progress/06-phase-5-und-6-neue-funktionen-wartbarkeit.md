@@ -67,13 +67,13 @@ Geprüft gegen den Code auf diesem Branch (P6-7: ein Punkt zählt erst als erled
 - **P6-3 Gerätetests** `[~]` Geschrieben und kompiliert (`:app:compileDebugAndroidTestKotlin`): `DatabaseMigrationTest` (1→2, 2→3, 1→3), `SessionServiceBackgroundStartTest`, `EngineAttachToSessionTest` (echte `AudioTrack`-Session). **Nicht ausgeführt** – das braucht ein Gerät oder einen Emulator (`./gradlew :app:connectedDebugAndroidTest`). Bis dahin ist nichts davon als bestanden zu betrachten.
 - **P6-4 Absturzgrund über Neustarts** `[x]` `ActivityManager.getHistoricalProcessExitReasons` im Diagnosebericht („Last Process Exit“ und Liste der letzten fünf), `ProcessExitRecord`, `SystemDiagnosticsSource`. Tests: `DiagnosticsReportFormatterTest` (+7). Echte Exit-Info-Einträge sind nur auf einem Gerät zu sehen.
 - **P6-5 Roadmaps zusammenführen** `[x]` Die doppelten Root-Dateien `roadmap.md` und `roadmap-kontext-dsp.md` sind entfernt (Kopien lagen schon unter `docs/roadmaps_finished/`); `README.md` und `GEMINI.md` verweisen auf `docs/roadmaps_in_progress/00-INDEX.md` als einzige gültige Datei. Kommentare im Code, die „roadmap.md“ nennen, meinen das archivierte Session-Log und bleiben.
-- **P6-6 R8 für Release** `[~]` `isMinifyEnabled` und `isShrinkResources` an, Regeln in `app/proguard-rules.pro` (Serialisierung, Room-Daten, lesbare Stacktraces). `:app:assembleRelease` läuft durch, das unsignierte APK hat rund 7,3 MB (Debug: 88 MB); Manifest-Komponenten sind im DEX vorhanden. **Offen:** ein Lauf der signierten Release-APK auf einem Gerät (Start, Session-Attach, Preset speichern/laden, Teilen/Import, Tile, Player), bevor ein Release damit gebaut wird (TEST_MATRIX K41).
+- **P6-6 R8 für Release** `[ ]` **Zurückgenommen.** R8 (`isMinifyEnabled`, `isShrinkResources`) lief im Build durch, aber die signierte Release-APK (rund 7 MB) startete auf dem Gerät nicht. Das war genau der ungetestete Teil; die Ursache ist nicht gefunden (dafür braucht es den Logcat-Eintrag „FATAL EXCEPTION“ des Absturzes). Das Release baut wieder ohne Minify. `app/proguard-rules.pro` bleibt für den nächsten Versuch; R8 erst wieder einschalten, wenn die Release-APK auf einem Gerät gelaufen ist (TEST_MATRIX K41).
 - **P6-7 Statusangaben prüfen** `[x]` Auf diese Roadmap angewendet (dieser Abschnitt). Die Kästchen in 01–05 wurden nicht erneut gegen den Code geprüft.
 
 ### Offen (nicht abgeschlossen)
 
 1. Gerätetests und Hörproben: `docs/TEST_MATRIX.md`, K29–K41.
-2. Instrumentationstests ausführen (P6-3).
+2. Instrumentationstests ausführen (P6-3). R8 für Release (P6-6) erneut versuchen, nachdem der Startabsturz per Logcat geklärt ist.
 3. `PlayerViewModel` teilen; Hilt/State in `:player` (ADR 0004).
 4. Shizuku (P5-2), echtes Überlappen (P5-6), Bluetooth-Codec (P5-8, nur mit DUMP-Freigabe überhaupt denkbar).
 

@@ -50,11 +50,11 @@ android {
 
     buildTypes {
         release {
-            // Roadmap 06, P6-6: R8 shrinks and optimises the release APK (smaller, and faster loops
-            // in the audio thread). It never changes how anything sounds. The keep rules are in
-            // proguard-rules.pro; a release build still needs one run on a device (docs/TEST_MATRIX.md).
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // Roadmap 06, P6-6: R8 (isMinifyEnabled + isShrinkResources) was tried and switched off again:
+            // the signed release APK (about 7 MB) did not start on a device. The cause is not found
+            // yet (it needs the logcat of the crash, "FATAL EXCEPTION"). proguard-rules.pro is kept
+            // for the next attempt; turn minification back on only together with a device test.
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("hardbassRelease")
         }
