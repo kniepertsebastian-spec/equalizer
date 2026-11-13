@@ -55,9 +55,11 @@ import com.hardbasseq.eq.preset.PresetMetadata
 import com.hardbasseq.eq.preset.PresetRepository
 import com.hardbasseq.eq.preset.SoundGoal
 import com.hardbasseq.eq.preset.TargetPoint
+import com.hardbasseq.eq.profile.AppProfileRepository
 import com.hardbasseq.eq.profile.DeviceAliasStore
 import com.hardbasseq.eq.profile.DeviceProfileRepository
 import com.hardbasseq.eq.profile.InMemoryDeviceAliasStore
+import com.hardbasseq.eq.profile.NoAppProfileRepository
 import com.hardbasseq.eq.quick.QuickCommand
 import com.hardbasseq.eq.quick.QuickControls
 import com.hardbasseq.eq.quick.QuickState
@@ -75,6 +77,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -166,6 +169,7 @@ class MainViewModel
         private val carConnectionRepository: CarConnectionRepository = NoCarConnectionRepository,
         private val systemDiagnostics: SystemDiagnosticsSource = NoSystemDiagnosticsSource,
         private val quickControls: QuickControls = QuickControls(),
+        private val appProfileRepository: AppProfileRepository = NoAppProfileRepository,
         @DefaultDispatcher private val backgroundDispatcher: CoroutineDispatcher,
     ) : ViewModel() {
         private val _showDebugEffects = MutableStateFlow(false)
@@ -196,6 +200,49 @@ class MainViewModel
 
         fun selectAudioSession(session: AudioSession) {
             sessionRepository.setActiveSession(session)
+        }
+
+        // P5-5: true while the app the EQ is attached to has its own remembered sound.
+        val appProfileBound: StateFlow<Boolean> =
+            combine(appProfileRepository.allProfiles, sessionRepository.activeSession) { profiles, session ->
+                session != null && profiles.any { it.packageName == session.packageName }
+            }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+        // "Use this sound for <app>": remembers the current preset and correction for the app the EQ is
+        // attached to (and keeps them up to date with every later choice), or forgets them again.
+        fun setAppProfileBound(bound: Boolean) {
+            val packageName = sessionRepository.activeSession.value?.packageName ?: return
+            viewModelScope.launch {
+                if (bound) {
+                    appProfileRepository.saveProfile(packageName, _activePreset.value.id, _activeCorrectionProfile.value.id)
+                } else {
+                    appProfileRepository.deleteProfile(packageName)
+                }
+            }
+        }
+
+        // An app with a remembered sound gets it as soon as it becomes the active one. The device profile
+        // stays in charge for apps without one; on a route change the app's sound wins again afterwards.
+        private suspend fun applyAppProfile(packageName: String?) {
+            if (packageName == null) return
+            val profile = appProfileRepository.getProfile(packageName) ?: return
+            val preset = findPresetById(profile.boundPresetId, customPresetsState.value) ?: return
+            if (BuiltInContextPresets.contextOf(preset) != null) return
+            _activePreset.value = preset
+            _activeCorrectionProfile.value =
+                findCorrectionProfileById(profile.boundCorrectionProfileId, customCorrectionProfilesState.value)
+            _isDirty.value = false
+            _processingSettings.value = _processingSettings.value.withPreset(preset)
+            recalculateBandGains()
+            persistLiveSettings()
+        }
+
+        private fun rememberForActiveAppIfBound() {
+            val packageName = sessionRepository.activeSession.value?.packageName ?: return
+            if (!appProfileBound.value) return
+            viewModelScope.launch {
+                appProfileRepository.saveProfile(packageName, _activePreset.value.id, _activeCorrectionProfile.value.id)
+            }
         }
 
         val capabilities = audioEngine.capabilities
@@ -423,7 +470,19 @@ class MainViewModel
                 routeRepository.activeRoute
                     .drop(1)
                     .collect { route ->
-                        if (hasRestoredState) applyDeviceProfileForRoute(route)
+                        if (hasRestoredState) {
+                            applyDeviceProfileForRoute(route)
+                            applyAppProfile(sessionRepository.activeSession.value?.packageName)
+                        }
+                    }
+            }
+            viewModelScope.launch {
+                sessionRepository.activeSession
+                    .map { it?.packageName }
+                    .distinctUntilChanged()
+                    .collect { packageName ->
+                        stateRestored.await()
+                        applyAppProfile(packageName)
                     }
             }
             // The Virtual Bass approximation exists only for foreign sessions.
@@ -525,6 +584,7 @@ class MainViewModel
             // LiveSettings restored above, if this route has one - that's the
             // actual point of M3 (same taste, different headphones).
             applyDeviceProfileForRoute(routeRepository.activeRoute.value)
+            applyAppProfile(sessionRepository.activeSession.value?.packageName)
 
             // Keep collecting custom-preset/-correction-profile changes after this
             // point (deletions, saves) - the one-shot .first() calls above were
@@ -665,6 +725,7 @@ class MainViewModel
         // applyDeviceProfileForRoute() above (that would just save back the exact
         // binding it just read).
         private fun saveDeviceProfileBinding() {
+            rememberForActiveAppIfBound()
             val route = currentRoute.value
             val headphoneAcousticsOverride = headphoneAcousticsOverrideState.value
             viewModelScope.launch {

@@ -75,6 +75,7 @@ fun MainScreen(
     val engineState by viewModel.engineState.collectAsStateWithLifecycle()
     val audioSessions by viewModel.audioSessions.collectAsStateWithLifecycle()
     val activeAudioSession by viewModel.activeAudioSession.collectAsStateWithLifecycle()
+    val appProfileBound by viewModel.appProfileBound.collectAsStateWithLifecycle()
     val isOwnPlayerSession by viewModel.isOwnPlayerSession.collectAsStateWithLifecycle()
     val deviceKindPrompt by viewModel.deviceKindPrompt.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
@@ -289,6 +290,8 @@ fun MainScreen(
                         ?: if (playerLoaded) stringResource(R.string.source_soundcloud) else null,
                 audioSessions = audioSessions,
                 activeAudioSession = activeAudioSession,
+                appProfileBound = appProfileBound,
+                onAppProfileBoundChanged = { viewModel.setAppProfileBound(it) },
                 isOwnPlayerSession = isOwnPlayerSession,
                 preEqActive = capabilities.preEqCutoffsHz.isNotEmpty(),
                 onHighResolutionEqChanged = { viewModel.setHighResolutionEq(it) },

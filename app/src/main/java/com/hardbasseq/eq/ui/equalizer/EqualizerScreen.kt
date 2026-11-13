@@ -132,6 +132,8 @@ fun EqualizerScreen(
     onRetryAttach: () -> Unit,
     audioSessions: List<AudioSession> = emptyList(),
     activeAudioSession: AudioSession? = null,
+    appProfileBound: Boolean = false,
+    onAppProfileBoundChanged: ((Boolean) -> Unit)? = null,
     isOwnPlayerSession: Boolean = true,
     deviceKindPrompt: AudioRoute? = null,
     onAnswerDeviceKind: (DeviceKind) -> Unit = {},
@@ -314,6 +316,8 @@ fun EqualizerScreen(
                     sessions = audioSessions,
                     activeSession = activeAudioSession,
                     onSelect = onSelectAudioSession,
+                    appProfileBound = appProfileBound,
+                    onAppProfileBoundChange = onAppProfileBoundChanged,
                 )
                 Text(
                     text = stringResource(R.string.eq_playback_only_note),

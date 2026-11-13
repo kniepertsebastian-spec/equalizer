@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.hardbasseq.eq.data.db.AppDatabase
 import com.hardbasseq.eq.data.db.MIGRATION_1_2
+import com.hardbasseq.eq.data.db.MIGRATION_2_3
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Rule
@@ -57,6 +58,39 @@ class DatabaseMigrationTest {
             assertEquals("Mine", cursor.getString(0))
             assertEquals(42L, cursor.getLong(1))
         }
+    }
+
+    @Test
+    fun migrate2To3_addsTheAppProfilesTableAndKeepsEverythingElse() {
+        helper.createDatabase(DB_NAME, 2).apply {
+            execSQL(
+                "INSERT INTO device_profiles (routeId, routeType, displayName, boundPresetId, boundCorrectionProfileId, " +
+                    "headphoneAcousticsOverride, contextMode) VALUES ('route-1', 'CAR', 'Car', 'builtin_flat', 'correction_none', NULL, 'CAR')",
+            )
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate(DB_NAME, 3, true, MIGRATION_2_3)
+
+        migrated.execSQL(
+            "INSERT INTO app_profiles (packageName, boundPresetId, boundCorrectionProfileId, updatedAtMillis) " +
+                "VALUES ('com.spotify.music', 'builtin_deep_rumble', 'correction_none', 1)",
+        )
+        migrated.query("SELECT COUNT(*) FROM app_profiles").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals(1, cursor.getInt(0))
+        }
+        migrated.query("SELECT contextMode FROM device_profiles WHERE routeId = 'route-1'").use { cursor ->
+            cursor.moveToFirst()
+            assertEquals("CAR", cursor.getString(0))
+        }
+    }
+
+    @Test
+    fun migrateAll_from1To3_works() {
+        helper.createDatabase(DB_NAME, 1).close()
+
+        helper.runMigrationsAndValidate(DB_NAME, 3, true, MIGRATION_1_2, MIGRATION_2_3).close()
     }
 
     private companion object {

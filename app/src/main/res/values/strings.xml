@@ -194,6 +194,8 @@
     <string name="widget_description">Switch the equalizer on or off and change the preset</string>
     <string name="widget_toggle_description">Switch equalizer on or off</string>
     <string name="widget_next_preset_description">Next preset</string>
+    <string name="app_profile_title">Use this sound for %1$s</string>
+    <string name="app_profile_desc">Remembers the preset and correction for this app and applies them whenever it plays.</string>
     <string name="share_correction_profile">Share correction profile</string>
     <string name="diagnostics_button">Diagnostics &amp; report</string>
     <string name="source_picker_title">Play from...</string>
