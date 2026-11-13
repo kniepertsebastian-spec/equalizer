@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import com.hardbasseq.eq.playlist.LocalTrackId
 import com.hardbasseq.eq.playlist.PlayerFormat
 import com.hardbasseq.eq.playlist.QueueMediaId
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -20,7 +21,9 @@ object TrackMediaItems {
         MediaItem
             .Builder()
             .setMediaId(QueueMediaId.of(track.id))
-            .setUri(QueueMediaId.streamUri(track.id))
+            // A file on the device plays from its own address (nothing to look up, nothing that expires);
+            // everything else is the placeholder ResolvingTrackMediaSource turns into a stream.
+            .setUri(track.streamUrl?.takeIf(LocalTrackId::isLocalAddress) ?: QueueMediaId.streamUri(track.id))
             .setMediaMetadata(
                 MediaMetadata
                     .Builder()

@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.integration.LinkImportResult
 import com.hardbasseq.eq.integration.LoadResult
+import com.hardbasseq.eq.integration.LocalTrackReader
+import com.hardbasseq.eq.integration.NoLocalTrackReader
 import com.hardbasseq.eq.integration.PlayerController
 import com.hardbasseq.eq.link.LinkSource
 import com.hardbasseq.eq.link.ShareLink
@@ -17,6 +19,7 @@ import com.hardbasseq.eq.link.SpotifyTrackPage
 import com.hardbasseq.eq.link.TrackMatcher
 import com.hardbasseq.eq.link.TrackQuery
 import com.hardbasseq.eq.link.TrackQueryBuilder
+import com.hardbasseq.eq.playlist.LocalTrackId
 import com.hardbasseq.eq.playlist.PlaylistEditing
 import com.hardbasseq.eq.playlist.PlaylistRepository
 import com.hardbasseq.eq.playlist.SavedPlaylist
@@ -97,6 +100,7 @@ class PlayerViewModel
         private val playlistRepository: PlaylistRepository,
         private val spotifyImportRepository: SpotifyImportRepository,
         private val texts: TextProvider,
+        private val localTracks: LocalTrackReader = NoLocalTrackReader,
     ) : ViewModel() {
         val nowPlaying: StateFlow<NowPlaying?> = controller.nowPlaying
         val queue: StateFlow<List<TrackItem>> = controller.queue
@@ -738,6 +742,23 @@ class PlayerViewModel
             _bridgeState.value = null
         }
 
+        // P5-7: audio files picked on the device play as the queue, through the same chain as SoundCloud
+        // (curve, virtual bass, mono bass, limiter) - nothing is looked up, the file is the stream.
+        fun playLocalFiles(addresses: List<String>) {
+            if (addresses.isEmpty()) return
+            viewModelScope.launch {
+                val tracks = localTracks.read(addresses)
+                if (tracks.isEmpty()) {
+                    fail(texts.get(R.string.local_files_unreadable))
+                    return@launch
+                }
+                controller.playQueue(tracks, 0)
+                if (tracks.size < addresses.size) {
+                    _importState.value = ImportUiState(message = texts.get(R.string.local_files_some_skipped, addresses.size - tracks.size))
+                }
+            }
+        }
+
         // Plays the playlist as the queue, from [startIndex] (a track picked in the opened list).
         fun playPlaylist(
             playlist: SavedPlaylist,
@@ -755,6 +776,10 @@ class PlayerViewModel
             title: String,
             firstTrack: TrackItem? = null,
         ) {
+            if (firstTrack != null && LocalTrackId.isLocal(firstTrack.id)) {
+                fail(texts.get(R.string.local_files_not_in_playlists))
+                return
+            }
             viewModelScope.launch {
                 val existing = playlistRepository.playlists.first()
                 val playlist = PlaylistEditing.create(title, existing, System.currentTimeMillis(), firstTrack?.toSaved())
@@ -771,6 +796,10 @@ class PlayerViewModel
             playlist: SavedPlaylist,
             track: TrackItem,
         ) {
+            if (LocalTrackId.isLocal(track.id)) {
+                fail(texts.get(R.string.local_files_not_in_playlists))
+                return
+            }
             viewModelScope.launch {
                 // Read again: the list shown may be a moment old.
                 val latest = playlistRepository.playlists.first().firstOrNull { it.id == playlist.id } ?: return@launch

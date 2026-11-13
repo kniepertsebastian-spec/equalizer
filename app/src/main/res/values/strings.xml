@@ -206,6 +206,10 @@
     <string name="parametric_frequency">Frequency</string>
     <string name="parametric_gain">Gain</string>
     <string name="parametric_q">Q (width)</string>
+    <string name="local_files_button">Play files from this device</string>
+    <string name="local_files_unreadable">None of the selected files could be read as audio</string>
+    <string name="local_files_some_skipped">%1$d files could not be read and were skipped</string>
+    <string name="local_files_not_in_playlists">Files from this device cannot be saved in playlists</string>
     <string name="share_correction_profile">Share correction profile</string>
     <string name="diagnostics_button">Diagnostics &amp; report</string>
     <string name="source_picker_title">Play from...</string>
