@@ -1,12 +1,10 @@
 package com.hardbasseq.eq.autoeq
 
-import com.hardbasseq.eq.dsp.BiquadFilterDesigner
+import com.hardbasseq.eq.dsp.ParametricCurve
 import com.hardbasseq.eq.dsp.ParametricFilter
 import com.hardbasseq.eq.dsp.ParametricFilterBounds
 import com.hardbasseq.eq.dsp.ParametricFilterType
 import com.hardbasseq.eq.preset.TargetPoint
-import kotlin.math.pow
-import kotlin.math.roundToInt
 
 /**
  * AutoEq's `ParametricEQ.txt` / Equalizer APO style lists, e.g.
@@ -23,11 +21,6 @@ import kotlin.math.roundToInt
  * same safety margin twice.
  */
 object ParametricEqTextParser {
-    private const val SAMPLE_RATE_HZ = 48_000f
-    private const val POINTS_PER_OCTAVE = 6
-    private const val START_HZ = 20f
-    private const val END_HZ = 20_000f
-
     private val filterLine =
         Regex(
             """^\s*Filter\s*\d*\s*:\s*(ON|OFF)\s+(\w+)\s+Fc\s+([-+0-9.eE]+)\s*(?:Hz)?(?:\s+Gain\s+([-+0-9.eE]+)\s*(?:dB)?)?(?:\s+Q\s+([-+0-9.eE]+))?""",
@@ -44,15 +37,7 @@ object ParametricEqTextParser {
                 .mapNotNull(::parseFilter)
                 .toList()
         if (filters.isEmpty()) return null
-
-        val octaves = kotlin.math.ln(END_HZ / START_HZ) / kotlin.math.ln(2f)
-        val steps = (octaves * POINTS_PER_OCTAVE).roundToInt()
-        val coefficients = filters.map { BiquadFilterDesigner.design(it, SAMPLE_RATE_HZ) }
-        return (0..steps).map { step ->
-            val freq = START_HZ * 2f.pow(step.toFloat() / POINTS_PER_OCTAVE)
-            val gain = coefficients.sumOf { BiquadFilterDesigner.magnitudeResponseDb(it, freq, SAMPLE_RATE_HZ).toDouble() }
-            TargetPoint(freq, gain.toFloat().coerceIn(-24f, 24f))
-        }
+        return ParametricCurve.toCurve(filters)
     }
 
     private fun parseFilter(line: String): ParametricFilter? {

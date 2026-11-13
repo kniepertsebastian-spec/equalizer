@@ -76,6 +76,7 @@ fun MainScreen(
     val audioSessions by viewModel.audioSessions.collectAsStateWithLifecycle()
     val activeAudioSession by viewModel.activeAudioSession.collectAsStateWithLifecycle()
     val appProfileBound by viewModel.appProfileBound.collectAsStateWithLifecycle()
+    val parametricBands by viewModel.parametricBands.collectAsStateWithLifecycle()
     val isOwnPlayerSession by viewModel.isOwnPlayerSession.collectAsStateWithLifecycle()
     val deviceKindPrompt by viewModel.deviceKindPrompt.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
@@ -290,6 +291,10 @@ fun MainScreen(
                         ?: if (playerLoaded) stringResource(R.string.source_soundcloud) else null,
                 audioSessions = audioSessions,
                 activeAudioSession = activeAudioSession,
+                parametricBands = parametricBands,
+                onAddParametricBand = { viewModel.addParametricBand() },
+                onChangeParametricBand = { index, band -> viewModel.updateParametricBand(index, band) },
+                onRemoveParametricBand = { viewModel.removeParametricBand(it) },
                 appProfileBound = appProfileBound,
                 onAppProfileBoundChanged = { viewModel.setAppProfileBound(it) },
                 isOwnPlayerSession = isOwnPlayerSession,

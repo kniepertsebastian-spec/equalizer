@@ -57,6 +57,7 @@ import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.HeadroomWarningLevel
 import com.hardbasseq.eq.dsp.HeadroomWarningLevelCalculator
 import com.hardbasseq.eq.dsp.LoudnessCompensationCurve
+import com.hardbasseq.eq.dsp.ParametricBand
 import com.hardbasseq.eq.dsp.SubsonicFilterCurve
 import com.hardbasseq.eq.dsp.VirtualBassApproxCurve
 import com.hardbasseq.eq.dsp.VolumeLevelMapper
@@ -132,6 +133,10 @@ fun EqualizerScreen(
     onRetryAttach: () -> Unit,
     audioSessions: List<AudioSession> = emptyList(),
     activeAudioSession: AudioSession? = null,
+    parametricBands: List<ParametricBand> = emptyList(),
+    onAddParametricBand: () -> Unit = {},
+    onChangeParametricBand: (Int, ParametricBand) -> Unit = { _, _ -> },
+    onRemoveParametricBand: (Int) -> Unit = {},
     appProfileBound: Boolean = false,
     onAppProfileBoundChanged: ((Boolean) -> Unit)? = null,
     isOwnPlayerSession: Boolean = true,
@@ -592,6 +597,15 @@ fun EqualizerScreen(
                     )
                 }
             }
+
+            ParametricBandsSection(
+                bands = parametricBands,
+                onAdd = onAddParametricBand,
+                onChange = onChangeParametricBand,
+                onRemove = onRemoveParametricBand,
+                spacing = spacing,
+                style = style,
+            )
 
             // M4: applied input gain, limiter status and threshold, warning levels and MBC
             // transparency - always visible, as segment meters plus the exact values. All of

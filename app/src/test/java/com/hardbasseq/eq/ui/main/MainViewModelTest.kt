@@ -29,6 +29,9 @@ import com.hardbasseq.eq.diagnostics.InMemoryDiagnosticsRecorder
 import com.hardbasseq.eq.dsp.CurveComposer
 import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
+import com.hardbasseq.eq.dsp.ParametricBand
+import com.hardbasseq.eq.dsp.ParametricCurve
+import com.hardbasseq.eq.dsp.ParametricFilterBounds
 import com.hardbasseq.eq.dsp.PreEqLayout
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
@@ -1263,6 +1266,51 @@ class MainViewModelTest {
             dispatcher.scheduler.advanceUntilIdle()
 
             assertEquals(BuiltInPresets.Flat.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `a parametric band changes the band gains and marks the sound as edited`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.bandGainsDb
+
+            viewModel.addParametricBand()
+            viewModel.updateParametricBand(0, viewModel.parametricBands.value[0].copy(frequencyHz = 60f, gainDb = 9f, q = 1f))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, viewModel.parametricBands.value.size)
+            assertTrue(
+                "the low band got louder",
+                viewModel.processingSettings.value.bandGainsDb.values
+                    .sum() > before.values.sum(),
+            )
+            assertTrue(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `parametric bands are limited persisted and restored`() =
+        runTest {
+            val settingsRepository = FakeAppSettingsRepository()
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = settingsRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            repeat(ParametricCurve.MAX_BANDS + 3) { viewModel.addParametricBand() }
+            viewModel.updateParametricBand(0, ParametricBand(frequencyHz = 5f, gainDb = 99f, q = 0f))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(ParametricCurve.MAX_BANDS, viewModel.parametricBands.value.size)
+            val first = viewModel.parametricBands.value[0]
+            assertEquals(ParametricFilterBounds.MIN_FREQUENCY_HZ, first.frequencyHz, 0f)
+            assertEquals(ParametricFilterBounds.MAX_GAIN_DB, first.gainDb, 0f)
+
+            val restored = createViewModel(emptyList(), appSettingsRepository = settingsRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(viewModel.parametricBands.value, restored.parametricBands.value)
+
+            restored.removeParametricBand(0)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(ParametricCurve.MAX_BANDS - 1, restored.parametricBands.value.size)
         }
 
     @Test

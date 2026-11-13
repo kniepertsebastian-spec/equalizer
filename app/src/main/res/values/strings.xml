@@ -196,6 +196,16 @@
     <string name="widget_next_preset_description">Next preset</string>
     <string name="app_profile_title">Use this sound for %1$s</string>
     <string name="app_profile_desc">Remembers the preset and correction for this app and applies them whenever it plays.</string>
+    <string name="parametric_title">Parametric bands</string>
+    <string name="parametric_info">Free bands with their own frequency, width (Q) and gain. They add to the sound above. The built-in player follows them exactly; through the system equalizer they are only as fine as its bands.</string>
+    <string name="parametric_add">Add band</string>
+    <string name="parametric_empty">No free bands yet.</string>
+    <string name="parametric_band_title">Band %1$d</string>
+    <string name="parametric_band_enabled">Band %1$d on or off</string>
+    <string name="parametric_band_remove">Remove band %1$d</string>
+    <string name="parametric_frequency">Frequency</string>
+    <string name="parametric_gain">Gain</string>
+    <string name="parametric_q">Q (width)</string>
     <string name="share_correction_profile">Share correction profile</string>
     <string name="diagnostics_button">Diagnostics &amp; report</string>
     <string name="source_picker_title">Play from...</string>

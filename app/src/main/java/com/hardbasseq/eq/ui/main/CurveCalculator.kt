@@ -43,6 +43,8 @@ data class CurveInputs(
     val ownPlayerSession: Boolean,
     val preEqAvailable: Boolean,
     val settings: ProcessingSettings,
+    // P5-3: the parametric bands, already evaluated (ParametricCurve.bandsToCurve).
+    val parametricCurve: List<TargetPoint> = emptyList(),
 )
 
 object CurveCalculator {
@@ -73,6 +75,7 @@ object CurveCalculator {
                 headphoneCurve,
                 loudnessCurve,
                 inputs.goalCurve,
+                inputs.parametricCurve,
                 inputs.context?.let { BuiltInContextPresets.defaultFor(it).targetCurve }.orEmpty(),
                 virtualBassApproxCurve(inputs),
                 contextCurve(inputs, includeSubsonic),

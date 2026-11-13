@@ -40,6 +40,8 @@ import com.hardbasseq.eq.dsp.HeadphoneDynamicsEasing
 import com.hardbasseq.eq.dsp.HeadphonePower
 import com.hardbasseq.eq.dsp.HeadroomCalculator
 import com.hardbasseq.eq.dsp.LoudnessMatch
+import com.hardbasseq.eq.dsp.ParametricBand
+import com.hardbasseq.eq.dsp.ParametricCurve
 import com.hardbasseq.eq.integration.PlayerBridge
 import com.hardbasseq.eq.integration.PlayerSource
 import com.hardbasseq.eq.preset.BuiltInContextPresets
@@ -88,6 +90,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 import javax.inject.Inject
+import kotlin.math.abs
 
 // How much of the peak EQ boost the automatic input-gain cut pre-cancels before the
 // signal ever reaches dynamics processing. At 1.0 the boost is fully cancelled before
@@ -110,6 +113,9 @@ import javax.inject.Inject
 private const val INPUT_GAIN_SAFETY_RATIO = 0.5f
 private const val SPEAKER_INPUT_GAIN_SAFETY_RATIO = 0.8f
 private const val FEEDBACK_BUFFER = 8
+
+// Where a new parametric band is put first: free spots from the mids outwards.
+private val PARAMETRIC_START_FREQUENCIES_HZ = listOf(1000f, 100f, 4000f, 250f, 8000f, 60f, 2000f, 500f)
 
 // The player's curve is handed over as points on this log grid (about 6 per octave).
 private const val PLAYER_CURVE_MIN_HZ = 20f
@@ -569,6 +575,8 @@ class MainViewModel
                 pendingRestoredContext = if (saved.activeContextAutomatic) null else _activeContext.value
                 _headphonePower.value = saved.headphonePower.sanitized()
                 _activeGoal.value = SoundGoal.fromId(saved.activeGoal)
+                _parametricBands.value = saved.parametricBands.take(ParametricCurve.MAX_BANDS).map { it.clamped() }
+                parametricCurve = ParametricCurve.bandsToCurve(_parametricBands.value)
                 // A saved activePresetId/activeCorrectionProfileId that no longer
                 // resolves (its custom entry was deleted from another install, say)
                 // just keeps this ViewModel's own compiled-in default - not an
@@ -764,6 +772,7 @@ class MainViewModel
                         activeContextAutomatic = contextSetAutomatically,
                         headphonePower = _headphonePower.value,
                         activeGoal = _activeGoal.value.id.takeIf { _activeGoal.value != SoundGoal.BALANCED },
+                        parametricBands = _parametricBands.value,
                     ),
                 )
             }
@@ -1180,6 +1189,43 @@ class MainViewModel
         }
 
         // The inputs of the target curve as they are right now; the arithmetic lives in CurveCalculator.
+        // P5-3: the free bands and their evaluated curve (re-evaluated only when a band changes).
+        private val _parametricBands = MutableStateFlow<List<ParametricBand>>(emptyList())
+        val parametricBands: StateFlow<List<ParametricBand>> = _parametricBands.asStateFlow()
+        private var parametricCurve: List<TargetPoint> = emptyList()
+
+        fun addParametricBand() {
+            val current = _parametricBands.value
+            if (current.size >= ParametricCurve.MAX_BANDS) return
+            // A new band starts where there is room: at 1 kHz first, then at the next free octave.
+            val taken = current.map { it.frequencyHz }
+            val frequency = PARAMETRIC_START_FREQUENCIES_HZ.firstOrNull { start -> taken.none { abs(it - start) < start * 0.2f } } ?: 1000f
+            setParametricBands(current + ParametricBand(frequencyHz = frequency, gainDb = 0f, q = 1f))
+        }
+
+        fun updateParametricBand(
+            index: Int,
+            band: ParametricBand,
+        ) {
+            val current = _parametricBands.value
+            if (index !in current.indices) return
+            setParametricBands(current.toMutableList().also { it[index] = band.clamped() })
+        }
+
+        fun removeParametricBand(index: Int) {
+            val current = _parametricBands.value
+            if (index !in current.indices) return
+            setParametricBands(current.toMutableList().also { it.removeAt(index) })
+        }
+
+        private fun setParametricBands(bands: List<ParametricBand>) {
+            _parametricBands.value = bands
+            parametricCurve = ParametricCurve.bandsToCurve(bands)
+            _isDirty.value = true
+            recalculateBandGains()
+            persistLiveSettings()
+        }
+
         private fun curveInputs(): CurveInputs =
             CurveInputs(
                 correctionCurve = _activeCorrectionProfile.value.curve,
@@ -1192,6 +1238,7 @@ class MainViewModel
                 ownPlayerSession = isOwnPlayerSession.value,
                 preEqAvailable = capabilities.value.preEqCutoffsHz.isNotEmpty(),
                 settings = _processingSettings.value,
+                parametricCurve = parametricCurve,
             )
 
         // M3 "Zielkurven kombinieren" - see CurveCalculator.combinedCurve.
