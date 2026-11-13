@@ -594,3 +594,16 @@ Ausführender: Sebastian (Gerät).
 | K23 | 👤 Wiederherstellung auf einem neuen/zurückgesetzten Gerät (Cloud oder Kabel) | Presets, Playlists und SoundCloud-/Spotify-Anmeldung sind da; kein neuer Login nötig (offen) |
 | K24 | 👤 Spotify spielen, beenden, App schließen, 10 Minuten warten | Benachrichtigung „HardBass EQ is listening“ verschwindet nach ca. 10 Minuten; Diagnose zeigt „stopping the service“. Mit geöffneter App oder offener Session verschwindet sie nicht (offen) |
 | K25 | 👤 Eigener Player: SoundCloud-Titel mit viel Bass hören, auch im Auto (Android Auto: Browser und Wiedergabe) | Klang wie vorher, keine Aussetzer; Auto zeigt Titel und Steuerung (media3 1.11.1, Room 2.8.5; offen) |
+
+## Virtual Bass neu (Roadmap 03, P4-3, 13. November 2026)
+
+Automatisiert (`:core:test`): `BassExciterTest` (Frequenzgang, Pegel und Verhältnis der 2. und
+3. Harmonischen, Reinheit, Differenzton, Pegelunabhängigkeit, Gate, Burst) und
+`HilbertAllpassPairTest` (90° bei 44,1–192 kHz). Testsignale und Kriterien der Hörprobe:
+`docs/DSP_VIRTUAL_BASS.md`, Abschnitt 7. K7 und K9 gelten unverändert für die neue Version.
+
+| # | Prüfung | Erwartung |
+|---|---|---|
+| K26 | 👤 Hörprobe H1–H5 mit Testsignalen, Telefonlautsprecher und kleine Box, Virtual Bass aus/an | ein tiefer Ton statt zweier Töne; kein Doppelschlag beim Kick; kein Brummen unter 50 + 70 Hz; kein Pumpen beim Ausblenden (offen) |
+| K27 | 👤 Hörprobe H6: Hardstyle/Uptempo, 808-Hip-Hop, akustischer Bass im eigenen Player, Presets Car und Box | Bass präsenter als mit der P0-5-Version, nicht lauter, keine Verzerrung in Stimmen; kein Knacken bei Seek/Titelwechsel (offen) |
+| K28 | 👤 CPU/Akku 30 min mit Virtual Bass (= K9 für die neue Version) | unauffällig gegenüber ausgeschaltet (offen) |
