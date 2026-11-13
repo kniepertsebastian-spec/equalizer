@@ -27,6 +27,9 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import java.io.IOException
 import java.util.Collections
+import java.util.concurrent.AbstractExecutorService
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.TimeUnit
 
 // The play queue with a real ExoPlayer (fake renderers and clock): stream addresses are looked
 // up only when ExoPlayer loads an entry - the playing track and, while it plays, the next one.
@@ -50,6 +53,11 @@ class ResolvingTrackMediaSourceTest {
                     ResolvedStream(url = streamUrl(trackId), isHls = trackId in hlsIds, isPreview = false)
                 },
                 onResolved = { _, _ -> },
+                // In the service lookups run on their own threads, outside the fake clock: the
+                // clock would move on while one is still running, and how far it got would depend
+                // on the machine. Here a lookup runs at once, and its answer still reaches the
+                // playback thread as a message, as in the app.
+                lookups = ImmediateExecutorService(),
             )
         player =
             TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
@@ -228,6 +236,34 @@ class ResolvingTrackMediaSourceTest {
                     .build()
             return FakeMediaSource(FakeTimeline(window), ExoPlayerTestRunner.AUDIO_FORMAT)
         }
+    }
+
+    // Runs each task on the calling thread, at once.
+    private class ImmediateExecutorService : AbstractExecutorService() {
+        @Volatile private var shutdown = false
+
+        override fun execute(command: Runnable) {
+            if (shutdown) throw RejectedExecutionException("shut down")
+            command.run()
+        }
+
+        override fun shutdown() {
+            shutdown = true
+        }
+
+        override fun shutdownNow(): List<Runnable> {
+            shutdown = true
+            return emptyList()
+        }
+
+        override fun isShutdown(): Boolean = shutdown
+
+        override fun isTerminated(): Boolean = shutdown
+
+        override fun awaitTermination(
+            timeout: Long,
+            unit: TimeUnit,
+        ): Boolean = true
     }
 
     private companion object {
