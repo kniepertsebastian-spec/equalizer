@@ -1188,6 +1188,82 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun `undo of a removal appends the track and moves it back to its place`() =
+        runTest {
+            // After removing track 2 from [1, 2, 3] the player reports [1, 3].
+            controller.queueFlow.value = listOf(track(1), track(3))
+            val vm = viewModel()
+
+            vm.reinsertQueueItem(track(2), 1)
+
+            assertEquals(listOf("append:[2]", "move:2->1"), controller.commands)
+        }
+
+    @Test
+    fun `undo of removing the last entry only appends`() =
+        runTest {
+            controller.queueFlow.value = listOf(track(1), track(2))
+            val vm = viewModel()
+
+            vm.reinsertQueueItem(track(3), 2)
+
+            assertEquals(listOf("append:[3]"), controller.commands)
+        }
+
+    @Test
+    fun `clear upcoming removes everything after the current track from the end and can be undone`() =
+        runTest {
+            controller.queueFlow.value = listOf(track(1), track(2), track(3), track(4))
+            controller.nowPlayingFlow.value = NowPlaying(title = "2", artist = "DJ", isPlaying = true, queueIndex = 1)
+            val vm = viewModel()
+
+            val removed = vm.clearUpcoming()
+            vm.restoreUpcoming(removed)
+
+            assertEquals(listOf(3L, 4L), removed.map { it.id })
+            assertEquals(listOf("remove:3", "remove:2", "append:[3, 4]"), controller.commands)
+        }
+
+    @Test
+    fun `clear upcoming does nothing on the last track or without a track`() =
+        runTest {
+            controller.queueFlow.value = listOf(track(1), track(2))
+            val vm = viewModel()
+            assertTrue(vm.clearUpcoming().isEmpty())
+
+            controller.nowPlayingFlow.value = NowPlaying(title = "2", artist = "DJ", isPlaying = true, queueIndex = 1)
+            assertTrue(vm.clearUpcoming().isEmpty())
+            vm.restoreUpcoming(emptyList())
+
+            assertTrue(controller.commands.isEmpty())
+        }
+
+    @Test
+    fun `the notification opens now playing on top of the player tab, once`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.requestNowPlaying()
+
+            assertTrue(vm.showPlayerRequest.value)
+            assertTrue(vm.expandPlayerRequest.value)
+            vm.consumeExpandPlayerRequest()
+            assertFalse(vm.expandPlayerRequest.value)
+        }
+
+    @Test
+    fun `a requested tab is handed over once`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.requestTab(PlayerTab.SEARCH)
+            assertEquals(PlayerTab.SEARCH, vm.requestedTab.value)
+            vm.consumeRequestedTab()
+
+            assertNull(vm.requestedTab.value)
+        }
+
+    @Test
     fun `shuffle toggles against what the player reports`() =
         runTest {
             val vm = viewModel()

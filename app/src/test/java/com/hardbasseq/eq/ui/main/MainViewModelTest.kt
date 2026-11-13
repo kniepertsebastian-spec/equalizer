@@ -290,17 +290,6 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `toggling now playing playback delegates to the player bridge`() =
-        runTest {
-            val playerBridge = FakePlayerBridge()
-            val viewModel = createViewModel(emptyList(), playerBridge)
-
-            viewModel.toggleNowPlayingPlayback()
-
-            assertEquals(1, playerBridge.toggleCount)
-        }
-
-    @Test
     fun `reopening the player launches SoundCloud`() =
         runTest {
             val playerBridge = FakePlayerBridge()

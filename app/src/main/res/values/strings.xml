@@ -13,7 +13,6 @@
     <string name="nav_equalizer">Equalizer</string>
     <string name="tab_search">Search</string>
     <string name="tab_playlists">Playlists</string>
-    <string name="tab_queue">Queue</string>
     <string name="source_soundcloud">SoundCloud</string>
     <string name="source_other">Other player</string>
     <string name="source_selector_description">Choose source, currently %1$s</string>
@@ -21,7 +20,6 @@
     <string name="source_other_text">Start the music in the other app. Baschtls Gedröhne attaches to its audio session as soon as it reports one. Spotify does; some other apps may not. Under “Equalizer” you can see whether the EQ is really active.</string>
     <string name="action_ok">OK</string>
     <string name="action_retry">Try again</string>
-    <string name="action_to_player">Go to player</string>
     <string name="action_to_equalizer">Go to equalizer</string>
     <string name="eq_status_active_for">EQ active for %1$s</string>
     <string name="audio_sources_title">Audio sources</string>
@@ -46,8 +44,6 @@
     <string name="eq_hint_unsupported">This audio path offers no EQ effects. Play the track in the built-in player.</string>
     <string name="eq_hint_error">Tap “Try again” or restart playback.</string>
     <string name="eq_hint_off">Switch the EQ on in the Equalizer section.</string>
-    <string name="player_idle_hint">Find a track under “Search” or paste a link under “Playlists”</string>
-    <string name="player_nothing_playing">Nothing playing</string>
     <string name="search_field_hint">Search SoundCloud for a track or artist</string>
     <string name="search_action">Search</string>
     <string name="search_empty_intro">Enter a track or artist and tap “Search”. Tapping a result plays it.</string>
@@ -55,9 +51,6 @@
     <string name="search_failed">The search did not work: %1$s</string>
     <string name="search_offline_hint">Check your internet connection and try again.</string>
     <string name="search_result_play">Play</string>
-    <string name="queue_title">Queue</string>
-    <string name="queue_count">%1$d tracks</string>
-    <string name="queue_now">Playing: %1$s</string>
     <string name="queue_empty_title">The queue is empty</string>
     <string name="queue_empty_text">Play a track or a playlist and it shows up here.</string>
     <string name="queue_go_search">Go to search</string>
@@ -448,4 +441,34 @@
     <string name="notice_too_many_unplayable">Several tracks in a row could not be played - paused</string>
     <string name="preview_hint_sign_in">Sign in to the player with your SoundCloud Go account for the full length</string>
     <string name="preview_hint_account">SoundCloud gives no full length for this track with your account</string>
+    <!-- Roadmap 05: mini player, Now playing, queue and sound sheets -->
+    <string name="preview_tag">PREVIEW</string>
+    <string name="mini_player_description">Now playing: %1$s by %2$s</string>
+    <string name="state_playing">Playing</string>
+    <string name="state_paused">Paused</string>
+    <string name="player_open_full">Open player</string>
+    <string name="now_playing_title">Now playing</string>
+    <string name="now_playing_collapse">Close player</string>
+    <string name="now_playing_more">More options</string>
+    <string name="now_playing_try_again">Try again</string>
+    <string name="now_playing_output">Output: %1$s</string>
+    <plurals name="queue_open">
+        <item quantity="one">Queue, %1$d track</item>
+        <item quantity="other">Queue, %1$d tracks</item>
+    </plurals>
+    <plurals name="queue_header">
+        <item quantity="one">Queue · %1$d track</item>
+        <item quantity="other">Queue · %1$d tracks</item>
+    </plurals>
+    <string name="queue_reorder_handle">Drag to move %1$s</string>
+    <string name="queue_removed">Removed “%1$s”</string>
+    <string name="queue_clear_upcoming">Clear upcoming</string>
+    <plurals name="queue_cleared">
+        <item quantity="one">Cleared %1$d upcoming track</item>
+        <item quantity="other">Cleared %1$d upcoming tracks</item>
+    </plurals>
+    <string name="action_undo">Undo</string>
+    <string name="sound_sheet_title">Sound</string>
+    <string name="sound_sheet_open">Open sound settings</string>
+    <string name="sound_open_equalizer">Open equalizer</string>
 </resources>

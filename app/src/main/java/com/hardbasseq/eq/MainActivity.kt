@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
     // The playback notification, the lock screen card and the car's session open the Compose
     // player screen here (they used to start the old View-based PlayerActivity).
     private fun handleOpenPlayerIntent(intent: Intent?) {
-        if (intent?.action == PlayerLaunch.ACTION_OPEN_PLAYER) playerViewModel.requestShowPlayer()
+        if (intent?.action == PlayerLaunch.ACTION_OPEN_PLAYER) playerViewModel.requestNowPlaying()
     }
 
     // "Share" from the SoundCloud app (or any app) with this one as the target: the

@@ -56,14 +56,12 @@ enum class PlayerTab(
 ) {
     SEARCH(R.string.tab_search),
     PLAYLISTS(R.string.tab_playlists),
-    QUEUE(R.string.tab_queue),
 }
 
 @Composable
 fun PlayerTabs(
     selected: PlayerTab,
     onSelect: (PlayerTab) -> Unit,
-    queueCount: Int,
 ) {
     TabRow(
         selectedTabIndex = selected.ordinal,
@@ -71,12 +69,7 @@ fun PlayerTabs(
         contentColor = SonicAmber,
     ) {
         PlayerTab.entries.forEach { tab ->
-            val label =
-                if (tab == PlayerTab.QUEUE && queueCount > 0) {
-                    "${stringResource(tab.labelRes)} ($queueCount)"
-                } else {
-                    stringResource(tab.labelRes)
-                }
+            val label = stringResource(tab.labelRes)
             Tab(
                 selected = selected == tab,
                 onClick = { onSelect(tab) },
