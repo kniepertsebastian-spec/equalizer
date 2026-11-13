@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.playlist.PlayerFormat
+import com.hardbasseq.eq.ui.player.library.LibraryRow
 import com.hardbasseq.eq.ui.theme.SonicAmber
 import com.hardbasseq.eq.ui.theme.SonicPaper
 import com.hardbasseq.eq.ui.theme.SonicSteel

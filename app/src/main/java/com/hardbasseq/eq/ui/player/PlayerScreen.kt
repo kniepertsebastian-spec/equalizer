@@ -18,34 +18,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -73,20 +62,21 @@ import com.hardbasseq.eq.audio.AudioEngineState
 import com.hardbasseq.eq.audio.ProcessingSettings
 import com.hardbasseq.eq.context.SoundContext
 import com.hardbasseq.eq.playlist.PlayerFormat
-import com.hardbasseq.eq.playlist.PlaylistSearch
-import com.hardbasseq.eq.playlist.SavedPlaylist
-import com.hardbasseq.eq.playlist.SavedTrack
 import com.hardbasseq.eq.preset.TargetPoint
 import com.hardbasseq.eq.ui.eq.EqStatus
 import com.hardbasseq.eq.ui.eq.EqStatusLine
 import com.hardbasseq.eq.ui.equalizer.ContextModeChips
 import com.hardbasseq.eq.ui.equalizer.SonicStyle
 import com.hardbasseq.eq.ui.equalizer.displayName
+import com.hardbasseq.eq.ui.player.library.MergePlaylistsDialog
+import com.hardbasseq.eq.ui.player.library.PlaylistDialog
+import com.hardbasseq.eq.ui.player.library.PlaylistDialogRequest
+import com.hardbasseq.eq.ui.player.library.playlistsTabItems
+import com.hardbasseq.eq.ui.player.nowplaying.SeekBar
 import com.hardbasseq.eq.ui.theme.SonicPaper
 import com.hardbasseq.eq.ui.theme.SonicRule
 import com.hardbasseq.eq.ui.theme.SonicSteel
 import com.hardbasseq.eq.ui.theme.spacing
-import com.soundcloud.equalizer.player.model.TrackItem
 import com.soundcloud.equalizer.player.playback.RepeatSetting
 
 // The full player: what the mini bar at the bottom of the main screen expands into.
@@ -133,7 +123,6 @@ fun PlayerScreen(
             viewModel.consumeRequestedTab()
         }
     }
-    var linkText by remember { mutableStateOf("") }
     // What the playlist dialog is for: null = closed; a track = add it to a playlist;
     // no track = just make a new, empty playlist.
     var playlistDialog by remember { mutableStateOf<PlaylistDialogRequest?>(null) }
@@ -365,252 +354,19 @@ fun PlayerScreen(
             }
 
             if (tab == PlayerTab.PLAYLISTS) {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        border = BorderStroke(1.dp, SonicRule),
-                    ) {
-                        Column(modifier = Modifier.padding(spacing.medium)) {
-                            Text(
-                                stringResource(R.string.playlists_import_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text =
-                                    stringResource(R.string.playlists_import_hint),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = SonicSteel,
-                            )
-                            Spacer(modifier = Modifier.height(spacing.small))
-                            OutlinedTextField(
-                                value = linkText,
-                                onValueChange = { linkText = it },
-                                modifier = Modifier.fillMaxWidth(),
-                                placeholder = { Text("https://soundcloud.com/…") },
-                                singleLine = true,
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                if (importState.isLoading) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                }
-                                importState.message?.let { message ->
-                                    Text(
-                                        text = message,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color =
-                                            if (importState.isError) {
-                                                MaterialTheme.colorScheme.error
-                                            } else {
-                                                SonicSteel
-                                            },
-                                        modifier = Modifier.weight(1f).padding(horizontal = spacing.small),
-                                    )
-                                } ?: Spacer(modifier = Modifier.weight(1f))
-                                Button(
-                                    onClick = {
-                                        viewModel.importFromText(linkText)
-                                        linkText = ""
-                                    },
-                                    enabled = linkText.isNotBlank() && !importState.isLoading,
-                                ) {
-                                    Text(stringResource(R.string.playlists_add_button))
-                                }
-                            }
-                            // A long Spotify import that stopped (app closed, no connection): go on or drop it.
-                            // While one is running the saved position is only a checkpoint, not a pause.
-                            pendingImport?.takeIf { !importState.isLoading }?.let { pending ->
-                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text =
-                                            stringResource(
-                                                R.string.spotify_import_paused,
-                                                pending.title,
-                                                pending.nextIndex,
-                                                pending.total,
-                                            ),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = SonicSteel,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    TextButton(onClick = viewModel::resumeSpotifyImport) { Text(stringResource(R.string.action_resume)) }
-                                    TextButton(onClick = viewModel::discardSpotifyImport) { Text(stringResource(R.string.action_discard)) }
-                                }
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { playlistDialog = PlaylistDialogRequest(null) }) {
-                                    Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null)
-                                    Spacer(modifier = Modifier.size(spacing.small))
-                                    Text(stringResource(R.string.playlists_new_button))
-                                }
-                                if (playlists.size >= 2) {
-                                    TextButton(onClick = { mergeDialogOpen = true }) { Text(stringResource(R.string.playlists_merge)) }
-                                }
-                                if (playlists.isNotEmpty()) {
-                                    TextButton(onClick = { viewModel.syncToSoundCloud(playlists) }, enabled = !importState.isLoading) {
-                                        Text(stringResource(R.string.playlists_all_to_soundcloud))
-                                    }
-                                }
-                            }
-                            if (playlists.isNotEmpty()) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = spacing.small))
-                                playlists.forEach { playlist ->
-                                    PlaylistRow(
-                                        playlist = playlist,
-                                        onPlay = { viewModel.playPlaylist(playlist) },
-                                        onPlayTrack = { viewModel.playPlaylist(playlist, it) },
-                                        onDelete = { viewModel.deletePlaylist(playlist) },
-                                        onSendToSoundCloud = { viewModel.syncToSoundCloud(listOf(playlist)) },
-                                        onRemoveTrack = { viewModel.removeFromPlaylist(playlist, it) },
-                                        onPlayNext = viewModel::playNextFromPlaylist,
-                                        onAddToQueue = viewModel::addToQueueFromPlaylist,
-                                        currentTrackId = currentTrackId,
-                                        playedIds = playedIds,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                if (playlists.isEmpty()) {
-                    item {
-                        EmptyState(
-                            title = stringResource(R.string.playlists_empty_title),
-                            text = stringResource(R.string.playlists_empty_text),
-                            actionLabel = stringResource(R.string.playlists_new_button),
-                            onAction = { playlistDialog = PlaylistDialogRequest(null) },
-                        )
-                    }
-                }
-                bridgeState?.let { bridge ->
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, SonicRule),
-                        ) {
-                            Column(modifier = Modifier.padding(spacing.medium)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = stringResource(R.string.bridge_found_title, bridge.label),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    TextButton(onClick = viewModel::dismissBridge) { Text(stringResource(R.string.action_close)) }
-                                }
-                                Text(
-                                    text =
-                                        if (bridge.startedAutomatically) {
-                                            stringResource(R.string.bridge_best_playing)
-                                        } else {
-                                            stringResource(R.string.bridge_no_sure_match)
-                                        },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = SonicSteel,
-                                )
-                                bridge.matches.forEach { match ->
-                                    LibraryRow(
-                                        title = match.track.title,
-                                        subtitle =
-                                            listOf(
-                                                match.track.artist,
-                                                PlayerFormat.duration(match.track.durationMs),
-                                                "${(match.score * 100).toInt()} %",
-                                            ).joinToString(" · "),
-                                        onPlay = { viewModel.playBridgeMatch(match) },
-                                        showCover = true,
-                                        artworkUrl = match.track.artworkUrl,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                if (signedIn) {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.medium,
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            border = BorderStroke(1.dp, SonicRule),
-                        ) {
-                            Column(modifier = Modifier.padding(spacing.medium)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = stringResource(R.string.library_title),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.weight(1f),
-                                    )
-                                    if (libraryState.isLoading) {
-                                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                                    } else {
-                                        IconButton(onClick = viewModel::loadLibrary) {
-                                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.library_reload))
-                                        }
-                                    }
-                                }
-                                libraryState.message?.let { message ->
-                                    Text(
-                                        text = message,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (libraryState.isError) MaterialTheme.colorScheme.error else SonicSteel,
-                                    )
-                                }
-                                LibraryRow(
-                                    title = stringResource(R.string.library_likes_title),
-                                    subtitle = stringResource(R.string.library_likes_desc),
-                                    onPlay = viewModel::playLikedTracks,
-                                )
-                            }
-                        }
-                    }
-                    libraryState.library?.let { library ->
-                        if (library.own.isNotEmpty()) {
-                            item {
-                                Text(
-                                    stringResource(R.string.library_my_playlists),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                            items(library.own, key = { "own-${it.id}" }) { playlist ->
-                                LibraryRow(
-                                    title = playlist.title,
-                                    subtitle = stringResource(R.string.tracks_count, playlist.trackCount),
-                                    onPlay = { viewModel.playLibraryPlaylist(playlist) },
-                                    showCover = true,
-                                    artworkUrl = playlist.artworkUrl,
-                                )
-                            }
-                        }
-                        if (library.liked.isNotEmpty()) {
-                            item {
-                                Text(
-                                    stringResource(R.string.library_liked_playlists),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                            }
-                            items(library.liked, key = { "liked-${it.id}" }) { playlist ->
-                                LibraryRow(
-                                    title = playlist.title,
-                                    subtitle = stringResource(R.string.tracks_count, playlist.trackCount),
-                                    onPlay = { viewModel.playLibraryPlaylist(playlist) },
-                                    showCover = true,
-                                    artworkUrl = playlist.artworkUrl,
-                                )
-                            }
-                        }
-                    }
-                }
+                playlistsTabItems(
+                    viewModel = viewModel,
+                    playlists = playlists,
+                    importState = importState,
+                    pendingImport = pendingImport,
+                    bridgeState = bridgeState,
+                    signedIn = signedIn,
+                    libraryState = libraryState,
+                    currentTrackId = currentTrackId,
+                    playedIds = playedIds,
+                    onNewPlaylist = { playlistDialog = PlaylistDialogRequest(null) },
+                    onMerge = { mergeDialogOpen = true },
+                )
             }
 
             if (tab == PlayerTab.QUEUE) {
@@ -744,320 +500,4 @@ fun PlayerScreen(
             }
         }
     }
-}
-
-// Dragging shows where the thumb is without seeking on every frame; the seek
-// happens once, when the finger lifts.
-@Composable
-private fun SeekBar(
-    positionMs: Long,
-    durationMs: Long,
-    enabled: Boolean,
-    onSeek: (Long) -> Unit,
-) {
-    var dragFraction by remember { mutableStateOf<Float?>(null) }
-    val fraction = dragFraction ?: PlayerFormat.progress(positionMs, durationMs)
-    Column(modifier = Modifier.fillMaxWidth()) {
-        val seekDescription = stringResource(R.string.seek_description)
-        Slider(
-            modifier = Modifier.semantics { contentDescription = seekDescription },
-            value = fraction,
-            onValueChange = { dragFraction = it },
-            onValueChangeFinished = {
-                dragFraction?.let { onSeek((it * durationMs).toLong()) }
-                dragFraction = null
-            },
-            enabled = enabled && durationMs > 0,
-        )
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                text = PlayerFormat.duration(dragFraction?.let { (it * durationMs).toLong() } ?: positionMs),
-                style = MaterialTheme.typography.labelSmall,
-            )
-            Text(text = PlayerFormat.duration(durationMs), style = MaterialTheme.typography.labelSmall)
-        }
-    }
-}
-
-// One tappable entry of the SoundCloud library: tap anywhere (or the play button) to
-// load its tracks and play them as the queue.
-@Composable
-internal fun LibraryRow(
-    title: String,
-    subtitle: String,
-    onPlay: () -> Unit,
-    showCover: Boolean = false,
-    artworkUrl: String? = null,
-    menu: (@Composable () -> Unit)? = null,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onPlay)
-                .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (showCover) {
-            CoverThumb(url = artworkUrl)
-            Spacer(modifier = Modifier.size(MaterialTheme.spacing.small))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = SonicPaper,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = SonicSteel)
-        }
-        IconButton(onClick = onPlay) {
-            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.player_play))
-        }
-        menu?.invoke()
-    }
-}
-
-// A saved playlist: tap the name to show its tracks. Tracks of playlists made on the
-// device can be removed there; imported ones are refreshed by importing the link again.
-@Composable
-private fun PlaylistRow(
-    playlist: SavedPlaylist,
-    onPlay: () -> Unit,
-    onPlayTrack: (Int) -> Unit,
-    onDelete: () -> Unit,
-    onSendToSoundCloud: () -> Unit,
-    onRemoveTrack: (Long) -> Unit,
-    onPlayNext: (SavedTrack) -> Unit,
-    onAddToQueue: (SavedTrack) -> Unit,
-    currentTrackId: Long?,
-    playedIds: Set<Long>,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var search by remember { mutableStateOf("") }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { expanded = !expanded },
-            ) {
-                Text(
-                    text = playlist.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = SonicPaper,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text =
-                        stringResource(R.string.playlist_row_count, playlist.tracks.size) +
-                            if (playlist.soundCloudId != null) stringResource(R.string.playlist_row_on_soundcloud) else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SonicSteel,
-                )
-            }
-            IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
-                Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.playlist_to_soundcloud))
-            }
-            IconButton(onClick = onPlay, enabled = playlist.tracks.isNotEmpty()) {
-                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play))
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.playlist_delete))
-            }
-        }
-        if (expanded) {
-            if (playlist.tracks.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.playlist_empty_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SonicSteel,
-                )
-            }
-            // A search box once the list is long enough to need one.
-            if (playlist.tracks.size >= SEARCH_MIN_TRACKS) {
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(R.string.playlist_search_hint)) },
-                    singleLine = true,
-                )
-            }
-            val hits = PlaylistSearch.filter(playlist.tracks, search)
-            if (hits.isEmpty() && playlist.tracks.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.playlist_search_none, search),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SonicSteel,
-                )
-            }
-            hits.forEach { hit ->
-                val track = hit.track
-                val playState = trackPlayState(track.id, currentTrackId, playedIds)
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp)
-                            .markWhenCurrent(playState)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onPlayTrack(hit.index) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
-                    CoverThumb(url = track.artworkUrl)
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = track.title,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SonicPaper.copy(alpha = playState.textAlpha()),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = track.artist,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SonicSteel,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    TrackQueueMenu(
-                        trackTitle = track.title,
-                        onPlayNext = { onPlayNext(track) },
-                        onAddToQueue = { onAddToQueue(track) },
-                        onPlayFromHere = { onPlayTrack(hit.index) },
-                        onRemoveFromPlaylist = if (playlist.sourceUrl == null) ({ onRemoveTrack(track.id) }) else null,
-                    )
-                }
-            }
-        }
-    }
-}
-
-// From this many tracks on, an opened playlist shows a search box.
-private const val SEARCH_MIN_TRACKS = 6
-
-// Opens the playlist dialog: with a track it adds that track somewhere, without one it
-// only makes a new playlist.
-private data class PlaylistDialogRequest(
-    val track: TrackItem?,
-)
-
-// Pick two or more playlists and a name: one new playlist with all their tracks, each once.
-@Composable
-private fun MergePlaylistsDialog(
-    playlists: List<SavedPlaylist>,
-    onMerge: (List<SavedPlaylist>, String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var name by remember { mutableStateOf("") }
-    var chosenIds by remember { mutableStateOf(setOf<String>()) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.merge_title)) },
-        text = {
-            Column {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.merge_name_hint)) },
-                    singleLine = true,
-                )
-                playlists.forEach { playlist ->
-                    val checked = playlist.id in chosenIds
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable { chosenIds = if (checked) chosenIds - playlist.id else chosenIds + playlist.id },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(checked = checked, onCheckedChange = null)
-                        Text(
-                            text = "${playlist.title} (${playlist.tracks.size})",
-                            modifier = Modifier.padding(start = 8.dp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onMerge(playlists.filter { it.id in chosenIds }, name) },
-                enabled = chosenIds.size >= 2 && name.isNotBlank(),
-            ) { Text(stringResource(R.string.playlists_merge)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
-}
-
-@Composable
-private fun PlaylistDialog(
-    track: TrackItem?,
-    playlists: List<SavedPlaylist>,
-    onAddTo: (SavedPlaylist) -> Unit,
-    onCreate: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var name by remember { mutableStateOf("") }
-    // Only playlists made on the device take tracks: imported ones mirror their link.
-    val local = playlists.filter { it.sourceUrl == null }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                if (track !=
-                    null
-                ) {
-                    stringResource(R.string.playlist_dialog_add_title)
-                } else {
-                    stringResource(R.string.playlists_new_button)
-                },
-            )
-        },
-        text = {
-            Column {
-                if (track != null) {
-                    Text(text = track.title, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    local.forEach { playlist ->
-                        TextButton(onClick = { onAddTo(playlist) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = "${playlist.title} (${playlist.tracks.size})",
-                                modifier = Modifier.fillMaxWidth(),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                    HorizontalDivider()
-                }
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.merge_name_hint)) },
-                    singleLine = true,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onCreate(name) }, enabled = name.isNotBlank()) {
-                Text(if (track != null) stringResource(R.string.playlist_create_and_add) else stringResource(R.string.action_create))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
-    )
 }
