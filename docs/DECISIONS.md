@@ -764,3 +764,11 @@ Grundlage: `open_questions.md` (Review zu PR #61), Antworten von Sebastian. Umse
 - **Nicht verifiziert** (kein Gerät in der Entwicklungsumgebung): hörbare Lücke beim Titelwechsel,
   Vorladen, HLS-Titel, Android Auto, Benachrichtigung/Sperrbildschirm/Bluetooth, abgelaufene Links
   nach langer Pause. Siehe Abschlussbericht in Roadmap 02.
+
+## Stream-Auswahl nach Codec und Bitrate (Roadmap 03, P4-1, November 2026)
+
+- `StreamSelection.pick` wählt jetzt nach Qualität statt „progressive zuerst": Vollversion vor 30-s-Vorschau, dann AAC 256 > AAC 160 > MP3 128 > niedrige AAC-Stufe, bei Gleichstand progressive vor HLS. AAC zählt mit Faktor 1,25, weil es bei gleicher Bitrate besser klingt als MP3; dadurch schlägt MP3 128 ein AAC 96, aber AAC 160 (200) ist besser als MP3.
+- Codec und Bitrate stammen aus `preset` und `format.mime_type` der Transcodings. Ohne Angabe gilt wie bisher „progressive = MP3".
+- Opus wird ausgeschlossen: HLS mit Ogg-Segmenten spielt ExoPlayer nicht ab.
+- Ein Bass-Boost verstärkt Codec-Artefakte im Hochton; ein EQ stellt entfernte Information nicht wieder her. Deshalb ist die Quellqualität der größte Hebel, vor allem wegen der angekündigten Abschaltung von Progressive-MP3.
+- Gerätetest und Abgleich mit einer echten `transcodings`-Antwort stehen aus (siehe Roadmap 03).
