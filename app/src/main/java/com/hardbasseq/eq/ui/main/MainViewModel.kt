@@ -434,6 +434,17 @@ class MainViewModel
             persistLiveSettings()
         }
 
+        // P5-3: the free bands and their evaluated curve (re-evaluated only when a band changes).
+        //
+        // Declared here, above the init block, on purpose: the collectors launched in init run at
+        // once on the main thread (viewModelScope is Dispatchers.Main.immediate) and already
+        // compute the curve. A property declared below init is still null at that point - that
+        // crashed the app at every start (NullPointerException in CurveInputs) in every release
+        // after 1.1.2-beta.5. Everything the init block reads has to be declared above it.
+        private val _parametricBands = MutableStateFlow<List<ParametricBand>>(emptyList())
+        val parametricBands: StateFlow<List<ParametricBand>> = _parametricBands.asStateFlow()
+        private var parametricCurve: List<TargetPoint> = emptyList()
+
         // Guards persistLiveSettings() against running before restoreSavedState()
         // has had a chance to load what was on disk - without this, the very
         // first capabilities/init-driven applySettings() call would write this
@@ -1193,12 +1204,6 @@ class MainViewModel
             applySettings(newSettings)
         }
 
-        // The inputs of the target curve as they are right now; the arithmetic lives in CurveCalculator.
-        // P5-3: the free bands and their evaluated curve (re-evaluated only when a band changes).
-        private val _parametricBands = MutableStateFlow<List<ParametricBand>>(emptyList())
-        val parametricBands: StateFlow<List<ParametricBand>> = _parametricBands.asStateFlow()
-        private var parametricCurve: List<TargetPoint> = emptyList()
-
         fun addParametricBand() {
             val current = _parametricBands.value
             if (current.size >= ParametricCurve.MAX_BANDS) return
@@ -1231,6 +1236,7 @@ class MainViewModel
             persistLiveSettings()
         }
 
+        // The inputs of the target curve as they are right now; the arithmetic lives in CurveCalculator.
         private fun curveInputs(): CurveInputs =
             CurveInputs(
                 correctionCurve = _activeCorrectionProfile.value.curve,
