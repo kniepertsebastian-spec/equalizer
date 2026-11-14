@@ -81,7 +81,20 @@ The project is organized into three main modules.
 | `core` | Platform-independent Kotlin logic, including presets, frequency-curve mathematics, DSP components, and link resolution. |
 | `player` | Integrated media player library based on AndroidX Media3 / ExoPlayer, including SoundCloud-related functionality and Android Auto integration. |
 
-## Requirements
+## Device Requirements
+
+| | Minimum | Recommended |
+|---|---|---|
+| Android version | Android 9 (API 28) | Android 13 or newer |
+| Processor | Any 64-bit or 32-bit ARM or x86 device (the app ships no native code) | 64-bit ARM, 8 cores, 2020 or newer |
+| Memory | 3 GB | 6 GB or more |
+| Audio effects | A working `DynamicsProcessing` and `Equalizer` effect in the device's audio framework | Same; tested daily on a Pixel 10 with Android 16 |
+| Network | Only for the integrated player's streaming, link import and update check | Wi-Fi or mobile data with a stable connection |
+| Android Auto | Optional; Android Auto with "unknown sources" enabled while the app is installed from GitHub | Same |
+
+Android 9 is the lower limit because the system-wide processing uses `DynamicsProcessing`, which Android added in API 28. The processor and memory figures are estimates, not measurements: the only device the app has been verified on is listed in `docs/TEST_MATRIX.md`. Details and the reasoning are in [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md).
+
+## Build Requirements
 
 - JDK 21
 - Android SDK
@@ -140,6 +153,11 @@ Project documentation is maintained in the `docs/` directory.
 | `docs/TEST_MATRIX.md` | Device testing and test coverage, including outstanding tests. |
 | `docs/DEPENDENCIES.md` | Library and dependency versions. |
 | `docs/adr/` | Architecture Decision Records. |
+| `docs/REQUIREMENTS.md` | Minimum and recommended device requirements, with the reason for each. |
+| `docs/PRIVACY.md` | What the app stores, which servers it contacts and what it does not collect (draft of the privacy policy). |
+| `docs/AUDIO_IMPROVEMENTS.md`, `docs/HIGH_RES_EQ_IMPROVEMENTS.md` | Notes on audio-session detection and the high-resolution equalizer. |
+
+The repository root holds only the build files, this README, the license and the instruction files for coding assistants (`CLAUDE.md`, `GEMINI.md`, `skills-lock.json`). Everything else is under `docs/`.
 
 ## SoundCloud Integration
 
@@ -159,7 +177,7 @@ The application is designed to process audio locally on the Android device.
 
 Account authentication and access to third-party services are handled separately from the system-wide equalizer functionality.
 
-Details about data collection, token handling, network requests, and third-party services should be documented in a dedicated privacy policy before wider distribution.
+The app contains no analytics, advertising or crash-reporting library and has no server of its own. What it stores on the device, which servers it contacts and how sign-in tokens are handled is described in [`docs/PRIVACY.md`](docs/PRIVACY.md). That file is a draft and has not been reviewed legally.
 
 ## Disclaimer
 
