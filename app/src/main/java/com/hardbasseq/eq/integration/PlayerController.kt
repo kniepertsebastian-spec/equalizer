@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.link.SpotifyPlaylist
+import com.hardbasseq.eq.playlist.QueuePositions
 import com.soundcloud.equalizer.player.auth.SoundCloudLoginActivity
 import com.soundcloud.equalizer.player.model.ExternalTrackInfo
 import com.soundcloud.equalizer.player.model.LibraryOverview
@@ -77,6 +78,9 @@ interface PlayerController {
     )
 
     fun removeQueueItem(index: Int)
+
+    // Removes everything behind [index] in one step ("clear upcoming").
+    fun removeQueueItemsAfter(index: Int)
 
     fun setShuffle(enabled: Boolean)
 
@@ -178,16 +182,32 @@ class AndroidPlayerController
             if (tracks.isNotEmpty()) request(QueueRequest.Append(tracks))
         }
 
+        // Queue commands name the entry by its position and by the track the screen saw there:
+        // a command sent just before may have shifted it, and the service then finds the track
+        // again instead of hitting its neighbour (see QueuePositions).
         override fun moveQueueItem(
             from: Int,
             to: Int,
         ) = send(AudioPlayerService.ACTION_MOVE_QUEUE_ITEM) {
             putExtra(AudioPlayerService.EXTRA_FROM_INDEX, from)
             putExtra(AudioPlayerService.EXTRA_TO_INDEX, to)
+            putExtra(AudioPlayerService.EXTRA_TRACK_ID, trackIdAt(from))
+            putExtra(AudioPlayerService.EXTRA_TO_TRACK_ID, trackIdAt(to))
         }
 
         override fun removeQueueItem(index: Int) =
-            send(AudioPlayerService.ACTION_REMOVE_QUEUE_ITEM) { putExtra(AudioPlayerService.EXTRA_QUEUE_INDEX, index) }
+            send(AudioPlayerService.ACTION_REMOVE_QUEUE_ITEM) {
+                putExtra(AudioPlayerService.EXTRA_QUEUE_INDEX, index)
+                putExtra(AudioPlayerService.EXTRA_TRACK_ID, trackIdAt(index))
+            }
+
+        override fun removeQueueItemsAfter(index: Int) =
+            send(AudioPlayerService.ACTION_REMOVE_QUEUE_ITEMS_AFTER) {
+                putExtra(AudioPlayerService.EXTRA_QUEUE_INDEX, index)
+                putExtra(AudioPlayerService.EXTRA_TRACK_ID, trackIdAt(index))
+            }
+
+        private fun trackIdAt(index: Int): Long = queue.value.getOrNull(index)?.id ?: QueuePositions.NO_TRACK
 
         override fun setShuffle(enabled: Boolean) =
             send(AudioPlayerService.ACTION_SET_SHUFFLE) { putExtra(AudioPlayerService.EXTRA_SHUFFLE, enabled) }
@@ -203,7 +223,10 @@ class AndroidPlayerController
         }
 
         override fun skipToIndex(index: Int) =
-            send(AudioPlayerService.ACTION_PLAY_INDEX) { putExtra(AudioPlayerService.EXTRA_QUEUE_INDEX, index) }
+            send(AudioPlayerService.ACTION_PLAY_INDEX) {
+                putExtra(AudioPlayerService.EXTRA_QUEUE_INDEX, index)
+                putExtra(AudioPlayerService.EXTRA_TRACK_ID, trackIdAt(index))
+            }
 
         override fun next() = send(AudioPlayerService.ACTION_NEXT)
 

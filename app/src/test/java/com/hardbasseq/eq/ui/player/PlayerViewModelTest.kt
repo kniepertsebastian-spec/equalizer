@@ -1281,7 +1281,7 @@ class PlayerViewModelTest {
         }
 
     @Test
-    fun `clear upcoming removes everything after the current track from the end and can be undone`() =
+    fun `clear upcoming removes everything after the current track in one command and can be undone`() =
         runTest {
             controller.queueFlow.value = listOf(track(1), track(2), track(3), track(4))
             controller.nowPlayingFlow.value = NowPlaying(title = "2", artist = "DJ", isPlaying = true, queueIndex = 1)
@@ -1291,7 +1291,7 @@ class PlayerViewModelTest {
             vm.restoreUpcoming(removed)
 
             assertEquals(listOf(3L, 4L), removed.map { it.id })
-            assertEquals(listOf("remove:3", "remove:2", "append:[3, 4]"), controller.commands)
+            assertEquals(listOf("removeAfter:1", "append:[3, 4]"), controller.commands)
         }
 
     @Test
@@ -1397,6 +1397,10 @@ class PlayerViewModelTest {
 
         override fun removeQueueItem(index: Int) {
             commands.add("remove:$index")
+        }
+
+        override fun removeQueueItemsAfter(index: Int) {
+            commands.add("removeAfter:$index")
         }
 
         override fun setShuffle(enabled: Boolean) {

@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DragHandle
@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.hardbasseq.eq.R
 import com.hardbasseq.eq.playlist.PlayerFormat
+import com.hardbasseq.eq.playlist.QueueRowKeys
 import com.hardbasseq.eq.ui.player.CoverThumb
 import com.hardbasseq.eq.ui.player.EmptyState
 import com.hardbasseq.eq.ui.player.QueueEntryMenu
@@ -189,10 +190,11 @@ private fun QueueHeader(
     }
 }
 
-// One entry while the list is shown: [origin] is its position when the sheet got this queue,
-// so dragging can report where it came from.
+// One entry while the list is shown. [origin] is its position in the queue the player published
+// (what a command for it names); [key] stays with the entry while others are removed or moved.
 private data class QueueEntry(
     val origin: Int,
+    val key: Long,
     val track: TrackItem,
 )
 
@@ -206,18 +208,36 @@ private fun ReorderableQueue(
 ) {
     val spacing = MaterialTheme.spacing
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = currentIndex.coerceAtLeast(0))
+    // Rows are keyed by entry, not by position: keyed by position, the state of a removed row
+    // (how far it was swiped away) went to the entry that took its place, which then showed up
+    // half off the screen.
+    val rowKeys = remember { QueueRowKeys() }
     // A local copy that follows the finger; replaced whenever the player publishes its queue.
-    val entries = remember(queue) { queue.mapIndexed { i, t -> QueueEntry(i, t) }.toMutableStateList() }
-    var draggedOrigin by remember(queue) { mutableStateOf<Int?>(null) }
+    val entries =
+        remember(queue) {
+            val keys = rowKeys.assign(queue.map { it.id })
+            queue.mapIndexed { index, track -> QueueEntry(index, keys[index], track) }.toMutableStateList()
+        }
+    var draggedKey by remember(queue) { mutableStateOf<Long?>(null) }
     var dragOffset by remember(queue) { mutableFloatStateOf(0f) }
     val currentTrackId = queue.getOrNull(currentIndex)?.id
 
     LazyColumn(state = listState, contentPadding = PaddingValues(bottom = spacing.large)) {
-        itemsIndexed(entries, key = { _, entry -> entry.origin }) { index, entry ->
+        items(entries, key = { entry -> entry.key }) { entry ->
             val track = entry.track
-            val isCurrent = entry.origin == currentIndex
+            // Commands name the entry by its place in the published queue, which is where the
+            // row is whenever nothing is being dragged.
+            val position = entry.origin
+            val isCurrent = position == currentIndex
             val playState = if (isCurrent) TrackPlayState.CURRENT else trackPlayState(track.id, currentTrackId, playedIds)
-            val dragging = draggedOrigin == entry.origin
+            val dragging = draggedKey == entry.key
+            val canMoveUp = position > 0
+            val canMoveDown = position < queue.lastIndex
+            val removeEntry = {
+                rowKeys.forget(entry.key)
+                actions.onRemove(position)
+                onRemoved(track, position)
+            }
             val moveUp = stringResource(R.string.queue_move_up)
             val moveDown = stringResource(R.string.queue_move_down)
             val remove = stringResource(R.string.queue_remove)
@@ -231,26 +251,25 @@ private fun ReorderableQueue(
                         .semantics {
                             customActions =
                                 buildList {
-                                    if (index > 0) {
+                                    if (canMoveUp) {
                                         add(
                                             CustomAccessibilityAction(moveUp) {
-                                                actions.onMove(index, index - 1)
+                                                actions.onMove(position, position - 1)
                                                 true
                                             },
                                         )
                                     }
-                                    if (index < entries.lastIndex) {
+                                    if (canMoveDown) {
                                         add(
                                             CustomAccessibilityAction(moveDown) {
-                                                actions.onMove(index, index + 1)
+                                                actions.onMove(position, position + 1)
                                                 true
                                             },
                                         )
                                     }
                                     add(
                                         CustomAccessibilityAction(remove) {
-                                            actions.onRemove(index)
-                                            onRemoved(track, index)
+                                            removeEntry()
                                             true
                                         },
                                     )
@@ -263,10 +282,7 @@ private fun ReorderableQueue(
                                 }
                         },
             ) {
-                SwipeAwayRow(onDismiss = {
-                    actions.onRemove(index)
-                    onRemoved(track, index)
-                }) {
+                SwipeAwayRow(onDismiss = removeEntry) {
                     Row(
                         modifier =
                             Modifier
@@ -274,7 +290,7 @@ private fun ReorderableQueue(
                                 .clip(MaterialTheme.shapes.small)
                                 .background(MaterialTheme.colorScheme.surface)
                                 .markWhenCurrent(playState)
-                                .clickable { actions.onPlayIndex(index) }
+                                .clickable { actions.onPlayIndex(position) }
                                 .padding(start = spacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -303,36 +319,40 @@ private fun ReorderableQueue(
                         }
                         QueueEntryMenu(
                             trackTitle = track.title,
-                            canMoveUp = index > 0,
-                            canMoveDown = index < entries.lastIndex,
-                            onMoveUp = { actions.onMove(index, index - 1) },
-                            onMoveDown = { actions.onMove(index, index + 1) },
-                            onRemove = {
-                                actions.onRemove(index)
-                                onRemoved(track, index)
-                            },
+                            canMoveUp = canMoveUp,
+                            canMoveDown = canMoveDown,
+                            onMoveUp = { actions.onMove(position, position - 1) },
+                            onMoveDown = { actions.onMove(position, position + 1) },
+                            onRemove = removeEntry,
                             onAddToPlaylist = { actions.onAddToPlaylist(track) },
                         )
                         DragHandle(
                             title = track.title,
                             onStart = {
-                                draggedOrigin = entry.origin
+                                draggedKey = entry.key
                                 dragOffset = 0f
                             },
                             onDrag = { dy ->
                                 dragOffset += dy
-                                val moved = QueueReorder.step(listState.layoutInfo.visibleItemsInfo, entry.origin, dragOffset)
-                                if (moved != null) {
-                                    val from = entries.indexOfFirst { it.origin == entry.origin }
+                                val from = entries.indexOfFirst { it.key == entry.key }
+                                val moved = QueueReorder.step(listState.layoutInfo.visibleItemsInfo, entry.key, from, dragOffset)
+                                if (moved != null && from >= 0) {
+                                    // The list holds on to its first visible row: when that row is part
+                                    // of the swap it would scroll along. Asking for the same scroll
+                                    // position keeps the list where it is.
+                                    val first = listState.firstVisibleItemIndex
+                                    if (from == first || moved.toIndex == first) {
+                                        listState.requestScrollToItem(first, listState.firstVisibleItemScrollOffset)
+                                    }
                                     entries.add(moved.toIndex, entries.removeAt(from))
                                     dragOffset += moved.offsetCorrection
                                 }
                             },
                             onEnd = {
-                                val to = entries.indexOfFirst { it.origin == entry.origin }
-                                draggedOrigin = null
+                                val to = entries.indexOfFirst { it.key == entry.key }
+                                draggedKey = null
                                 dragOffset = 0f
-                                if (to >= 0 && to != entry.origin) actions.onMove(entry.origin, to)
+                                if (to >= 0 && to != position) actions.onMove(position, to)
                             },
                         )
                     }

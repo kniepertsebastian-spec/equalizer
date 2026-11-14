@@ -242,6 +242,8 @@ class DiscoveryViewModelTest {
 
         override fun removeQueueItem(index: Int) = unused()
 
+        override fun removeQueueItemsAfter(index: Int) = unused()
+
         override fun setShuffle(enabled: Boolean) = unused()
 
         override fun setRepeat(setting: RepeatSetting) = unused()

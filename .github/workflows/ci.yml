@@ -109,6 +109,16 @@ jobs:
           export DRIVE_DESCRIPTION="Branch ${BUILD_REF_NAME} - Commit ${BUILD_SHA} - Run ${BUILD_RUN_ID} - $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           ./scripts/upload_apk_to_drive.sh
 
+      # PlayerShellUiTest renders the player's screens on the JVM and writes one PNG each; kept
+      # as an artifact for a look at the layout without a device.
+      - name: Upload player screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: player-screenshots
+          path: app/build/player-screenshots
+          if-no-files-found: warn
+
       - name: Upload unit test results
         if: always()
         uses: actions/upload-artifact@v4
