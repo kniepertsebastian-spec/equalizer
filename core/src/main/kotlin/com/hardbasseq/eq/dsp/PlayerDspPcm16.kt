@@ -37,7 +37,10 @@ class PlayerDspPcm16 {
     private val curveEqualizer = CurveEqualizer()
     private var exciters: List<BassExciter> = emptyList()
     private var exciterSettings = BassExciterSettings()
-    private var frame = FloatArray(0)
+
+    // One array per channel, BLOCK_FRAMES long: the audio is taken apart into these, runs
+    // through the stages there and is put back together. Allocated once per channel layout.
+    private var block: Array<DoubleArray> = emptyArray()
     private var ditherState = 0x2545F491
 
     fun updateSettings(newSettings: PlayerDspSettings) {
@@ -70,7 +73,7 @@ class PlayerDspPcm16 {
         channels = channelCount.coerceAtLeast(1)
         limiter = LookaheadLimiter(channelCount = channels)
         exciters = List(channels) { BassExciter(exciterSettings) }
-        frame = FloatArray(channels)
+        block = Array(channels) { DoubleArray(BLOCK_FRAMES) }
         monoSummer.reset()
         curveEqualizer.configure(channels)
     }
@@ -96,25 +99,38 @@ class PlayerDspPcm16 {
         val exciterActive = exciterSettings.enabled
         if (!(curveActive || exciterActive || current.monoBassEnabled || current.limiterEnabled)) return
         val monoActive = current.monoBassEnabled && channels == 2
-        val frame = frame
-        var i = offset
-        val end = offset + sampleCount
-        while (i + channels <= end) {
+        val block = block
+        var position = offset
+        var framesLeft = sampleCount / channels
+        // Block by block and, inside a block, stage by stage: every filter runs over a short
+        // array with its state in local variables. Going through all stages sample by sample
+        // instead cost several times as much processor time and created garbage for every
+        // frame - enough to make the music stutter once the screen was locked and the phone
+        // had moved the player to its slow cores.
+        while (framesLeft > 0) {
+            val frames = minOf(framesLeft, BLOCK_FRAMES)
             for (c in 0 until channels) {
-                var sample = samples[i + c] / PCM16_SCALE
-                if (curveActive) sample = curveEqualizer.process(c, sample)
-                if (exciterActive) sample = exciters[c].processUnclamped(sample, rate)
-                frame[c] = sample
+                val channel = block[c]
+                var i = position + c
+                for (n in 0 until frames) {
+                    channel[n] = (samples[i] / PCM16_SCALE).toDouble()
+                    i += channels
+                }
             }
-            if (curveActive) curveEqualizer.endFrame()
-            if (monoActive) {
-                val mixed = monoSummer.process(frame[0], frame[1], rate)
-                frame[0] = mixed.left
-                frame[1] = mixed.right
+            if (curveActive) curveEqualizer.processBlock(block, frames)
+            if (exciterActive) {
+                for (c in 0 until channels) exciters[c].processBlock(block[c], frames, rate)
             }
-            if (current.limiterEnabled) limiter.processFrame(frame, rate)
-            for (c in 0 until channels) samples[i + c] = toPcm16(frame[c])
-            i += channels
+            if (monoActive) monoSummer.processBlock(block[0], block[1], frames, rate)
+            if (current.limiterEnabled) limiter.processBlock(block, frames, rate)
+            // Frame by frame, channel by channel: the order the dither noise is drawn in.
+            var i = position
+            for (n in 0 until frames) {
+                for (c in 0 until channels) samples[i + c] = toPcm16(block[c][n].toFloat())
+                i += channels
+            }
+            position += frames * channels
+            framesLeft -= frames
         }
     }
 
@@ -136,6 +152,9 @@ class PlayerDspPcm16 {
     }
 
     private companion object {
+        // Short enough that a block and the stages' working arrays stay in the processor's
+        // first-level cache, long enough that the per-block overhead does not matter.
+        const val BLOCK_FRAMES = 512
         const val PCM16_SCALE = 32768f
         const val INV_2_POW_24 = 1f / 16_777_216f
     }

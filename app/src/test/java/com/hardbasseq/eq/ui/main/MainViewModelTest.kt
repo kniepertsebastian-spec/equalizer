@@ -1268,6 +1268,33 @@ class MainViewModelTest {
             assertEquals(BuiltInPresets.Flat.id, viewModel.activePreset.value.id)
         }
 
+    // On the device viewModelScope is Dispatchers.Main.immediate: the collectors launched in the init
+    // block run at once, during construction, and already compute the curve. The other tests here
+    // use a StandardTestDispatcher, which runs them only after the constructor - so they never saw
+    // state that is declared below init and still null at that point (1.1.2-beta.6 to beta.8
+    // crashed at every start that way: NullPointerException in CurveInputs).
+    @Test
+    fun `the view model starts when the main dispatcher runs the init collectors at once`() =
+        runTest {
+            Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+
+            val viewModel = createViewModel(emptyList())
+
+            // No advanceUntilIdle on purpose: all of this happened inside the constructor.
+            assertEquals(
+                "the band gains are computed during construction",
+                fakeEngine.capabilities.value.bands
+                    .map { it.index }
+                    .toSet(),
+                viewModel.processingSettings.value.bandGainsDb.keys,
+            )
+            assertTrue(viewModel.parametricBands.value.isEmpty())
+
+            viewModel.addParametricBand()
+            assertEquals(1, viewModel.parametricBands.value.size)
+            // An exception inside one of the init collectors would fail runTest here.
+        }
+
     @Test
     fun `a parametric band changes the band gains and marks the sound as edited`() =
         runTest {

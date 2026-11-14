@@ -84,6 +84,11 @@ class BassExciter(
     private var envelopeRelease = 0.0
     private var smoothedEnvelope = 0.0
 
+    // Working arrays of processBlock(); they only grow, so the audio thread allocates nothing.
+    private var blockBass = DoubleArray(0)
+    private var blockInPhase = DoubleArray(0)
+    private var blockQuadrature = DoubleArray(0)
+
     init {
         updateWeights()
     }
@@ -123,6 +128,70 @@ class BassExciter(
             )
 
         return inputSample + harmonics * OUTPUT_TRIM * currentSettings.mix
+    }
+
+    /**
+     * The first [count] samples of [samples] at once, in place: the block form of
+     * [processUnclamped], with the same result and the same state. What the player's audio thread
+     * uses - stage by stage over the block instead of sample by sample through every stage.
+     */
+    fun processBlock(
+        samples: DoubleArray,
+        count: Int,
+        sampleRateHz: Float,
+    ) {
+        val currentSettings = settings
+        if (!currentSettings.enabled || currentSettings.mix <= 0f || count <= 0) return
+
+        ensureCoefficients(currentSettings.cutoffHz, sampleRateHz)
+        if (blockBass.size < count) {
+            blockBass = DoubleArray(count)
+            blockInPhase = DoubleArray(count)
+            blockQuadrature = DoubleArray(count)
+        }
+        val bass = blockBass
+        val inPhase = blockInPhase
+        val quadrature = blockQuadrature
+
+        System.arraycopy(samples, 0, bass, 0, count)
+        isolationHighpassState.processBlock(bass, count, isolationHighpass)
+        isolationLowpassStateA.processBlock(bass, count, isolationLowpassA)
+        isolationLowpassStateB.processBlock(bass, count, isolationLowpassB)
+
+        hilbert.processBlock(bass, count, inPhase, quadrature)
+
+        // The harmonics replace the isolated bass in its array: generateHarmonics() per sample.
+        val attack = envelopeAttack
+        val release = envelopeRelease
+        val secondWeight = secondHarmonicWeight
+        val thirdWeight = thirdHarmonicWeight
+        var smoothed = smoothedEnvelope
+        for (n in 0 until count) {
+            val i = inPhase[n]
+            val q = quadrature[n]
+            val envelope = sqrt(i * i + q * q)
+            val coefficient = if (envelope > smoothed) attack else release
+            smoothed = coefficient * smoothed + (1.0 - coefficient) * envelope
+            var generated = 0.0
+            if (envelope >= MIN_ENVELOPE) {
+                val gate = gateGain(smoothed)
+                if (gate > 0.0) {
+                    val c = i / envelope
+                    val s = q / envelope
+                    val cos2 = c * c - s * s
+                    val cos3 = c * (c * c - 3.0 * s * s)
+                    generated = envelope * gate * (secondWeight * cos2 + thirdWeight * cos3)
+                }
+            }
+            bass[n] = generated
+        }
+        smoothedEnvelope = smoothed
+
+        harmonicHighpassState.processBlock(bass, count, harmonicHighpass)
+        harmonicLowpassState.processBlock(bass, count, harmonicLowpass)
+
+        val amount = (OUTPUT_TRIM * currentSettings.mix).toDouble()
+        for (n in 0 until count) samples[n] += bass[n] * amount
     }
 
     fun reset() {

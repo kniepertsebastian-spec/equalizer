@@ -51,9 +51,11 @@ android {
     buildTypes {
         release {
             // Roadmap 06, P6-6: R8 (isMinifyEnabled + isShrinkResources) was tried and switched off again:
-            // the signed release APK (about 7 MB) did not start on a device. The cause is not found
-            // yet (it needs the logcat of the crash, "FATAL EXCEPTION"). proguard-rules.pro is kept
-            // for the next attempt; turn minification back on only together with a device test.
+            // the signed release APK (about 7 MB) did not start on a device. Most likely that was not
+            // R8 at all: 1.1.2-beta.7 and beta.8 were built without it and did not start either. The
+            // cause was a NullPointerException in MainViewModel's init (state declared below the init
+            // block), fixed since. proguard-rules.pro is kept for the next attempt; turn minification
+            // back on only together with a device test.
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("hardbassRelease")

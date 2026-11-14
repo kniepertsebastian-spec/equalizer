@@ -74,13 +74,19 @@ class LookaheadLimiter(
 
     // Runs on the audio thread for every sample, so everything below is primitive ring
     // buffers (no boxing, no allocation) and a monotonic deque for the window minimum
-    // (O(1) per sample instead of scanning the whole window). That matters: with the
-    // screen off the CPU clocks down, and a slow limiter makes the music stutter.
-    // Frames are numbered 0, 1, 2 ... in the order they enter the core; `pushed` counts them.
+    // (O(1) per sample instead of scanning the whole window). The rings are walked with
+    // counters that wrap, not with a modulo: a division per ring access was a large part of
+    // the limiter's cost. That matters: with the screen off the phone leaves the player on
+    // its slow cores, and a slow limiter makes the music stutter.
+    // `slot` is where the next frame goes; the frame `window - 1` behind it leaves from the
+    // slot after it.
     private var window = 0
     private var delayLine = FloatArray(0)
     private var requiredGains = FloatArray(0)
-    private var minCandidates = LongArray(0)
+    private var slot = 0
+
+    // Slots of the frames that can still become the window minimum, oldest first.
+    private var minCandidates = IntArray(0)
     private var minHead = 0
     private var minCount = 0
 
@@ -88,7 +94,6 @@ class LookaheadLimiter(
     // frames again: the ramp.
     private var heldGains = FloatArray(0)
     private var heldSum = 0.0
-    private var pushed = 0L
 
     private var currentGain = 1f
     private var configuredSampleRateHz = -1f
@@ -101,6 +106,9 @@ class LookaheadLimiter(
 
     // Single-channel only, kept for callers that process one stream at a time.
     private val single = FloatArray(1)
+
+    // One frame as a block of length 1, for processFrame().
+    private val frameBlock = Array(channels) { DoubleArray(1) }
 
     fun updateSettings(newSettings: LookaheadLimiterSettings) {
         settings = newSettings.clamped()
@@ -124,6 +132,22 @@ class LookaheadLimiter(
         frame: FloatArray,
         sampleRateHz: Float,
     ) {
+        if (!settings.enabled) return
+        for (c in 0 until channels) frameBlock[c][0] = frame[c].toDouble()
+        processBlock(frameBlock, 1, sampleRateHz)
+        for (c in 0 until channels) frame[c] = frameBlock[c][0].toFloat()
+    }
+
+    /**
+     * The first [frames] frames at once, limited in place; one array per channel. The same
+     * result and the same state as [processFrame] frame by frame. What the player's audio
+     * thread uses.
+     */
+    fun processBlock(
+        block: Array<DoubleArray>,
+        frames: Int,
+        sampleRateHz: Float,
+    ) {
         val currentSettings = settings
         if (!currentSettings.enabled) return
 
@@ -133,64 +157,101 @@ class LookaheadLimiter(
             thresholdLinear = dbToAmplitude(cachedThresholdDb)
         }
 
-        // Shift the history by one frame and append the new one; the frame in the
-        // middle (index DETECTOR_DELAY) is the one detected now and handed to the core.
-        System.arraycopy(history, channels, history, 0, (HISTORY_SIZE - 1) * channels)
-        for (c in 0 until channels) history[(HISTORY_SIZE - 1) * channels + c] = frame[c]
+        val channels = channels
+        val window = window
+        val history = history
+        val delayLine = delayLine
+        val requiredGains = requiredGains
+        val heldGains = heldGains
+        val minCandidates = minCandidates
+        val threshold = thresholdLinear
+        val release = releaseCoefficient
+        val shiftedSamples = (HISTORY_SIZE - 1) * channels
+        val newest = (HISTORY_SIZE - 1) * channels
+        val middleOffset = DETECTOR_DELAY * channels
+        var slot = slot
+        var minHead = minHead
+        var minCount = minCount
+        var heldSum = heldSum
+        var currentGain = currentGain
+        var previousIntervalPeak = previousIntervalPeak
 
-        var samplePeak = 0f
-        var nextIntervalPeak = 0f
-        for (c in 0 until channels) {
-            val middle = history[DETECTOR_DELAY * channels + c]
-            samplePeak = maxOf(samplePeak, abs(middle))
-            nextIntervalPeak =
-                maxOf(
-                    nextIntervalPeak,
+        for (n in 0 until frames) {
+            // Shift the history by one frame and append the new one; the frame in the
+            // middle (index DETECTOR_DELAY) is the one detected now and handed to the core.
+            for (k in 0 until shiftedSamples) history[k] = history[k + channels]
+            for (c in 0 until channels) history[newest + c] = block[c][n].toFloat()
+
+            var samplePeak = 0f
+            var nextIntervalPeak = 0f
+            for (c in 0 until channels) {
+                val middle = history[middleOffset + c]
+                val magnitude = abs(middle)
+                if (magnitude > samplePeak) samplePeak = magnitude
+                val between =
                     interpolatedPeak(
                         history[1 * channels + c],
                         middle,
                         history[3 * channels + c],
                         history[4 * channels + c],
-                    ),
-                )
-        }
-        val peakEstimate = maxOf(samplePeak, previousIntervalPeak, nextIntervalPeak)
-        previousIntervalPeak = nextIntervalPeak
-        val requiredGain = if (peakEstimate > thresholdLinear) thresholdLinear / peakEstimate else 1f
-
-        val slot = (pushed % window).toInt()
-        // The frame `window - 1` behind the newest one leaves the delay line now.
-        val outSlot = ((pushed + 1) % window).toInt()
-
-        for (c in 0 until channels) delayLine[slot * channels + c] = history[DETECTOR_DELAY * channels + c]
-        requiredGains[slot] = requiredGain
-        // Candidates that fell out of the window, and anything not smaller than the
-        // new gain (it can never be the minimum again).
-        if (minCount > 0 && minCandidates[minHead] <= pushed - window) {
-            minHead = (minHead + 1) % window
-            minCount--
-        }
-        while (minCount > 0 && requiredGains[(minCandidates[lastCandidate()] % window).toInt()] >= requiredGain) minCount--
-        minCandidates[(minHead + minCount) % window] = pushed
-        minCount++
-
-        val held = requiredGains[(minCandidates[minHead] % window).toInt()]
-        heldSum += held - heldGains[slot]
-        heldGains[slot] = held
-        val ramped = (heldSum / window).toFloat()
-        pushed++
-
-        currentGain =
-            if (ramped < currentGain) {
-                // Already a smooth ramp that lands on the peak's gain in time.
-                ramped
-            } else {
-                releaseCoefficient * currentGain + (1f - releaseCoefficient) * ramped
+                    )
+                if (between > nextIntervalPeak) nextIntervalPeak = between
             }
+            var peakEstimate = samplePeak
+            if (previousIntervalPeak > peakEstimate) peakEstimate = previousIntervalPeak
+            if (nextIntervalPeak > peakEstimate) peakEstimate = nextIntervalPeak
+            previousIntervalPeak = nextIntervalPeak
+            val requiredGain = if (peakEstimate > threshold) threshold / peakEstimate else 1f
 
-        for (c in 0 until channels) {
-            frame[c] = (delayLine[outSlot * channels + c] * currentGain).coerceIn(-1f, 1f)
+            // The frame `window - 1` behind the newest one leaves the delay line now.
+            val outSlot = if (slot + 1 == window) 0 else slot + 1
+
+            // The candidate that fell out of the window: the frame this slot held `window`
+            // frames ago. Checked before the slot is overwritten.
+            if (minCount > 0 && minCandidates[minHead] == slot) {
+                minHead = if (minHead + 1 == window) 0 else minHead + 1
+                minCount--
+            }
+            for (c in 0 until channels) delayLine[slot * channels + c] = history[middleOffset + c]
+            requiredGains[slot] = requiredGain
+            // ... and anything not smaller than the new gain (it can never be the minimum again).
+            while (minCount > 0) {
+                var last = minHead + minCount - 1
+                if (last >= window) last -= window
+                if (requiredGains[minCandidates[last]] < requiredGain) break
+                minCount--
+            }
+            var insertAt = minHead + minCount
+            if (insertAt >= window) insertAt -= window
+            minCandidates[insertAt] = slot
+            minCount++
+
+            val held = requiredGains[minCandidates[minHead]]
+            heldSum += held - heldGains[slot]
+            heldGains[slot] = held
+            val ramped = (heldSum / window).toFloat()
+
+            currentGain =
+                if (ramped < currentGain) {
+                    // Already a smooth ramp that lands on the peak's gain in time.
+                    ramped
+                } else {
+                    release * currentGain + (1f - release) * ramped
+                }
+
+            for (c in 0 until channels) {
+                val limited = delayLine[outSlot * channels + c] * currentGain
+                block[c][n] = limited.coerceIn(-1f, 1f).toDouble()
+            }
+            slot = outSlot
         }
+
+        this.slot = slot
+        this.minHead = minHead
+        this.minCount = minCount
+        this.heldSum = heldSum
+        this.currentGain = currentGain
+        this.previousIntervalPeak = previousIntervalPeak
     }
 
     fun reset() {
@@ -202,11 +263,9 @@ class LookaheadLimiter(
         heldSum = window.toDouble()
         minHead = 0
         minCount = 0
-        pushed = 0L
+        slot = 0
         currentGain = 1f
     }
-
-    private fun lastCandidate(): Int = (minHead + minCount - 1) % window
 
     private fun ensureLookaheadWindowSize(
         lookaheadMs: Float,
@@ -222,7 +281,7 @@ class LookaheadLimiter(
         delayLine = FloatArray(window * channels)
         requiredGains = FloatArray(window)
         heldGains = FloatArray(window)
-        minCandidates = LongArray(window)
+        minCandidates = IntArray(window)
         reset()
     }
 
