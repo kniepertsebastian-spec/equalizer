@@ -48,6 +48,51 @@ class HilbertAllpassPair {
         quadrature = runChain(input, coefficientsQ, previousInputQ, previousOutputQ)
     }
 
+    /**
+     * The first [count] samples of [input] at once: the in-phase output goes to [inPhaseOut], the
+     * quadrature output to [quadratureOut]. Same result and same state as [process] per sample.
+     * [input] is not changed; the output arrays must not be [input].
+     */
+    fun processBlock(
+        input: DoubleArray,
+        count: Int,
+        inPhaseOut: DoubleArray,
+        quadratureOut: DoubleArray,
+    ) {
+        if (count <= 0) return
+        runChainBlock(input, count, inPhaseOut, coefficientsI, previousInputI, previousOutputI)
+        runChainBlock(input, count, quadratureOut, coefficientsQ, previousInputQ, previousOutputQ)
+        inPhase = inPhaseOut[count - 1]
+        quadrature = quadratureOut[count - 1]
+    }
+
+    // Section by section over the whole block, so each section's state stays in local variables.
+    private fun runChainBlock(
+        input: DoubleArray,
+        count: Int,
+        output: DoubleArray,
+        coefficients: DoubleArray,
+        previousInput: DoubleArray,
+        previousOutput: DoubleArray,
+    ) {
+        var source = input
+        for (k in 0 until SECTIONS) {
+            val a = coefficients[k]
+            var lastInput = previousInput[k]
+            var lastOutput = previousOutput[k]
+            for (n in 0 until count) {
+                val x = source[n]
+                val y = a * x + lastInput - a * lastOutput
+                lastInput = x
+                lastOutput = y
+                output[n] = y
+            }
+            previousInput[k] = lastInput
+            previousOutput[k] = lastOutput
+            source = output
+        }
+    }
+
     fun reset() {
         previousInputI.fill(0.0)
         previousOutputI.fill(0.0)

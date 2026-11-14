@@ -55,6 +55,9 @@ class BassMonoSummer(
     private var coefficientsCutoffHz = -1f
     private var highpassCoefficients = SILENT_COEFFICIENTS
 
+    // Working array of processBlock(); it only grows, so the audio thread allocates nothing.
+    private var blockSide = DoubleArray(0)
+
     fun updateSettings(newSettings: BassMonoSummerSettings) {
         settings = newSettings.clamped()
     }
@@ -77,6 +80,41 @@ class BassMonoSummer(
         for (state in sideHighpassStates) side = state.process(side, highpassCoefficients)
 
         return StereoSample(left = mid + side, right = mid - side)
+    }
+
+    /**
+     * The first [count] frames of [left] and [right] at once, in place: the block form of
+     * [process], with the same result and the same state - and without an object per frame, which
+     * [process] needs for its return value. What the player's audio thread uses.
+     */
+    fun processBlock(
+        left: DoubleArray,
+        right: DoubleArray,
+        count: Int,
+        sampleRateHz: Float,
+    ) {
+        val currentSettings = settings
+        if (!currentSettings.enabled || count <= 0) return
+
+        ensureCoefficients(currentSettings.cutoffHz, sampleRateHz)
+        if (blockSide.size < count) blockSide = DoubleArray(count)
+        val side = blockSide
+
+        // The mid stays in `left` until both are put together again.
+        for (n in 0 until count) {
+            val l = left[n]
+            val r = right[n]
+            left[n] = (l + r) * 0.5
+            side[n] = (l - r) * 0.5
+        }
+        sideHighpassStates[0].processBlock(side, count, highpassCoefficients)
+        sideHighpassStates[1].processBlock(side, count, highpassCoefficients)
+        for (n in 0 until count) {
+            val mid = left[n]
+            val s = side[n]
+            left[n] = mid + s
+            right[n] = mid - s
+        }
     }
 
     fun reset() {

@@ -127,6 +127,72 @@ class CurveEqualizer {
         return value
     }
 
+    /**
+     * The first [frames] samples of every channel through the chain, in place: the block form of
+     * [process] followed by [endFrame] for each frame, with the same result. One array per channel.
+     * Only valid after [beginBuffer] returned true.
+     */
+    fun processBlock(
+        channels: Array<DoubleArray>,
+        frames: Int,
+    ) {
+        val current = design ?: return
+        val target = current.preGain
+        val startGain = appliedPreGain
+        val startStep = preGainStep
+        var endGain = startGain
+        var endStep = startStep
+        val highPass = current.highPass
+        val peaks = current.peaks
+        for (c in channels.indices) {
+            if (c >= states.size) break
+            val samples = channels[c]
+            // The pre-gain, gliding exactly as endFrame() moves it; every channel gets the same ramp.
+            var gain = startGain
+            var step = startStep
+            for (n in 0 until frames) {
+                samples[n] = samples[n] * gain
+                if (step != 0f) {
+                    gain += step
+                    if ((step > 0f && gain >= target) || (step < 0f && gain <= target)) {
+                        gain = target
+                        step = 0f
+                    }
+                }
+            }
+            endGain = gain
+            endStep = step
+        }
+        // Stereo, the normal case: both channels through each filter together.
+        var c = 0
+        while (c + 1 < channels.size && c + 1 < states.size) {
+            val left = states[c]
+            val right = states[c + 1]
+            val leftSamples = channels[c]
+            val rightSamples = channels[c + 1]
+            if (highPass != null) {
+                BiquadFilterState.processBlockPair(left.highPass[0], leftSamples, right.highPass[0], rightSamples, frames, highPass)
+                BiquadFilterState.processBlockPair(left.highPass[1], leftSamples, right.highPass[1], rightSamples, frames, highPass)
+            }
+            for (i in peaks.indices) {
+                BiquadFilterState.processBlockPair(left.peaks[i], leftSamples, right.peaks[i], rightSamples, frames, peaks[i])
+            }
+            c += 2
+        }
+        // Mono, or the last channel of an odd layout.
+        if (c < channels.size && c < states.size) {
+            val chain = states[c]
+            val samples = channels[c]
+            if (highPass != null) {
+                chain.highPass[0].processBlock(samples, frames, highPass)
+                chain.highPass[1].processBlock(samples, frames, highPass)
+            }
+            for (i in peaks.indices) chain.peaks[i].processBlock(samples, frames, peaks[i])
+        }
+        appliedPreGain = endGain
+        preGainStep = endStep
+    }
+
     /** The designed chain's response (without the headroom pre-gain) in dB; for tests. */
     internal fun chainResponseDb(freqHz: Float): Float {
         val current = design ?: return 0f

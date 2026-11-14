@@ -172,10 +172,105 @@ class BiquadFilterState {
         return output.toFloat()
     }
 
+    /**
+     * The first [count] samples of [samples] through the filter, in place: the same arithmetic as
+     * [process], one sample after the other, and the same state - so both can be mixed.
+     *
+     * This is what the player's audio thread uses. Over a whole block the coefficients and the
+     * state stay in local variables and the loop touches one array only; called sample by sample
+     * through a chain of lists, the same filter cost several times as much - too much for the slow
+     * cores the phone leaves a player on once the screen is locked (the music stuttered).
+     */
+    fun processBlock(
+        samples: DoubleArray,
+        count: Int,
+        coefficients: BiquadCoefficients,
+    ) {
+        val b0 = coefficients.b0.toDouble()
+        val b1 = coefficients.b1.toDouble()
+        val b2 = coefficients.b2.toDouble()
+        val a1 = coefficients.a1.toDouble()
+        val a2 = coefficients.a2.toDouble()
+        var x1 = this.x1
+        var x2 = this.x2
+        var y1 = this.y1
+        var y2 = this.y2
+        for (n in 0 until count) {
+            val x0 = samples[n]
+            val output = b0 * x0 + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+            x2 = x1
+            x1 = x0
+            y2 = y1
+            y1 = output
+            samples[n] = output
+        }
+        this.x1 = x1
+        this.x2 = x2
+        this.y1 = y1
+        this.y2 = y2
+    }
+
     fun reset() {
         x1 = 0.0
         x2 = 0.0
         y1 = 0.0
         y2 = 0.0
+    }
+
+    companion object {
+        /**
+         * Two channels through the same filter in one pass: [first] filters [firstSamples],
+         * [second] filters [secondSamples], each exactly as [processBlock] would on its own.
+         *
+         * A recursive filter has to wait for its own previous output, so one channel alone
+         * leaves the processor idle part of the time; the two channels do not depend on each
+         * other and fill those gaps.
+         */
+        fun processBlockPair(
+            first: BiquadFilterState,
+            firstSamples: DoubleArray,
+            second: BiquadFilterState,
+            secondSamples: DoubleArray,
+            count: Int,
+            coefficients: BiquadCoefficients,
+        ) {
+            val b0 = coefficients.b0.toDouble()
+            val b1 = coefficients.b1.toDouble()
+            val b2 = coefficients.b2.toDouble()
+            val a1 = coefficients.a1.toDouble()
+            val a2 = coefficients.a2.toDouble()
+            var firstX1 = first.x1
+            var firstX2 = first.x2
+            var firstY1 = first.y1
+            var firstY2 = first.y2
+            var secondX1 = second.x1
+            var secondX2 = second.x2
+            var secondY1 = second.y1
+            var secondY2 = second.y2
+            for (n in 0 until count) {
+                val firstX0 = firstSamples[n]
+                val secondX0 = secondSamples[n]
+                val firstOutput = b0 * firstX0 + b1 * firstX1 + b2 * firstX2 - a1 * firstY1 - a2 * firstY2
+                val secondOutput = b0 * secondX0 + b1 * secondX1 + b2 * secondX2 - a1 * secondY1 - a2 * secondY2
+                firstX2 = firstX1
+                firstX1 = firstX0
+                firstY2 = firstY1
+                firstY1 = firstOutput
+                secondX2 = secondX1
+                secondX1 = secondX0
+                secondY2 = secondY1
+                secondY1 = secondOutput
+                firstSamples[n] = firstOutput
+                secondSamples[n] = secondOutput
+            }
+            first.x1 = firstX1
+            first.x2 = firstX2
+            first.y1 = firstY1
+            first.y2 = firstY2
+            second.x1 = secondX1
+            second.x2 = secondX2
+            second.y1 = secondY1
+            second.y2 = secondY2
+        }
     }
 }
