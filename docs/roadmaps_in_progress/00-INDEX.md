@@ -24,6 +24,8 @@
 5. [05-phase-3-player-redesign-plan-und-freigabe.md](05-phase-3-player-redesign-plan-und-freigabe.md)
 6. [06-phase-5-und-6-neue-funktionen-wartbarkeit.md](06-phase-5-und-6-neue-funktionen-wartbarkeit.md)
 
+Zusätzlich: Roadmap-Reihe **AuraCurve** (Rebranding, SoundCloud-Anfrage, Store-Release) in [`auracurve/`](auracurve/00-uebersicht-und-leitplanken.md).
+
 ## Zurückgestellte Punkte aus der ursprünglichen Gesamt-Roadmap
 
 Diese Punkte wurden nicht stillschweigend gelöscht, sind aber nicht Teil der sechs gewünschten Arbeitspakete:
