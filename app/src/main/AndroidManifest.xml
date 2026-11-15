@@ -6,7 +6,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!--
       Optional (roadmap 06, P5-2): only ever granted by the user over ADB
@@ -26,14 +25,14 @@
     </queries>
 
     <application
-        android:name=".HardBassEqApplication"
+        android:name=".AuraCurveApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.HardBassEQ">
+        android:theme="@style/Theme.AuraCurve">
 
         <!--
           singleTask: a link shared into the app from another app must reach the
@@ -44,7 +43,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:theme="@style/Theme.HardBassEQ">
+            android:theme="@style/Theme.AuraCurve">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -57,18 +56,16 @@
                 <action android:name="com.auracurve.app.action.OPEN_PLAYER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            <!-- A shared preset: hardbasseq://preset?... (link or scanned QR code), see PresetShareCodec. -->
+            <!--
+              A shared preset: auracurve://preset?... (link or scanned QR code), see PresetShareCodec.
+              hardbasseq://preset?... is the scheme of links shared before the rename to AuraCurve.
+            -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="auracurve" android:host="preset" />
                 <data android:scheme="hardbasseq" android:host="preset" />
-            </intent-filter>
-            <!-- Share target for text, used for SoundCloud links. -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
 
@@ -139,15 +136,6 @@
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.updates"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/update_file_paths" />
-        </provider>
     </application>
 
 </manifest>

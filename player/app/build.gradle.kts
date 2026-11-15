@@ -3,6 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    // @Serializable models of the Spotify and link parsers in src/full (moved from :core).
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -19,6 +21,15 @@ android {
         release {
             isMinifyEnabled = false
         }
+    }
+
+    // AuraCurve roadmap 02, task 1.3: same dimension and flavor names as :app, so each app
+    // variant picks the matching player variant. "store" has no online source (files from the
+    // device only); "full" adds SoundCloud, Spotify and link resolution in src/full.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("store") { dimension = "distribution" }
+        create("full") { dimension = "distribution" }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -48,7 +59,10 @@ dependencies {
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.constraintlayout)
-    implementation(libs.webkit)
+    // WebView helpers for the SoundCloud sign-in, which only the "full" flavor has.
+    "fullImplementation"(libs.webkit)
+    // JSON of the Spotify/link parsers (src/full/.../link, moved from :core with roadmap 02, 1.3).
+    "fullImplementation"(libs.kotlinx.serialization.json)
 
     // Media3 / ExoPlayer
     implementation(libs.media3.exoplayer)

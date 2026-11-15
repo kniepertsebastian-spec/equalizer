@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltAndroidApp
-class HardBassEqApplication :
+class AuraCurveApplication :
     Application(),
     SingletonImageLoader.Factory {
     @Inject
@@ -65,7 +65,8 @@ class HardBassEqApplication :
         // MainViewModel is created), so the session-open broadcast a player sends
         // is much less likely to be missed. See AudioSessionForegroundService.
         startSessionService()
-        scheduleDiscoveryRefresh()
+        // New uploads come from SoundCloud: only the "full" flavor has an online source.
+        if (BuildConfig.ONLINE_SOURCES) scheduleDiscoveryRefresh()
     }
 
     // Covers in the player (lists and the large one) come from SoundCloud's servers: kept in
@@ -110,7 +111,7 @@ class HardBassEqApplication :
     }
 
     private companion object {
-        const val TAG = "HardBassEqApplication"
+        const val TAG = "AuraCurveApplication"
         const val DISCOVERY_WORK_NAME = "discovery_weekly_refresh"
         const val DISCOVERY_CHECK_HOURS = 6L
         const val COVER_CACHE_DIR = "covers"

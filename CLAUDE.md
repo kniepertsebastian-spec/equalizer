@@ -1,8 +1,8 @@
-# CLAUDE.md — HardBass EQ
+# CLAUDE.md — AuraCurve
 
 ## Project Overview
 
-HardBass EQ is an audio equalizer project focused on precise sound control, a powerful visual identity, and reliable audio processing.
+AuraCurve (formerly HardBass EQ) is an audio equalizer project focused on precise sound control, a powerful visual identity, and reliable audio processing.
 
 The main application is a native Android app built with Kotlin and Jetpack Compose. The repository may also contain desktop functionality for managing or exporting presets to tools such as Equalizer APO and EasyEffects.
 

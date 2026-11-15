@@ -5,9 +5,7 @@ import com.auracurve.app.correction.RoomCorrectionProfileRepository
 import com.auracurve.app.discovery.DataStoreDiscoveryRepository
 import com.auracurve.app.discovery.DiscoveryRepository
 import com.auracurve.app.playlist.DataStorePlaylistRepository
-import com.auracurve.app.playlist.DataStoreSpotifyImportRepository
 import com.auracurve.app.playlist.PlaylistRepository
-import com.auracurve.app.playlist.SpotifyImportRepository
 import com.auracurve.app.preset.PresetRepository
 import com.auracurve.app.preset.RoomPresetRepository
 import com.auracurve.app.profile.AppProfileRepository
@@ -58,8 +56,4 @@ abstract class PersistenceModule {
     @Binds
     @Singleton
     abstract fun bindDiscoveryRepository(impl: DataStoreDiscoveryRepository): DiscoveryRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindSpotifyImportRepository(impl: DataStoreSpotifyImportRepository): SpotifyImportRepository
 }

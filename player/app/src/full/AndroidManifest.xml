@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Flavor "full" only: the SoundCloud and Spotify sign-ins. The store flavor ships neither. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!--
+          Needs an explicit AppCompat-descended theme:
+          with none set here it fell back to the merged app's own application theme
+          (Theme.AuraCurve, parent android:Theme.Material.Light.NoActionBar - not an
+          AppCompat/Material Components theme). AppCompatActivity.setContentView()
+          throws IllegalStateException("You need to use a Theme.AppCompat theme (or
+          descendant) with this activity.") in that case, which crashed this activity
+          immediately on every launch, before the WebView was ever created - looked
+          from the outside like tapping Login did nothing and bounced straight back.
+        -->
+        <activity
+            android:name=".auth.SoundCloudLoginActivity"
+            android:exported="false"
+            android:label="SoundCloud Login"
+            android:theme="@style/Theme.AuraCurvePlayer" />
+
+        <!--
+          Spotify sign-in: the browser is sent back to hardbasseq://spotify-callback (the redirect
+          address registered in the user's Spotify developer app). Exported because the browser
+          starts it; the sign-in state it checks keeps other apps from feeding it a code.
+        -->
+        <activity
+            android:name=".spotify.SpotifyLoginActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="hardbasseq"
+                    android:host="spotify-callback" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

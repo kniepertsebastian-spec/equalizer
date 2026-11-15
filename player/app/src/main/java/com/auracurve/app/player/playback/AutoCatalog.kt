@@ -30,7 +30,7 @@ interface AutoCatalog {
 }
 
 // Same-process hand-over point between the app (which owns the catalog, set up in
-// HardBassEqApplication) and the player service, whose media library session answers the
+// AuraCurveApplication) and the player service, whose media library session answers the
 // car, like NowPlayingState.
 object AutoCatalogHolder {
     @Volatile

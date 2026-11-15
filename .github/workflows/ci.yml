@@ -50,8 +50,17 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew assembleDebug --stacktrace
 
+      # Both flavors (AuraCurve roadmap 02, 1.3): "store" without and "full" with the online code.
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: ./gradlew testStoreDebugUnitTest testFullDebugUnitTest --stacktrace
+
+      # The store APK must not contain the unofficial SoundCloud access, the Spotify/YouTube link
+      # resolution or the self-update. The full APK is checked the other way round, so a renamed
+      # class cannot make the store check pass by no longer matching anything.
+      - name: Check that the store APK has no online-access code
+        run: |
+          python3 -I scripts/check_store_apk.py app/build/outputs/apk/store/debug/app-store-debug.apk
+          python3 -I scripts/check_store_apk.py --expect-present app/build/outputs/apk/full/debug/app-full-debug.apk
 
       # :core is a plain Kotlin/JVM module and doesn't use the Android
       # testDebugUnitTest task above, so it needs its own test invocation.
@@ -70,10 +79,10 @@ jobs:
       # at least keep compiling. The release build (R8, P6-6) is built too, so a missing keep rule
       # that makes shrinking fail shows up before a release tag does.
       - name: Compile instrumented tests and build the release APK
-        run: ./gradlew :app:compileDebugAndroidTestKotlin :app:assembleRelease --stacktrace
+        run: ./gradlew :app:compileStoreDebugAndroidTestKotlin :app:compileFullDebugAndroidTestKotlin :app:assembleRelease --stacktrace
 
       - name: Run Android Lint
-        run: ./gradlew lintDebug lintRelease --stacktrace
+        run: ./gradlew lintStoreDebug lintFullDebug lintStoreRelease lintFullRelease --stacktrace
 
       - name: Upload Android Lint reports
         if: always()
@@ -87,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
 
       # Optional: pushes the debug APK to a shared Google Drive folder so it
@@ -104,7 +113,8 @@ jobs:
           BUILD_SHA: ${{ github.sha }}
           BUILD_RUN_ID: ${{ github.run_id }}
         run: |
-          APK_PATH=$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' | head -n1)
+          # The personal build with everything; the store build is in the app-debug-apk artifact.
+          APK_PATH=$(find app/build/outputs/apk/full/debug -maxdepth 1 -name '*.apk' | head -n1)
           export APK_PATH
           export DRIVE_DESCRIPTION="Branch ${BUILD_REF_NAME} - Commit ${BUILD_SHA} - Run ${BUILD_RUN_ID} - $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           ./scripts/upload_apk_to_drive.sh
@@ -124,5 +134,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-results
-          path: app/build/reports/tests/testDebugUnitTest
+          path: app/build/reports/tests
           if-no-files-found: warn

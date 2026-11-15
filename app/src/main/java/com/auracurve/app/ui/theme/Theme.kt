@@ -54,7 +54,7 @@ private val SonicShapes =
     )
 
 @Composable
-fun HardBassEqTheme(content: @Composable () -> Unit) {
+fun AuraCurveTheme(content: @Composable () -> Unit) {
     CompositionLocalProvider(
         LocalSpacing provides Spacing(),
     ) {

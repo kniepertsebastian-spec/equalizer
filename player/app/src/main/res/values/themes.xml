@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark only, matching HardBass EQ: amber is the one interactive accent. -->
-    <style name="Theme.SoundCloudEqualizerPlayer" parent="Theme.Material3.Dark.NoActionBar">
+    <!-- Dark only, matching AuraCurve: amber is the one interactive accent. -->
+    <style name="Theme.AuraCurvePlayer" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/sonic_amber</item>
         <item name="colorOnPrimary">@color/sonic_graphite</item>
         <item name="colorSurface">@color/sonic_graphite_raised</item>

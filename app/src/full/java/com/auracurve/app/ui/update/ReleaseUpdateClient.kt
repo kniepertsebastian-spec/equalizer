@@ -49,7 +49,7 @@ internal class ReleaseUpdateClient(
         withContext(Dispatchers.IO) {
             val directory = File(context.cacheDir, "updates").apply { mkdirs() }
             val temporary = File(directory, "download.tmp")
-            val apk = File(directory, "HardBassEQ-update.apk")
+            val apk = File(directory, "AuraCurve-update.apk")
             temporary.delete()
             try {
                 val connection = openConnection(update.apkUrl)
@@ -156,7 +156,7 @@ internal class ReleaseUpdateClient(
         (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 10_000
             readTimeout = 30_000
-            setRequestProperty("User-Agent", "HardBassEQ/${BuildConfig.VERSION_NAME}")
+            setRequestProperty("User-Agent", "AuraCurve/${BuildConfig.VERSION_NAME}")
             setRequestProperty("Accept", "application/vnd.github+json")
         }
 }

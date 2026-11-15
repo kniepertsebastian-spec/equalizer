@@ -6,7 +6,7 @@ import org.junit.Test
 
 class ReleaseCatalogTest {
     private val tag = "v0.2.0-beta.2"
-    private val apkName = "HardBassEQ-$tag.apk"
+    private val apkName = "AuraCurve-$tag.apk"
     private val apkUrl = "https://github.com/kniepertsebastian-spec/equalizer/releases/download/$tag/$apkName"
     private val checksum = "a".repeat(64)
     private val release =

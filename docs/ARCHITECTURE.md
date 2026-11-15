@@ -101,7 +101,8 @@ Android-übliche Ort dafür ist.
 
 ## CI / Qualitätssicherung
 
-Aktuell: `assembleDebug`, `testDebugUnitTest`, optionaler Drive-Upload
+Aktuell: `assembleDebug` (Flavors `store` und `full`), Unit-Tests beider Flavors,
+Prüfung der Store-APK (`scripts/check_store_apk.py`), optionaler Drive-Upload der `full`-APK
 (siehe `docs/DRIVE_UPLOAD.md`). Android Lint, ktlint/Spotless und detekt
 sind für M1 vorgesehen, aber bewusst noch nicht eingerichtet – siehe
 `docs/adr/0001-defer-ksp-based-tooling.md`.

@@ -1,7 +1,5 @@
 package com.auracurve.app.di
 
-import com.auracurve.app.discovery.AndroidDiscoverySource
-import com.auracurve.app.discovery.DiscoverySource
 import com.auracurve.app.integration.AndroidLocalTrackReader
 import com.auracurve.app.integration.AndroidPlaybackTimers
 import com.auracurve.app.integration.AndroidPlayerBridge
@@ -34,8 +32,4 @@ abstract class IntegrationModule {
     @Binds
     @Singleton
     abstract fun bindPlaybackTimers(impl: AndroidPlaybackTimers): PlaybackTimers
-
-    @Binds
-    @Singleton
-    abstract fun bindDiscoverySource(impl: AndroidDiscoverySource): DiscoverySource
 }

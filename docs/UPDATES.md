@@ -30,7 +30,7 @@ legen.
 Die App prüft beim Download die SHA-256-Prüfsumme, Paket-ID, Versionsnummer und
 Signatur, bevor sie den Android-Installer öffnet. Android verlangt eine
 Bestätigung für die Installation und gegebenenfalls einmalig die Freigabe für
-„Unbekannte Apps installieren“ für HardBass EQ. Es findet keine stille
+„Unbekannte Apps installieren“ für AuraCurve Full (nur diese Variante hat das Selbst-Update). Es findet keine stille
 Installation statt.
 
 **Wechsel von alten CI-Debug-APKs:** Diese wurden auf wechselnden GitHub-Runnern

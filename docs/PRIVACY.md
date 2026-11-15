@@ -1,6 +1,6 @@
 # Privacy and data handling
 
-Draft. This file describes what the code does today. It is the technical basis for a privacy policy; it has not been reviewed legally and is not yet a privacy policy in the legal sense (controller, legal bases and rights are missing).
+Draft. This file describes what the code of the **full** flavor (`com.auracurve.app.full`) does today. The store flavor (`com.auracurve.app`) has none of the SoundCloud, Spotify, YouTube or update traffic below; its draft privacy policy is [`PRIVACY_POLICY_DRAFT.md`](PRIVACY_POLICY_DRAFT.md). It is the technical basis for a privacy policy; it has not been reviewed legally and is not yet a privacy policy in the legal sense (controller, legal bases and rights are missing).
 
 ## Summary
 

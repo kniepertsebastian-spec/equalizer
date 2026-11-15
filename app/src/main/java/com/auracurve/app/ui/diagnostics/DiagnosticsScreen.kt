@@ -28,6 +28,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import com.auracurve.app.BuildConfig
 import com.auracurve.app.R
 import com.auracurve.app.audio.AudioCapabilities
 import com.auracurve.app.audio.AudioEngineState
@@ -37,6 +38,8 @@ import com.auracurve.app.diagnostics.DiagnosticsEvent
 import com.auracurve.app.diagnostics.DiagnosticsReportFormatter
 import com.auracurve.app.diagnostics.OutputAudioInfo
 import com.auracurve.app.diagnostics.ProcessExitRecord
+import com.auracurve.app.ui.theme.SonicAmber
+import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -105,6 +108,8 @@ fun DiagnosticsScreen(
                     .padding(horizontal = spacing.medium, vertical = spacing.small),
             verticalArrangement = Arrangement.spacedBy(spacing.medium),
         ) {
+            AboutCard()
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -127,6 +132,40 @@ fun DiagnosticsScreen(
             ) {
                 Text(stringResource(R.string.diag_back))
             }
+        }
+    }
+}
+
+// Name, slogan and version (AuraCurve roadmap 01, M.2): what the app is, above the technical report.
+@Composable
+private fun AboutCard() {
+    val spacing = MaterialTheme.spacing
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(spacing.medium)) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = stringResource(R.string.about_slogan),
+                style = MaterialTheme.typography.titleSmall,
+                color = SonicAmber,
+            )
+            Spacer(modifier = Modifier.height(spacing.small))
+            Text(
+                text = stringResource(R.string.about_footnote),
+                style = MaterialTheme.typography.bodySmall,
+                color = SonicSteel,
+            )
+            Text(
+                text = stringResource(R.string.about_version, BuildConfig.VERSION_NAME),
+                style = MaterialTheme.typography.bodySmall,
+                color = SonicSteel,
+            )
         }
     }
 }

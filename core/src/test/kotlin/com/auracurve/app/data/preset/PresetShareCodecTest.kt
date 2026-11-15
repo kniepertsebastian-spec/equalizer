@@ -97,4 +97,14 @@ class PresetShareCodecTest {
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull()?.message?.contains("too large") == true)
     }
+
+    @Test
+    fun link_usesTheAuraCurveSchemeAndStillReadsTheOldOne() {
+        val link = PresetShareCodec.encode(custom)
+        assertTrue(link, link.startsWith("auracurve://preset?"))
+
+        val legacy = link.replaceFirst("auracurve://", "hardbasseq://")
+        assertTrue(PresetShareCodec.isShareLink(legacy))
+        assertEquals(custom.name, PresetShareCodec.decode(legacy).getOrThrow().name)
+    }
 }

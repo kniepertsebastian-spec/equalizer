@@ -1,8 +1,9 @@
-# HardBass EQ
+# AuraCurve
 
-**The app is called "Baschtls Gedröhne" in the Android interface and on the home screen.**
+**Feel the bass. Rule the sound.**  
+*Music player, bass enhancement, advanced EQ.*
 
-HardBass EQ is the internal project name. The Android application ID and the package of every module (`:app`, `:core`, `:player`) is `com.auracurve.app` (the player module uses `com.auracurve.app.player`). The change from `com.hardbasseq.eq` makes this a new app for Android: it does not update an installation of the old ID, and presets/playlists do not move over automatically. The Spotify callback URI (`hardbasseq://spotify-callback`) keeps its original name so existing Spotify developer-app settings keep working.
+AuraCurve was developed as "HardBass EQ" (shown as "Baschtls Gedröhne" on the phone). The Android application ID and the package of every module (`:app`, `:core`, `:player`) is `com.auracurve.app` (the player module uses `com.auracurve.app.player`; the personal `full` build adds `.full`). The change from `com.hardbasseq.eq` makes this a new app for Android: it does not update an installation of the old ID, and presets/playlists do not move over automatically. Shared preset links now start with `auracurve://`; links with the old `hardbasseq://` scheme still open. The Spotify callback URI (`hardbasseq://spotify-callback`) keeps its original name so existing Spotify developer-app settings keep working.
 
 An Android equalizer built for powerful, controlled bass, featuring an interactive frequency-response curve, customizable sound profiles, device-specific presets, and an integrated music player.
 
@@ -22,7 +23,7 @@ The interactive frequency-response curve is the central part of the application.
 
 ### System-Wide Audio Processing
 
-HardBass EQ can attach Android audio effects to audio sessions reported by compatible applications.
+AuraCurve can attach Android audio effects to audio sessions reported by compatible applications.
 
 - Equalizer processing.
 - Android DynamicsProcessing integration.
@@ -57,7 +58,7 @@ Audio processing is designed to run locally in real time during playback.
 
 ### Context-Based Audio Profiles
 
-HardBass EQ can detect the currently connected audio output and select an appropriate sound profile.
+AuraCurve can detect the currently connected audio output and select an appropriate sound profile.
 
 Supported profile categories include:
 
@@ -103,28 +104,44 @@ Android 9 is the lower limit because the system-wide processing uses `DynamicsPr
 
 ## Building
 
-Build a debug APK:
+The app comes in two build flavors:
+
+| Flavor | Application ID | Contents |
+|---|---|---|
+| `store` | `com.auracurve.app` | Equalizer, sound chain and the player for files on the device. No SoundCloud, Spotify or YouTube access and no self-update; this is the build for Google Play. |
+| `full` | `com.auracurve.app.full` | Everything, including the unofficial SoundCloud access, Spotify import, link resolution and the self-update. Personal use only. |
+
+Both can be installed side by side. They do not share presets or playlists.
+
+Build the debug APKs of both flavors:
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-The APK is generated at:
+The APKs are generated at:
 
 ```text
-app/build/outputs/apk/debug/
+app/build/outputs/apk/store/debug/
+app/build/outputs/apk/full/debug/
 ```
 
 Run unit tests:
 
 ```bash
-./gradlew testDebugUnitTest :core:test
+./gradlew testStoreDebugUnitTest testFullDebugUnitTest :core:test
 ```
 
 Run code quality checks:
 
 ```bash
-./gradlew ktlintCheck lintDebug
+./gradlew ktlintCheck lintStoreDebug lintFullDebug
+```
+
+Check that the store APK contains no online-access code (CI runs this too):
+
+```bash
+python3 scripts/check_store_apk.py app/build/outputs/apk/store/debug/app-store-debug.apk
 ```
 
 ## Releases
@@ -181,15 +198,15 @@ The app contains no analytics, advertising or crash-reporting library and has no
 
 ## Disclaimer
 
-HardBass EQ is an independent Android project.
+AuraCurve is an independent Android project.
 
 Spotify and SoundCloud are trademarks of their respective owners. Their names are used solely to identify supported or planned integrations.
 
-HardBass EQ is not an official Spotify or SoundCloud application and is not affiliated with, endorsed by, or sponsored by either service.
+AuraCurve is not an official Spotify or SoundCloud application and is not affiliated with, endorsed by, or sponsored by either service.
 
 ## Project Status
 
-HardBass EQ is under active development.
+AuraCurve is under active development.
 
 Features, device compatibility, audio processing behavior, and third-party integrations may change between releases.
 

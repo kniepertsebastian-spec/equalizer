@@ -56,7 +56,7 @@ import com.auracurve.app.player.playback.RepeatSetting
 import com.auracurve.app.player.playback.ResolvedStream
 import com.auracurve.app.player.playback.ResolvingTrackMediaSourceFactory
 import com.auracurve.app.player.playback.SleepTimerState
-import com.auracurve.app.player.playback.SoundCloudStreamResolver
+import com.auracurve.app.player.playback.StreamResolvers
 import com.auracurve.app.player.playback.TrackMediaItems
 import com.auracurve.app.playlist.PlaybackFailureAction
 import com.auracurve.app.playlist.PlaybackFailureClassifier
@@ -263,7 +263,7 @@ class AudioPlayerService : MediaLibraryService() {
         val factory =
             ResolvingTrackMediaSourceFactory(
                 delegate = DefaultMediaSourceFactory(this),
-                resolver = SoundCloudStreamResolver(this),
+                resolver = StreamResolvers.create(this),
                 onResolved = ::onStreamResolved,
             )
         sourceFactory = factory

@@ -6,9 +6,10 @@ Voraussetzungen: JDK 21 und Android SDK wie in `DEPENDENCIES.md` beschrieben.
 Im Repository-Verzeichnis ausführen (Windows: `gradlew.bat` statt `./gradlew`):
 
 ```sh
-./gradlew assembleDebug
-./gradlew testDebugUnitTest
-./gradlew lintDebug lintRelease
+./gradlew assembleDebug        # beide Flavors: store und full
+./gradlew testStoreDebugUnitTest testFullDebugUnitTest :core:test
+./gradlew lintStoreDebug lintFullDebug lintStoreRelease lintFullRelease
+python3 scripts/check_store_apk.py app/build/outputs/apk/store/debug/app-store-debug.apk
 ./gradlew ktlintCheck
 ./gradlew ktlintFormat  # behebt automatisch korrigierbare Verstöße
 ```

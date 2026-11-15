@@ -31,7 +31,7 @@ object DiagnosticsReportFormatter {
                 engineState is AudioEngineState.Active &&
                     (processingSettings == null || (processingSettings.masterEnabled && !processingSettings.bypass))
 
-            appendLine("=== Baschtls Gedröhne Diagnostic Report ===")
+            appendLine("=== AuraCurve Diagnostic Report ===")
             appendLine("App Version: ${BuildConfig.VERSION_NAME}")
             appendLine("Android API Level: ${Build.VERSION.SDK_INT}")
             appendLine("Device Model: ${Build.MODEL}")

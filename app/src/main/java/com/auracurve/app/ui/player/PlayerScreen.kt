@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.auracurve.app.BuildConfig
 import com.auracurve.app.R
 import com.auracurve.app.audio.AudioEngineState
 import com.auracurve.app.audio.ProcessingSettings
@@ -71,13 +72,16 @@ fun PlayerScreen(
     val discoveryUi by discovery.uiState.collectAsStateWithLifecycle()
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val requestedTab by viewModel.requestedTab.collectAsStateWithLifecycle()
-    var tab by rememberSaveable { mutableStateOf(PlayerTab.SEARCH) }
+    // Flavor "store" (AuraCurve roadmap 02, 1.3): no online source, so no search, no new uploads,
+    // no linked services - only the playlists with the files from the device.
+    val onlineSources = BuildConfig.ONLINE_SOURCES
+    var tab by rememberSaveable { mutableStateOf(if (onlineSources) PlayerTab.SEARCH else PlayerTab.PLAYLISTS) }
     var searchText by rememberSaveable { mutableStateOf("") }
     val eqStatusKind = EqStatus.kind(eqState, processingSettings)
     // A link shared into the app brings the playlists forward, where its import shows up.
     LaunchedEffect(requestedTab) {
         requestedTab?.let {
-            tab = it
+            tab = if (onlineSources) it else PlayerTab.PLAYLISTS
             viewModel.consumeRequestedTab()
         }
     }
@@ -143,24 +147,33 @@ fun PlayerScreen(
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f),
                     )
-                    IconButton(onClick = onOpenServices) {
-                        Icon(Icons.Default.Link, contentDescription = stringResource(R.string.player_open_services))
+                    if (onlineSources) {
+                        IconButton(onClick = onOpenServices) {
+                            Icon(Icons.Default.Link, contentDescription = stringResource(R.string.player_open_services))
+                        }
+                        SourceSelector(onSelectSoundCloud = { tab = PlayerTab.SEARCH })
                     }
-                    SourceSelector(onSelectSoundCloud = { tab = PlayerTab.SEARCH })
                 }
             }
 
             item {
                 EqStatusLine(
                     kind = eqStatusKind,
-                    pathLabel = if (nowPlaying != null) stringResource(R.string.source_soundcloud) else null,
+                    pathLabel =
+                        when {
+                            nowPlaying == null -> null
+                            onlineSources -> stringResource(R.string.source_soundcloud)
+                            else -> stringResource(R.string.source_device)
+                        },
                     onClick = onOpenEqualizer,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
 
-            item {
-                PlayerTabs(selected = tab, onSelect = { tab = it })
+            if (onlineSources) {
+                item {
+                    PlayerTabs(selected = tab, onSelect = { tab = it })
+                }
             }
 
             if (tab == PlayerTab.SEARCH) {
@@ -205,6 +218,7 @@ fun PlayerScreen(
                     playedIds = playedIds,
                     onNewPlaylist = { playlistDialog = PlaylistDialogRequest(null) },
                     onMerge = { mergeDialogOpen = true },
+                    onlineSources = onlineSources,
                 )
             }
         }

@@ -7,7 +7,6 @@ import com.auracurve.app.discovery.DiscoveryUpdater
 import com.auracurve.app.integration.LinkImportResult
 import com.auracurve.app.integration.LoadResult
 import com.auracurve.app.integration.PlayerController
-import com.auracurve.app.link.SpotifyPlaylist
 import com.auracurve.app.player.model.ExternalTrackInfo
 import com.auracurve.app.player.model.LibraryOverview
 import com.auracurve.app.player.model.TrackItem
@@ -273,8 +272,6 @@ class DiscoveryViewModelTest {
         override fun openSpotifySignIn(): String? = unused()
 
         override fun signOutSpotify() = unused()
-
-        override suspend fun fetchSpotifyPlaylistViaApi(playlistId: String): LoadResult<SpotifyPlaylist> = unused()
 
         override suspend fun fetchSpotifyPlaylistPage(playlistId: String): LoadResult<String> = unused()
 
