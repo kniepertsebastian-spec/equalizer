@@ -902,8 +902,9 @@ class PlayerViewModel
             val current = nowPlaying.value?.queueIndex ?: return emptyList()
             val all = queue.value
             if (current !in all.indices || current == all.lastIndex) return emptyList()
-            // From the end, so the positions still to remove stay valid.
-            for (index in all.lastIndex downTo current + 1) controller.removeQueueItem(index)
+            // One command for all of them: one per entry meant hundreds of commands (and as many
+            // redraws of the list) for a long queue.
+            controller.removeQueueItemsAfter(current)
             return all.subList(current + 1, all.size).toList()
         }
 

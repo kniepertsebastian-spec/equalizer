@@ -45,6 +45,7 @@ import com.hardbasseq.eq.playlist.PlaybackFailureKind
 import com.hardbasseq.eq.playlist.PlaybackFailurePolicy
 import com.hardbasseq.eq.playlist.QueueNavigation
 import com.hardbasseq.eq.playlist.QueueOrder
+import com.hardbasseq.eq.playlist.QueuePositions
 import com.soundcloud.equalizer.player.PlayerLaunch
 import com.soundcloud.equalizer.player.R
 import com.soundcloud.equalizer.player.model.TrackItem
@@ -109,6 +110,9 @@ class AudioPlayerService : MediaLibraryService() {
         const val ACTION_SET_REPEAT = "com.soundcloud.equalizer.player.SET_REPEAT"
         const val ACTION_MOVE_QUEUE_ITEM = "com.soundcloud.equalizer.player.MOVE_QUEUE_ITEM"
         const val ACTION_REMOVE_QUEUE_ITEM = "com.soundcloud.equalizer.player.REMOVE_QUEUE_ITEM"
+
+        // Removes every entry behind EXTRA_QUEUE_INDEX in one step ("clear upcoming").
+        const val ACTION_REMOVE_QUEUE_ITEMS_AFTER = "com.soundcloud.equalizer.player.REMOVE_QUEUE_ITEMS_AFTER"
         const val ACTION_START_SLEEP_TIMER = "com.soundcloud.equalizer.player.START_SLEEP_TIMER"
         const val ACTION_CANCEL_SLEEP_TIMER = "com.soundcloud.equalizer.player.CANCEL_SLEEP_TIMER"
 
@@ -126,6 +130,12 @@ class AudioPlayerService : MediaLibraryService() {
         const val EXTRA_REPEAT = "extra_repeat"
         const val EXTRA_FROM_INDEX = "extra_from_index"
         const val EXTRA_TO_INDEX = "extra_to_index"
+
+        // The track the screen saw at EXTRA_QUEUE_INDEX / EXTRA_FROM_INDEX / EXTRA_TO_INDEX. A
+        // command sent just before may have shifted the entry: the service looks the track up
+        // again instead of trusting the position (see QueuePositions).
+        const val EXTRA_TRACK_ID = "extra_track_id"
+        const val EXTRA_TO_TRACK_ID = "extra_to_track_id"
 
         // How often the playback position is published for the progress bar - only while
         // something plays.
@@ -481,7 +491,7 @@ class AudioPlayerService : MediaLibraryService() {
     ) {
         when (intent.action) {
             ACTION_QUEUE_REQUEST -> QueueRequests.take()?.let { applyQueueRequest(exoPlayer, it) }
-            ACTION_PLAY_INDEX -> playIndex(exoPlayer, intent.getIntExtra(EXTRA_QUEUE_INDEX, -1))
+            ACTION_PLAY_INDEX -> queuePosition(exoPlayer, intent, EXTRA_QUEUE_INDEX, EXTRA_TRACK_ID)?.let { playIndex(exoPlayer, it) }
             ACTION_NEXT -> userSkip(exoPlayer) { exoPlayer.seekToNext() }
             ACTION_PREVIOUS -> userSkip(exoPlayer) { exoPlayer.seekToPrevious() }
             ACTION_SEEK_TO -> exoPlayer.seekTo(intent.getLongExtra(EXTRA_POSITION_MS, 0L).coerceAtLeast(0L))
@@ -508,17 +518,34 @@ class AudioPlayerService : MediaLibraryService() {
                         else -> Player.REPEAT_MODE_OFF
                     }
             ACTION_MOVE_QUEUE_ITEM -> {
-                val from = intent.getIntExtra(EXTRA_FROM_INDEX, -1)
-                val to = intent.getIntExtra(EXTRA_TO_INDEX, -1)
-                val size = exoPlayer.mediaItemCount
-                if (from in 0 until size && to in 0 until size && from != to) exoPlayer.moveMediaItem(from, to)
+                val from = queuePosition(exoPlayer, intent, EXTRA_FROM_INDEX, EXTRA_TRACK_ID)
+                val to = queuePosition(exoPlayer, intent, EXTRA_TO_INDEX, EXTRA_TO_TRACK_ID)
+                if (from != null && to != null && from != to) exoPlayer.moveMediaItem(from, to)
             }
-            ACTION_REMOVE_QUEUE_ITEM -> {
-                val index = intent.getIntExtra(EXTRA_QUEUE_INDEX, -1)
-                if (index in 0 until exoPlayer.mediaItemCount) exoPlayer.removeMediaItem(index)
-            }
+            ACTION_REMOVE_QUEUE_ITEM ->
+                queuePosition(exoPlayer, intent, EXTRA_QUEUE_INDEX, EXTRA_TRACK_ID)?.let { exoPlayer.removeMediaItem(it) }
+            ACTION_REMOVE_QUEUE_ITEMS_AFTER ->
+                queuePosition(exoPlayer, intent, EXTRA_QUEUE_INDEX, EXTRA_TRACK_ID)?.let { index ->
+                    if (index < exoPlayer.mediaItemCount - 1) exoPlayer.removeMediaItems(index + 1, exoPlayer.mediaItemCount)
+                }
         }
         publishNowPlaying()
+    }
+
+    // The queue position a command means: where its track is now, which is not always where the
+    // screen saw it (null: the entry is gone, the command does nothing).
+    private fun queuePosition(
+        exoPlayer: ExoPlayer,
+        intent: Intent,
+        indexExtra: String,
+        trackIdExtra: String,
+    ): Int? {
+        val trackIds = (0 until exoPlayer.mediaItemCount).map { TrackMediaItems.trackId(exoPlayer.getMediaItemAt(it)) }
+        return QueuePositions.resolve(
+            trackIds = trackIds,
+            index = intent.getIntExtra(indexExtra, -1),
+            expectedTrackId = intent.getLongExtra(trackIdExtra, QueuePositions.NO_TRACK),
+        )
     }
 
     private fun applyQueueRequest(

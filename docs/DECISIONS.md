@@ -712,7 +712,7 @@ Navigation zurück.
 
 
 ## Antworten auf die offene Fragenliste (5. November 2026)
-Grundlage: `open_questions.md` (Review zu PR #61), Antworten von Sebastian. Umsetzung dieser Session:
+Grundlage: `docs/roadmaps_finished/open_questions.md` (Review zu PR #61), Antworten von Sebastian. Umsetzung dieser Session:
 
 | # | Entscheidung | Umsetzung |
 |---|---|---|

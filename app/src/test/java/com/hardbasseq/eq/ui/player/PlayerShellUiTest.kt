@@ -6,7 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.getOrNull
@@ -21,6 +25,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipe
 import com.hardbasseq.eq.audio.AudioDeviceType
 import com.hardbasseq.eq.audio.AudioRoute
 import com.hardbasseq.eq.preset.TargetPoint
@@ -243,6 +249,58 @@ class PlayerShellUiTest {
         assertEquals(listOf("move:2->3", "remove:2"), calls)
         compose.onNode(isDialog()).saveScreenshot("queue-sheet")
     }
+
+    // The rows used to be keyed by position: after a swipe the entry that took the removed
+    // row's place inherited how far that row had been swiped and showed up half off the screen.
+    @Test
+    fun queueSheet_entryBehindASwipedAwayRowStaysInPlace() {
+        val calls = mutableListOf<String>()
+        val all = List(6) { TrackItem(it.toLong(), "Track $it", "Artist $it", null, null, 180_000L) }
+        var queue by mutableStateOf(all)
+        compose.setContent {
+            HardBassEqTheme {
+                QueueSheet(
+                    queue = queue,
+                    currentIndex = 1,
+                    playedIds = emptySet(),
+                    shuffle = false,
+                    actions =
+                        QueueActions(
+                            onPlayIndex = {},
+                            onMove = { _, _ -> },
+                            onRemove = { calls.add("remove:$it") },
+                            onReinsert = { _, _ -> },
+                            onClearUpcoming = { emptyList() },
+                            onRestoreUpcoming = {},
+                            onAddToPlaylist = {},
+                            onGoToSearch = {},
+                        ),
+                    onDismiss = {},
+                )
+            }
+        }
+        compose.waitForIdle()
+        val leftBefore = leftEdgeOf("Track 3")
+
+        compose.onNodeWithText("Track 2", useUnmergedTree = true).performTouchInput {
+            swipe(start = centerRight, end = Offset(centerRight.x - 900f, centerRight.y), durationMillis = 200)
+        }
+        compose.waitForIdle()
+        assertEquals(listOf("remove:2"), calls)
+
+        // The player reports the queue without the removed track.
+        queue = all.filterNot { it.id == 2L }
+        compose.waitForIdle()
+
+        assertEquals(leftBefore, leftEdgeOf("Track 3"), 0.5f)
+    }
+
+    private fun leftEdgeOf(title: String): Float =
+        compose
+            .onNodeWithText(title, useUnmergedTree = true)
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .left
 
     // Runs a TalkBack custom action on the row that shows [title].
     private fun actionOn(
