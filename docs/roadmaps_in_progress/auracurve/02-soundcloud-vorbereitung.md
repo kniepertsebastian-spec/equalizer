@@ -12,7 +12,7 @@
 |---|---|---|---|---|---|
 | 1.1 | **Grundsatzentscheidungen treffen:** App kostenlos oder kostenpflichtig anbieten? Repository öffentlich oder privat führen? *(Der Name AuraCurve steht bereits fest.)* | Review 2, 5.5 | S | du | [~] |
 | 1.2 | **Paketnamen bereinigen:** Paketnamen des Player-Moduls von `com.soundcloud.equalizer.player` auf den eigenen Namespace ändern (22 Quelldateien, Manifest, Tests). *Wird in einem Zug mit M.3 umgesetzt.* | Review 2 | M | Umsetzung | [x] |
-| 1.3 | **Build-Varianten (Flavors) anlegen:**<br>1. *Vorführ- & Store-Variante:* ohne inoffiziellen SoundCloud-Zugang, ohne Selbst-Update und ohne YouTube-Auflösung.<br>2. *Private Variante:* mit dem heutigen Funktionsumfang. | Review 2, 6 | M–L | Umsetzung | [~] umgesetzt, lokal geprüft; CI und Gerätetest stehen aus |
+| 1.3 | **Build-Varianten (Flavors) anlegen:**<br>1. *Vorführ- & Store-Variante:* ohne inoffiziellen SoundCloud-Zugang, ohne Selbst-Update und ohne YouTube-Auflösung.<br>2. *Private Variante:* mit dem heutigen Funktionsumfang. | Review 2, 6 | M–L | Umsetzung | [~] umgesetzt, lokal und in der CI geprüft (PR #77); Gerätetest steht aus |
 | 1.4 | **SoundCloud-Bedingungen prüfen:** Nutzungsbedingungen der SoundCloud-Schnittstelle im Original lesen und Zusagen im Anschreiben darauf abstimmen. Prüfen, ob für die Registrierung ein *Artist-Pro-Abo* nötig ist. | Review 2 | S | du | [ ] |
 | 1.5 | **Bewerbungspaket erstellen:** Einseitiges Anschreiben auf Englisch unter dem Namen *AuraCurve* + 60-Sekunden-Bildschirmvideo der sauberen Vorführvariante. Titelgrafik liegt aus M.5 vor. | Review 2 | S–M | du, Umsetzung | [~] Entwurf liegt vor |
 | 1.6 | **Anfrage absenden:** Bewerbung bei SoundCloud einreichen. Danach **nicht untätig warten**, sondern direkt mit Roadmap 03 (Sicherheit & Gerätetests) weitermachen. | – | S | du | [ ] |
@@ -101,6 +101,8 @@ Abweichend vom Plan sind zwei Nahtstellen kleiner ausgefallen: Statt einer neuen
 
 **Geprüft (lokal, Android-SDK 37 im Container):** `assembleDebug` (beide), `assembleRelease` (beide), `testStoreDebugUnitTest` (334 + 16 Player-Tests), `testFullDebugUnitTest` (337 + 17), `:core:test`, `ktlintCheck`, Lint aller vier Varianten ohne Fehler, Instrumentierungstests kompilieren, `check_store_apk.py` für Debug- und Release-APKs beider Varianten.
 
+**CI:** PR #77, `build-and-test` grün auf `25a3430` (inkl. APK-Prüfung).
+
 **Nicht geprüft:** am Gerät. Bitte beide APKs installieren: Store-Variante (Player zeigt nur „Your music“ mit Dateien vom Gerät und Playlists, kein Update-Hinweis, kein „Teilen mit“ für Links), Full-Variante (alles wie bisher, Selbst-Update findet erst Releases, die mit diesem Stand gebaut sind).
 
 **Bewusst offen:**
@@ -144,4 +146,4 @@ Abweichend vom Plan sind zwei Nahtstellen kleiner ausgefallen: Statt einer neuen
 
 Die Anfrage ist abgeschickt und nichts, was SoundCloud zu sehen bekommt, nutzt noch den Namen oder den internen/inoffiziellen Zugang von SoundCloud.
 
-**Stand 15.11.2026:** Paketname erledigt (CI grün). Store-Variante (1.3) gebaut, lokal geprüft, CI und Gerätetest stehen aus. Offen: Repo privat stellen, Bedingungen (1.4), Video und Titelgrafik, sichtbarer App-Name „Baschtls Gedröhne“ (M.2).
+**Stand 15.11.2026:** Paketname erledigt (CI grün). Store-Variante (1.3) gebaut, lokal und in der CI geprüft (PR #77, `25a3430`), Gerätetest steht aus. Offen: Repo privat stellen, Bedingungen (1.4), Video und Titelgrafik, sichtbarer App-Name „Baschtls Gedröhne“ (M.2).
