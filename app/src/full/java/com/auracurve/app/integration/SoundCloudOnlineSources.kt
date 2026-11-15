@@ -23,7 +23,8 @@ class SoundCloudOnlineSources
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
-    ) : OnlineSources {
+    ) : OnlineSources,
+        SpotifyPlaylistApi {
         private val linkResolver = LinkResolver(context)
         private val libraryLoader = LibraryLoader(context)
         private val spotifyApi = SpotifyApiClient.get(context)

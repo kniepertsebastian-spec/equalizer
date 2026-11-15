@@ -2,7 +2,6 @@ package com.auracurve.app.integration
 
 import android.content.Context
 import com.auracurve.app.R
-import com.auracurve.app.link.SpotifyPlaylist
 import com.auracurve.app.player.model.ExternalTrackInfo
 import com.auracurve.app.player.model.LibraryOverview
 import com.auracurve.app.player.model.TrackItem
@@ -59,8 +58,6 @@ class NoOnlineSources
         override fun openSpotifySignIn(): String = unavailable
 
         override fun signOutSpotify() = Unit
-
-        override suspend fun fetchSpotifyPlaylistViaApi(playlistId: String): LoadResult<SpotifyPlaylist> = notAvailable()
 
         override fun openSoundCloudSignIn() = Unit
 

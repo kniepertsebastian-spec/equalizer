@@ -22,6 +22,9 @@ DEX_MARKERS = [
     "SpotifyApiClient",
     "youtube.com/oembed",  # YouTube link resolution (LinkResolver)
     "ReleaseUpdateClient",  # self-update from GitHub releases
+    "open.spotify.com",  # Spotify link parsing (ShareLink, SpotifyPlaylistPage)
+    "SpotifyImportPlan",  # Spotify playlist import
+    "SoundCloudLinkImport",  # link import of pasted and shared text
 ]
 
 # Markers in AndroidManifest.xml (binary XML stores its strings as UTF-8 or UTF-16).

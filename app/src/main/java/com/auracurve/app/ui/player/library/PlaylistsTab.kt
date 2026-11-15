@@ -40,13 +40,13 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
-import com.auracurve.app.link.SpotifyImportState
 import com.auracurve.app.playlist.PlayerFormat
 import com.auracurve.app.playlist.SavedPlaylist
 import com.auracurve.app.ui.player.BridgeUiState
 import com.auracurve.app.ui.player.EmptyState
 import com.auracurve.app.ui.player.ImportUiState
 import com.auracurve.app.ui.player.LibraryUiState
+import com.auracurve.app.ui.player.PendingImport
 import com.auracurve.app.ui.player.PlayerViewModel
 import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.SonicSteel
@@ -58,7 +58,7 @@ fun LazyListScope.playlistsTabItems(
     viewModel: PlayerViewModel,
     playlists: List<SavedPlaylist>,
     importState: ImportUiState,
-    pendingImport: SpotifyImportState?,
+    pendingImport: PendingImport?,
     bridgeState: BridgeUiState?,
     signedIn: Boolean,
     libraryState: LibraryUiState,

@@ -6,6 +6,7 @@ import com.auracurve.app.integration.LoadResult
 import com.auracurve.app.integration.LocalTrackReader
 import com.auracurve.app.integration.NoLocalTrackReader
 import com.auracurve.app.integration.PlayerController
+import com.auracurve.app.integration.SpotifyPlaylistApi
 import com.auracurve.app.link.SpotifyImportLedger
 import com.auracurve.app.link.SpotifyImportPlan
 import com.auracurve.app.link.SpotifyImportState
@@ -60,7 +61,13 @@ class PlayerViewModelTest {
     }
 
     private fun viewModel(localTracks: LocalTrackReader = NoLocalTrackReader) =
-        PlayerViewModel(controller, repository, spotifyImports, texts, localTracks)
+        PlayerViewModel(
+            controller,
+            repository,
+            texts,
+            localTracks,
+            SoundCloudLinkImport(controller, controller, repository, spotifyImports, texts),
+        )
 
     private class FakeLocalTracks(
         private val readable: Set<String>,
@@ -1358,7 +1365,9 @@ class PlayerViewModelTest {
             assertEquals(RepeatSetting.ALL, nextRepeat(RepeatSetting.OFF))
         }
 
-    private class FakePlayerController : PlayerController {
+    private class FakePlayerController :
+        PlayerController,
+        SpotifyPlaylistApi {
         val nowPlayingFlow = MutableStateFlow<NowPlaying?>(null)
         override val nowPlaying: StateFlow<NowPlaying?> = nowPlayingFlow.asStateFlow()
         val queueFlow = MutableStateFlow(emptyList<TrackItem>())

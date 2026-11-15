@@ -3,6 +3,8 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    // @Serializable models of the Spotify and link parsers in src/full (moved from :core).
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -59,6 +61,8 @@ dependencies {
     implementation(libs.constraintlayout)
     // WebView helpers for the SoundCloud sign-in, which only the "full" flavor has.
     "fullImplementation"(libs.webkit)
+    // JSON of the Spotify/link parsers (src/full/.../link, moved from :core with roadmap 02, 1.3).
+    "fullImplementation"(libs.kotlinx.serialization.json)
 
     // Media3 / ExoPlayer
     implementation(libs.media3.exoplayer)

@@ -1,6 +1,5 @@
 package com.auracurve.app.integration
 
-import com.auracurve.app.link.SpotifyPlaylist
 import com.auracurve.app.player.model.ExternalTrackInfo
 import com.auracurve.app.player.model.LibraryOverview
 import com.auracurve.app.player.model.TrackItem
@@ -58,8 +57,6 @@ interface OnlineSources {
     fun openSpotifySignIn(): String?
 
     fun signOutSpotify()
-
-    suspend fun fetchSpotifyPlaylistViaApi(playlistId: String): LoadResult<SpotifyPlaylist>
 
     fun openSoundCloudSignIn()
 
