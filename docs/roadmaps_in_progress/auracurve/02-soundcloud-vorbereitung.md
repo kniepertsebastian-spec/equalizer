@@ -12,7 +12,7 @@
 |---|---|---|---|---|---|
 | 1.1 | **Grundsatzentscheidungen treffen:** App kostenlos oder kostenpflichtig anbieten? Repository öffentlich oder privat führen? *(Der Name AuraCurve steht bereits fest.)* | Review 2, 5.5 | S | du | [~] |
 | 1.2 | **Paketnamen bereinigen:** Paketnamen des Player-Moduls von `com.soundcloud.equalizer.player` auf den eigenen Namespace ändern (22 Quelldateien, Manifest, Tests). *Wird in einem Zug mit M.3 umgesetzt.* | Review 2 | M | Umsetzung | [x] |
-| 1.3 | **Build-Varianten (Flavors) anlegen:**<br>1. *Vorführ- & Store-Variante:* ohne inoffiziellen SoundCloud-Zugang, ohne Selbst-Update und ohne YouTube-Auflösung.<br>2. *Private Variante:* mit dem heutigen Funktionsumfang. | Review 2, 6 | M–L | Umsetzung | [ ] Plan liegt vor, wartet auf Freigabe |
+| 1.3 | **Build-Varianten (Flavors) anlegen:**<br>1. *Vorführ- & Store-Variante:* ohne inoffiziellen SoundCloud-Zugang, ohne Selbst-Update und ohne YouTube-Auflösung.<br>2. *Private Variante:* mit dem heutigen Funktionsumfang. | Review 2, 6 | M–L | Umsetzung | [ ] Plan freigegeben, Umsetzung nach Merge von PR #76 |
 | 1.4 | **SoundCloud-Bedingungen prüfen:** Nutzungsbedingungen der SoundCloud-Schnittstelle im Original lesen und Zusagen im Anschreiben darauf abstimmen. Prüfen, ob für die Registrierung ein *Artist-Pro-Abo* nötig ist. | Review 2 | S | du | [ ] |
 | 1.5 | **Bewerbungspaket erstellen:** Einseitiges Anschreiben auf Englisch unter dem Namen *AuraCurve* + 60-Sekunden-Bildschirmvideo der sauberen Vorführvariante. Titelgrafik liegt aus M.5 vor. | Review 2 | S–M | du, Umsetzung | [~] Entwurf liegt vor |
 | 1.6 | **Anfrage absenden:** Bewerbung bei SoundCloud einreichen. Danach **nicht untätig warten**, sondern direkt mit Roadmap 03 (Sicherheit & Gerätetests) weitermachen. | – | S | du | [ ] |
@@ -69,7 +69,7 @@ Im Code (ohne `.md`) kommen `com.hardbasseq.eq` und `com.soundcloud.equalizer` n
 
 ## 1.3 · Build-Varianten – Plan zur Freigabe
 
-*Noch nicht umgesetzt. Bitte freigeben oder ändern; erst danach wird Code angefasst.*
+*Plan am 15.11.2026 freigegeben (E1–E3 unten). Umsetzung in einem eigenen Pull Request nach dem Merge von #76.*
 
 ### Ziel
 
@@ -98,11 +98,11 @@ Code-Aufteilung (Quellordner je Flavor):
 - **CI (`ci.yml`):** beide Varianten bauen und testen. Neuer Prüfschritt: In der Store-APK dürfen `api-v2.soundcloud.com`, `client_id`, `youtube.com/oembed` und `REQUEST_INSTALL_PACKAGES` nicht vorkommen (Suche in DEX und Manifest).
 - **Release (`release.yml`):** baut `fullRelease` für das Selbst-Update. Das Store-Bundle (`bundleStoreRelease`) kommt mit Roadmap 05.
 
-### Entscheidungen, die ich dafür brauche
+### Entscheidungen (15.11.2026)
 
-- **E1 – ID der Privatversion:** `com.auracurve.app.full` (beide Versionen gleichzeitig installierbar, Store-ID bleibt sauber) *(Empfehlung)* oder dieselbe ID für beide.
-- **E2 – Spotify in der Store-Variante:** raus *(Empfehlung: der Import führt nur zur SoundCloud-Suche und liest öffentliche Spotify-Seiten aus)* oder drin lassen.
-- **E3 – Zeitpunkt:** direkt nach dem Merge dieses Pull Requests, damit die Dateien nicht zweimal umziehen.
+- **E1 – ID der Privatversion:** `com.auracurve.app.full`. Beide Versionen lassen sich gleichzeitig installieren, die Store-ID bleibt sauber. Presets und Playlists teilen sie nicht.
+- **E2 – Spotify in der Store-Variante:** raus. Spotify-Client, -Login und -Import liegen nur im Flavor `full`.
+- **E3 – Zeitpunkt:** nach dem Merge von PR #76, in einem eigenen Pull Request.
 
 ### Aufwand und Risiko
 
