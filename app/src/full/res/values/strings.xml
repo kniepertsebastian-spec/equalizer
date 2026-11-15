@@ -2,4 +2,6 @@
 <!-- Flavor "full": its own name, so it can be told apart from the store build on the same phone. -->
 <resources>
     <string name="app_name">AuraCurve Full</string>
+    <!-- Its built-in player streams from SoundCloud. -->
+    <string name="source_builtin_player">SoundCloud</string>
 </resources>

@@ -159,12 +159,7 @@ fun PlayerScreen(
             item {
                 EqStatusLine(
                     kind = eqStatusKind,
-                    pathLabel =
-                        when {
-                            nowPlaying == null -> null
-                            onlineSources -> stringResource(R.string.source_soundcloud)
-                            else -> stringResource(R.string.source_device)
-                        },
+                    pathLabel = if (nowPlaying != null) stringResource(R.string.source_builtin_player) else null,
                     onClick = onOpenEqualizer,
                     modifier = Modifier.fillMaxWidth(),
                 )

@@ -124,7 +124,7 @@
     <string name="headroom_limiter_sometimes">The limiter will probably work now and then (estimate)</string>
     <string name="headroom_limiter_heavy">Heavy limiting is likely (estimate)</string>
     <string name="no_session_title">No audio session found</string>
-    <string name="no_session_text">AuraCurve listens for new audio sessions only while it runs, and it closes by itself after a while without one. Open it before you start the player. If a player such as Spotify or SoundCloud has been running since before the installation or the last restart, this usually helps: pause the track and play it again, skip to the next track, or close the player app and restart it.</string>
+    <string name="no_session_text">AuraCurve listens for new audio sessions only while it runs, and it closes by itself after a while without one. Open it before you start the player. If a music app has been running since before the installation or the last restart, this usually helps: pause the track and play it again, skip to the next track, or close the player app and restart it.</string>
     <string name="correction_title">My headphones</string>
     <string name="correction_detected">Detected device: %1$s</string>
     <string name="correction_suggestion">A matching AutoEQ correction profile is available (%1$s).</string>
@@ -519,7 +519,8 @@
     <string name="sound_open_equalizer">Open equalizer</string>
     <!-- Flavor "store" (AuraCurve roadmap 02, 1.3): no online service is built in. -->
     <string name="online_sources_unavailable">Online sources are not available in this version</string>
-    <string name="source_device">This device</string>
+    <!-- The built-in player as a source; the full flavor names it SoundCloud (src/full/res). -->
+    <string name="source_builtin_player">Built-in player</string>
     <string name="playlists_local_title">Your music</string>
     <string name="playlists_local_hint">Play audio files from this device or collect them in playlists.</string>
     <!-- AuraCurve brand (roadmap 01, M.2). Slogan and footnote stay English in every language. -->

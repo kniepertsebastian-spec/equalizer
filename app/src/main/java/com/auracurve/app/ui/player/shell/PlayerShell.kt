@@ -188,7 +188,7 @@ fun NowPlayingLayer(
             soundName = sound.soundName,
             soundCurve = sound.soundCurve,
             eqStatus = sound.eqStatus,
-            pathLabel = if (playing != null) stringResource(R.string.source_soundcloud) else null,
+            pathLabel = if (playing != null) stringResource(R.string.source_builtin_player) else null,
             activeContext = sound.activeContext,
             onContextModeChanged = onContextModeChanged,
             onOpenEqualizer = {
