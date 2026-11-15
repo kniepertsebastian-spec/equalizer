@@ -1,0 +1,1580 @@
+package com.auracurve.app.ui.player
+
+import com.auracurve.app.R
+import com.auracurve.app.integration.LinkImportResult
+import com.auracurve.app.integration.LoadResult
+import com.auracurve.app.integration.LocalTrackReader
+import com.auracurve.app.integration.NoLocalTrackReader
+import com.auracurve.app.integration.PlayerController
+import com.auracurve.app.link.SpotifyImportLedger
+import com.auracurve.app.link.SpotifyImportPlan
+import com.auracurve.app.link.SpotifyImportState
+import com.auracurve.app.link.SpotifyPlaylist
+import com.auracurve.app.link.SpotifyTrack
+import com.auracurve.app.player.model.ExternalTrackInfo
+import com.auracurve.app.player.model.LibraryOverview
+import com.auracurve.app.player.model.PlaylistItem
+import com.auracurve.app.player.model.TrackItem
+import com.auracurve.app.player.playback.NowPlaying
+import com.auracurve.app.player.playback.RepeatSetting
+import com.auracurve.app.playlist.LocalTrackId
+import com.auracurve.app.playlist.PlaylistRepository
+import com.auracurve.app.playlist.SavedPlaylist
+import com.auracurve.app.playlist.SpotifyImportRepository
+import com.auracurve.app.text.FakeTextProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class PlayerViewModelTest {
+    private val dispatcher = StandardTestDispatcher()
+    private val controller = FakePlayerController()
+    private val texts = FakeTextProvider()
+    private val repository = FakePlaylistRepository()
+    private val spotifyImports = FakeSpotifyImports()
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(dispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    private fun viewModel(localTracks: LocalTrackReader = NoLocalTrackReader) =
+        PlayerViewModel(controller, repository, spotifyImports, texts, localTracks)
+
+    private class FakeLocalTracks(
+        private val readable: Set<String>,
+    ) : LocalTrackReader {
+        override suspend fun read(addresses: List<String>): List<TrackItem> =
+            addresses.filter { it in readable }.map {
+                TrackItem(id = LocalTrackId.of(it), title = it, artist = "", artworkUrl = null, streamUrl = it, durationMs = 1000)
+            }
+    }
+
+    @Test
+    fun `playLocalFiles plays the readable files as the queue`() =
+        runTest {
+            val vm = viewModel(FakeLocalTracks(setOf("content://a", "content://b")))
+
+            vm.playLocalFiles(listOf("content://a", "content://b"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals(listOf("content://a", "content://b"), tracks.map { it.streamUrl })
+            assertEquals(0, start)
+            assertTrue(tracks.all { LocalTrackId.isLocal(it.id) })
+        }
+
+    @Test
+    fun `playLocalFiles tells how many files were skipped`() =
+        runTest {
+            val vm = viewModel(FakeLocalTracks(setOf("content://a")))
+
+            vm.playLocalFiles(listOf("content://a", "content://broken"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                1,
+                controller.playedQueues
+                    .single()
+                    .first.size,
+            )
+            assertEquals(t(R.string.local_files_some_skipped, 1), vm.importState.value.message)
+        }
+
+    @Test
+    fun `playLocalFiles with nothing readable reports an error and plays nothing`() =
+        runTest {
+            val vm = viewModel(FakeLocalTracks(emptySet()))
+
+            vm.playLocalFiles(listOf("content://broken"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(controller.playedQueues.isEmpty())
+            assertTrue(vm.importState.value.isError)
+        }
+
+    @Test
+    fun `a file from the device cannot be saved into a playlist`() =
+        runTest {
+            val vm = viewModel()
+            val local = track(LocalTrackId.of("content://a"))
+
+            vm.createPlaylist("Mine", firstTrack = local)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertEquals(t(R.string.local_files_not_in_playlists), vm.importState.value.message)
+            assertTrue(repository.playlistsNow().isEmpty())
+        }
+
+    private fun track(
+        id: Long,
+        title: String = "Track $id",
+    ) = TrackItem(
+        id = id,
+        title = title,
+        artist = "Artist",
+        artworkUrl = "https://img/$id-large.jpg",
+        streamUrl = null,
+        durationMs = 180_000L,
+    )
+
+    @Test
+    fun `creates an empty local playlist and refuses a blank name`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.createPlaylist("   ")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.playlists.value.isEmpty())
+            assertTrue(vm.importState.value.isError)
+
+            vm.createPlaylist("Auto")
+            dispatcher.scheduler.advanceUntilIdle()
+            val saved = vm.playlists.value.single()
+            assertEquals("Auto", saved.title)
+            assertTrue(saved.tracks.isEmpty())
+            assertEquals(null, saved.sourceUrl)
+        }
+
+    @Test
+    fun `a new playlist can start with a track`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.createPlaylist("Auto", track(7))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                listOf(7L),
+                vm.playlists.value
+                    .single()
+                    .tracks
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun `adding to a playlist keeps each track once`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto")
+            dispatcher.scheduler.advanceUntilIdle()
+            val playlist = vm.playlists.value.single()
+
+            vm.addToPlaylist(playlist, track(1))
+            vm.addToPlaylist(playlist, track(1))
+            vm.addToPlaylist(playlist, track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                listOf(1L, 2L),
+                vm.playlists.value
+                    .single()
+                    .tracks
+                    .map { it.id },
+            )
+        }
+
+    @Test
+    fun `tracks can be removed from a local playlist but not from an imported one`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(1))
+            controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(5)))
+            vm.importFromText("https://soundcloud.com/a/sets/mix")
+            dispatcher.scheduler.advanceUntilIdle()
+            val local = vm.playlists.value.first { it.sourceUrl == null }
+            val imported = vm.playlists.value.first { it.sourceUrl != null }
+
+            vm.removeFromPlaylist(local, 1L)
+            vm.removeFromPlaylist(imported, 5L)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(
+                vm.playlists.value
+                    .first { it.sourceUrl == null }
+                    .tracks
+                    .isEmpty(),
+            )
+            assertEquals(
+                1,
+                vm.playlists.value
+                    .first { it.sourceUrl != null }
+                    .tracks.size,
+            )
+        }
+
+    @Test
+    fun `a playlist link is saved under its link and not played`() =
+        runTest {
+            controller.nextResult =
+                LinkImportResult.Playlist("Uptempo Mix", "https://soundcloud.com/a/sets/mix", listOf(track(1), track(2)))
+            val vm = viewModel()
+
+            vm.importFromText("Hör mal: https://soundcloud.com/a/sets/mix?si=abc")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // The controller gets the extracted link (query included - normalizing it is
+            // the resolver's job); the saved playlist is keyed by the resolved source url.
+            assertEquals("https://soundcloud.com/a/sets/mix?si=abc", controller.resolvedUrls.single())
+            val saved = vm.playlists.value.single()
+            assertEquals("https://soundcloud.com/a/sets/mix", saved.id)
+            assertEquals("Uptempo Mix", saved.title)
+            assertEquals(listOf(1L, 2L), saved.tracks.map { it.id })
+            assertTrue(controller.playedQueues.isEmpty())
+            assertFalse(vm.importState.value.isError)
+            assertEquals(t(R.string.import_saved, "Uptempo Mix", 2), vm.importState.value.message)
+        }
+
+    @Test
+    fun `importing the same playlist again replaces it instead of duplicating`() =
+        runTest {
+            val vm = viewModel()
+            controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(1)))
+            vm.importFromText("https://soundcloud.com/a/sets/mix")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.nextResult =
+                LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(1), track(2), track(3)))
+            vm.importFromText("https://soundcloud.com/a/sets/mix")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val playlist = vm.playlists.value.single()
+            assertEquals(3, playlist.tracks.size)
+        }
+
+    @Test
+    fun `a track link starts playing right away`() =
+        runTest {
+            controller.nextResult = LinkImportResult.Track(track(7, "Kick"))
+            val vm = viewModel()
+
+            vm.importFromText("https://soundcloud.com/a/kick")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals(listOf(7L), tracks.map { it.id })
+            assertEquals(0, start)
+            assertTrue(vm.playlists.value.isEmpty())
+            assertEquals(t(R.string.import_playing, "Kick"), vm.importState.value.message)
+        }
+
+    @Test
+    fun `spotify and youtube links are refused with an explanation and never resolved`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQ")
+            assertTrue(vm.importState.value.isError)
+            val spotifyState = vm.importState.value
+            val spotifyMessage = spotifyState.message.orEmpty()
+            assertTrue(spotifyMessage.contains("Spotify"))
+
+            vm.importFromText("https://music.youtube.com/playlist?list=PL1")
+            assertTrue(vm.importState.value.isError)
+            val youtubeState = vm.importState.value
+            val youtubeMessage = youtubeState.message.orEmpty()
+            assertTrue(youtubeMessage.contains("YouTube"))
+
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(controller.resolvedUrls.isEmpty())
+        }
+
+    @Test
+    fun `text without a link and unknown hosts are rejected`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.importFromText("kein Link hier")
+            assertEquals(t(R.string.import_no_link), vm.importState.value.message)
+
+            vm.importFromText("https://example.com/song")
+            assertTrue(vm.importState.value.isError)
+            assertTrue(controller.resolvedUrls.isEmpty())
+        }
+
+    @Test
+    fun `a failed resolve surfaces its message as an error`() =
+        runTest {
+            controller.nextResult = LinkImportResult.Failed("Die Playlist ist leer oder privat")
+            val vm = viewModel()
+
+            vm.importFromText("https://soundcloud.com/a/sets/private")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertEquals("Die Playlist ist leer oder privat", vm.importState.value.message)
+            assertTrue(vm.playlists.value.isEmpty())
+        }
+
+    @Test
+    fun `a shared link asks the ui to show the player until consumed`() =
+        runTest {
+            val vm = viewModel()
+            assertFalse(vm.showPlayerRequest.value)
+
+            vm.importFromText("https://open.spotify.com/track/1", fromShare = true)
+            assertTrue(vm.showPlayerRequest.value)
+
+            vm.consumeShowPlayerRequest()
+            assertFalse(vm.showPlayerRequest.value)
+        }
+
+    @Test
+    fun `tapping the playback notification asks the ui to show the player until consumed`() =
+        runTest {
+            val vm = viewModel()
+            assertFalse(vm.showPlayerRequest.value)
+
+            vm.requestShowPlayer()
+            assertTrue(vm.showPlayerRequest.value)
+
+            vm.consumeShowPlayerRequest()
+            assertFalse(vm.showPlayerRequest.value)
+        }
+
+    @Test
+    fun `playing a saved playlist queues its tracks without stream urls`() =
+        runTest {
+            controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(1), track(2)))
+            val vm = viewModel()
+            vm.importFromText("https://soundcloud.com/a/sets/mix")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.playPlaylist(vm.playlists.value.single())
+
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals(listOf(1L, 2L), tracks.map { it.id })
+            assertTrue(tracks.all { it.streamUrl == null })
+            assertEquals(0, start)
+        }
+
+    @Test
+    fun `sending a playlist to soundcloud keeps its id and updates it the next time`() =
+        runTest {
+            controller.signedIn = true
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(1))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(
+                777L,
+                vm.playlists.value
+                    .single()
+                    .soundCloudId,
+            )
+            assertEquals(Triple("Auto", listOf(1L), null as Long?), controller.pushedPlaylists.single())
+
+            vm.addToPlaylist(vm.playlists.value.single(), track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(Triple("Auto", listOf(1L, 2L), 777L as Long?), controller.pushedPlaylists.last())
+        }
+
+    @Test
+    fun `sending to soundcloud needs a sign in and skips empty playlists`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Leer")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.signedIn = false
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.signedIn = true
+            vm.syncToSoundCloud(vm.playlists.value)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+            assertTrue(controller.pushedPlaylists.isEmpty())
+        }
+
+    @Test
+    fun `searching fills the results and a tap plays them from that result`() =
+        runTest {
+            controller.searchResults["Roar"] = LoadResult.Ok(listOf(track(1), track(2), track(3)))
+            val vm = viewModel()
+
+            vm.search("  Roar ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SearchOutcome.RESULTS, vm.searchState.value.outcome)
+            assertEquals(3, vm.searchState.value.results.size)
+            vm.playSearchResult(1)
+            val (tracks, start) = controller.playedQueues.last()
+            assertEquals(listOf(1L, 2L, 3L), tracks.map { it.id })
+            assertEquals(1, start)
+        }
+
+    @Test
+    fun `a search without hits or with an error says so and a blank one is ignored`() =
+        runTest {
+            controller.searchResults["Nope"] = LoadResult.Ok(emptyList())
+            controller.searchResults["Broken"] = LoadResult.Error("offline")
+            val vm = viewModel()
+
+            vm.search("   ")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.IDLE, vm.searchState.value.outcome)
+
+            vm.search("Nope")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.NO_RESULTS, vm.searchState.value.outcome)
+
+            vm.search("Broken")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SearchOutcome.FAILED, vm.searchState.value.outcome)
+            assertEquals("offline", vm.searchState.value.errorDetail)
+        }
+
+    @Test
+    fun `deleting removes a saved playlist`() =
+        runTest {
+            controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(1)))
+            val vm = viewModel()
+            vm.importFromText("https://soundcloud.com/a/sets/mix")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNotNull(vm.playlists.value.singleOrNull())
+
+            vm.deletePlaylist(vm.playlists.value.single())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.playlists.value.isEmpty())
+        }
+
+    @Test
+    fun `transport controls are forwarded to the player`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.next()
+            vm.previous()
+            vm.seekTo(42_000L)
+            vm.togglePlayback()
+            vm.playQueueIndex(3)
+
+            assertEquals(listOf("next", "previous", "seek:42000", "toggle", "skip:3"), controller.commands)
+        }
+
+    @Test
+    fun `account state follows the player and refreshes on demand`() =
+        runTest {
+            val vm = viewModel()
+            assertFalse(vm.signedIn.value)
+
+            // The sign-in screen is a separate activity: the state only changes once the
+            // screen asks again after coming back.
+            controller.signedIn = true
+            assertFalse(vm.signedIn.value)
+            vm.refreshAccount()
+            assertTrue(vm.signedIn.value)
+
+            vm.signOut()
+            assertFalse(vm.signedIn.value)
+            assertEquals(listOf("signout"), controller.commands)
+
+            vm.signIn()
+            assertEquals(listOf("signout", "signin"), controller.commands)
+        }
+
+    private fun candidate(
+        id: Long,
+        title: String,
+        uploader: String,
+    ) = TrackItem(id = id, title = title, artist = uploader, artworkUrl = null, streamUrl = null, durationMs = 200_000L)
+
+    @Test
+    fun `a youtube song is looked up on soundcloud and a sure match starts playing`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Katy Perry - Roar (Official Video)", "KatyPerryVEVO"))
+            val cover = candidate(1, "Roar cover by someone", "Cover Guy")
+            val original = candidate(2, "Katy Perry - Roar", "KatyPerryVEVO")
+            controller.searchResults["Katy Perry Roar"] = LoadResult.Ok(listOf(cover, original))
+            val vm = viewModel()
+
+            vm.importFromText("https://youtu.be/dQw4w9WgXcQ?si=abc")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("https://www.youtube.com/watch?v=dQw4w9WgXcQ"), controller.describedUrls)
+            val bridge = vm.bridgeState.value
+            assertEquals("Katy Perry - Roar", bridge?.label)
+            assertEquals(2L, vm.bridgeTrackIds().first())
+            assertTrue(bridge?.startedAutomatically == true)
+            val (tracks, _) = controller.playedQueues.single()
+            assertEquals(listOf(2L), tracks.map { it.id })
+            assertFalse(vm.importState.value.isError)
+            assertTrue(vm.importMessage().startsWith(t(R.string.bridge_found_started)))
+        }
+
+    @Test
+    fun `a spotify song has no artist so the matches are shown and nothing starts by itself`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Roar", null))
+            val withArtist = candidate(1, "Katy Perry - Roar", "Katy")
+            val titleOnly = candidate(2, "Roar", "Other")
+            controller.searchResults["Roar"] = LoadResult.Ok(listOf(withArtist, titleOnly))
+            val vm = viewModel()
+
+            vm.importFromText("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT?si=x")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT"), controller.describedUrls)
+            assertTrue(controller.playedQueues.isEmpty())
+            assertEquals(2, vm.bridgeTrackIds().size)
+            assertEquals(false, vm.bridgeState.value?.startedAutomatically)
+            assertTrue(vm.importMessage().startsWith(t(R.string.bridge_pick_from_list)))
+        }
+
+    @Test
+    fun `when artist plus title finds nothing the title alone is tried`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Angerfist - Criminally Insane", null))
+            controller.searchResults["Criminally Insane"] = LoadResult.Ok(listOf(candidate(5, "Criminally Insane", "Angerfist")))
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("Angerfist Criminally Insane", "Criminally Insane"), controller.searchedQueries)
+            assertEquals(5L, vm.bridgeTrackIds().first())
+        }
+
+    @Test
+    fun `nothing relevant on soundcloud says so and plays nothing`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Katy Perry - Roar", null))
+            controller.searchResults["Katy Perry Roar"] = LoadResult.Ok(listOf(candidate(9, "Completely unrelated", "Nobody")))
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertTrue(vm.importMessage().startsWith(t(R.string.bridge_nothing_found)))
+            assertNull(vm.bridgeState.value)
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `a link the provider gives no details for shows its message`() =
+        runTest {
+            controller.describeResult = LoadResult.Error("Zu diesem Link gibt es keine Angaben")
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertEquals("Zu diesem Link gibt es keine Angaben", vm.importState.value.message)
+            assertTrue(controller.searchedQueries.isEmpty())
+        }
+
+    @Test
+    fun `youtube playlists and spotify albums are refused without any lookup`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/playlist?list=PL123")
+            assertTrue(vm.importState.value.isError)
+            vm.importFromText("https://open.spotify.com/album/4cOdK2wGLETKBW3PvgPWqT")
+            assertTrue(vm.importState.value.isError)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(controller.describedUrls.isEmpty())
+        }
+
+    private fun spotifyPage(vararg entries: Pair<String, String>): LoadResult<String> {
+        val list = entries.joinToString(",") { """{"title":"${it.second}","subtitle":"${it.first}"}""" }
+        return LoadResult.Ok(
+            """<script id="__NEXT_DATA__" type="application/json">{"entity":{"name":"Hardcore Mix","trackList":[$list]}}</script>""",
+        )
+    }
+
+    @Test
+    fun `a spotify playlist becomes a soundcloud playlist of the songs found`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage("Angerfist" to "Drum Go Bang", "Miss K8" to "Unknown Banger")
+            controller.searchResults["Angerfist Drum Go Bang"] =
+                LoadResult.Ok(listOf(track(1, "Angerfist - Drum Go Bang").copy(artist = "Angerfist")))
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=x")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.fetchedSpotifyPlaylists)
+            val saved = vm.playlists.value.single()
+            assertEquals(singleName("Hardcore Mix"), saved.title)
+            assertEquals(listOf(1L), saved.tracks.map { it.id })
+            assertFalse(vm.importState.value.isError)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains("|1|2|"))
+            assertTrue(message, message.contains("Miss K8 - Unknown Banger"))
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `an unreadable spotify page or a playlist with no matches saves nothing`() =
+        runTest {
+            val vm = viewModel()
+
+            controller.spotifyPage = LoadResult.Ok("<html>nothing</html>")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.spotifyPage = spotifyPage("Nobody" to "Nothing")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+
+            controller.spotifyPage = LoadResult.Error("offline")
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("offline", vm.importState.value.message)
+            assertTrue(vm.playlists.value.isEmpty())
+        }
+
+    @Test
+    fun `a spotify song with a readable page is searched by artist and title and starts when sure`() =
+        runTest {
+            controller.spotifyTrackPage =
+                LoadResult.Ok(
+                    """<script id="__NEXT_DATA__" type="application/json">{"entity":{"name":"Criminally Insane","artists":[{"name":"Angerfist"}]}}</script>""",
+                )
+            controller.searchResults["Angerfist Criminally Insane"] =
+                LoadResult.Ok(listOf(candidate(7, "Angerfist - Criminally Insane", "Angerfist")))
+            val vm = viewModel()
+
+            vm.importFromText("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("4cOdK2wGLETKBW3PvgPWqT"), controller.fetchedSpotifyTracks)
+            assertTrue(controller.describedUrls.isEmpty())
+            assertEquals(listOf("Angerfist Criminally Insane"), controller.searchedQueries)
+            assertEquals(true, vm.bridgeState.value?.startedAutomatically)
+            assertEquals(
+                7L,
+                controller.playedQueues
+                    .single()
+                    .first
+                    .single()
+                    .id,
+            )
+        }
+
+    @Test
+    fun `an unsure artist search is widened by a title search and the better result wins`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Angerfist - Criminally Insane", null))
+            controller.searchResults["Angerfist Criminally Insane"] = LoadResult.Ok(listOf(candidate(1, "Some Mix 2024", "Someone")))
+            controller.searchResults["Criminally Insane"] = LoadResult.Ok(listOf(candidate(2, "Criminally Insane", "Angerfist")))
+            val vm = viewModel()
+
+            vm.importFromText("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("Angerfist Criminally Insane", "Criminally Insane"), controller.searchedQueries)
+            assertEquals(2L, vm.bridgeTrackIds().first())
+        }
+
+    @Test
+    fun `several spotify links in one text are read together into one playlist`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage("Angerfist" to "Drum Go Bang")
+            controller.searchResults["Angerfist Drum Go Bang"] =
+                LoadResult.Ok(listOf(track(1, "Angerfist - Drum Go Bang").copy(artist = "Angerfist")))
+
+            vm.importFromText(
+                "Teil 1 https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M und Teil 2 https://open.spotify.com/playlist/37i9dQZF1DX0XUsuxWHRQd",
+            )
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DX0XUsuxWHRQd"), controller.fetchedSpotifyPlaylists)
+            val saved = vm.playlists.value.single()
+            assertEquals(singleName(t(R.string.import_title_more, "Hardcore Mix", 1)), saved.title)
+            // The same song in both parts is searched and stored once.
+            assertEquals(listOf(1L), saved.tracks.map { it.id })
+            assertEquals(1, controller.searchedQueries.count { it == "Angerfist Drum Go Bang" })
+        }
+
+    @Test
+    fun `playlists can be merged into a new one and the originals stay`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("A", track(1))
+            vm.createPlaylist("B", track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            val sources = vm.playlists.value.sortedBy { it.title }
+
+            vm.mergePlaylists(sources, "Alles")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(3, vm.playlists.value.size)
+            assertEquals(
+                listOf(1L, 2L),
+                vm.playlists.value
+                    .first { it.title == "Alles" }
+                    .tracks
+                    .map { it.id },
+            )
+            vm.mergePlaylists(emptyList(), "Nichts")
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.importState.value.isError)
+        }
+
+    private fun songs(count: Int) = Array(count) { "Artist" to "Song ${it + 1}" }
+
+    private fun answerAllSongs(count: Int) {
+        for (i in 1..count) {
+            controller.searchResults["Artist Song $i"] = LoadResult.Ok(listOf(candidate(i.toLong(), "Artist - Song $i", "Artist")))
+        }
+    }
+
+    @Test
+    fun `a long playlist is looked up in blocks of 100 and each block becomes a playlist`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(250))
+            answerAllSongs(250)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val lists = vm.playlists.value.sortedBy { it.title }
+            assertEquals(
+                listOf(
+                    partName("Hardcore Mix", 1, 3),
+                    partName("Hardcore Mix", 2, 3),
+                    partName("Hardcore Mix", 3, 3),
+                ),
+                lists.map { it.title },
+            )
+            assertEquals(listOf(100, 100, 50), lists.map { it.tracks.size })
+            assertEquals(null, spotifyImports.flow.value)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains("|250|250|"))
+        }
+
+    @Test
+    fun `the same link again goes on at the saved position without reading it anew`() =
+        runTest {
+            val vm = viewModel()
+            val tracks = (1..150).map { SpotifyTrack("Song $it", "Artist") }
+            spotifyImports.flow.value =
+                SpotifyImportState("37i9dQZF1DXcBWIGoYBM5M", "Hardcore Mix", tracks, nextIndex = 100, partsWritten = 1, foundSoFar = 100)
+            answerAllSongs(150)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(controller.fetchedSpotifyPlaylists.isEmpty())
+            val written = vm.playlists.value.single()
+            assertEquals(partName("Hardcore Mix", 2, 2), written.title)
+            assertEquals(50, written.tracks.size)
+            assertEquals(null, spotifyImports.flow.value)
+        }
+
+    @Test
+    fun `a lost connection keeps the position and continue finishes the block`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(4))
+            for (i in 1..4) controller.searchResults["Artist Song $i"] = LoadResult.Error("offline")
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.importState.value.isError)
+            assertTrue(
+                vm.importState.value.message
+                    .orEmpty()
+                    .startsWith(t(R.string.import_interrupted)),
+            )
+            assertTrue(vm.playlists.value.isEmpty())
+            assertEquals(0, spotifyImports.flow.value?.nextIndex)
+
+            answerAllSongs(4)
+            vm.resumeSpotifyImport()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                4,
+                vm.playlists.value
+                    .single()
+                    .tracks.size,
+            )
+            assertEquals(null, spotifyImports.flow.value)
+        }
+
+    @Test
+    fun `a playlist of exactly 100 songs is probably cut off by spotify and says so`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(100)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(
+                vm.importState.value.message
+                    .orEmpty()
+                    .contains(t(R.string.import_cut_off_hint)),
+            )
+        }
+
+    @Test
+    fun `sharing the same playlist again imports nothing twice`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(100)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, vm.playlists.value.size)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.startsWith(t(R.string.import_nothing_new)))
+            assertFalse(vm.importState.value.isError)
+        }
+
+    @Test
+    fun `only the songs that are new since the last time are imported`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(150)
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.spotifyPage = spotifyPage(*songs(150))
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(2, vm.playlists.value.size)
+            val second = vm.playlists.value.first { it.title.contains(t(R.string.import_addendum_title)) }
+            assertEquals(singleName(t(R.string.import_addendum_title, "Hardcore Mix")), second.title)
+            assertEquals((101L..150L).toList(), second.tracks.map { it.id })
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains(t(R.string.import_skipped_note, 100)))
+        }
+
+    @Test
+    fun `after deleting the playlist the same link imports it again`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(5))
+            answerAllSongs(5)
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.deletePlaylist(vm.playlists.value.single())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                5,
+                vm.playlists.value
+                    .single()
+                    .tracks.size,
+            )
+        }
+
+    @Test
+    fun `signed in to spotify a long playlist is read through the api and not the page`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifySignedIn = true
+            controller.spotifyApiResult =
+                LoadResult.Ok(SpotifyPlaylist("Mein Mix", (1..150).map { SpotifyTrack("Song $it", "Artist") }))
+            answerAllSongs(150)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.spotifyApiRequests)
+            assertTrue(controller.fetchedSpotifyPlaylists.isEmpty())
+            val lists = vm.playlists.value.sortedBy { it.title }
+            assertEquals(listOf(partName("Mein Mix", 1, 2), partName("Mein Mix", 2, 2)), lists.map { it.title })
+            assertEquals(listOf(100, 50), lists.map { it.tracks.size })
+            assertFalse(
+                vm.importState.value.message
+                    .orEmpty()
+                    .contains(t(R.string.import_cut_off_hint)),
+            )
+        }
+
+    @Test
+    fun `when the api refuses the page is used and the reason is shown if it is cut off`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifySignedIn = true
+            controller.spotifyApiResult = LoadResult.Error("Spotify gibt die Titel nur für Playlists heraus, die dir gehören")
+            controller.spotifyPage = spotifyPage(*songs(100))
+            answerAllSongs(100)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf("37i9dQZF1DXcBWIGoYBM5M"), controller.fetchedSpotifyPlaylists)
+            val message =
+                vm.importState.value.message
+                    .orEmpty()
+            assertTrue(message, message.contains(t(R.string.import_cut_off_hint)))
+            assertTrue(
+                message,
+                message.contains(
+                    t(R.string.import_spotify_signin_note, "Spotify gibt die Titel nur für Playlists heraus, die dir gehören"),
+                ),
+            )
+        }
+
+    @Test
+    fun `not signed in the api is never asked`() =
+        runTest {
+            val vm = viewModel()
+            controller.spotifyPage = spotifyPage(*songs(3))
+            answerAllSongs(3)
+
+            vm.importFromText("https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(controller.spotifyApiRequests.isEmpty())
+        }
+
+    @Test
+    fun `the client id is saved and the account state follows`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.saveSpotifyClientId("  abc123  ")
+            assertEquals(SpotifyAccountUi("abc123", false), vm.spotifyAccount.value)
+
+            controller.spotifySignedIn = true
+            vm.refreshAccount()
+            assertEquals(SpotifyAccountUi("abc123", true), vm.spotifyAccount.value)
+
+            vm.signOutSpotify()
+            assertFalse(vm.spotifyAccount.value.signedIn)
+        }
+
+    @Test
+    fun `signing in opens the browser and shows what is missing`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.signInSpotify()
+            assertEquals(1, controller.signInOpened)
+            assertFalse(vm.importState.value.isError)
+
+            controller.spotifySignInProblem = "Trag zuerst die Client-ID ein"
+            vm.signInSpotify()
+            assertTrue(vm.importState.value.isError)
+            assertEquals("Trag zuerst die Client-ID ein", vm.importState.value.message)
+        }
+
+    @Test
+    fun `a track picked in an opened playlist starts the playlist from there`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(1))
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.addToPlaylist(vm.playlists.value.single(), track(2))
+            vm.addToPlaylist(vm.playlists.value.single(), track(3))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.playPlaylist(vm.playlists.value.single(), startIndex = 2)
+            vm.playPlaylist(vm.playlists.value.single(), startIndex = 99)
+
+            val (first, firstStart) = controller.playedQueues[0]
+            assertEquals(listOf(1L, 2L, 3L), first.map { it.id })
+            assertEquals(2, firstStart)
+            assertEquals(2, controller.playedQueues[1].second)
+        }
+
+    @Test
+    fun `discarding forgets an unfinished import`() =
+        runTest {
+            val vm = viewModel()
+            spotifyImports.flow.value = SpotifyImportPlan.start("k", "Mix", listOf(SpotifyTrack("S", "A")))
+
+            vm.discardSpotifyImport()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(null, spotifyImports.flow.value)
+        }
+
+    @Test
+    fun `picking another match plays it and closing hides the list`() =
+        runTest {
+            controller.describeResult = LoadResult.Ok(ExternalTrackInfo("Roar", null))
+            controller.searchResults["Roar"] = LoadResult.Ok(listOf(candidate(1, "Roar", "A"), candidate(2, "Roar (Remix)", "B")))
+            val vm = viewModel()
+            vm.importFromText("https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val bridge = vm.bridgeState.value
+            val second = bridge?.matches?.first { it.track.id == 2L }
+            vm.playBridgeMatch(second ?: return@runTest)
+            val (played, _) = controller.playedQueues.single()
+            assertEquals(listOf(2L), played.map { it.id })
+
+            vm.dismissBridge()
+            assertNull(vm.bridgeState.value)
+        }
+
+    private fun t(
+        id: Int,
+        vararg args: Any,
+    ) = texts.get(id, *args)
+
+    private fun singleName(title: String) = "$title (${t(R.string.import_name_from_spotify)})"
+
+    private fun partName(
+        title: String,
+        part: Int,
+        total: Int,
+    ) = "$title – ${t(R.string.import_name_part, part, total)} (${t(R.string.import_name_from_spotify)})"
+
+    private fun PlayerViewModel.importMessage(): String = importState.value.message.orEmpty()
+
+    private fun PlayerViewModel.bridgeTrackIds(): List<Long> {
+        val matches = bridgeState.value?.matches.orEmpty()
+        return matches.map { it.track.id }
+    }
+
+    private fun playlistItem(
+        id: Long,
+        title: String = "Playlist $id",
+    ) = PlaylistItem(id = id, title = title, trackCount = 3, artworkUrl = null)
+
+    @Test
+    fun `the library loads the own and liked playlists when signed in`() =
+        runTest {
+            controller.signedIn = true
+            controller.libraryResult = LoadResult.Ok(LibraryOverview(own = listOf(playlistItem(1)), liked = listOf(playlistItem(2))))
+            val vm = viewModel()
+
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val library = vm.libraryState.value.library
+            assertEquals(listOf(1L), library?.own?.map { it.id })
+            assertEquals(listOf(2L), library?.liked?.map { it.id })
+            assertFalse(vm.libraryState.value.isLoading)
+        }
+
+    @Test
+    fun `the library is not requested while signed out`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(0, controller.libraryLoads)
+            assertNull(vm.libraryState.value.library)
+        }
+
+    @Test
+    fun `a failed library load shows the message and keeps what was loaded before`() =
+        runTest {
+            controller.signedIn = true
+            controller.libraryResult = LoadResult.Ok(LibraryOverview(own = listOf(playlistItem(1)), liked = emptyList()))
+            val vm = viewModel()
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            controller.libraryResult = LoadResult.Error("Nicht angemeldet")
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val state = vm.libraryState.value
+            assertTrue(state.isError)
+            assertEquals("Nicht angemeldet", state.message)
+            assertEquals(listOf(1L), state.library?.own?.map { it.id })
+        }
+
+    @Test
+    fun `signing out clears the library`() =
+        runTest {
+            controller.signedIn = true
+            controller.libraryResult = LoadResult.Ok(LibraryOverview(own = listOf(playlistItem(1)), liked = emptyList()))
+            val vm = viewModel()
+            vm.loadLibrary()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNotNull(vm.libraryState.value.library)
+
+            vm.signOut()
+
+            assertNull(vm.libraryState.value.library)
+        }
+
+    @Test
+    fun `opening a library playlist plays its tracks as the queue`() =
+        runTest {
+            controller.signedIn = true
+            controller.playlistTracksResult = LoadResult.Ok(listOf(track(1), track(2), track(3)))
+            val vm = viewModel()
+
+            vm.playLibraryPlaylist(playlistItem(42, "Hardcore"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(listOf(42L), controller.loadedPlaylistIds)
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals(listOf(1L, 2L, 3L), tracks.map { it.id })
+            assertEquals(0, start)
+            assertFalse(vm.libraryState.value.isLoading)
+        }
+
+    @Test
+    fun `an empty or failing playlist plays nothing and says why`() =
+        runTest {
+            controller.signedIn = true
+            val vm = viewModel()
+
+            vm.playLibraryPlaylist(playlistItem(1, "Leer"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(vm.libraryState.value.isError)
+            assertEquals(t(R.string.import_name_empty, "Leer"), vm.libraryState.value.message)
+
+            controller.playlistTracksResult = LoadResult.Error("Netzwerkfehler")
+            vm.playLibraryPlaylist(playlistItem(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("Netzwerkfehler", vm.libraryState.value.message)
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `playing the likes queues the liked tracks`() =
+        runTest {
+            controller.signedIn = true
+            controller.likesResult = LoadResult.Ok(listOf(track(9), track(8)))
+            val vm = viewModel()
+
+            vm.playLikedTracks()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val (tracks, _) = controller.playedQueues.single()
+            assertEquals(listOf(9L, 8L), tracks.map { it.id })
+        }
+
+    @Test
+    fun `now playing is passed through from the player`() =
+        runTest {
+            val vm = viewModel()
+            assertNull(vm.nowPlaying.value)
+
+            controller.nowPlayingFlow.value = NowPlaying(title = "Kick", artist = "DJ", isPlaying = true, durationMs = 1000L)
+
+            assertEquals("Kick", vm.nowPlaying.value?.title)
+        }
+
+    @Test
+    fun `play next and add to queue hand the track to the player`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.playNext(track(3))
+            vm.addToQueue(track(4))
+
+            assertEquals(listOf("playNext:[3]", "append:[4]"), controller.commands)
+        }
+
+    @Test
+    fun `a playlist entry can be played next or added to the queue`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(7))
+            dispatcher.scheduler.advanceUntilIdle()
+            val saved =
+                vm.playlists.value
+                    .single()
+                    .tracks
+                    .single()
+
+            vm.playNextFromPlaylist(saved)
+            vm.addToQueueFromPlaylist(saved)
+
+            assertEquals(listOf("playNext:[7]", "append:[7]"), controller.commands)
+        }
+
+    @Test
+    fun `queue entries move and go only within the queue`() =
+        runTest {
+            controller.queueFlow.value = listOf(track(1), track(2), track(3))
+            val vm = viewModel()
+
+            vm.moveQueueItem(0, 1)
+            vm.moveQueueItem(2, 1)
+            // Outside the queue, or no move at all: nothing is sent.
+            vm.moveQueueItem(0, 3)
+            vm.moveQueueItem(-1, 0)
+            vm.moveQueueItem(1, 1)
+            vm.removeQueueItem(2)
+            vm.removeQueueItem(3)
+
+            assertEquals(listOf("move:0->1", "move:2->1", "remove:2"), controller.commands)
+        }
+
+    @Test
+    fun `undo of a removal appends the track and moves it back to its place`() =
+        runTest {
+            // After removing track 2 from [1, 2, 3] the player reports [1, 3].
+            controller.queueFlow.value = listOf(track(1), track(3))
+            val vm = viewModel()
+
+            vm.reinsertQueueItem(track(2), 1)
+
+            assertEquals(listOf("append:[2]", "move:2->1"), controller.commands)
+        }
+
+    @Test
+    fun `undo of removing the last entry only appends`() =
+        runTest {
+            controller.queueFlow.value = listOf(track(1), track(2))
+            val vm = viewModel()
+
+            vm.reinsertQueueItem(track(3), 2)
+
+            assertEquals(listOf("append:[3]"), controller.commands)
+        }
+
+    @Test
+    fun `clear upcoming removes everything after the current track in one command and can be undone`() =
+        runTest {
+            controller.queueFlow.value = listOf(track(1), track(2), track(3), track(4))
+            controller.nowPlayingFlow.value = NowPlaying(title = "2", artist = "DJ", isPlaying = true, queueIndex = 1)
+            val vm = viewModel()
+
+            val removed = vm.clearUpcoming()
+            vm.restoreUpcoming(removed)
+
+            assertEquals(listOf(3L, 4L), removed.map { it.id })
+            assertEquals(listOf("removeAfter:1", "append:[3, 4]"), controller.commands)
+        }
+
+    @Test
+    fun `clear upcoming does nothing on the last track or without a track`() =
+        runTest {
+            controller.queueFlow.value = listOf(track(1), track(2))
+            val vm = viewModel()
+            assertTrue(vm.clearUpcoming().isEmpty())
+
+            controller.nowPlayingFlow.value = NowPlaying(title = "2", artist = "DJ", isPlaying = true, queueIndex = 1)
+            assertTrue(vm.clearUpcoming().isEmpty())
+            vm.restoreUpcoming(emptyList())
+
+            assertTrue(controller.commands.isEmpty())
+        }
+
+    @Test
+    fun `the notification opens now playing on top of the player tab, once`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.requestNowPlaying()
+
+            assertTrue(vm.showPlayerRequest.value)
+            assertTrue(vm.expandPlayerRequest.value)
+            vm.consumeExpandPlayerRequest()
+            assertFalse(vm.expandPlayerRequest.value)
+        }
+
+    @Test
+    fun `a requested tab is handed over once`() =
+        runTest {
+            val vm = viewModel()
+
+            vm.requestTab(PlayerTab.SEARCH)
+            assertEquals(PlayerTab.SEARCH, vm.requestedTab.value)
+            vm.consumeRequestedTab()
+
+            assertNull(vm.requestedTab.value)
+        }
+
+    @Test
+    fun `shuffle toggles against what the player reports`() =
+        runTest {
+            val vm = viewModel()
+            controller.nowPlayingFlow.value = NowPlaying(title = "Kick", artist = "DJ", isPlaying = true, shuffle = false)
+            vm.toggleShuffle()
+            controller.nowPlayingFlow.value = NowPlaying(title = "Kick", artist = "DJ", isPlaying = true, shuffle = true)
+            vm.toggleShuffle()
+
+            assertEquals(listOf("shuffle:true", "shuffle:false"), controller.commands)
+        }
+
+    @Test
+    fun `repeat cycles off, whole queue, this track, off`() =
+        runTest {
+            val vm = viewModel()
+            RepeatSetting.entries.forEach { setting ->
+                controller.nowPlayingFlow.value = NowPlaying(title = "Kick", artist = "DJ", isPlaying = true, repeat = setting)
+                vm.cycleRepeat()
+            }
+
+            assertEquals(listOf("repeat:ALL", "repeat:ONE", "repeat:OFF"), controller.commands)
+            assertEquals(RepeatSetting.ALL, nextRepeat(RepeatSetting.OFF))
+        }
+
+    private class FakePlayerController : PlayerController {
+        val nowPlayingFlow = MutableStateFlow<NowPlaying?>(null)
+        override val nowPlaying: StateFlow<NowPlaying?> = nowPlayingFlow.asStateFlow()
+        val queueFlow = MutableStateFlow(emptyList<TrackItem>())
+        override val queue: StateFlow<List<TrackItem>> = queueFlow.asStateFlow()
+
+        var nextResult: LinkImportResult = LinkImportResult.Failed("not configured")
+        val resolvedUrls = mutableListOf<String>()
+        val playedQueues = mutableListOf<Pair<List<TrackItem>, Int>>()
+        val commands = mutableListOf<String>()
+
+        override fun playQueue(
+            tracks: List<TrackItem>,
+            startIndex: Int,
+        ) {
+            playedQueues.add(tracks to startIndex)
+        }
+
+        override fun skipToIndex(index: Int) {
+            commands.add("skip:$index")
+        }
+
+        override fun playNext(tracks: List<TrackItem>) {
+            commands.add("playNext:${tracks.map { it.id }}")
+        }
+
+        override fun addToQueue(tracks: List<TrackItem>) {
+            commands.add("append:${tracks.map { it.id }}")
+        }
+
+        override fun moveQueueItem(
+            from: Int,
+            to: Int,
+        ) {
+            commands.add("move:$from->$to")
+        }
+
+        override fun removeQueueItem(index: Int) {
+            commands.add("remove:$index")
+        }
+
+        override fun removeQueueItemsAfter(index: Int) {
+            commands.add("removeAfter:$index")
+        }
+
+        override fun setShuffle(enabled: Boolean) {
+            commands.add("shuffle:$enabled")
+        }
+
+        override fun setRepeat(setting: RepeatSetting) {
+            commands.add("repeat:$setting")
+        }
+
+        override fun next() {
+            commands.add("next")
+        }
+
+        override fun previous() {
+            commands.add("previous")
+        }
+
+        override fun seekTo(positionMs: Long) {
+            commands.add("seek:$positionMs")
+        }
+
+        override fun togglePlayback() {
+            commands.add("toggle")
+        }
+
+        override suspend fun resolveLink(url: String): LinkImportResult {
+            resolvedUrls.add(url)
+            return nextResult
+        }
+
+        var signedIn = false
+        var describeResult: LoadResult<ExternalTrackInfo> = LoadResult.Error("not configured")
+        val describedUrls = mutableListOf<String>()
+        val searchResults = mutableMapOf<String, LoadResult<List<TrackItem>>>()
+        val searchedQueries = mutableListOf<String>()
+        var libraryResult: LoadResult<LibraryOverview> = LoadResult.Ok(LibraryOverview(emptyList(), emptyList()))
+        var likesResult: LoadResult<List<TrackItem>> = LoadResult.Ok(emptyList())
+        var playlistTracksResult: LoadResult<List<TrackItem>> = LoadResult.Ok(emptyList())
+        val loadedPlaylistIds = mutableListOf<Long>()
+        var libraryLoads = 0
+
+        override suspend fun describeExternalLink(url: String): LoadResult<ExternalTrackInfo> {
+            describedUrls.add(url)
+            return describeResult
+        }
+
+        var spotifyClient = ""
+        var spotifySignedIn = false
+        var spotifySignInProblem: String? = null
+        var signInOpened = 0
+        var spotifyApiResult: LoadResult<SpotifyPlaylist> = LoadResult.Error("not configured")
+        val spotifyApiRequests = mutableListOf<String>()
+
+        override fun spotifyClientId(): String = spotifyClient
+
+        override fun saveSpotifyClientId(clientId: String) {
+            spotifyClient = clientId.trim()
+        }
+
+        override fun isSpotifySignedIn(): Boolean = spotifySignedIn
+
+        override fun openSpotifySignIn(): String? {
+            signInOpened++
+            return spotifySignInProblem
+        }
+
+        override fun signOutSpotify() {
+            spotifySignedIn = false
+        }
+
+        override suspend fun fetchSpotifyPlaylistViaApi(playlistId: String): LoadResult<SpotifyPlaylist> {
+            spotifyApiRequests.add(playlistId)
+            return spotifyApiResult
+        }
+
+        var spotifyTrackPage: LoadResult<String> = LoadResult.Error("not configured")
+        val fetchedSpotifyTracks = mutableListOf<String>()
+
+        override suspend fun fetchSpotifyTrackPage(trackId: String): LoadResult<String> {
+            fetchedSpotifyTracks.add(trackId)
+            return spotifyTrackPage
+        }
+
+        var spotifyPage: LoadResult<String> = LoadResult.Error("not configured")
+        val fetchedSpotifyPlaylists = mutableListOf<String>()
+
+        override suspend fun fetchSpotifyPlaylistPage(playlistId: String): LoadResult<String> {
+            fetchedSpotifyPlaylists.add(playlistId)
+            return spotifyPage
+        }
+
+        override suspend fun searchSoundCloud(
+            query: String,
+            limit: Int,
+        ): LoadResult<List<TrackItem>> {
+            searchedQueries.add(query)
+            return searchResults[query] ?: LoadResult.Ok(emptyList())
+        }
+
+        override suspend fun loadLibrary(): LoadResult<LibraryOverview> {
+            libraryLoads++
+            return libraryResult
+        }
+
+        override suspend fun loadLikedTracks(): LoadResult<List<TrackItem>> = likesResult
+
+        override suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>> {
+            loadedPlaylistIds.add(playlistId)
+            return playlistTracksResult
+        }
+
+        val pushedPlaylists = mutableListOf<Triple<String, List<Long>, Long?>>()
+        var pushResult: LoadResult<Long> = LoadResult.Ok(777L)
+
+        override suspend fun pushPlaylistToSoundCloud(
+            title: String,
+            trackIds: List<Long>,
+            existingId: Long?,
+        ): LoadResult<Long> {
+            pushedPlaylists.add(Triple(title, trackIds, existingId))
+            return pushResult
+        }
+
+        override fun isSoundCloudSignedIn(): Boolean = signedIn
+
+        override fun openSoundCloudSignIn() {
+            commands.add("signin")
+        }
+
+        override fun signOutSoundCloud() {
+            signedIn = false
+            commands.add("signout")
+        }
+    }
+
+    private class FakeSpotifyImports : SpotifyImportRepository {
+        val flow = MutableStateFlow<SpotifyImportState?>(null)
+        override val pending: Flow<SpotifyImportState?> = flow
+
+        override suspend fun current(): SpotifyImportState? = flow.value
+
+        override suspend fun save(state: SpotifyImportState) {
+            flow.value = state
+        }
+
+        override suspend fun clear() {
+            flow.value = null
+        }
+
+        var ledgerState = SpotifyImportLedger()
+
+        override suspend fun ledger(): SpotifyImportLedger = ledgerState
+
+        override suspend fun record(
+            sourceKey: String,
+            songs: Map<String, Long>,
+        ) {
+            ledgerState = SpotifyImportLedger.record(ledgerState, sourceKey, songs)
+        }
+    }
+
+    private class FakePlaylistRepository : PlaylistRepository {
+        private val state = MutableStateFlow<List<SavedPlaylist>>(emptyList())
+        override val playlists: Flow<List<SavedPlaylist>> = state
+
+        fun playlistsNow(): List<SavedPlaylist> = state.value
+
+        override suspend fun save(playlist: SavedPlaylist) {
+            state.value = state.value.filterNot { it.id == playlist.id } + playlist
+        }
+
+        override suspend fun delete(id: String) {
+            state.value = state.value.filterNot { it.id == id }
+        }
+    }
+}

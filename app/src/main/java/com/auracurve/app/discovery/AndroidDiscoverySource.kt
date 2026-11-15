@@ -1,0 +1,42 @@
+package com.auracurve.app.discovery
+
+import android.content.Context
+import com.auracurve.app.R
+import com.auracurve.app.integration.LoadResult
+import com.auracurve.app.player.model.TrackItem
+import com.auracurve.app.player.playback.DiscoveryLoader
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
+import javax.inject.Inject
+
+class AndroidDiscoverySource
+    @Inject
+    constructor(
+        @param:ApplicationContext private val context: Context,
+    ) : DiscoverySource {
+        private val loader = DiscoveryLoader(context)
+
+        override suspend fun tasteTracks(): LoadResult<List<TrackItem>> =
+            try {
+                LoadResult.Ok(loader.likedTracks())
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoadResult.Error(context.getString(R.string.likes_read_failed, e.message ?: context.getString(R.string.unknown_error)))
+            }
+
+        override suspend fun recentUploads(artist: String): LoadResult<List<TrackItem>> =
+            try {
+                LoadResult.Ok(loader.recentUploads(artist))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                LoadResult.Error(
+                    context.getString(
+                        R.string.artist_search_failed,
+                        artist,
+                        e.message ?: context.getString(R.string.unknown_error),
+                    ),
+                )
+            }
+    }

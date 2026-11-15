@@ -69,20 +69,20 @@ Added three response modes to control EQ behavior:
 ## 🔧 Implementation Details
 
 ### Files Changed:
-1. `core/src/main/kotlin/com/hardbasseq/eq/dsp/PreEqResponseMode.kt` (NEW)
+1. `core/src/main/kotlin/com/auracurve/app/dsp/PreEqResponseMode.kt` (NEW)
    - Defines the three modes
    - Controls delta reach and integration method
 
-2. `core/src/main/kotlin/com/hardbasseq/eq/dsp/PreEqMapper.kt`
+2. `core/src/main/kotlin/com/auracurve/app/dsp/PreEqMapper.kt`
    - Added `responseMode` parameter
    - Conditional Simpson vs midpoint sampling
    - Dynamic delta reach based on mode
 
-3. `app/src/main/java/com/hardbasseq/eq/audio/ProcessingSettings.kt`
+3. `app/src/main/java/com/auracurve/app/audio/ProcessingSettings.kt`
    - Added `preEqResponseMode: String` field
    - Serialized as string for forward compatibility
 
-4. `app/src/main/java/com/hardbasseq/eq/ui/main/MainViewModel.kt`
+4. `app/src/main/java/com/auracurve/app/ui/main/MainViewModel.kt`
    - Added `setPreEqResponseMode()` function
    - Updated `preEqGainsFor()` to use mode
 

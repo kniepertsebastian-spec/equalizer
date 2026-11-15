@@ -1,0 +1,36 @@
+package com.auracurve.app.correction
+
+import com.auracurve.app.preset.TargetPoint
+import kotlinx.serialization.Serializable
+
+// M3 "Datenmodell": headphone/speaker correction curve, kept separate from the
+// VoicingPreset (== the existing Preset/BuiltInPresets) it gets combined with via
+// CurveComposer. sourceLabel is shown in the UI (e.g. "AutoEQ: Sennheiser HD 599",
+// "Manual") so a user can tell an imported correction from a hand-tuned one.
+@Serializable
+data class CorrectionProfile(
+    val id: String,
+    val name: String,
+    val curve: List<TargetPoint> = emptyList(),
+    val sourceLabel: String = "Manual",
+    val builtIn: Boolean = false,
+    // The headphone / output this correction was made for (for example the AutoEQ catalog entry), shown
+    // next to its origin; null when unknown. Defaulted so profiles saved before still decode.
+    val deviceName: String? = null,
+)
+
+object BuiltInCorrectionProfiles {
+    // The default: no correction applied. An empty curve interpolates to 0 dB
+    // everywhere (see EqualizerInterpolator.interpolateFrequency), so this is a
+    // true no-op in CurveComposer, not a special case.
+    val None =
+        CorrectionProfile(
+            id = "correction_none",
+            name = "No correction profile",
+            curve = emptyList(),
+            sourceLabel = "No correction",
+            builtIn = true,
+        )
+
+    val all = listOf(None)
+}

@@ -16,7 +16,7 @@ Meilensteine ausdrücklich erlaubt. Innerhalb des Moduls ist bereits nach
 Roadmap-Paketen getrennt:
 
 ```text
-com.hardbasseq.eq/
+com.auracurve.app/
   MainActivity.kt
   audio/                 # Audio-Schnittstellen + Android-Implementierung
   ui/
