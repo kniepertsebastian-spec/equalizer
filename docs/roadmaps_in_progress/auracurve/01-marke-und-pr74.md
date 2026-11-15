@@ -40,7 +40,9 @@
 
 > **Codebefund zu M.4:** Der Repo-Name ist fest einkodiert in `ReleaseUpdateClient.kt:21` (`RELEASES_URL`) und `ReleaseCatalog.kt:62` (Prüfung `startsWith(".../equalizer/releases/download/")`). GitHub leitet die API weiter, aber die Download-Prüfung in `ReleaseCatalog` akzeptiert nur das alte Präfix. Beide Stellen und `ReleaseCatalogTest` zusammen mit der Umbenennung anpassen, sonst findet das Selbst-Update nach der Umbenennung keine gültigen Downloads mehr.
 | M.5 | **Banner exportieren:** Bild 06 als Play-Store-Titelgrafik im Format **1024 × 500 px ohne Rahmen** exportieren. Überschrift: *„Bass you can see and steer.“*, darunter Slogan und Fußnote. Der Slogan *„Feel the bass. Rule the sound.“* steht überall sonst (Info-Screen, Store-Texte, SoundCloud-Anschreiben). | S | Umsetzung | [ ] |
-| M.6 | Store-Texte aus der Marke ableiten: Titel max. 30 Zeichen (z. B. *„AuraCurve: Bass EQ & Player“* = 27 Zeichen), Kurzbeschreibung max. 80 Zeichen (die Fußnote hat 44 Zeichen und passt unverändert). | S | du, Umsetzung | [ ] |
+| M.6 | Store-Texte aus der Marke ableiten: Titel max. 30 Zeichen (z. B. *„AuraCurve: Bass EQ & Player“* = 27 Zeichen), Kurzbeschreibung max. 80 Zeichen (die Fußnote hat 44 Zeichen und passt unverändert). | S | du, Umsetzung | [~] |
+
+> **Stand M.6 (15.11.2026):** Entwurf in [`docs/STORE_LISTING.md`](../../STORE_LISTING.md): Titel „AuraCurve: Bass EQ & Player“ (27 Zeichen), Kurzbeschreibung = Fußnote (44), ausführliche Beschreibung auf Englisch und Deutsch, nur mit Funktionen der Store-Variante und ohne „systemweit“. Dazu der Entwurf der Datenschutzerklärung [`docs/PRIVACY_POLICY_DRAFT.md`](../../PRIVACY_POLICY_DRAFT.md). Offen: deine Freigabe der Texte, Abgleich am Gerät, Grafiken (M.5).
 
 **Reihenfolge-Hinweis:** M.1 ist die einzige Aufgabe, die vor jeder Codeänderung entschieden sein muss und nur von dir erledigt werden kann. Solange M.1 offen ist, bleibt M.2 bis M.6 unangetastet. `CLAUDE.md` nennt das Projekt noch „HardBass EQ“; die Anpassung gehört zu M.2.
 

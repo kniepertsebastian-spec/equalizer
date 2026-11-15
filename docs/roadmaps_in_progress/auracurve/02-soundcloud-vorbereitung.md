@@ -139,6 +139,7 @@ Abweichend vom Plan sind zwei Nahtstellen kleiner ausgefallen: Statt einer neuen
 - **Anschreiben:** Entwurf in [`soundcloud-anschreiben-entwurf.md`](soundcloud-anschreiben-entwurf.md). Platzhalter in `[eckigen Klammern]`; nach 1.4 abgleichen.
 - **Video (60 s):** mit der Store-Variante aus 1.3 aufnehmen (`app-store-debug.apk` aus dem CI-Artefakt `app-debug-apk`), sobald sie am Gerät geprüft ist. Ablauf-Vorschlag steht im Entwurf.
 - **Titelgrafik:** M.5 ist noch offen; die Entwürfe unter `screenshots/` liegen nicht im Repository.
+- **Datenschutzerklärung:** Entwurf für die Store-Variante in [`docs/PRIVACY_POLICY_DRAFT.md`](../../PRIVACY_POLICY_DRAFT.md); für den Link im Anschreiben muss sie öffentlich gehostet sein.
 
 ---
 

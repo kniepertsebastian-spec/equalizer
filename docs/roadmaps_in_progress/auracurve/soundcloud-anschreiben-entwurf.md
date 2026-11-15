@@ -42,7 +42,7 @@ An earlier private prototype used SoundCloud's website endpoints. I stopped that
 
 - 60-second screen recording of AuraCurve (equalizer, curve, bass enhancement, local playback): [Link]
 - Store feature graphic: [Link oder Anhang]
-- Planned privacy policy: [Link]
+- Planned privacy policy: [Link] (Entwurf: `docs/PRIVACY_POLICY_DRAFT.md`, muss öffentlich gehostet sein)
 
 **Contact**
 
