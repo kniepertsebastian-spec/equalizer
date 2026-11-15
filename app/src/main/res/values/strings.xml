@@ -527,4 +527,12 @@
     <string name="about_slogan" translatable="false">Feel the bass. Rule the sound.</string>
     <string name="about_footnote" translatable="false">Music player, bass enhancement, advanced EQ.</string>
     <string name="about_version">Version %1$s</string>
+    <!-- Equalizer layout (AuraCurve roadmap 04, part A, docs/EQUALIZER_REDESIGN.md). -->
+    <string name="eq_tab_sound">Sound</string>
+    <string name="eq_tab_fine_tune">Fine-tune</string>
+    <string name="eq_tab_device">Device</string>
+    <string name="modules_title">Bass &amp; loudness</string>
+    <string name="headroom_badge_ok">Headroom OK</string>
+    <string name="signal_chain_short">Signal chain</string>
+    <string name="signal_chain_open">Open the signal chain: %1$s</string>
 </resources>

@@ -1,6 +1,6 @@
 # Equalizer-Umbau · Umsetzungsplan zur Freigabe
 
-**Stand:** 15.11.2026 · **Status:** Entwurf, wartet auf Freigabe (AuraCurve-Roadmap 04, Teil A).  
+**Stand:** 15.11.2026 · **Status:** **Freigegeben am 15.11.2026** mit E1 = drei Reiter + Signalketten-Sheet, E2–E4 wie empfohlen; Bedingung: „solange der optimale Klang nicht leiden muss“ (AuraCurve-Roadmap 04, Teil A).  
 **Grundlage:** Review [`eq-review.md`](roadmaps_in_progress/auracurve/eq-review.md), Abschnitt 5.1 (Entwürfe `screenshots/01` und `02`, die **nicht im Repository liegen**; dieser Plan stützt sich auf die Textbeschreibung), `CLAUDE.md` (Kurve als Herzstück, Sonic-Control-Richtlinien).  
 **Regel:** Kein Produktionscode, bevor der Plan freigegeben ist (`CLAUDE.md`, Abschnitt 1).
 
@@ -31,7 +31,9 @@ Es gibt **keinen** Oberflächentest für diesen Bildschirm.
 
 ## 2 · Ziel und Grenzen
 
-**Ziel:** Kurve, Status und gewähltes Band bleiben immer sichtbar; alles andere liegt in vier Reitern darunter. Einsteiger bleiben im ersten Reiter, Fortgeschrittene finden die Bänder im letzten.
+**Ziel:** Kurve, Status und gewähltes Band bleiben immer sichtbar; alles andere liegt in drei Reitern darunter, sortiert nach Häufigkeit. Die Signalkette öffnet sich als Sheet hinter der Headroom-Anzeige.
+
+**Klang:** Der Umbau ändert nur die Anordnung. Kein Wert, keine Voreinstellung und keine Verarbeitung ändert sich; `MainViewModel`, `:core` und `:player` bleiben unberührt, und alle DSP- und ViewModel-Tests laufen nach jedem Schritt unverändert mit (Bedingung der Freigabe).
 
 **Grenzen:**
 - **Es fällt nichts weg.** Jede Einstellung von heute ist danach in genau einem Reiter oder im Kopf.
@@ -53,7 +55,7 @@ Es gibt **keinen** Oberflächentest für diesen Bildschirm.
 ├───────────────────────────────────────────┤  ─┘
 │ ! Keine Audio-Sitzung … [Erneut versuchen] │  Hinweis (nur wenn nötig)
 ├───────────────────────────────────────────┤
-│  Sound │ Device │ Dynamics │ Fine-tune     │  Reiter
+│  Sound │ Fine-tune │ Device               │  Reiter
 ├───────────────────────────────────────────┤
 │  … Inhalt des Reiters, scrollt …           │
 └───────────────────────────────────────────┘
@@ -63,7 +65,7 @@ Es gibt **keinen** Oberflächentest für diesen Bildschirm.
 ### 3.1 Fester Kopf
 
 1. **Zeile 1:** Ausgang, darunter Preset (mit „edited“), rechts Quellenwahl und Ein/Aus. Wie heute, nur kompakter.
-2. **Statuszeile:** links `EqStatusLine` wie heute (Zustand als Text, nicht nur als Farbe; grün nur für „aktiv“). **Neu rechts:** die Headroom-Aussage aus Abschnitt 8 in Kurzform: „Headroom OK“, „Limiter sometimes“ oder „Limiter heavy“, dazu eine dreistufige Mini-Anzeige in den bestehenden Farben (gedämpft, Vorsicht, heiß). Antippen springt in den Reiter „Dynamics“.
+2. **Statuszeile:** links `EqStatusLine` wie heute (Zustand als Text, nicht nur als Farbe; grün nur für „aktiv“). **Neu rechts:** die Headroom-Aussage aus Abschnitt 8 in Kurzform: „Headroom OK“, „Limiter sometimes“ oder „Limiter heavy“, dazu eine dreistufige Mini-Anzeige in den bestehenden Farben (gedämpft, Vorsicht, heiß). Antippen öffnet das Sheet „Signal chain“ (3.3).
 3. **Kurve:** `ResponseGraph` unverändert, 248 dp; kompakt siehe 3.5.
 4. **Gewähltes Band:** `BandReadout` unverändert.
 
@@ -75,10 +77,12 @@ Unter dem Kopf steht **höchstens ein** Hinweis, nach Dringlichkeit: Fehler mit 
 
 | Reiter | Inhalt (heutige Abschnitte) |
 |---|---|
-| **Sound** | Genre × Intensität und Presets (4), Klangziel (5), Vergleich mit dem Original (3) |
-| **Device** | Audio-Sitzungen und Klang je App (1, `AudioSourceList`), Klangprofile (9), Meine Kopfhörer (10), Kopfhörermodus (11), Auto & Lautsprecher (6, nur der Kontextmodus) |
-| **Dynamics** | Module Loudness, Subsonic, Virtual Bass (6), Signalkette mit Pegeln, Limiter, Kompressor und Headroom (8) |
+| **Sound** | Genre × Intensität und Presets (4), Module Virtual Bass, Loudness, Subsonic (6), Klangziel (5), Vergleich mit dem Original (3) |
 | **Fine-tune** | Makro-Regler und feste Bänder (12, ohne Aufklappen), parametrische Bänder (7), Hochauflösung und Pre-EQ-Modus (1, `HighResolutionEqRow`) |
+| **Device** | Audio-Sitzungen und Klang je App (1, `AudioSourceList`), Klangprofile (9), Meine Kopfhörer (10), Kopfhörermodus (11), Auto & Lautsprecher (6, Kontextmodus) |
+| **Sheet „Signal chain“** | Pegel Boost/Input/Limit, Limiter, Mehrband-Kompressor, Headroom-Warnung (8); öffnet sich beim Antippen der Headroom-Anzeige |
+
+Sortiert nach Häufigkeit: Was man ständig ändert, liegt im ersten Reiter; „Device“ wird meist einmal je Gerät eingerichtet und steht hinten. Der gewählte Reiter wird gemerkt, solange die App läuft (E3).
 
 Die Reiter sind `TabRow` aus Material 3 in den vorhandenen Farben: gewählter Reiter in Amber mit Unterstrich, die anderen in Grau.
 
@@ -106,17 +110,18 @@ Die Reiter sind `TabRow` aus Material 3 in den vorhandenen Farben: gewählter Re
 | `ui/equalizer/EqualizerScreen.kt` | wird zum Gerüst: Kopf, Hinweis, Reiter (Ziel unter 300 Zeilen) |
 | `ui/equalizer/EqualizerHeader.kt` | neu: Zeile 1, Statuszeile mit Headroom, Kurve, `BandReadout` |
 | `ui/equalizer/EqualizerNotice.kt` | neu: Hinweis-Platz mit Vorrangregel |
-| `ui/equalizer/tabs/SoundTab.kt`, `DeviceTab.kt`, `DynamicsTab.kt`, `FineTuneTab.kt` | neu: die heutigen Abschnitte, unverändert herausgelöst |
+| `ui/equalizer/tabs/SoundTab.kt`, `FineTuneTab.kt`, `DeviceTab.kt` | neu: die heutigen Abschnitte, unverändert herausgelöst |
+| `ui/equalizer/SignalChainSheet.kt` | neu: die heutige Signalkette (8) als Bottom-Sheet |
 | `ui/equalizer/HeadroomBadge.kt` | neu: Kurzform der Headroom-Aussage (nutzt die vorhandene Berechnung `HeadroomWarningLevel`) |
 | `MainScreen.kt` | nur, falls die Parameter des Gerüsts sich verschieben; Verhalten gleich |
 | `res/values/strings.xml` | Reiternamen, Kurztexte für Headroom und Hinweise |
 
-## 5 · Entscheidungen, die ich brauche
+## 5 · Entscheidungen (15.11.2026)
 
-- **E1 – Reiter und Zuordnung** wie in 3.3? *(Empfehlung: ja; Namen Englisch wie die App: Sound, Device, Dynamics, Fine-tune)*
-- **E2 – Pegel:** in der Statuszeile im Kopf *(Empfehlung, weil unten schon Mini-Player und Navigation liegen)* oder als eigener Streifen am unteren Rand (Review-Vorschlag).
-- **E3 – Gewählter Reiter:** nur gemerkt, solange die App läuft *(Empfehlung)* oder dauerhaft gespeichert.
-- **E4 – Vergleich mit dem Original:** im Reiter „Sound“ *(Empfehlung)* oder als Knopf im Kopf neben Ein/Aus.
+- **E1 – Aufteilung:** drei Reiter **Sound | Fine-tune | Device**, Signalkette als Sheet hinter der Headroom-Anzeige (3.3). Ursprünglich vorgeschlagen waren vier Reiter mit „Dynamics“; geändert, weil Virtual Bass in einer Bass-App zur Klangwahl gehört und die Signalkette nur zum Nachsehen dient.
+- **E2 – Pegel:** in der Statuszeile im Kopf.
+- **E3 – Gewählter Reiter:** gemerkt, solange die App läuft.
+- **E4 – Vergleich mit dem Original:** im Reiter „Sound“.
 
 ## 6 · Schritte
 
@@ -126,14 +131,14 @@ Jeder Schritt ist ein eigener Commit mit Build, Unit-Tests, ktlint, Lint und Bil
 |---|---|---|
 | **Q1** | Oberflächentest `EqualizerScreenUiTest` (Robolectric, wie `PlayerShellUiTest`) schreibt Bildschirmfotos des **heutigen** Zustands als Vergleichsbasis. Danach die zwölf Abschnitte in eigene Dateien zerlegen, ohne Anordnung oder Aussehen zu ändern. | keine |
 | **Q2** | Fester Kopf: Zeile 1, Statuszeile, Kurve, `BandReadout` außerhalb des Scrollbereichs. | Kurve bleibt stehen |
-| **Q3** | Reiter mit der Zuordnung aus 3.3. | vier Reiter |
+| **Q3** | Reiter mit der Zuordnung aus 3.3, Signalkette als Sheet. | drei Reiter, Sheet |
 | **Q4** | Headroom in der Statuszeile, Hinweis-Platz mit Vorrangregel. | Pegel immer sichtbar |
 | **Q5** | Kompakter Kopf, Querformat zweispaltig, große Schrift, TalkBack-Reihenfolge. | auf kleinen Geräten |
 | **Q6** | Bildschirmfotos für Store und Video (Store-Variante), Doku (`ARCHITECTURE.md`, Roadmap 04). | – |
 
 ## 7 · Tests
 
-- **Neu `EqualizerScreenUiTest`:** jeder Reiter einmal gerendert; nach dem Scrollen im Reiter ist die Kurve noch sichtbar; Reiterwechsel ändert die Kurve nicht; Hinweis-Platz zeigt nur den dringendsten Hinweis; Headroom-Text je Warnstufe; Bildschirmfotos nach `app/build/equalizer-screenshots/`, in der CI als Artefakt hochgeladen.
+- **Neu `EqualizerScreenUiTest`:** jeder Reiter und das Sheet einmal gerendert; nach dem Scrollen im Reiter ist die Kurve noch sichtbar; Reiterwechsel ändert die Kurve nicht; Hinweis-Platz zeigt nur den dringendsten Hinweis; Headroom-Text je Warnstufe; Bildschirmfotos nach `app/build/equalizer-screenshots/`, in der CI als Artefakt hochgeladen.
 - **Bestehende Tests** (`MainViewModelTest`, Kurven- und DSP-Tests) bleiben unverändert grün; die Logik wird nicht angefasst.
 - **APK-Prüfung** der Store-Variante läuft weiter mit.
 
@@ -148,3 +153,18 @@ Jeder Schritt ist ein eigener Commit mit Build, Unit-Tests, ktlint, Lint und Bil
 ## 9 · Aufwand
 
 M–L: Q1 bis Q3 je etwa ein halber bis ganzer Tag, Q4 und Q5 je ein halber Tag. Risiko gering, weil nur die Anordnung wechselt; die Bildschirmfotos aus Q1 zeigen jede ungewollte Änderung.
+
+## 10 · Umsetzung (15.11.2026)
+
+Umgesetzt im Branch zu PR #78: fester Kopf (Zeile 1, Statuszeile mit `HeadroomBadge`, Kurve, gewähltes Band), Hinweis-Platz (Fehler → keine Sitzung mit „More info“ → Geräteart → AutoEQ-Vorschlag), drei Reiter (`EqualizerTabs`), Signalkette als Sheet (`SignalChainSheet`), kompakter Kopf unter 640 dp Höhe, Querformat zweispaltig. Neue Bausteine in `ui/equalizer/EqualizerLayout.kt`; `ResponseGraph` hat einen Höhen-Parameter bekommen (Zeichnung und TalkBack-Ziele rechnen mit der echten Höhe).
+
+**Abweichungen vom Plan:**
+- Die Abschnitte stehen weiter in `EqualizerScreen.kt`, als lokale Composables (`GenreSection`, `ModulesSection`, `CompareSection`, `FineTuneSection`, `ProfilesSection`, `CorrectionSection`, `ContextSection`, `SignalChainSection`) statt in eigenen Dateien. Grund: Der Bildschirm hat rund 60 Parameter; eigene Dateien hätten vor allem Parameter durchgereicht, ohne etwas am Aussehen zu ändern. Die Datei bleibt dadurch bei etwa 990 Zeilen.
+- Kompakter Kopf: Kurve 132 dp statt 168 dp, und die Hilfezeile unter der Kurve erscheint dort erst, wenn ein Band gewählt ist. Mit 168 dp belegte der Kopf auf einem 600-dp-Telefon rund zwei Drittel der Höhe.
+- Die Erklärung „Points are the band settings …“ steht jetzt im Reiter „Fine-tune“ unter den Bändern, der Hinweis „Changes the sound of playback …“ im Reiter „Device“ bei den Audio-Sitzungen. Die Feinabstimmung ist nicht mehr zugeklappt.
+- Die drei Module stehen unter der neuen Überschrift „Bass & loudness“ im Reiter „Sound“; „Car & Bluetooth speaker“ im Reiter „Device“ enthält nur noch den Kontextmodus.
+
+**Klang:** keine Änderung an `MainViewModel`, `:core` oder `:player`; dieselben Rückrufe mit denselben Werten. Alle bestehenden Tests unverändert grün (Store 271, Full 343 App-Tests, `:core`), dazu `EqualizerScreenUiTest` mit 6 Fällen: jeder Reiter enthält seine Abschnitte und die Kurve bleibt im Kopf, Scrollen im Reiter lässt die Kurve stehen, das Headroom-Feld öffnet die Signalkette, kurzer Bildschirm, Querformat, „keine Audio-Sitzung“. Bildschirmfotos als CI-Artefakt `equalizer-screenshots`.
+
+**Offen:** Q6 (Bildschirmfotos der Store-Variante für Store und Video) und der Gerätetest (Abschnitt 8).
+

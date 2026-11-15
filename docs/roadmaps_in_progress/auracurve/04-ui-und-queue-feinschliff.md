@@ -15,8 +15,8 @@
 | # | Aufgabe | Bezug | Aufwand | Wer | Status |
 |---|---|---|---|---|---|
 | 4.A1 | **Umsetzungsplan** mit Ist-Stand, Aufbau, Reitern, Zuständen, Schritten und Tests. | [`docs/EQUALIZER_REDESIGN.md`](../../EQUALIZER_REDESIGN.md); Review 5.1 | S | Umsetzung | [x] Entwurf |
-| 4.A2 | **Freigabe des Plans** (Entscheidungen E1 bis E4 im Plan). | `CLAUDE.md`: erst Plan, dann Freigabe, dann Code | S | du | [ ] |
-| 4.A3 | **Umsetzung in Schritten Q1 bis Q6** aus dem Plan, jeder Schritt mit Build, Tests, Lint und Bildschirmfotos aus der CI. | Plan, Abschnitt 6 | M–L | Umsetzung | [ ] |
+| 4.A2 | **Freigabe des Plans** (Entscheidungen E1 bis E4 im Plan). | `CLAUDE.md`: erst Plan, dann Freigabe, dann Code | S | du | [x] 15.11.2026: drei Reiter + Signalketten-Sheet, E2–E4 wie empfohlen, Klang darf nicht leiden |
+| 4.A3 | **Umsetzung in Schritten Q1 bis Q6** aus dem Plan, jeder Schritt mit Build, Tests, Lint und Bildschirmfotos aus der CI. | Plan, Abschnitt 6 und 10 | M–L | Umsetzung | [~] Q1–Q5 umgesetzt und lokal geprüft (PR #78); Q6 nach dem Gerätetest |
 | 4.A4 | **Gerätetest** des neuen Equalizers (kleines Telefon, Querformat, Schrift 200 %, TalkBack). | Plan, Abschnitt 8 | S | du | [ ] |
 
 **Definition of Done (Teil A):** Kurve, Status und gewähltes Band bleiben beim Scrollen sichtbar, die übrigen Einstellungen liegen in vier Reitern, nichts ist weggefallen, und der Gerätetest ist bestanden. Danach wird das SoundCloud-Video aufgenommen.
