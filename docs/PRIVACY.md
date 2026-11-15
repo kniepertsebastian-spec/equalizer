@@ -29,6 +29,8 @@ The sign-in tokens are stored unencrypted in the app's private storage. Other ap
 | `soundcloud.com`, `api-v2.soundcloud.com` and SoundCloud's media servers | Using the integrated player with SoundCloud | Search terms, track and playlist ids, the sign-in token when signed in. |
 | `accounts.spotify.com`, `api.spotify.com`, `open.spotify.com` | Importing a Spotify playlist or link | The link or playlist id, the sign-in token when signed in. |
 | `www.youtube.com` | A shared YouTube link is matched to a SoundCloud track | The link, to read the title. |
+| `api.audius.co` and Audius' content nodes | The Audius tab: trending, search, playback | The chosen genre or search term, the track id, the app name `AuraCurve`. |
+| `*.api.radio-browser.info` and the radio stations' servers | The Radio tab and playing a station | The chosen genre, a "click" for the played station; the station gets the stream request. |
 | `api.github.com`, `github.com` | Update check and download | Nothing about the user; the request reveals the IP address to GitHub. |
 | Image servers of the above | Showing covers | The image address. |
 

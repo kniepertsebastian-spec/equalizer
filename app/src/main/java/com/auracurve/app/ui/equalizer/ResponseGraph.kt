@@ -131,6 +131,8 @@ internal fun ResponseGraph(
     hotFrequencyHz: Float?,
     description: String,
     modifier: Modifier = Modifier,
+    // Shorter on short screens (EqualizerLayout.CompactGraphHeight); the drawing scales with it.
+    height: Dp = GraphHeight,
     style: EqualizerDesignStyle = SonicStyle,
 ) {
     val sorted = bands.sortedBy { it.frequencyHz }
@@ -160,12 +162,12 @@ internal fun ResponseGraph(
     val axisStyle = SonicNumerals.axis.copy(color = style.mutedText)
     val stateStyle = MaterialTheme.typography.labelMedium.copy(color = style.mutedText)
 
-    BoxWithConstraints(modifier = modifier.fillMaxWidth().height(GraphHeight)) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth().height(height)) {
         Canvas(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(GraphHeight)
+                    .height(height)
                     .semantics { contentDescription = description }
                     .pointerInput(scaleDb) {
                         detectTapGestures { offset ->
@@ -259,7 +261,7 @@ internal fun ResponseGraph(
 
         // Invisible TalkBack targets: each band becomes an adjustable value at its point.
         val plotWidth = maxWidth - GutterStart - PlotEnd
-        val plotHeight = GraphHeight - PlotTop - GutterBottom
+        val plotHeight = height - PlotTop - GutterBottom
         sorted.forEachIndexed { i, band ->
             val label = CurveGeometry.formatFrequency(band.frequencyHz)
             val value = CurveGeometry.formatGain(band.gainDb)

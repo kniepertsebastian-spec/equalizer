@@ -288,7 +288,7 @@ fun MainScreen(
                 onRenameRoute = { viewModel.renameCurrentRoute(it) },
                 pathLabel =
                     activeAudioSession?.let { appLabelFor(context, it.packageName) }
-                        ?: if (playerLoaded) stringResource(R.string.source_soundcloud) else null,
+                        ?: if (playerLoaded) stringResource(R.string.source_builtin_player) else null,
                 audioSessions = audioSessions,
                 activeAudioSession = activeAudioSession,
                 parametricBands = parametricBands,
@@ -435,7 +435,7 @@ private fun PlayerSourcePickerDialog(
         text = { Text(stringResource(R.string.source_picker_text)) },
         confirmButton = {
             TextButton(onClick = { onSourceChosen(PlayerSource.SOUNDCLOUD) }) {
-                Text(stringResource(R.string.source_soundcloud))
+                Text(stringResource(R.string.source_builtin_player))
             }
         },
         dismissButton = {

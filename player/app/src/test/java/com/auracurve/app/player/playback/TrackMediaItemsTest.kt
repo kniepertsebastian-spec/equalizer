@@ -1,7 +1,9 @@
 package com.auracurve.app.player.playback
 
+import androidx.media3.common.MimeTypes
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.auracurve.app.player.model.TrackItem
+import com.auracurve.app.playlist.DirectStream
 import com.auracurve.app.playlist.LocalTrackId
 import com.auracurve.app.playlist.QueueMediaId
 import org.junit.Assert.assertEquals
@@ -16,7 +18,8 @@ class TrackMediaItemsTest {
     private fun track(
         id: Long,
         streamUrl: String?,
-    ) = TrackItem(id = id, title = "T", artist = "A", artworkUrl = null, streamUrl = streamUrl, durationMs = 1000)
+        isHls: Boolean = false,
+    ) = TrackItem(id = id, title = "T", artist = "A", artworkUrl = null, streamUrl = streamUrl, durationMs = 1000, isHlsStream = isHls)
 
     @Test
     fun soundCloudTrack_getsThePlaceholderAddressForLookup() {
@@ -36,5 +39,25 @@ class TrackMediaItemsTest {
         assertEquals(uri, item.localConfiguration?.uri.toString())
         assertNull("a real address is not ours to resolve", QueueMediaId.trackIdFromStreamUri(item.localConfiguration?.uri.toString()))
         assertEquals(id, TrackMediaItems.trackId(item))
+    }
+
+    @Test
+    fun catalogTrack_playsItsHttpsAddressAndMarksHls() {
+        val id = DirectStream.idOf("radio", "station-1")
+        val url = "https://stream.example.com/live.m3u8"
+
+        val item = TrackMediaItems.toMediaItem(track(id, streamUrl = url, isHls = true))
+
+        assertEquals(url, item.localConfiguration?.uri.toString())
+        assertEquals(MimeTypes.APPLICATION_M3U8, item.localConfiguration?.mimeType)
+    }
+
+    @Test
+    fun catalogTrack_withPlainHttp_isNotPlayedDirectly() {
+        val id = DirectStream.idOf("radio", "station-2")
+
+        val item = TrackMediaItems.toMediaItem(track(id, streamUrl = "http://stream.example.com/live"))
+
+        assertEquals(QueueMediaId.streamUri(id), item.localConfiguration?.uri.toString())
     }
 }

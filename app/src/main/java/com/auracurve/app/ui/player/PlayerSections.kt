@@ -56,19 +56,24 @@ enum class PlayerTab(
 ) {
     SEARCH(R.string.tab_search),
     PLAYLISTS(R.string.tab_playlists),
+
+    // Online catalogs of the full flavor (see rememberCatalogTabs); the store flavor has none.
+    RADIO(R.string.tab_radio),
+    AUDIUS(R.string.tab_audius),
 }
 
 @Composable
 fun PlayerTabs(
     selected: PlayerTab,
     onSelect: (PlayerTab) -> Unit,
+    tabs: List<PlayerTab> = PlayerTab.entries,
 ) {
     TabRow(
-        selectedTabIndex = selected.ordinal,
+        selectedTabIndex = tabs.indexOf(selected).coerceAtLeast(0),
         containerColor = Color.Transparent,
         contentColor = SonicAmber,
     ) {
-        PlayerTab.entries.forEach { tab ->
+        tabs.forEach { tab ->
             val label = stringResource(tab.labelRes)
             Tab(
                 selected = selected == tab,

@@ -129,6 +129,16 @@ jobs:
           path: app/build/player-screenshots
           if-no-files-found: warn
 
+      # EqualizerScreenUiTest (AuraCurve roadmap 04, part A): every tab, the signal chain sheet, a short
+      # phone and landscape, rendered on the JVM.
+      - name: Upload equalizer screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: equalizer-screenshots
+          path: app/build/equalizer-screenshots
+          if-no-files-found: warn
+
       - name: Upload unit test results
         if: always()
         uses: actions/upload-artifact@v4

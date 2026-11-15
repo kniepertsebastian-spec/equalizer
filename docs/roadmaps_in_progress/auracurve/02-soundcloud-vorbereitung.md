@@ -17,7 +17,7 @@
 | 1.5 | **Bewerbungspaket erstellen:** Einseitiges Anschreiben auf Englisch unter dem Namen *AuraCurve* + 60-Sekunden-Bildschirmvideo der sauberen Vorführvariante. Titelgrafik liegt aus M.5 vor. | Review 2 | S–M | du, Umsetzung | [~] Entwurf liegt vor |
 | 1.6 | **Anfrage absenden:** Bewerbung bei SoundCloud einreichen. Danach **nicht untätig warten**, sondern direkt mit Roadmap 03 (Sicherheit & Gerätetests) weitermachen. | – | S | du | [ ] |
 
-**Reihenfolge:** 1.1 und 1.2 (erledigt bis auf die Punkte unten) → 1.3 nach Freigabe des Plans → 1.4 parallel → 1.5 (Video erst mit der Store-Variante aus 1.3) → 1.6.
+**Reihenfolge:** 1.1 und 1.2 (erledigt bis auf die Punkte unten) → 1.3 nach Freigabe des Plans → 1.4 parallel → Equalizer-Umbau (Roadmap 04, Teil A, vorgezogen) und Gerätetest (Roadmap 03, 3.1) → 1.5 (Video mit der Store-Variante) → 1.6.
 
 ---
 

@@ -2,4 +2,20 @@
 <!-- Flavor "full": its own name, so it can be told apart from the store build on the same phone. -->
 <resources>
     <string name="app_name">AuraCurve Full</string>
+    <!-- Its built-in player streams from SoundCloud. -->
+    <string name="source_builtin_player">SoundCloud</string>
+    <!-- Radio and Audius tabs (AuraCurve roadmap 06). -->
+    <string name="catalog_radio_intro">Electronic internet radio from the open Radio Browser directory. Only encrypted streams.</string>
+    <string name="catalog_audius_intro">Electronic tracks from Audius, the open music platform.</string>
+    <string name="catalog_load_failed">Could not load: %1$s</string>
+    <string name="catalog_empty">Nothing found for this genre.</string>
+    <string name="catalog_radio_source">Station directory: radio-browser.info</string>
+    <string name="catalog_audius_source">Tracks via audius.co</string>
+    <string name="radio_live">Live</string>
+    <string name="audius_search_hint">Search Audius</string>
+    <string name="audius_trending">Trending this week · %1$s</string>
+    <string name="audius_results_for">Results for \u201c%1$s\u201d</string>
+    <string name="audius_show_trending">Show trending</string>
+    <!-- Overrides the store text: radio stations and Audius tracks cannot be saved yet either. -->
+    <string name="local_files_not_in_playlists">Files from this device, radio stations and Audius tracks cannot be saved in playlists yet</string>
 </resources>

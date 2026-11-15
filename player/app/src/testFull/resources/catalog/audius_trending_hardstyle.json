@@ -1,0 +1,84 @@
+{
+ "data": [
+  {
+   "id": "4xgGJPZ",
+   "title": "Unmentionable - Aura",
+   "duration": 168,
+   "genre": "Hardstyle",
+   "is_streamable": true,
+   "is_stream_gated": false,
+   "is_delete": false,
+   "artwork": {
+    "150x150": "https://v.monophonic.digital/content/baeaaaiqsea3mc32rvtbwjsnv37r5d2jqlucquuc5zx2tidtvpoedzrzgxenh2/150x150.jpg",
+    "480x480": "https://v.monophonic.digital/content/baeaaaiqsea3mc32rvtbwjsnv37r5d2jqlucquuc5zx2tidtvpoedzrzgxenh2/480x480.jpg",
+    "1000x1000": "https://v.monophonic.digital/content/baeaaaiqsea3mc32rvtbwjsnv37r5d2jqlucquuc5zx2tidtvpoedzrzgxenh2/1000x1000.jpg"
+   },
+   "user": {
+    "id": "eAP77",
+    "name": "PZYCCO",
+    "handle": "pzyccorecs"
+   },
+   "permalink": "/pzyccorecs/unmentionable-aura"
+  },
+  {
+   "id": "64p6l4l",
+   "title": "STETIX & SAJCHE - RETINA",
+   "duration": 194,
+   "genre": "Hardstyle",
+   "is_streamable": true,
+   "is_stream_gated": false,
+   "is_delete": false,
+   "artwork": {
+    "150x150": "https://audius-creator-1.theblueprint.xyz/content/baeaaaiqseczinqy5emc5sq457epsbbqajao7jpo4mgu4we5jzgl7l6dm4tb7y/150x150.jpg",
+    "480x480": "https://audius-creator-1.theblueprint.xyz/content/baeaaaiqseczinqy5emc5sq457epsbbqajao7jpo4mgu4we5jzgl7l6dm4tb7y/480x480.jpg",
+    "1000x1000": "https://audius-creator-1.theblueprint.xyz/content/baeaaaiqseczinqy5emc5sq457epsbbqajao7jpo4mgu4we5jzgl7l6dm4tb7y/1000x1000.jpg"
+   },
+   "user": {
+    "id": "RK3wKAR",
+    "name": "STETIX",
+    "handle": "STETIX"
+   },
+   "permalink": "/STETIX/stetix-sajche-retina"
+  },
+  {
+   "id": "bwZx0O",
+   "title": "Flo Rida feat. T-Pain - Low (District Punx Uptempo Edit) [SLOWED]",
+   "duration": 199,
+   "genre": "Hardstyle",
+   "is_streamable": true,
+   "is_stream_gated": false,
+   "is_delete": false,
+   "artwork": {
+    "150x150": "https://audius-creator-10.theblueprint.xyz/content/baeaaaiqsec5dbrxy3sutprjm2j72jjpznlw3ukgizub6j3bgsnola33nszdha/150x150.jpg",
+    "480x480": "https://audius-creator-10.theblueprint.xyz/content/baeaaaiqsec5dbrxy3sutprjm2j72jjpznlw3ukgizub6j3bgsnola33nszdha/480x480.jpg",
+    "1000x1000": "https://audius-creator-10.theblueprint.xyz/content/baeaaaiqsec5dbrxy3sutprjm2j72jjpznlw3ukgizub6j3bgsnola33nszdha/1000x1000.jpg"
+   },
+   "user": {
+    "id": "epWAo",
+    "name": "District Punx",
+    "handle": "district_punx"
+   },
+   "permalink": "/district_punx/flo-rida-feat-t-pain-low-district-punx-uptempo-edit-slowed"
+  },
+  {
+   "id": "gated1",
+   "title": "Gated",
+   "duration": 168,
+   "genre": "Hardstyle",
+   "is_streamable": true,
+   "is_stream_gated": true,
+   "is_delete": false,
+   "artwork": {
+    "150x150": "https://v.monophonic.digital/content/baeaaaiqsea3mc32rvtbwjsnv37r5d2jqlucquuc5zx2tidtvpoedzrzgxenh2/150x150.jpg",
+    "480x480": "https://v.monophonic.digital/content/baeaaaiqsea3mc32rvtbwjsnv37r5d2jqlucquuc5zx2tidtvpoedzrzgxenh2/480x480.jpg",
+    "1000x1000": "https://v.monophonic.digital/content/baeaaaiqsea3mc32rvtbwjsnv37r5d2jqlucquuc5zx2tidtvpoedzrzgxenh2/1000x1000.jpg"
+   },
+   "user": {
+    "id": "eAP77",
+    "name": "PZYCCO",
+    "handle": "pzyccorecs"
+   },
+   "permalink": "/pzyccorecs/unmentionable-aura"
+  }
+ ]
+}
