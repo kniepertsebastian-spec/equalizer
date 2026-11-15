@@ -95,7 +95,8 @@ internal fun PlaylistRow(
     onPlay: () -> Unit,
     onPlayTrack: (Int) -> Unit,
     onDelete: () -> Unit,
-    onSendToSoundCloud: () -> Unit,
+    // Null hides the action (the "store" flavor has no SoundCloud account to send to).
+    onSendToSoundCloud: (() -> Unit)?,
     onRemoveTrack: (Long) -> Unit,
     onPlayNext: (SavedTrack) -> Unit,
     onAddToQueue: (SavedTrack) -> Unit,
@@ -129,8 +130,10 @@ internal fun PlaylistRow(
                     color = SonicSteel,
                 )
             }
-            IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
-                Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.playlist_to_soundcloud))
+            if (onSendToSoundCloud != null) {
+                IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
+                    Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.playlist_to_soundcloud))
+                }
             }
             IconButton(onClick = onPlay, enabled = playlist.tracks.isNotEmpty()) {
                 Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play))

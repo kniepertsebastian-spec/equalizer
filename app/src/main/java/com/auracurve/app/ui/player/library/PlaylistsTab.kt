@@ -66,6 +66,8 @@ fun LazyListScope.playlistsTabItems(
     playedIds: Set<Long>,
     onNewPlaylist: () -> Unit,
     onMerge: () -> Unit,
+    // False in the "store" flavor (AuraCurve roadmap 02, 1.3): no link import, no SoundCloud.
+    onlineSources: Boolean = true,
 ) {
     item {
         val spacing = MaterialTheme.spacing
@@ -78,13 +80,13 @@ fun LazyListScope.playlistsTabItems(
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Text(
-                    stringResource(R.string.playlists_import_title),
+                    stringResource(if (onlineSources) R.string.playlists_import_title else R.string.playlists_local_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
                     text =
-                        stringResource(R.string.playlists_import_hint),
+                        stringResource(if (onlineSources) R.string.playlists_import_hint else R.string.playlists_local_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = SonicSteel,
                 )
@@ -104,14 +106,16 @@ fun LazyListScope.playlistsTabItems(
                 OutlinedButton(onClick = { pickFiles.launch(arrayOf("audio/*")) }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.local_files_button))
                 }
-                Spacer(modifier = Modifier.height(spacing.small))
-                OutlinedTextField(
-                    value = linkText,
-                    onValueChange = { linkText = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("https://soundcloud.com/…") },
-                    singleLine = true,
-                )
+                if (onlineSources) {
+                    Spacer(modifier = Modifier.height(spacing.small))
+                    OutlinedTextField(
+                        value = linkText,
+                        onValueChange = { linkText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("https://soundcloud.com/…") },
+                        singleLine = true,
+                    )
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -132,19 +136,21 @@ fun LazyListScope.playlistsTabItems(
                             modifier = Modifier.weight(1f).padding(horizontal = spacing.small),
                         )
                     } ?: Spacer(modifier = Modifier.weight(1f))
-                    Button(
-                        onClick = {
-                            viewModel.importFromText(linkText)
-                            linkText = ""
-                        },
-                        enabled = linkText.isNotBlank() && !importState.isLoading,
-                    ) {
-                        Text(stringResource(R.string.playlists_add_button))
+                    if (onlineSources) {
+                        Button(
+                            onClick = {
+                                viewModel.importFromText(linkText)
+                                linkText = ""
+                            },
+                            enabled = linkText.isNotBlank() && !importState.isLoading,
+                        ) {
+                            Text(stringResource(R.string.playlists_add_button))
+                        }
                     }
                 }
                 // A long Spotify import that stopped (app closed, no connection): go on or drop it.
                 // While one is running the saved position is only a checkpoint, not a pause.
-                pendingImport?.takeIf { !importState.isLoading }?.let { pending ->
+                pendingImport?.takeIf { onlineSources && !importState.isLoading }?.let { pending ->
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text =
@@ -171,7 +177,7 @@ fun LazyListScope.playlistsTabItems(
                     if (playlists.size >= 2) {
                         TextButton(onClick = { onMerge() }) { Text(stringResource(R.string.playlists_merge)) }
                     }
-                    if (playlists.isNotEmpty()) {
+                    if (onlineSources && playlists.isNotEmpty()) {
                         TextButton(onClick = { viewModel.syncToSoundCloud(playlists) }, enabled = !importState.isLoading) {
                             Text(stringResource(R.string.playlists_all_to_soundcloud))
                         }
@@ -185,7 +191,7 @@ fun LazyListScope.playlistsTabItems(
                             onPlay = { viewModel.playPlaylist(playlist) },
                             onPlayTrack = { viewModel.playPlaylist(playlist, it) },
                             onDelete = { viewModel.deletePlaylist(playlist) },
-                            onSendToSoundCloud = { viewModel.syncToSoundCloud(listOf(playlist)) },
+                            onSendToSoundCloud = if (onlineSources) ({ viewModel.syncToSoundCloud(listOf(playlist)) }) else null,
                             onRemoveTrack = { viewModel.removeFromPlaylist(playlist, it) },
                             onPlayNext = viewModel::playNextFromPlaylist,
                             onAddToQueue = viewModel::addToQueueFromPlaylist,

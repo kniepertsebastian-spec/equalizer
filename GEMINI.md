@@ -77,9 +77,10 @@ HardBass EQ: Equalizer für Android mit begleitendem Player.
 - Zuerst relevante Modulskripte, Tests und `docs/QUALITY.md` prüfen.
 - Für Änderungen im gemeinsamen DSP-Core die Core-Tests und vorhandene `core-verify`-Möglichkeit berücksichtigen.
 - Vorhandene Root-Prüfungen:
-  - `./gradlew assembleDebug`
-  - `./gradlew testDebugUnitTest`
-  - `./gradlew lintDebug lintRelease`
+  - `./gradlew assembleDebug` (baut beide Flavors `store` und `full`)
+  - `./gradlew testStoreDebugUnitTest testFullDebugUnitTest :core:test`
+  - `./gradlew lintStoreDebug lintFullDebug lintStoreRelease lintFullRelease`
+  - `python3 scripts/check_store_apk.py app/build/outputs/apk/store/debug/app-store-debug.apk`
   - `./gradlew ktlintCheck`
 - Unter Windows `gradlew.bat` verwenden.
 - Bei Bedarf gezielte Player-Tests ergänzen.

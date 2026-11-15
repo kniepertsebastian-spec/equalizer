@@ -12,7 +12,7 @@
 |---|---|---|---|---|---|
 | 1.1 | **Grundsatzentscheidungen treffen:** App kostenlos oder kostenpflichtig anbieten? Repository öffentlich oder privat führen? *(Der Name AuraCurve steht bereits fest.)* | Review 2, 5.5 | S | du | [~] |
 | 1.2 | **Paketnamen bereinigen:** Paketnamen des Player-Moduls von `com.soundcloud.equalizer.player` auf den eigenen Namespace ändern (22 Quelldateien, Manifest, Tests). *Wird in einem Zug mit M.3 umgesetzt.* | Review 2 | M | Umsetzung | [x] |
-| 1.3 | **Build-Varianten (Flavors) anlegen:**<br>1. *Vorführ- & Store-Variante:* ohne inoffiziellen SoundCloud-Zugang, ohne Selbst-Update und ohne YouTube-Auflösung.<br>2. *Private Variante:* mit dem heutigen Funktionsumfang. | Review 2, 6 | M–L | Umsetzung | [ ] Plan freigegeben, Umsetzung nach Merge von PR #76 |
+| 1.3 | **Build-Varianten (Flavors) anlegen:**<br>1. *Vorführ- & Store-Variante:* ohne inoffiziellen SoundCloud-Zugang, ohne Selbst-Update und ohne YouTube-Auflösung.<br>2. *Private Variante:* mit dem heutigen Funktionsumfang. | Review 2, 6 | M–L | Umsetzung | [~] umgesetzt, lokal geprüft; CI und Gerätetest stehen aus |
 | 1.4 | **SoundCloud-Bedingungen prüfen:** Nutzungsbedingungen der SoundCloud-Schnittstelle im Original lesen und Zusagen im Anschreiben darauf abstimmen. Prüfen, ob für die Registrierung ein *Artist-Pro-Abo* nötig ist. | Review 2 | S | du | [ ] |
 | 1.5 | **Bewerbungspaket erstellen:** Einseitiges Anschreiben auf Englisch unter dem Namen *AuraCurve* + 60-Sekunden-Bildschirmvideo der sauberen Vorführvariante. Titelgrafik liegt aus M.5 vor. | Review 2 | S–M | du, Umsetzung | [~] Entwurf liegt vor |
 | 1.6 | **Anfrage absenden:** Bewerbung bei SoundCloud einreichen. Danach **nicht untätig warten**, sondern direkt mit Roadmap 03 (Sicherheit & Gerätetests) weitermachen. | – | S | du | [ ] |
@@ -67,46 +67,52 @@ Im Code (ohne `.md`) kommen `com.hardbasseq.eq` und `com.soundcloud.equalizer` n
 
 ---
 
-## 1.3 · Build-Varianten – Plan zur Freigabe
+## 1.3 · Build-Varianten
 
-*Plan am 15.11.2026 freigegeben (E1–E3 unten). Umsetzung in einem eigenen Pull Request nach dem Merge von #76.*
+*Plan am 15.11.2026 freigegeben (E1–E3 unten), umgesetzt am selben Tag nach dem Merge von #76 in einem eigenen Pull Request.*
 
 ### Ziel
 
 Die Store-Variante enthält den inoffiziellen Zugang **nicht im ausgelieferten Code** (nicht nur ausgeblendet). Wer die APK zerlegt, findet weder `api-v2.soundcloud.com` noch das Auslesen der `client_id` noch die Login-WebView.
 
-### Aufbau
+### Umsetzung
 
-Eine Flavor-Dimension `distribution` in `:app` und `:player`:
+Eine Flavor-Dimension `distribution` in `:app` und `:player` (gleiche Namen, damit jede App-Variante die passende Player-Variante zieht):
 
 | Flavor | Anwendungs-ID | Inhalt |
 |---|---|---|
-| `store` | `com.auracurve.app` | Equalizer, Klangkette, Player für Dateien vom Gerät, Android Auto, Widgets/Kacheln. Kein SoundCloud, kein Spotify-Import, kein Link-Import, kein Selbst-Update, keine YouTube-Auflösung. |
-| `full` | `com.auracurve.app.full` *(Vorschlag, siehe E1)* | Heutiger Funktionsumfang. |
+| `store` | `com.auracurve.app` | Equalizer, Klangkette, Player für Dateien vom Gerät und eigene Playlists, Android Auto, Widgets/Kacheln. Kein SoundCloud, kein Spotify, kein Link-Import, keine YouTube-Auflösung, kein Selbst-Update. |
+| `full` | `com.auracurve.app.full` | Heutiger Funktionsumfang. |
 
-Code-Aufteilung (Quellordner je Flavor):
+Abweichend vom Plan sind zwei Nahtstellen kleiner ausgefallen: Statt einer neuen `TrackSource`-Schnittstelle genügt im Player die bestehende `StreamResolver`-Schnittstelle, und statt eines `PlayerFeatures`-Objekts ein Build-Schalter `BuildConfig.ONLINE_SOURCES`. `PlayerViewModel` und `AudioPlayerService` mussten dafür nicht umgebaut werden.
 
 - **`:player`**
-  - `main`: Wiedergabe-Kern (`AudioPlayerService`, Queue, DSP, `ResolvingTrackMediaSource`, Modelle) und eine neue Schnittstelle `TrackSource` (Stream auflösen, suchen, Bibliothek, Links).
-  - `full`: `SoundCloudClient`, `SoundCloudLoginActivity` (+ eigener Manifest-Eintrag), `DiscoveryLoader`, `LibraryLoader`, `LinkResolver` (inkl. YouTube-/Spotify-oEmbed), `SpotifyApiClient`, `SpotifyLoginActivity`, SoundCloud-Fehlertexte; `TrackSource`-Umsetzung über SoundCloud.
-  - `store`: `TrackSource`-Umsetzung nur für lokale Dateien.
+  - `main`: Wiedergabe-Kern unverändert; `AudioPlayerService` holt seinen Resolver über `StreamResolvers.create()`.
+  - `full`: `SoundCloudClient`, `SoundCloudStreamResolver`, `SoundCloudLoginActivity`, `SpotifyApiClient`, `SpotifyLoginActivity` (beide samt Manifest-Eintrag), `LinkResolver`, `DiscoveryLoader`, `LibraryLoader`, `ApiUrl` (aus `:core` verschoben: hängt die ausgelesene `client_id` an), die zugehörigen Fehlertexte, `androidx.webkit`.
+  - `store`: `StreamResolvers` ohne Online-Quelle (ein Online-Titel in der Queue scheitert wie ein unspielbarer Titel).
 - **`:app`**
-  - `main`: `PlayerController` bleibt die Schnittstelle; neu ein `PlayerFeatures`-Objekt (SoundCloud, Link-Import, Spotify-Import, Selbst-Update an/aus), per Hilt bereitgestellt. Die Oberfläche blendet Entdecken, Bibliothek, Verknüpfte Dienste und Link-Import danach aus.
-  - `full`: SoundCloud-Teil des `PlayerController`, `ReleaseUpdateClient`/`ReleaseCatalog`/`ReleaseUpdateNotice`, `REQUEST_INSTALL_PACKAGES` im Flavor-Manifest.
-  - `store`: leere `ReleaseUpdateNotice`, Hilt-Modul mit abgeschalteten Funktionen.
-- **Tests:** SoundCloud-, Spotify- und Update-Tests nach `testFull`; gemeinsame Tests laufen in beiden Varianten.
-- **CI (`ci.yml`):** beide Varianten bauen und testen. Neuer Prüfschritt: In der Store-APK dürfen `api-v2.soundcloud.com`, `client_id`, `youtube.com/oembed` und `REQUEST_INSTALL_PACKAGES` nicht vorkommen (Suche in DEX und Manifest).
-- **Release (`release.yml`):** baut `fullRelease` für das Selbst-Update. Das Store-Bundle (`bundleStoreRelease`) kommt mit Roadmap 05.
+  - `main`: `PlayerController` erbt die Online-Methoden von der neuen Schnittstelle `OnlineSources`; `AndroidPlayerController` reicht sie an die per Hilt gelieferte Umsetzung weiter (`DistributionModule` je Flavor). `PlayerScreen` und die Playlists-Ansicht blenden ohne `ONLINE_SOURCES` Tabs, Suche, Entdecken, Dienste-Knopf, Quellenwahl, Link-Feld, Spotify-Fortsetzen und „An SoundCloud senden“ aus. Die wöchentliche Entdecken-Aktualisierung wird nur in `full` geplant.
+  - `full`: `SoundCloudOnlineSources`, `AndroidDiscoverySource`, Selbst-Update (`ReleaseUpdateClient`, `ReleaseCatalog`, `ReleaseUpdateNotice`, `update_file_paths.xml`), im Flavor-Manifest `REQUEST_INSTALL_PACKAGES`, der Update-`FileProvider` und das Teilen-Ziel für Text (Links).
+  - `store`: `NoOnlineSources`, `NoDiscoverySource` (antworten „nicht verfügbar“), leere `ReleaseUpdateNotice`.
+- **Tests:** `ReleaseCatalogTest`, `SoundCloudClientTest`, `ApiUrlTest` nach `testFull`; alle übrigen laufen in beiden Varianten.
+- **Prüfung der Store-APK:** `scripts/check_store_apk.py` sucht in DEX und Manifest nach `api-v2.soundcloud.com`, `client_id=`, `SoundCloudLoginActivity`, `SpotifyLoginActivity`, `SpotifyApiClient`, `youtube.com/oembed`, `ReleaseUpdateClient`, `REQUEST_INSTALL_PACKAGES`, `spotify-callback`. Die Store-APK muss frei sein, die Full-APK muss alle enthalten (sonst würde eine Umbenennung die Prüfung blind machen). Läuft in der CI.
+- **CI (`ci.yml`):** Unit-Tests, Instrumentierungs-Kompilat und Lint für beide Varianten, APK-Prüfung; Debug-Artefakt enthält beide APKs, der Drive-Upload nimmt die `full`-APK.
+- **Release (`release.yml`):** baut `assembleFullRelease`, `update.json` nennt `com.auracurve.app.full`. Das Store-Bundle (`bundleStoreRelease`) kommt mit Roadmap 05.
+
+**Geprüft (lokal, Android-SDK 37 im Container):** `assembleDebug` (beide), `assembleRelease` (beide), `testStoreDebugUnitTest` (334 + 16 Player-Tests), `testFullDebugUnitTest` (337 + 17), `:core:test`, `ktlintCheck`, Lint aller vier Varianten ohne Fehler, Instrumentierungstests kompilieren, `check_store_apk.py` für Debug- und Release-APKs beider Varianten.
+
+**Nicht geprüft:** am Gerät. Bitte beide APKs installieren: Store-Variante (Player zeigt nur „Your music“ mit Dateien vom Gerät und Playlists, kein Update-Hinweis, kein „Teilen mit“ für Links), Full-Variante (alles wie bisher, Selbst-Update findet erst Releases, die mit diesem Stand gebaut sind).
+
+**Bewusst offen:**
+- In `:core` (reines Kotlin, keine Flavors möglich) bleiben die Hilfsklassen fürs Lesen von Spotify-/YouTube-Links (`ShareLink`, `SpotifyPlaylistPage`, `SpotifyTrackPage`, `SpotifyAuth`, Import-Plan). Sie bauen nur Adressen und lesen Text, haben keinen Netzzugriff und werden in der Store-Variante nicht aufgerufen. Sie liegen trotzdem im Store-APK, weil `PlayerViewModel` (gemeinsamer Code) sie für den Link-Import kennt. Ganz entfernen ginge nur, wenn der Link-Import aus `PlayerViewModel` herausgelöst wird.
+- Texte in der App, die SoundCloud erwähnen (z. B. `source_soundcloud`, `playlists_import_hint`), liegen noch in den gemeinsamen Ressourcen, werden in der Store-Variante aber nicht angezeigt.
+- Beide Varianten heißen noch „Baschtls Gedröhne“ (M.2). Bis dahin unterscheiden sie sich auf dem Telefon nur an der Anwendungs-ID.
 
 ### Entscheidungen (15.11.2026)
 
 - **E1 – ID der Privatversion:** `com.auracurve.app.full`. Beide Versionen lassen sich gleichzeitig installieren, die Store-ID bleibt sauber. Presets und Playlists teilen sie nicht.
 - **E2 – Spotify in der Store-Variante:** raus. Spotify-Client, -Login und -Import liegen nur im Flavor `full`.
 - **E3 – Zeitpunkt:** nach dem Merge von PR #76, in einem eigenen Pull Request.
-
-### Aufwand und Risiko
-
-M–L, etwa 30 bis 40 Dateien. `PlayerViewModel` (958 Zeilen) und `AudioPlayerService` (973 Zeilen) müssen an die neue Schnittstelle; dabei kein Verhalten der Privatversion ändern. Prüfung nur über die CI und einen Gerätetest beider Varianten.
 
 ---
 
@@ -129,7 +135,7 @@ M–L, etwa 30 bis 40 Dateien. `PlayerViewModel` (958 Zeilen) und `AudioPlayerSe
 ## 1.5 · Bewerbungspaket
 
 - **Anschreiben:** Entwurf in [`soundcloud-anschreiben-entwurf.md`](soundcloud-anschreiben-entwurf.md). Platzhalter in `[eckigen Klammern]`; nach 1.4 abgleichen.
-- **Video (60 s):** erst mit der Store-Variante aus 1.3 aufnehmen. Ablauf-Vorschlag steht im Entwurf.
+- **Video (60 s):** mit der Store-Variante aus 1.3 aufnehmen (`app-store-debug.apk` aus dem CI-Artefakt `app-debug-apk`), sobald sie am Gerät geprüft ist. Ablauf-Vorschlag steht im Entwurf.
 - **Titelgrafik:** M.5 ist noch offen; die Entwürfe unter `screenshots/` liegen nicht im Repository.
 
 ---
@@ -138,4 +144,4 @@ M–L, etwa 30 bis 40 Dateien. `PlayerViewModel` (958 Zeilen) und `AudioPlayerSe
 
 Die Anfrage ist abgeschickt und nichts, was SoundCloud zu sehen bekommt, nutzt noch den Namen oder den internen/inoffiziellen Zugang von SoundCloud.
 
-**Stand 15.11.2026:** Paketname erledigt (CI grün). Offen: Repo privat stellen, Store-Variante (1.3), Bedingungen (1.4), Video und Titelgrafik, sichtbarer App-Name „Baschtls Gedröhne“ (M.2).
+**Stand 15.11.2026:** Paketname erledigt (CI grün). Store-Variante (1.3) gebaut, lokal geprüft, CI und Gerätetest stehen aus. Offen: Repo privat stellen, Bedingungen (1.4), Video und Titelgrafik, sichtbarer App-Name „Baschtls Gedröhne“ (M.2).

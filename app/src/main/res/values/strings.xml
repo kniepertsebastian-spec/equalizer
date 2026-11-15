@@ -517,4 +517,9 @@
     <string name="sound_sheet_title">Sound</string>
     <string name="sound_sheet_open">Open sound settings</string>
     <string name="sound_open_equalizer">Open equalizer</string>
+    <!-- Flavor "store" (AuraCurve roadmap 02, 1.3): no online service is built in. -->
+    <string name="online_sources_unavailable">Online sources are not available in this version</string>
+    <string name="source_device">This device</string>
+    <string name="playlists_local_title">Your music</string>
+    <string name="playlists_local_hint">Play audio files from this device or collect them in playlists.</string>
 </resources>

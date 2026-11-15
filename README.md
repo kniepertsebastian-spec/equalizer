@@ -103,28 +103,44 @@ Android 9 is the lower limit because the system-wide processing uses `DynamicsPr
 
 ## Building
 
-Build a debug APK:
+The app comes in two build flavors:
+
+| Flavor | Application ID | Contents |
+|---|---|---|
+| `store` | `com.auracurve.app` | Equalizer, sound chain and the player for files on the device. No SoundCloud, Spotify or YouTube access and no self-update; this is the build for Google Play. |
+| `full` | `com.auracurve.app.full` | Everything, including the unofficial SoundCloud access, Spotify import, link resolution and the self-update. Personal use only. |
+
+Both can be installed side by side. They do not share presets or playlists.
+
+Build the debug APKs of both flavors:
 
 ```bash
 ./gradlew :app:assembleDebug
 ```
 
-The APK is generated at:
+The APKs are generated at:
 
 ```text
-app/build/outputs/apk/debug/
+app/build/outputs/apk/store/debug/
+app/build/outputs/apk/full/debug/
 ```
 
 Run unit tests:
 
 ```bash
-./gradlew testDebugUnitTest :core:test
+./gradlew testStoreDebugUnitTest testFullDebugUnitTest :core:test
 ```
 
 Run code quality checks:
 
 ```bash
-./gradlew ktlintCheck lintDebug
+./gradlew ktlintCheck lintStoreDebug lintFullDebug
+```
+
+Check that the store APK contains no online-access code (CI runs this too):
+
+```bash
+python3 scripts/check_store_apk.py app/build/outputs/apk/store/debug/app-store-debug.apk
 ```
 
 ## Releases

@@ -79,7 +79,7 @@ der Gradle-Ausführung. Build-/Testnachweise stehen in `docs/TEST_MATRIX.md`.
 
 ```bash
 ./gradlew assembleDebug
-./gradlew testDebugUnitTest
+./gradlew testStoreDebugUnitTest testFullDebugUnitTest :core:test
 ```
 
 `local.properties` mit `sdk.dir=<Pfad zum Android SDK>` wird von Android Studio

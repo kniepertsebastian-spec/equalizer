@@ -65,7 +65,8 @@ class HardBassEqApplication :
         // MainViewModel is created), so the session-open broadcast a player sends
         // is much less likely to be missed. See AudioSessionForegroundService.
         startSessionService()
-        scheduleDiscoveryRefresh()
+        // New uploads come from SoundCloud: only the "full" flavor has an online source.
+        if (BuildConfig.ONLINE_SOURCES) scheduleDiscoveryRefresh()
     }
 
     // Covers in the player (lists and the large one) come from SoundCloud's servers: kept in

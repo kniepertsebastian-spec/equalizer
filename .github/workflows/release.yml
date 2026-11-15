@@ -25,7 +25,7 @@ jobs:
       # A tag can point at any commit, including one that never went through the CI on main. Do not
       # sign and publish code whose tests fail.
       - name: Run unit tests
-        run: ./gradlew testDebugUnitTest :core:test --stacktrace
+        run: ./gradlew testStoreDebugUnitTest testFullDebugUnitTest :core:test --stacktrace
 
       - name: Build APK with the persistent release key
         env:
@@ -40,7 +40,9 @@ jobs:
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hardbasseq-release.jks"
           VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
           VERSION_NAME="${TAG#v}"
-          ./gradlew :app:assembleRelease \
+          # Only the "full" flavor updates itself (AuraCurve roadmap 02, 1.3); the store build comes
+          # from Google Play. Its application ID is com.auracurve.app.full.
+          ./gradlew :app:assembleFullRelease \
             -Phardbasseq.versionCode="$VERSION_CODE" \
             -Phardbasseq.versionName="$VERSION_NAME" \
             -Phardbasseq.releaseStoreFile="$RUNNER_TEMP/hardbasseq-release.jks" \
@@ -48,7 +50,7 @@ jobs:
             -Phardbasseq.releaseKeyAlias=hardbasseq \
             -Phardbasseq.releaseKeyPassword="$RELEASE_PASSWORD"
           APK_NAME="HardBassEQ-${TAG}.apk"
-          cp app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          cp app/build/outputs/apk/full/release/app-full-release.apk "$APK_NAME"
           export APK_NAME VERSION_CODE VERSION_NAME
           python3 - <<'PY'
           import hashlib, json, os, pathlib
@@ -56,7 +58,7 @@ jobs:
           manifest = {
               'versionCode': int(os.environ['VERSION_CODE']),
               'versionName': os.environ['VERSION_NAME'],
-              'packageName': 'com.auracurve.app',
+              'packageName': 'com.auracurve.app.full',
               'apkAsset': apk.name,
               'sha256': hashlib.sha256(apk.read_bytes()).hexdigest(),
           }

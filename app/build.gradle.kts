@@ -32,6 +32,23 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // AuraCurve roadmap 02, task 1.3. "store" is what Google Play and SoundCloud get to see: no
+    // unofficial SoundCloud access, no Spotify/YouTube link resolution, no self-update - that code
+    // lives in src/full (and :player's src/full) and is not compiled into it. "full" is the
+    // personal build with everything; its own application ID lets both sit side by side.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("store") {
+            dimension = "distribution"
+            buildConfigField("boolean", "ONLINE_SOURCES", "false")
+        }
+        create("full") {
+            dimension = "distribution"
+            applicationIdSuffix = ".full"
+            buildConfigField("boolean", "ONLINE_SOURCES", "true")
+        }
+    }
+
     // English-only app: also drops translations bundled with libraries.
     androidResources {
         localeFilters += "en"
