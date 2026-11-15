@@ -1,0 +1,54 @@
+[
+ {
+  "stationuuid": "393397dc-d516-45ad-865a-a609dd6b1f3f",
+  "name": "HardBestFM-Hardcore",
+  "url_resolved": "https://fm.hardbest.cn/listen/hardcore/radio.mp3",
+  "favicon": "https://fm.hardbest.cn/static/uploads/browser_icon/original.1790605035.png",
+  "tags": "hardcore,hardstyle",
+  "countrycode": "CN",
+  "codec": "MP3",
+  "bitrate": 192,
+  "hls": 0,
+  "lastcheckok": 1,
+  "clickcount": 25
+ },
+ {
+  "stationuuid": "b1096f57-0783-41e7-aca1-5851c2770295",
+  "name": "* FRENCHCORE || Hardcore, Frenchcore, Uptempo, Hard Dance, Rave, Industrial, Speedcore, Bass, Extreme, Dark, Energy, Festival, Underground, Aggressive, Peak Time",
+  "url_resolved": "https://0nlineradio.radioho.st/technolovers-frenchcore?ref=rb26",
+  "favicon": "https://i.ibb.co/BHsTFjH4/FRENCHCORE.png",
+  "tags": "energy,extreme,frenchcore,happy hardcore,hard dance,hardcore,hardcore techno,hardstyle,industrial,rave,uptempo hardcore",
+  "countrycode": "DE",
+  "codec": "MP3",
+  "bitrate": 192,
+  "hls": 0,
+  "lastcheckok": 1,
+  "clickcount": 25
+ },
+ {
+  "stationuuid": "1e11d73a-7eed-40ac-90a2-2ac0c4205007",
+  "name": " - 100 % - HANDSUP <3 - Non-stop 140 BPM",
+  "url_resolved": "https://club-high.rautemusik.fm/?ref=radiobrowser-100-handsup",
+  "favicon": "https://i.ibb.co/X5hMzFX/100-handsup.png",
+  "tags": "140bpm,dj,dj sets,hands up,handsup,handsup! rave oldscool 90s 00s 10s trance techno,hardstyle,hardstyle/handsup/edm,radio,rave,techno",
+  "countrycode": "DE",
+  "codec": "MP3",
+  "bitrate": 192,
+  "hls": 0,
+  "lastcheckok": 1,
+  "clickcount": 23
+ },
+ {
+  "stationuuid": "plain-http",
+  "name": "Plain http",
+  "url_resolved": "http://stream.example.com/live",
+  "favicon": "https://fm.hardbest.cn/static/uploads/browser_icon/original.1790605035.png",
+  "tags": "hardcore,hardstyle",
+  "countrycode": "CN",
+  "codec": "MP3",
+  "bitrate": 192,
+  "hls": 0,
+  "lastcheckok": 1,
+  "clickcount": 25
+ }
+]

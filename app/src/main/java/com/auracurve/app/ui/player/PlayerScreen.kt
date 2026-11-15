@@ -38,6 +38,7 @@ import com.auracurve.app.audio.AudioEngineState
 import com.auracurve.app.audio.ProcessingSettings
 import com.auracurve.app.ui.eq.EqStatus
 import com.auracurve.app.ui.eq.EqStatusLine
+import com.auracurve.app.ui.player.catalog.rememberCatalogTabs
 import com.auracurve.app.ui.player.library.MergePlaylistsDialog
 import com.auracurve.app.ui.player.library.PlaylistDialog
 import com.auracurve.app.ui.player.library.PlaylistDialogRequest
@@ -76,6 +77,9 @@ fun PlayerScreen(
     // no linked services - only the playlists with the files from the device.
     val onlineSources = BuildConfig.ONLINE_SOURCES
     var tab by rememberSaveable { mutableStateOf(if (onlineSources) PlayerTab.SEARCH else PlayerTab.PLAYLISTS) }
+    // Radio and Audius (full flavor only): their own view models and items, see rememberCatalogTabs.
+    val catalog = rememberCatalogTabs(onPlayNext = viewModel::playNext, onAddToQueue = viewModel::addToQueue)
+    val tabs = listOf(PlayerTab.SEARCH, PlayerTab.PLAYLISTS) + catalog.tabs
     var searchText by rememberSaveable { mutableStateOf("") }
     val eqStatusKind = EqStatus.kind(eqState, processingSettings)
     // A link shared into the app brings the playlists forward, where its import shows up.
@@ -167,7 +171,7 @@ fun PlayerScreen(
 
             if (onlineSources) {
                 item {
-                    PlayerTabs(selected = tab, onSelect = { tab = it })
+                    PlayerTabs(selected = tab, onSelect = { tab = it }, tabs = tabs)
                 }
             }
 
@@ -198,6 +202,10 @@ fun PlayerScreen(
                     onPlay = discovery::play,
                     onDismiss = discovery::dismiss,
                 )
+            }
+
+            if (tab in catalog.tabs) {
+                catalog.content(this, tab)
             }
 
             if (tab == PlayerTab.PLAYLISTS) {

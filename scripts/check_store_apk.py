@@ -25,6 +25,8 @@ DEX_MARKERS = [
     "open.spotify.com",  # Spotify link parsing (ShareLink, SpotifyPlaylistPage)
     "SpotifyImportPlan",  # Spotify playlist import
     "SoundCloudLinkImport",  # link import of pasted and shared text
+    "api.audius.co",  # Audius tab (full flavor only until its use in the store is cleared)
+    "radio-browser.info",  # Radio tab (Radio Browser directory)
 ]
 
 # Markers in AndroidManifest.xml (binary XML stores its strings as UTF-8 or UTF-16).

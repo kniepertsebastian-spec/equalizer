@@ -4,8 +4,9 @@ import android.net.Uri
 import android.os.Bundle
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.MimeTypes
 import com.auracurve.app.player.model.TrackItem
-import com.auracurve.app.playlist.LocalTrackId
+import com.auracurve.app.playlist.DirectStream
 import com.auracurve.app.playlist.PlayerFormat
 import com.auracurve.app.playlist.QueueMediaId
 
@@ -17,13 +18,16 @@ object TrackMediaItems {
     // notification, the lock screen and the car show.
     private const val EXTRA_ARTWORK_URL = "com.auracurve.app.artwork_url"
 
-    fun toMediaItem(track: TrackItem): MediaItem =
-        MediaItem
+    fun toMediaItem(track: TrackItem): MediaItem {
+        // A file on the device, a radio station or an Audius track plays from its own address
+        // (nothing to look up; see DirectStream); everything else is the placeholder
+        // ResolvingTrackMediaSource turns into a stream.
+        val direct = track.streamUrl?.takeIf { DirectStream.playsDirectly(track.id, it) }
+        return MediaItem
             .Builder()
             .setMediaId(QueueMediaId.of(track.id))
-            // A file on the device plays from its own address (nothing to look up, nothing that expires);
-            // everything else is the placeholder ResolvingTrackMediaSource turns into a stream.
-            .setUri(track.streamUrl?.takeIf(LocalTrackId::isLocalAddress) ?: QueueMediaId.streamUri(track.id))
+            .setUri(direct ?: QueueMediaId.streamUri(track.id))
+            .setMimeType(if (direct != null && track.isHlsStream) MimeTypes.APPLICATION_M3U8 else null)
             .setMediaMetadata(
                 MediaMetadata
                     .Builder()
@@ -37,6 +41,7 @@ object TrackMediaItems {
                     .setExtras(Bundle().apply { putString(EXTRA_ARTWORK_URL, track.artworkUrl) })
                     .build(),
             ).build()
+    }
 
     // The track id of an entry of ours, null for anything else.
     fun trackId(item: MediaItem): Long? = QueueMediaId.trackId(item.mediaId)

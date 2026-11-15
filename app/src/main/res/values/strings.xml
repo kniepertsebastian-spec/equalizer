@@ -13,6 +13,8 @@
     <string name="nav_equalizer">Equalizer</string>
     <string name="tab_search">Search</string>
     <string name="tab_playlists">Playlists</string>
+    <string name="tab_radio">Radio</string>
+    <string name="tab_audius">Audius</string>
     <string name="source_soundcloud">SoundCloud</string>
     <string name="source_other">Other player</string>
     <string name="source_selector_description">Choose source, currently %1$s</string>

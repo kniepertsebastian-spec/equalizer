@@ -46,6 +46,7 @@ Planned and implemented player capabilities include:
 - Background playback and media controls.
 - Android Auto support.
 - Real-time audio processing directly in the playback pipeline.
+- Electronic internet radio (Radio Browser, https streams only) and Audius tracks, each filtered by genre (`full` flavor only).
 
 The player includes several audio-processing components:
 
