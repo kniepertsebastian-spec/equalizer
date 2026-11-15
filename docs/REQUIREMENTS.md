@@ -9,7 +9,7 @@ What a phone needs to run the app, and why. The minimum is what the code enforce
 | Android version | Android 9 (API 28) | `minSdk = 28` in `app/build.gradle.kts`. The system-wide processing uses `DynamicsProcessing`, which exists from API 28 on. |
 | Processor architecture | Any (ARM 32/64-bit, x86) | The app is Kotlin only and ships no native library. |
 | Memory | 3 GB | Estimate. The player decodes and processes one stream; Compose and Media3 need room next to the music app the equalizer attaches to. |
-| Storage | About 100 MB free | Estimate: the APK, the Room database (presets, playlists) and the image cache. The app stores no music. |
+| Storage | About 100 MB free | Estimate: the APK, the Room database (presets, device profiles), the saved playlists (DataStore) and the image cache. The app stores no music. |
 | Audio framework | `Equalizer` and `DynamicsProcessing` effects available | Some manufacturers ship a changed or missing implementation. The diagnostics screen lists the effects the device reports. |
 | Network | None for the equalizer | Only the integrated player (streaming, link import) and the update check use the network. |
 | Permissions | Notifications (Android 13+) | Needed for the foreground service notification and the media controls. |
