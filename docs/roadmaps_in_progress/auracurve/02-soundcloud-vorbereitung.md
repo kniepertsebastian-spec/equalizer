@@ -11,7 +11,7 @@
 | # | Aufgabe | Review-Befund | Aufwand | Wer | Status |
 |---|---|---|---|---|---|
 | 1.1 | **Grundsatzentscheidungen treffen:** App kostenlos oder kostenpflichtig anbieten? Repository öffentlich oder privat führen? *(Der Name AuraCurve steht bereits fest.)* | Review 2, 5.5 | S | du | [~] |
-| 1.2 | **Paketnamen bereinigen:** Paketnamen des Player-Moduls von `com.soundcloud.equalizer.player` auf den eigenen Namespace ändern (22 Quelldateien, Manifest, Tests). *Wird in einem Zug mit M.3 umgesetzt.* | Review 2 | M | Umsetzung | [~] |
+| 1.2 | **Paketnamen bereinigen:** Paketnamen des Player-Moduls von `com.soundcloud.equalizer.player` auf den eigenen Namespace ändern (22 Quelldateien, Manifest, Tests). *Wird in einem Zug mit M.3 umgesetzt.* | Review 2 | M | Umsetzung | [x] |
 | 1.3 | **Build-Varianten (Flavors) anlegen:**<br>1. *Vorführ- & Store-Variante:* ohne inoffiziellen SoundCloud-Zugang, ohne Selbst-Update und ohne YouTube-Auflösung.<br>2. *Private Variante:* mit dem heutigen Funktionsumfang. | Review 2, 6 | M–L | Umsetzung | [ ] Plan liegt vor, wartet auf Freigabe |
 | 1.4 | **SoundCloud-Bedingungen prüfen:** Nutzungsbedingungen der SoundCloud-Schnittstelle im Original lesen und Zusagen im Anschreiben darauf abstimmen. Prüfen, ob für die Registrierung ein *Artist-Pro-Abo* nötig ist. | Review 2 | S | du | [ ] |
 | 1.5 | **Bewerbungspaket erstellen:** Einseitiges Anschreiben auf Englisch unter dem Namen *AuraCurve* + 60-Sekunden-Bildschirmvideo der sauberen Vorführvariante. Titelgrafik liegt aus M.5 vor. | Review 2 | S–M | du, Umsetzung | [~] Entwurf liegt vor |
@@ -55,7 +55,7 @@ Voraussetzungen laut Rückmeldung vom 15.11.2026 erfüllt: Namensprüfung M.1 un
 
 Im Code (ohne `.md`) kommen `com.hardbasseq.eq` und `com.soundcloud.equalizer` nicht mehr vor (`git grep`). Die Importblöcke sind nach ktlint-Regel neu sortiert.
 
-**Geprüft in dieser Sitzung:** `:core:test`, `:core:ktlintCheck`, `:app:ktlintCheck` grün. **Nicht lokal prüfbar** (kein Android-SDK): Bau und Tests von `:app` und `:player`. Das prüft die CI im Pull Request; Status `[~]`, bis sie grün ist.
+**Geprüft in dieser Sitzung:** `:core:test`, `:core:ktlintCheck`, `:app:ktlintCheck` grün. **Nicht lokal prüfbar** (kein Android-SDK): Bau und Tests von `:app` und `:player`. Geprüft hat sie die CI im Pull Request #76 (`build-and-test` grün auf `3e553d2`: Build, Lint, Unit- und Oberflächentests).
 
 **Folgen, die du kennen musst:**
 - Für Android ist das eine **neue App**. Die alte Installation (`com.hardbasseq.eq`) bekommt kein Update, Presets und Playlists ziehen nicht mit. Alte App erst deinstallieren, wenn du die Daten nicht mehr brauchst (Presets lassen sich vorher als Link teilen).
@@ -138,4 +138,4 @@ M–L, etwa 30 bis 40 Dateien. `PlayerViewModel` (958 Zeilen) und `AudioPlayerSe
 
 Die Anfrage ist abgeschickt und nichts, was SoundCloud zu sehen bekommt, nutzt noch den Namen oder den internen/inoffiziellen Zugang von SoundCloud.
 
-**Stand 15.11.2026:** Paketname erledigt (CI ausstehend). Offen: Repo privat stellen, Store-Variante (1.3), Bedingungen (1.4), Video und Titelgrafik, sichtbarer App-Name „Baschtls Gedröhne“ (M.2).
+**Stand 15.11.2026:** Paketname erledigt (CI grün). Offen: Repo privat stellen, Store-Variante (1.3), Bedingungen (1.4), Video und Titelgrafik, sichtbarer App-Name „Baschtls Gedröhne“ (M.2).
