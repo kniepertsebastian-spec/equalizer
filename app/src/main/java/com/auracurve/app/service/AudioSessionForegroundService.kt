@@ -1,0 +1,232 @@
+package com.auracurve.app.service
+
+import android.app.ForegroundServiceStartNotAllowedException
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.ServiceCompat
+import androidx.lifecycle.LifecycleService
+import androidx.lifecycle.lifecycleScope
+import com.auracurve.app.MainActivity
+import com.auracurve.app.R
+import com.auracurve.app.audio.AudioEngine
+import com.auracurve.app.audio.AudioEngineState
+import com.auracurve.app.audio.AudioRouteRepository
+import com.auracurve.app.audio.AudioSessionRepository
+import com.auracurve.app.audio.SystemVolumeRepository
+import com.auracurve.app.diagnostics.DiagnosticsRecorder
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+private const val TAG = "AudioSessionFgService"
+private const val NOTIFICATION_CHANNEL_ID = "audio_session_listener"
+private const val NOTIFICATION_ID = 1
+
+// How often the optional dumpsys scan looks for sessions while something plays.
+private const val SESSION_SCAN_INTERVAL_MS = 4_000L
+
+// Keeps AudioSessionRepository/AudioRouteRepository listening and reacts to session
+// changes by attaching/detaching AudioEngine for as long as the app process is alive,
+// independent of whether MainActivity/MainViewModel is open. Without this, a player's
+// one-shot OPEN_AUDIO_EFFECT_CONTROL_SESSION broadcast is missed for good if HardBass
+// EQ's UI wasn't already open at that exact moment (roadmap.md Session 11/12).
+// It does not run forever: with no usable session and the app off screen it closes itself
+// after SESSION_IDLE_TIMEOUT (see idleShutdown), and opening the app starts it again.
+@AndroidEntryPoint
+class AudioSessionForegroundService : LifecycleService() {
+    @Inject
+    lateinit var sessionRepository: AudioSessionRepository
+
+    @Inject
+    lateinit var routeRepository: AudioRouteRepository
+
+    @Inject
+    lateinit var volumeRepository: SystemVolumeRepository
+
+    @Inject
+    lateinit var audioEngine: AudioEngine
+
+    @Inject
+    lateinit var diagnosticsRecorder: DiagnosticsRecorder
+
+    @Inject
+    lateinit var appVisibility: AppVisibility
+
+    @Inject
+    lateinit var playbackMonitor: com.auracurve.app.audio.AudioPlaybackMonitor
+
+    @Inject
+    lateinit var sessionScanner: com.auracurve.app.audio.SessionScanner
+
+    private var foregroundStarted = false
+
+    override fun onCreate() {
+        super.onCreate()
+        if (!promoteToForegroundSafely()) {
+            stopSelf()
+            return
+        }
+
+        sessionRepository.startListening()
+        routeRepository.startMonitoring()
+        playbackMonitor.startMonitoring()
+
+        lifecycleScope.launch {
+            sessionRepository.activeSession.collect { session ->
+                if (session != null) {
+                    // Only monitor volume changes while an active session exists to avoid
+                    // unnecessary background wakeups and curve recalculations while idle.
+                    volumeRepository.startMonitoring()
+                    diagnosticsRecorder.record("Session attached: id=${session.sessionId} package=${session.packageName}")
+                    audioEngine.attach(session)
+                } else {
+                    volumeRepository.stopMonitoring()
+                    diagnosticsRecorder.record("Session detached (entering low-overhead listening state)")
+                    audioEngine.detach()
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            playbackMonitor.isAnyAppPlaying.collect { isPlaying ->
+                diagnosticsRecorder.record("System-wide audio playback: ${if (isPlaying) "started" else "stopped"}")
+            }
+        }
+
+        // P5-2: apps that never announce their session. Only with the optional DUMP grant, and only
+        // while something plays, so an idle phone is not polled.
+        lifecycleScope.launch {
+            playbackMonitor.isAnyAppPlaying.collectLatest { isPlaying ->
+                if (!isPlaying || !sessionScanner.isAvailable()) {
+                    sessionRepository.updateScannedSessions(emptyList())
+                    return@collectLatest
+                }
+                while (true) {
+                    sessionRepository.updateScannedSessions(sessionScanner.scan())
+                    delay(SESSION_SCAN_INTERVAL_MS)
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            // A session whose engine ended in Error is as good as none: nothing is being processed.
+            // Extended logic: also consider the service "busy" if any app is playing audio, even
+            // if we haven't captured its session yet. This gives apps time to broadcast their
+            // session-open intent after starting playback.
+            val hasUsableSession =
+                combine(
+                    sessionRepository.activeSession,
+                    audioEngine.state,
+                    playbackMonitor.isAnyAppPlaying,
+                ) { session, state, isPlaying ->
+                    (session != null && state !is AudioEngineState.Error) || isPlaying
+                }
+            idleShutdown(hasUsableSession, appVisibility.visible, SESSION_IDLE_TIMEOUT).first()
+            diagnosticsRecorder.record(
+                "No audio session for ${SESSION_IDLE_TIMEOUT.inWholeMinutes} min and the app is closed: stopping the service",
+            )
+            stopSelf()
+        }
+
+        lifecycleScope.launch {
+            routeRepository.activeRoute.collect { route ->
+                diagnosticsRecorder.record("Route changed: ${route.type.name} (${route.name})")
+            }
+        }
+
+        lifecycleScope.launch {
+            audioEngine.state.collect { state ->
+                diagnosticsRecorder.record("Engine state: $state")
+            }
+        }
+    }
+
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
+        super.onStartCommand(intent, flags, startId)
+        if (!foregroundStarted && !promoteToForegroundSafely()) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        // START_NOT_STICKY prevents Android 14/15 from blindly recreating the mediaPlayback
+        // service in the background when the app is not visible, which triggers
+        // ForegroundServiceStartNotAllowedException and Samsung's "deep standby" crash warning.
+        return START_NOT_STICKY
+    }
+
+    override fun onDestroy() {
+        diagnosticsRecorder.record("Service destroyed (releasing listeners and audio effects)")
+        sessionRepository.stopListening()
+        routeRepository.stopMonitoring()
+        volumeRepository.stopMonitoring()
+        playbackMonitor.stopMonitoring()
+        audioEngine.markDetached()
+        super.onDestroy()
+    }
+
+    private fun promoteToForegroundSafely(): Boolean =
+        try {
+            val fgsType =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                } else {
+                    0
+                }
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, buildNotification(), fgsType)
+            foregroundStarted = true
+            true
+        } catch (e: Exception) {
+            val isBgRestriction =
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && e is ForegroundServiceStartNotAllowedException
+            Log.w(TAG, "Unable to start foreground service (bgRestriction=$isBgRestriction)", e)
+            diagnosticsRecorder.record(
+                "Foreground start rejected (${e.javaClass.simpleName}): ${e.localizedMessage ?: "no message"}",
+            )
+            false
+        }
+
+    private fun buildNotification(): Notification {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel =
+                NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    getString(R.string.session_service_notification_title),
+                    NotificationManager.IMPORTANCE_LOW,
+                )
+            NotificationManagerCompat.from(this).createNotificationChannel(channel)
+        }
+
+        val contentIntent =
+            PendingIntent.getActivity(
+                this,
+                0,
+                Intent(this, MainActivity::class.java).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        return NotificationCompat
+            .Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setContentTitle(getString(R.string.session_service_notification_title))
+            .setContentText(getString(R.string.session_service_notification_text, SESSION_IDLE_TIMEOUT.inWholeMinutes))
+            .setSmallIcon(R.drawable.ic_notification_eq)
+            .setContentIntent(contentIntent)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+    }
+}

@@ -2,7 +2,7 @@
 
 **The app is called "Baschtls Gedröhne" in the Android interface and on the home screen.**
 
-HardBass EQ is the internal project name. The Android package ID (`com.hardbasseq.eq`), source files, module names, and existing Spotify callback URI (`hardbasseq://spotify-callback`) retain their original names to preserve compatibility with existing installations, updates, and Spotify integration settings.
+HardBass EQ is the internal project name. The Android application ID and the package of every module (`:app`, `:core`, `:player`) is `com.auracurve.app` (the player module uses `com.auracurve.app.player`). The change from `com.hardbasseq.eq` makes this a new app for Android: it does not update an installation of the old ID, and presets/playlists do not move over automatically. The Spotify callback URI (`hardbasseq://spotify-callback`) keeps its original name so existing Spotify developer-app settings keep working.
 
 An Android equalizer built for powerful, controlled bass, featuring an interactive frequency-response curve, customizable sound profiles, device-specific presets, and an integrated music player.
 

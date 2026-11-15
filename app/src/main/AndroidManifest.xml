@@ -10,7 +10,7 @@
 
     <!--
       Optional (roadmap 06, P5-2): only ever granted by the user over ADB
-      (adb shell pm grant com.hardbasseq.eq android.permission.DUMP). With it the session list also
+      (adb shell pm grant com.auracurve.app android.permission.DUMP). With it the session list also
       finds apps that send no audio-session broadcast. Without it nothing changes.
     -->
     <uses-permission
@@ -54,7 +54,7 @@
               the car's session (see PlayerLaunch in :player, which defines the same action name).
             -->
             <intent-filter>
-                <action android:name="com.hardbasseq.eq.action.OPEN_PLAYER" />
+                <action android:name="com.auracurve.app.action.OPEN_PLAYER" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             <!-- A shared preset: hardbasseq://preset?... (link or scanned QR code), see PresetShareCodec. -->
@@ -124,7 +124,7 @@
           entries are merged into that declaration.
         -->
         <service
-            android:name="com.soundcloud.equalizer.player.service.AudioPlayerService"
+            android:name="com.auracurve.app.player.service.AudioPlayerService"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.media.browse.MediaBrowserService" />

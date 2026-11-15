@@ -12,7 +12,7 @@
 
 | # | Aufgabe | Aufwand | Wer | Status |
 |---|---|---|---|---|
-| 0.1 | Queue am Telefon prüfen: Titel wegwischen (der nächste bleibt an seinem Platz), zweimal schnell hintereinander entfernen, Titel über mehrere Plätze ziehen (auch den obersten sichtbaren), „Kommende leeren“ bei langer Queue. | S | du | [ ] |
+| 0.1 | Queue am Telefon prüfen: Titel wegwischen (der nächste bleibt an seinem Platz), zweimal schnell hintereinander entfernen, Titel über mehrere Plätze ziehen (auch den obersten sichtbaren), „Kommende leeren“ bei langer Queue. | S | du | [x] |
 | 0.2 | Pull Request zusammenführen, wenn 0.1 passt. Sonst die Abweichung beschreiben; Behebung erfolgt im selben PR. | S | du | [~] |
 
 > **Abgleich:** PR #74 ist laut Git-Historie bereits gemerged (`c76dc8b`, 15.11.2026), bevor 0.1 am Gerät bestätigt wurde. 0.2 ist damit formal erledigt, **0.1 bleibt offen**. Zeigt der Gerätetest eine Abweichung, wird sie in einem eigenen Folge-PR behoben, nicht mehr im selben PR.
@@ -27,11 +27,13 @@
 
 | # | Aufgabe | Aufwand | Wer | Status |
 |---|---|---|---|---|
-| M.1 | **Namensprüfung (vor jeder Änderung!):** Gleichnamige Apps im Play Store, Marken beim DPMA und EUIPO (Klassen 9 und 42), freie Domain sowie freie Handles in sozialen Netzwerken prüfen. | S | du | [ ] |
+| M.1 | **Namensprüfung (vor jeder Änderung!):** Gleichnamige Apps im Play Store, Marken beim DPMA und EUIPO (Klassen 9 und 42), freie Domain sowie freie Handles in sozialen Netzwerken prüfen. | S | du | [x] |
 | M.2 | Namen in der App setzen (`app_name` steht in `app/src/main/res/values/strings.xml:3`, derzeit „Baschtls Gedröhne“; `rootProject.name` in `settings.gradle.kts` lautet `HardBassEQ`): `app_name`, Benachrichtigungen, Info-Bildschirm mit Slogan (*„Feel the bass. Rule the sound.“*) und Fußnote (*„Music player, bass enhancement, advanced EQ.“*). README, `docs/` und `CLAUDE.md` anpassen. | S | Umsetzung | [ ] |
-| M.3 | **Kennungen umstellen:** Anwendungs-ID `com.hardbasseq.eq` und Paketnamen aller Module auf einen eigenen Namen ändern (z. B. `com.auracurve.app`). *Wird zusammen mit Aufgabe 1.2 erledigt.* **Achtung:** Für Android entsteht dadurch eine neue App (kein Update für Bestandsinstallationen, Presets/Playlists wandern nicht automatisch mit). Nach dem ersten Play-Store-Upload nicht mehr änderbar! | M | Umsetzung | [ ] |
+| M.3 | **Kennungen umstellen:** Anwendungs-ID `com.hardbasseq.eq` und Paketnamen aller Module auf einen eigenen Namen ändern (z. B. `com.auracurve.app`). *Wird zusammen mit Aufgabe 1.2 erledigt.* **Achtung:** Für Android entsteht dadurch eine neue App (kein Update für Bestandsinstallationen, Presets/Playlists wandern nicht automatisch mit). Nach dem ersten Play-Store-Upload nicht mehr änderbar! | M | Umsetzung | [~] |
 
 > **Codebefund zu M.3:** `applicationId` und `namespace` stehen zentral in `gradle.properties` (`hardbasseq.applicationId`, `hardbasseq.namespace`, beide `com.hardbasseq.eq`). Das Verzeichnis `app/src/**/java/com/hardbasseq/eq/` (inkl. aller Tests) und die Modul-Pakete in `core/` müssen mit umziehen. Das Modul `player/app` nutzt davon abweichend `com.soundcloud.equalizer.player`. `.github/workflows/ci.yml` und `release.yml` enthalten ebenfalls die alten Namen.
+
+> **Stand 15.11.2026:** 0.1 und M.1 laut deiner Rückmeldung erledigt. M.3 ist zusammen mit Roadmap 02, Aufgabe 1.2, umgesetzt: Anwendungs-ID und alle Pakete heißen `com.auracurve.app`, das Player-Modul `com.auracurve.app.player`. Einzelheiten und bewusst ausgelassene Kennungen (URI-Schema `hardbasseq://`, Gradle-Schlüssel) in [`02-soundcloud-vorbereitung.md`](02-soundcloud-vorbereitung.md), Abschnitt 1.2. `[~]`, bis die CI den Bau von `:app` und `:player` bestätigt.
 | M.4 | Repository umbenennen und die Adresse prüfen, unter der das Selbst-Update nach neuen Versionen sucht. | S | du, Umsetzung | [ ] |
 
 > **Codebefund zu M.4:** Der Repo-Name ist fest einkodiert in `ReleaseUpdateClient.kt:21` (`RELEASES_URL`) und `ReleaseCatalog.kt:62` (Prüfung `startsWith(".../equalizer/releases/download/")`). GitHub leitet die API weiter, aber die Download-Prüfung in `ReleaseCatalog` akzeptiert nur das alte Präfix. Beide Stellen und `ReleaseCatalogTest` zusammen mit der Umbenennung anpassen, sonst findet das Selbst-Update nach der Umbenennung keine gültigen Downloads mehr.

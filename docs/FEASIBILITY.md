@@ -20,7 +20,7 @@ Roadmap-Anweisung **erst nach Review dieses Durchlaufs** an der Reihe.
 3. Compose-Startansicht (`MainScreen.kt`) mit App-Name und einem noch
    ungeprüften Kompatibilitätsstatus-Chip.
 4. `AudioEffect.queryEffects()` hinter `AudioEffectRepository` /
-   `AndroidAudioEffectRepository` gekapselt (`app/src/main/java/com/hardbasseq/eq/audio/`).
+   `AndroidAudioEffectRepository` gekapselt (`app/src/main/java/com/auracurve/app/audio/`).
 5. Debug-Ansicht in `MainScreen.kt` (Button "Show audio effects (debug)"),
    die die rohen Effekt-Deskriptoren (Name, Implementor, Connect-Mode,
    Type-UUID) auflistet.
@@ -48,7 +48,7 @@ PR #1 wurde gemerged.
 
 ## Session-Attach-Spike (zweiter Durchlauf)
 
-Umgesetzt in `app/src/main/java/com/hardbasseq/eq/audio/spike/`:
+Umgesetzt in `app/src/main/java/com/auracurve/app/audio/spike/`:
 
 - `SineWaveGenerator` (rein, unit-getestet): erzeugt einen leisen Sinuston als PCM16.
 - `TestTonePlayer`: spielt den Ton über einen eigenen `AudioTrack` (eigene,
@@ -85,7 +85,7 @@ Details in `docs/DRIVE_UPLOAD.md`.
 
 ## Control-Intents und Session-0-Experiment (dritter Durchlauf)
 
-Ergänzt in `app/src/main/java/com/hardbasseq/eq/audio/spike/`:
+Ergänzt in `app/src/main/java/com/auracurve/app/audio/spike/`:
 
 - `ControlSessionIntentSpike`: registriert einen `BroadcastReceiver` für
   `AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION` und

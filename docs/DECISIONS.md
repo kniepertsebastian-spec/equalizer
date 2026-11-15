@@ -5,10 +5,12 @@ Punkt 10).
 
 ## Aktueller Stand (19. September 2026)
 
-- **Package-ID / Namespace:** `com.hardbasseq.eq`, abgeleitet vom Arbeitstitel
-  „HardBass EQ“. Noch nicht final (siehe Roadmap §17, „Finaler App-Name und
-  Package-ID“ bleibt offen). In M1 sind Package-ID und Namespace bereits
-  zentral über `gradle.properties` konfiguriert.
+- **Package-ID / Namespace:** `com.auracurve.app` (seit 15.11.2026, AuraCurve-Roadmap
+  01 M.3 / 02 Aufgabe 1.2; vorher `com.hardbasseq.eq`, abgeleitet vom Arbeitstitel
+  „HardBass EQ“). Das Player-Modul heißt `com.auracurve.app.player` (vorher
+  `com.soundcloud.equalizer.player`). Für Android ist das eine neue App: kein Update
+  bestehender Installationen, Presets/Playlists ziehen nicht automatisch mit.
+  Package-ID und Namespace stehen zentral in `gradle.properties`.
 - **Modulstruktur:** Einzelnes `app`-Modul, wie in Roadmap §7 für den ersten
   Commit ausdrücklich erlaubt. Trennung Audio-API/Android-Backend erfolgt vor
   M2.

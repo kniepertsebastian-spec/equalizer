@@ -1,0 +1,2351 @@
+package com.auracurve.app.ui.main
+
+import com.auracurve.app.BuildConfig
+import com.auracurve.app.R
+import com.auracurve.app.audio.AudioCapabilities
+import com.auracurve.app.audio.AudioDeviceType
+import com.auracurve.app.audio.AudioEffectDescriptor
+import com.auracurve.app.audio.AudioEffectRepository
+import com.auracurve.app.audio.AudioEngineState
+import com.auracurve.app.audio.AudioRoute
+import com.auracurve.app.audio.AudioRouteRepository
+import com.auracurve.app.audio.AudioSession
+import com.auracurve.app.audio.AudioSessionRepository
+import com.auracurve.app.audio.DeviceKind
+import com.auracurve.app.audio.EffectConnectMode
+import com.auracurve.app.audio.FakeAudioEngine
+import com.auracurve.app.audio.KnownEffectTypeIds
+import com.auracurve.app.audio.ProcessingSettings
+import com.auracurve.app.audio.SystemVolumeRepository
+import com.auracurve.app.auto.CarConnectionRepository
+import com.auracurve.app.autoeq.BuiltInAutoEqCatalog
+import com.auracurve.app.context.SoundContext
+import com.auracurve.app.correction.BuiltInCorrectionProfiles
+import com.auracurve.app.correction.CorrectionProfile
+import com.auracurve.app.correction.CorrectionProfileRepository
+import com.auracurve.app.data.profile.AppProfileEntity
+import com.auracurve.app.data.profile.DeviceProfileEntity
+import com.auracurve.app.diagnostics.InMemoryDiagnosticsRecorder
+import com.auracurve.app.dsp.CurveComposer
+import com.auracurve.app.dsp.HeadphonePower
+import com.auracurve.app.dsp.HeadroomCalculator
+import com.auracurve.app.dsp.ParametricBand
+import com.auracurve.app.dsp.ParametricCurve
+import com.auracurve.app.dsp.ParametricFilterBounds
+import com.auracurve.app.dsp.PreEqLayout
+import com.auracurve.app.integration.PlayerBridge
+import com.auracurve.app.integration.PlayerSource
+import com.auracurve.app.preset.BuiltInContextPresets
+import com.auracurve.app.preset.BuiltInGenrePresets
+import com.auracurve.app.preset.BuiltInPresets
+import com.auracurve.app.preset.Preset
+import com.auracurve.app.preset.PresetIntensity
+import com.auracurve.app.preset.PresetIntensityResolver
+import com.auracurve.app.preset.PresetRepository
+import com.auracurve.app.preset.SoundGoal
+import com.auracurve.app.preset.TargetPoint
+import com.auracurve.app.profile.AppProfileRepository
+import com.auracurve.app.profile.DeviceProfileRepository
+import com.auracurve.app.quick.QuickCommand
+import com.auracurve.app.settings.AppSettingsRepository
+import com.auracurve.app.settings.LiveSettings
+import com.auracurve.app.text.FakeTextProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import java.util.UUID
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class MainViewModelTest {
+    private val dispatcher = StandardTestDispatcher()
+    private val fakeEngine = FakeAudioEngine()
+    private val fakeRouteRepo = FakeAudioRouteRepository()
+    private val fakeVolumeRepo = FakeSystemVolumeRepository()
+
+    @Before
+    fun setUp() {
+        Dispatchers.setMain(dispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `toggling on queries the repository and exposes descriptors`() =
+        runTest {
+            val descriptor = fakeDescriptor("Fake Equalizer")
+            val viewModel = createViewModel(listOf(descriptor))
+
+            assertFalse(viewModel.showDebugEffects.value)
+            assertTrue(viewModel.effectDescriptors.value.isEmpty())
+
+            viewModel.toggleDebugEffects()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(viewModel.showDebugEffects.value)
+            assertEquals(listOf(descriptor), viewModel.effectDescriptors.value)
+        }
+
+    @Test
+    fun `toggling off hides the list without discarding loaded descriptors`() =
+        runTest {
+            val descriptor = fakeDescriptor("Fake Equalizer")
+            val viewModel = createViewModel(listOf(descriptor))
+
+            viewModel.toggleDebugEffects()
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.toggleDebugEffects()
+
+            assertFalse(viewModel.showDebugEffects.value)
+            assertEquals(listOf(descriptor), viewModel.effectDescriptors.value)
+        }
+
+    @Test
+    fun `selectPreset updates active preset and interpolates gains`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertEquals(BuiltInPresets.DeepRumble.macroBassDb, viewModel.processingSettings.value.macroBassDb)
+            assertEquals(BuiltInPresets.DeepRumble.macroPunchDb, viewModel.processingSettings.value.macroPunchDb)
+            assertEquals(BuiltInPresets.DeepRumble.macroHaerteDb, viewModel.processingSettings.value.macroHaerteDb)
+            // M4: inputGainDb now comes from HeadroomCalculator sampling the combined
+            // (correction + voicing) curve, not from the highest of the discrete
+            // post-band-mapping gains - recompute it the same way MainViewModel does
+            // (no correction profile selected here, so this is BuiltInPresets.DeepRumble's
+            // own curve unchanged) rather than asserting a stale, pre-M3/M4 formula.
+            val combinedCurve = CurveComposer.combine(BuiltInCorrectionProfiles.None.curve, BuiltInPresets.DeepRumble.targetCurve)
+            val headroom =
+                HeadroomCalculator.fromCombinedCurve(
+                    combinedCurve = combinedCurve,
+                    macroBassDb = BuiltInPresets.DeepRumble.macroBassDb,
+                    macroPunchDb = BuiltInPresets.DeepRumble.macroPunchDb,
+                    macroHaerteDb = BuiltInPresets.DeepRumble.macroHaerteDb,
+                )
+            // Input gain pre-cancels half of the peak boost (INPUT_GAIN_SAFETY_RATIO
+            // in MainViewModel) - the rest stays audible, with the Limiter as the
+            // safety net against clipping. See roadmap.md Session 16/17/24.
+            val expectedInputGainDb = -(headroom.maxPositiveGainDb * 0.5f)
+            assertEquals(expectedInputGainDb, viewModel.processingSettings.value.inputGainDb, 0.01f)
+            assertEquals(BuiltInPresets.DeepRumble.mbcThresholdDb, viewModel.processingSettings.value.mbcThresholdDb)
+            assertEquals(BuiltInPresets.DeepRumble.mbcRatio, viewModel.processingSettings.value.mbcRatio)
+            assertTrue(viewModel.processingSettings.value.mbcEnabled)
+            assertTrue(
+                viewModel.processingSettings.value.bandGainsDb
+                    .isNotEmpty(),
+            )
+        }
+
+    @Test
+    fun `manual boost automatically reserves half of it as headroom`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setBandGain(bandIndex = 0, gainDb = 8f)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(-4f, viewModel.processingSettings.value.inputGainDb)
+            assertEquals(8f, viewModel.processingSettings.value.bandGainsDb[0])
+        }
+
+    @Test
+    fun `flat preset disables dynamics and resets controls`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val settings = viewModel.processingSettings.value
+            assertEquals(0f, settings.macroBassDb)
+            assertEquals(0f, settings.macroPunchDb)
+            assertEquals(0f, settings.macroHaerteDb)
+            assertEquals(0f, settings.inputGainDb)
+            assertFalse(settings.mbcEnabled)
+            assertFalse(settings.limiterEnabled)
+            assertTrue(settings.bandGainsDb.values.all { it == 0f })
+        }
+
+    @Test
+    fun `enabling master with no session shows the source picker`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+
+            viewModel.setMasterEnabled(true)
+
+            assertTrue(viewModel.showSourcePicker.value)
+            assertEquals(0, playerBridge.launchCount)
+        }
+
+    @Test
+    fun `enabling master while Listening (no session) also shows the source picker`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+            // The engine spends almost all of its idle time in Listening, not
+            // Detached (docs/STATE_MACHINE.md) - the picker must trigger for
+            // both, not just the brief cold-start Detached window.
+            fakeEngine.attach(AudioSession(sessionId = 1))
+            fakeEngine.detach()
+
+            viewModel.setMasterEnabled(true)
+
+            assertTrue(viewModel.showSourcePicker.value)
+        }
+
+    @Test
+    fun `enabling master with an active session does not show the source picker`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+            fakeEngine.attach(AudioSession(sessionId = 42))
+
+            viewModel.setMasterEnabled(true)
+
+            assertFalse(viewModel.showSourcePicker.value)
+        }
+
+    @Test
+    fun `choosing a source launches the player and hides the picker`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+            viewModel.setMasterEnabled(true)
+
+            viewModel.choosePlayerSource(PlayerSource.SOUNDCLOUD)
+
+            assertFalse(viewModel.showSourcePicker.value)
+            assertEquals(1, playerBridge.launchCount)
+            assertEquals(PlayerSource.SOUNDCLOUD, playerBridge.lastLaunchedSource)
+        }
+
+    @Test
+    fun `dismissing the source picker does not launch the player`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+            viewModel.setMasterEnabled(true)
+
+            viewModel.dismissSourcePicker()
+
+            assertFalse(viewModel.showSourcePicker.value)
+            assertEquals(0, playerBridge.launchCount)
+        }
+
+    @Test
+    fun `disabling master stops the player`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+
+            viewModel.setMasterEnabled(false)
+
+            assertEquals(1, playerBridge.stopCount)
+        }
+
+    @Test
+    fun `retryAttach asks the engine to retry`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            fakeEngine.attach(AudioSession(sessionId = 7))
+
+            viewModel.retryAttach()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // FakeAudioEngine.retry() re-attaches whatever it last attached to -
+            // this only proves the ViewModel actually calls through to it.
+            assertEquals(AudioEngineState.Active(7), fakeEngine.state.value)
+        }
+
+    @Test
+    fun `opening the source picker shows it even with an active session`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+            fakeEngine.attach(AudioSession(sessionId = 42))
+
+            viewModel.openSourcePicker()
+
+            assertTrue(viewModel.showSourcePicker.value)
+        }
+
+    @Test
+    fun `reopening the player launches SoundCloud`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge)
+
+            viewModel.reopenPlayer()
+
+            assertEquals(1, playerBridge.launchCount)
+            assertEquals(PlayerSource.SOUNDCLOUD, playerBridge.lastLaunchedSource)
+        }
+
+    // --- M2: persistence and custom-preset workflow ---
+
+    @Test
+    fun `on init, saved settings referencing a built-in preset are restored`() =
+        runTest {
+            val saved =
+                LiveSettings(
+                    activePresetId = BuiltInPresets.DeepRumble.id,
+                    isDirty = false,
+                    processingSettings = ProcessingSettings().copy(masterEnabled = false, macroBassDb = 3f),
+                )
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(saved))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertFalse(viewModel.processingSettings.value.masterEnabled)
+            assertEquals(3f, viewModel.processingSettings.value.macroBassDb)
+            assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `headphone power is restored from saved settings and persisted when changed`() =
+        runTest {
+            val saved =
+                LiveSettings(
+                    activePresetId = BuiltInPresets.DeepRumble.id,
+                    isDirty = false,
+                    processingSettings = ProcessingSettings(),
+                    headphonePower = HeadphonePower.KNALL,
+                )
+            val repo = FakeAppSettingsRepository(saved)
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = repo)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(HeadphonePower.KNALL, viewModel.headphonePower.value)
+
+            viewModel.setHeadphonePower(HeadphonePower(bassDb = 99f))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(HeadphonePower.MAX_BASS_DB, viewModel.headphonePower.value.bassDb)
+            assertEquals(
+                HeadphonePower.MAX_BASS_DB,
+                repo.savedSettings
+                    .last()
+                    .headphonePower
+                    .bassDb,
+            )
+        }
+
+    @Test
+    fun `on init, saved settings referencing a custom preset are restored once it loads`() =
+        runTest {
+            val custom = customPreset(name = "My Sound")
+            val saved = LiveSettings(activePresetId = custom.id, isDirty = true, processingSettings = ProcessingSettings())
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel =
+                createViewModel(
+                    emptyList(),
+                    presetRepository = presetRepository,
+                    appSettingsRepository = FakeAppSettingsRepository(saved),
+                )
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(custom.id, viewModel.activePreset.value.id)
+            assertTrue(viewModel.isDirty.value)
+            assertTrue(viewModel.allPresets.value.any { it.id == custom.id })
+        }
+
+    @Test
+    fun `a saved preset id that no longer resolves keeps the default instead of crashing`() =
+        runTest {
+            val saved = LiveSettings(activePresetId = "no-such-preset", isDirty = true, processingSettings = ProcessingSettings())
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(saved))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.CleanPunch.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `manual band edits mark the active preset dirty`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.isDirty.value)
+
+            viewModel.setBandGain(bandIndex = 0, gainDb = 4f)
+
+            assertTrue(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `manual macro edits mark the active preset dirty`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setMacroBass(2f)
+
+            assertTrue(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `selecting a preset clears the dirty flag`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setBandGain(bandIndex = 0, gainDb = 4f)
+            assertTrue(viewModel.isDirty.value)
+
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+
+            assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `resetToActivePreset discards manual edits`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val originalGains = viewModel.processingSettings.value.bandGainsDb
+            viewModel.setBandGain(bandIndex = 0, gainDb = 12f)
+            assertTrue(viewModel.isDirty.value)
+
+            viewModel.resetToActivePreset()
+
+            assertFalse(viewModel.isDirty.value)
+            assertEquals(originalGains, viewModel.processingSettings.value.bandGainsDb)
+        }
+
+    @Test
+    fun `saveAsNewPreset persists the current state and activates it`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setBandGain(bandIndex = 0, gainDb = 6f)
+
+            viewModel.saveAsNewPreset("My Custom")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, presetRepository.savedPresets.size)
+            val saved = presetRepository.savedPresets.single()
+            assertEquals("My Custom", saved.name)
+            assertFalse(saved.metadata.builtIn)
+            assertEquals(viewModel.activePreset.value.id, saved.id)
+            assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `saveAsNewPreset falls back to the active preset's curve when no bands are known yet`() =
+        runTest {
+            // PresetJsonSerializer.importFromJson rejects an empty targetCurve - a
+            // save made before any session has attached (bands only populate once
+            // one does) must not silently produce a preset that then disappears the
+            // next time it's read back.
+            val emptyCapsEngine = FakeAudioEngine(initialCapabilities = AudioCapabilities())
+            val presetRepository = FakePresetRepository()
+            val viewModel =
+                MainViewModel(
+                    repository = FakeAudioEffectRepository(emptyList()),
+                    audioEngine = emptyCapsEngine,
+                    routeRepository = fakeRouteRepo,
+                    volumeRepository = fakeVolumeRepo,
+                    diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
+                    playerBridge = FakePlayerBridge(),
+                    presetRepository = presetRepository,
+                    appSettingsRepository = FakeAppSettingsRepository(),
+                    correctionProfileRepository = FakeCorrectionProfileRepository(),
+                    deviceProfileRepository = FakeDeviceProfileRepository(),
+                    texts = FakeTextProvider(),
+                    backgroundDispatcher = dispatcher,
+                )
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setMacroBass(2f)
+
+            viewModel.saveAsNewPreset("No Bands Yet")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val saved = presetRepository.savedPresets.single()
+            assertTrue(saved.targetCurve.isNotEmpty())
+            assertEquals(BuiltInPresets.CleanPunch.targetCurve, saved.targetCurve)
+        }
+
+    @Test
+    fun `duplicatePreset saves a copy with a new id and selects it`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.duplicatePreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val copy = presetRepository.savedPresets.single()
+            assertFalse(copy.id == BuiltInPresets.DeepRumble.id)
+            assertFalse(copy.metadata.builtIn)
+            assertEquals(copy.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `importPresetLink saves a shared preset as an editable copy and selects it`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            val link = viewModel.presetShareLink(BuiltInPresets.DeepRumble)
+
+            viewModel.importPresetLink(link)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val imported = presetRepository.savedPresets.single()
+            assertEquals(BuiltInPresets.DeepRumble.name, imported.name)
+            assertFalse(imported.metadata.builtIn)
+            assertFalse(imported.id == BuiltInPresets.DeepRumble.id)
+            assertEquals(imported.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `importPresetLink ignores text that is not a preset link`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.importPresetLink("hello world")
+            viewModel.importPresetLink("")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(presetRepository.savedPresets.isEmpty())
+        }
+
+    @Test
+    fun `quick command toggles the master switch`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.masterEnabled
+
+            viewModel.handleQuickCommand(QuickCommand.TOGGLE_MASTER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(!before, viewModel.processingSettings.value.masterEnabled)
+        }
+
+    @Test
+    fun `quick command steps to the next preset and wraps around`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val ids = viewModel.allPresets.value.map { it.id }
+            val start = viewModel.activePreset.value.id
+
+            viewModel.handleQuickCommand(QuickCommand.NEXT_PRESET)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(ids[(ids.indexOf(start) + 1) % ids.size], viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `renamePreset ignores built-in presets`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.renamePreset(BuiltInPresets.DeepRumble, "Hacked Name")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(presetRepository.savedPresets.isEmpty())
+        }
+
+    @Test
+    fun `renamePreset updates the active preset when it is the one being renamed`() =
+        runTest {
+            val custom = customPreset(name = "Old Name")
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(custom)
+
+            viewModel.renamePreset(custom, "New Name")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("New Name", viewModel.activePreset.value.name)
+        }
+
+    @Test
+    fun `requestDeletePreset ignores built-ins and does not set a pending preset`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+
+            viewModel.requestDeletePreset(BuiltInPresets.DeepRumble)
+
+            assertNull(viewModel.pendingDeletePreset.value)
+        }
+
+    @Test
+    fun `requestDeletePreset then confirmDeletePreset removes a custom preset`() =
+        runTest {
+            val custom = customPreset(name = "Doomed")
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.requestDeletePreset(custom)
+            assertEquals(custom.id, viewModel.pendingDeletePreset.value?.id)
+
+            viewModel.confirmDeletePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.pendingDeletePreset.value)
+            assertEquals(listOf(custom.id), presetRepository.deletedIds)
+        }
+
+    @Test
+    fun `deleting the active custom preset falls back to CleanPunch`() =
+        runTest {
+            val custom = customPreset(name = "Doomed")
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(custom)
+
+            viewModel.requestDeletePreset(custom)
+            viewModel.confirmDeletePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.CleanPunch.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `cancelDeletePreset clears the pending preset without deleting anything`() =
+        runTest {
+            val custom = customPreset(name = "Safe")
+            val presetRepository = FakePresetRepository(initial = listOf(custom))
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.requestDeletePreset(custom)
+
+            viewModel.cancelDeletePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.pendingDeletePreset.value)
+            assertTrue(presetRepository.deletedIds.isEmpty())
+        }
+
+    @Test
+    fun `allPresets combines built-ins with custom presets`() =
+        runTest {
+            val custom = customPreset(name = "Extra")
+            val viewModel =
+                createViewModel(emptyList(), presetRepository = FakePresetRepository(initial = listOf(custom)))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val ids = viewModel.allPresets.value.map { it.id }
+            assertTrue(ids.containsAll(BuiltInPresets.all.map { it.id }))
+            assertTrue(ids.contains(custom.id))
+        }
+
+    // --- Chat feature (not a roadmap-2026.md milestone): "Mein Kopfhörer" auto-detection ---
+
+    @Test
+    fun `no suggestion for the default speaker route`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+        }
+
+    @Test
+    fun `a recognized bluetooth device name surfaces a suggestion`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Sony WH-1000XM4", id = "bt_xm4"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("sony_wh1000xm4", viewModel.suggestedCorrectionProfile.value?.id)
+        }
+
+    @Test
+    fun `an unrecognized bluetooth device name surfaces no suggestion`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Generic BT Speaker XR200", id = "bt_unknown"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+        }
+
+    @Test
+    fun `a route already bound to a device profile is never suggested to`() =
+        runTest {
+            val routeId = "bt_xm4"
+            val deviceProfileRepository =
+                FakeDeviceProfileRepository(
+                    initial =
+                        mapOf(
+                            routeId to
+                                DeviceProfileEntity(
+                                    routeId = routeId,
+                                    routeType = AudioDeviceType.BLUETOOTH.name,
+                                    displayName = "Sony WH-1000XM4",
+                                    boundPresetId = BuiltInPresets.CleanPunch.id,
+                                ),
+                        ),
+                )
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Sony WH-1000XM4", id = routeId))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+        }
+
+    @Test
+    fun `accepting a suggestion saves and selects the catalog profile`() =
+        runTest {
+            val correctionProfileRepository = FakeCorrectionProfileRepository()
+            val viewModel = createViewModel(emptyList(), correctionProfileRepository = correctionProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Sony WH-1000XM4", id = "bt_xm4"))
+            dispatcher.scheduler.advanceUntilIdle()
+            val suggestion = viewModel.suggestedCorrectionProfile.value
+            assertEquals("sony_wh1000xm4", suggestion?.id)
+
+            viewModel.acceptSuggestedCorrectionProfile()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+            assertEquals("sony_wh1000xm4", viewModel.activeCorrectionProfile.value.id)
+            assertTrue(correctionProfileRepository.savedProfiles.any { it.id == "sony_wh1000xm4" })
+        }
+
+    @Test
+    fun `dismissing a suggestion clears it without touching the active correction profile`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Sony WH-1000XM4", id = "bt_xm4"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("sony_wh1000xm4", viewModel.suggestedCorrectionProfile.value?.id)
+
+            viewModel.dismissSuggestedCorrectionProfile()
+
+            assertNull(viewModel.suggestedCorrectionProfile.value)
+            assertEquals(BuiltInCorrectionProfiles.None.id, viewModel.activeCorrectionProfile.value.id)
+        }
+
+    @Test
+    fun `builtInAutoEqCatalog actually contains the model used by these tests`() {
+        // Guards the fixture above against silently testing nothing if the
+        // catalog ever drops this entry.
+        assertTrue(BuiltInAutoEqCatalog.entries.any { it.id == "sony_wh1000xm4" })
+    }
+
+    @Test
+    fun `headphone mode audibly boosts bass and reduces presence in the applied EQ`() =
+        runTest {
+            // True Crossfeed/Bass-Mono-Summing can't run over the actual playback
+            // path (Android's system Equalizer/DynamicsProcessing effects) - the
+            // "Kopfhörer-Modus" switch instead folds HeadphoneComfortCurve into
+            // the real band-EQ curve, so this must show up in the applied
+            // bandGainsDb, not just in a database flag.
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassOff = viewModel.processingSettings.value.bandGainsDb[0]!! // 60 Hz
+            val presenceOff = viewModel.processingSettings.value.bandGainsDb[3]!! // 3600 Hz
+
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassOn = viewModel.processingSettings.value.bandGainsDb[0]!!
+            val presenceOn = viewModel.processingSettings.value.bandGainsDb[3]!!
+
+            assertTrue("expected headphone mode to boost the 60 Hz band, off=$bassOff on=$bassOn", bassOn > bassOff)
+            assertTrue(
+                "expected headphone mode to reduce the 3600 Hz band, off=$presenceOff on=$presenceOn",
+                presenceOn < presenceOff,
+            )
+        }
+
+    // --- Chat feature: quality changes for headphones (gentler dynamics) ---
+
+    @Test
+    fun `headphone mode eases the mbc threshold and ratio compared to the same preset without it`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Terror, PresetIntensity.VERY_AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val thresholdOff = viewModel.processingSettings.value.mbcThresholdDb
+            val ratioOff = viewModel.processingSettings.value.mbcRatio
+
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val thresholdOn = viewModel.processingSettings.value.mbcThresholdDb
+            val ratioOn = viewModel.processingSettings.value.mbcRatio
+
+            assertTrue("expected a higher (less negative) threshold with headphone mode on", thresholdOn > thresholdOff)
+            assertTrue("expected a lower (gentler) ratio with headphone mode on", ratioOn < ratioOff)
+
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // Toggling back off restores the preset's own values exactly - no
+            // drift from having eased and un-eased once already.
+            assertEquals(thresholdOff, viewModel.processingSettings.value.mbcThresholdDb)
+            assertEquals(ratioOff, viewModel.processingSettings.value.mbcRatio)
+        }
+
+    @Test
+    fun `toggling headphone mode on and off twice does not compound the easing`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Gabber, PresetIntensity.AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            val firstOnThreshold = viewModel.processingSettings.value.mbcThresholdDb
+            val firstOnRatio = viewModel.processingSettings.value.mbcRatio
+
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(firstOnThreshold, viewModel.processingSettings.value.mbcThresholdDb)
+            assertEquals(firstOnRatio, viewModel.processingSettings.value.mbcRatio)
+        }
+
+    // --- Chat feature: quality changes for headphones (loudness compensation) ---
+
+    @Test
+    fun `loudness compensation boosts bass more the quieter the volume gets, while headphone mode is on`() =
+        runTest {
+            // LoudnessCompensationCurve's own math (max boost, clamping, treble-to-
+            // bass ratio) is already covered by LoudnessCompensationCurveTest in
+            // :core - this only proves the wiring: MainViewModel actually reacts to
+            // volume changes and folds the curve in while headphone mode is active.
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassAtFullVolume = viewModel.processingSettings.value.bandGainsDb[0]!! // 60 Hz
+
+            fakeVolumeRepo.setLevelDb(-20f)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassAtModeratelyQuiet = viewModel.processingSettings.value.bandGainsDb[0]!!
+
+            fakeVolumeRepo.setLevelDb(-40f)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassAtVeryQuiet = viewModel.processingSettings.value.bandGainsDb[0]!!
+
+            assertTrue(
+                "expected a bigger bass boost the quieter the volume gets: " +
+                    "full=$bassAtFullVolume moderate=$bassAtModeratelyQuiet very=$bassAtVeryQuiet",
+                bassAtVeryQuiet > bassAtModeratelyQuiet && bassAtModeratelyQuiet > bassAtFullVolume,
+            )
+        }
+
+    @Test
+    fun `loudness compensation never applies while headphone mode is off, regardless of volume`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+
+            fakeVolumeRepo.setLevelDb(-40f)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(
+                viewModel.processingSettings.value.bandGainsDb.values
+                    .all { it == 0f },
+            )
+        }
+
+    // --- Chat feature: genre x intensity preset redesign ---
+
+    @Test
+    fun `selecting a genre and intensity resolves and applies the combined preset`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Uptempo, PresetIntensity.AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val expected = PresetIntensityResolver.resolve(BuiltInGenrePresets.Uptempo, PresetIntensity.AGGRESSIVE)
+            assertEquals(expected.id, viewModel.activePreset.value.id)
+            assertEquals(expected.macroBassDb, viewModel.processingSettings.value.macroBassDb)
+            assertEquals(expected.macroPunchDb, viewModel.processingSettings.value.macroPunchDb)
+            assertFalse(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `selectedGenreIntensity reflects the currently active genre and intensity`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Gabber, PresetIntensity.SUPER_SOFT)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val (genre, intensity) = requireNotNull(viewModel.selectedGenreIntensity.value)
+            assertEquals(BuiltInGenrePresets.Gabber.id, genre.id)
+            assertEquals(PresetIntensity.SUPER_SOFT, intensity)
+        }
+
+    @Test
+    fun `selectedGenreIntensity is null once a legacy built-in preset is active`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Terror, PresetIntensity.VERY_AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNotNull(viewModel.selectedGenreIntensity.value)
+
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.selectedGenreIntensity.value)
+        }
+
+    @Test
+    fun `flat genre ignores intensity - every button resolves to the same preset`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Flat, PresetIntensity.VERY_AGGRESSIVE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInGenrePresets.Flat.base.macroBassDb, viewModel.processingSettings.value.macroBassDb)
+            assertTrue(
+                viewModel.processingSettings.value.bandGainsDb.values
+                    .all { it == 0f },
+            )
+        }
+
+    // --- Chat feature (item 1 of "setz alle Punkte um"): headphone-mode flag ---
+
+    @Test
+    fun `speaker route defaults headphone acoustics to false`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
+    @Test
+    fun `bluetooth route defaults headphone acoustics to true without an override`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Some Headset", id = "bt_1"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
+    @Test
+    fun `an explicit override wins over the route-type default`() =
+        runTest {
+            // A USB DAC feeding studio monitors - defaultHeadphoneAcoustics()
+            // guesses "true" for any USB route, which is wrong here.
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.USB, name = "Studio DAC", id = "usb_1"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.effectiveHeadphoneAcoustics.value)
+
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
+    @Test
+    fun `an override persists across an unrelated preset change on the same route`() =
+        runTest {
+            // Regression guard: saveDeviceProfileBinding() is also called by
+            // selectPreset()/selectCorrectionProfile() - Room's REPLACE strategy
+            // means writing a new row for the same routeId without carrying the
+            // override forward would silently reset it to null.
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Some Headset", id = "bt_1"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+            assertEquals(false, deviceProfileRepository.savedBindings.last().headphoneAcousticsOverride)
+        }
+
+    @Test
+    fun `switching to a route with no saved override resets it instead of leaking the previous route's value`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Headset A", id = "bt_a"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setHeadphoneAcousticsOverride(false)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "Headset B", id = "bt_b"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // Headset B never had an override saved - should fall back to
+            // BLUETOOTH's own default (true), not silently inherit Headset A's.
+            assertTrue(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
+    @Test
+    fun `a car route switches the car mode on without touching the genre preset or saving a binding`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            val presetBefore = viewModel.activePreset.value.id
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertEquals(presetBefore, viewModel.activePreset.value.id)
+            val settings = viewModel.processingSettings.value
+            assertEquals(BuiltInContextPresets.Car.loudnessMaxBoostDb, settings.loudnessMaxBoostDb, 0f)
+            assertEquals(BuiltInContextPresets.Car.subsonicCutoffHz, settings.subsonicCutoffHz, 0f)
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, settings.virtualBassMix, 0f)
+            assertTrue(deviceProfileRepository.savedBindings.isEmpty())
+            assertFalse(viewModel.effectiveHeadphoneAcoustics.value)
+        }
+
+    @Test
+    fun `a bluetooth speaker route switches the speaker mode on`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.BLUETOOTH_SPEAKER, name = "JBL Flip 6", id = "bt_flip"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.BLUETOOTH_SPEAKER, viewModel.activeContext.value)
+            // The speaker mode protects the driver harder than the car one.
+            val settings = viewModel.processingSettings.value
+            assertEquals(BuiltInContextPresets.BluetoothSpeaker.subsonicCutoffHz, settings.subsonicCutoffHz, 0f)
+        }
+
+    @Test
+    fun `switching to another genre preset keeps the car mode on`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Uptempo, PresetIntensity.MODERATE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertEquals("genre_uptempo__moderate", viewModel.activePreset.value.id)
+            val settings = viewModel.processingSettings.value
+            assertEquals(BuiltInContextPresets.Car.subsonicCutoffHz, settings.subsonicCutoffHz, 0f)
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, settings.virtualBassMix, 0f)
+            assertEquals(BuiltInContextPresets.Car.loudnessMaxBoostDb, settings.loudnessMaxBoostDb, 0f)
+        }
+
+    @Test
+    fun `the car mode adds its curve on top of the genre preset`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+            val presenceWithoutMode =
+                viewModel.processingSettings.value.bandGainsDb
+                    .getValue(3)
+
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // The car tuning lifts presence around 3 kHz.
+            val presenceWithMode =
+                viewModel.processingSettings.value.bandGainsDb
+                    .getValue(3)
+            assertTrue(presenceWithMode > presenceWithoutMode)
+        }
+
+    @Test
+    fun `a limiter is enabled and at least as tight as the mode asks`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.processingSettings.value.limiterEnabled)
+
+            viewModel.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val settings = viewModel.processingSettings.value
+            assertTrue(settings.limiterEnabled)
+            assertEquals(BuiltInContextPresets.BluetoothSpeaker.limiter.thresholdDb, settings.limiterThresholdDb, 0f)
+        }
+
+    @Test
+    fun `a mode the user chose stays on until they turn it off`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+            assertEquals(0f, viewModel.processingSettings.value.subsonicCutoffHz, 0f)
+        }
+
+    @Test
+    fun `leaving a car route turns an automatically enabled mode off again`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Other", id = "other_unbound"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertEquals(0f, viewModel.processingSettings.value.subsonicCutoffHz, 0f)
+        }
+
+    @Test
+    fun `own player session is detected by package name`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.isOwnPlayerSession.value)
+
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.isOwnPlayerSession.value)
+
+            sessions.setActiveSession(AudioSession(sessionId = 2, packageName = BuildConfig.APPLICATION_ID))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.isOwnPlayerSession.value)
+        }
+
+    @Test
+    fun `an app with a remembered sound gets it when it becomes the active session`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            val spotify = AudioSession(sessionId = 1, packageName = "com.spotify.music")
+            val youtube = AudioSession(sessionId = 2, packageName = "com.google.android.youtube")
+
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            viewModel.setAppProfileBound(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(viewModel.appProfileBound.value)
+
+            sessions.setActiveSession(youtube)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse("YouTube has no profile of its own", viewModel.appProfileBound.value)
+            viewModel.selectPreset(BuiltInPresets.KickAttack)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `while an app is bound every later choice is remembered for it`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            val other = AudioSession(sessionId = 2, packageName = "other.app")
+            val spotify = AudioSession(sessionId = 1, packageName = "com.spotify.music")
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setAppProfileBound(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectPreset(BuiltInPresets.RawPower)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(other)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.RawPower.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `forgetting the app profile stops applying it`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            val spotify = AudioSession(sessionId = 1, packageName = "com.spotify.music")
+            val other = AudioSession(sessionId = 2, packageName = "other.app")
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            viewModel.setAppProfileBound(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setAppProfileBound(false)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(viewModel.appProfileBound.value)
+
+            sessions.setActiveSession(other)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(spotify)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.Flat.id, viewModel.activePreset.value.id)
+        }
+
+    // On the device viewModelScope is Dispatchers.Main.immediate: the collectors launched in the init
+    // block run at once, during construction, and already compute the curve. The other tests here
+    // use a StandardTestDispatcher, which runs them only after the constructor - so they never saw
+    // state that is declared below init and still null at that point (1.1.2-beta.6 to beta.8
+    // crashed at every start that way: NullPointerException in CurveInputs).
+    @Test
+    fun `the view model starts when the main dispatcher runs the init collectors at once`() =
+        runTest {
+            Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+
+            val viewModel = createViewModel(emptyList())
+
+            // No advanceUntilIdle on purpose: all of this happened inside the constructor.
+            assertEquals(
+                "the band gains are computed during construction",
+                fakeEngine.capabilities.value.bands
+                    .map { it.index }
+                    .toSet(),
+                viewModel.processingSettings.value.bandGainsDb.keys,
+            )
+            assertTrue(viewModel.parametricBands.value.isEmpty())
+
+            viewModel.addParametricBand()
+            assertEquals(1, viewModel.parametricBands.value.size)
+            // An exception inside one of the init collectors would fail runTest here.
+        }
+
+    @Test
+    fun `a parametric band changes the band gains and marks the sound as edited`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.bandGainsDb
+
+            viewModel.addParametricBand()
+            viewModel.updateParametricBand(0, viewModel.parametricBands.value[0].copy(frequencyHz = 60f, gainDb = 9f, q = 1f))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(1, viewModel.parametricBands.value.size)
+            assertTrue(
+                "the low band got louder",
+                viewModel.processingSettings.value.bandGainsDb.values
+                    .sum() > before.values.sum(),
+            )
+            assertTrue(viewModel.isDirty.value)
+        }
+
+    @Test
+    fun `parametric bands are limited persisted and restored`() =
+        runTest {
+            val settingsRepository = FakeAppSettingsRepository()
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = settingsRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            repeat(ParametricCurve.MAX_BANDS + 3) { viewModel.addParametricBand() }
+            viewModel.updateParametricBand(0, ParametricBand(frequencyHz = 5f, gainDb = 99f, q = 0f))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(ParametricCurve.MAX_BANDS, viewModel.parametricBands.value.size)
+            val first = viewModel.parametricBands.value[0]
+            assertEquals(ParametricFilterBounds.MIN_FREQUENCY_HZ, first.frequencyHz, 0f)
+            assertEquals(ParametricFilterBounds.MAX_GAIN_DB, first.gainDb, 0f)
+
+            val restored = createViewModel(emptyList(), appSettingsRepository = settingsRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(viewModel.parametricBands.value, restored.parametricBands.value)
+
+            restored.removeParametricBand(0)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(ParametricCurve.MAX_BANDS - 1, restored.parametricBands.value.size)
+        }
+
+    @Test
+    fun `speaker mode tightens mbc threshold and ratio`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val genre = viewModel.activePreset.value
+            viewModel.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val settings = viewModel.processingSettings.value
+            assertTrue(settings.mbcEnabled)
+            assertEquals(minOf(genre.mbcThresholdDb, BuiltInContextPresets.BluetoothSpeaker.mbcThresholdDb), settings.mbcThresholdDb, 0f)
+            assertEquals(maxOf(genre.mbcRatio, BuiltInContextPresets.BluetoothSpeaker.mbcRatio), settings.mbcRatio, 0f)
+        }
+
+    @Test
+    fun `switching the mode off restores the genre dynamics`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val genre = viewModel.activePreset.value
+            viewModel.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val settings = viewModel.processingSettings.value
+            assertEquals(genre.mbcThresholdDb, settings.mbcThresholdDb, 0f)
+            assertEquals(genre.mbcRatio, settings.mbcRatio, 0f)
+        }
+
+    @Test
+    fun `speaker mode uses the higher input gain safety ratio`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // The speaker curve alone boosts about 2.5 dB at 100 Hz; at a ratio of 0.1 that
+            // would cost 0.25 dB, at 0.5 it costs more than 1 dB.
+            assertTrue(viewModel.processingSettings.value.inputGainDb <= -1f)
+        }
+
+    @Test
+    fun `car mode keeps the genre mbc when it is already tighter`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val tight = BuiltInPresets.DeepRumble.copy(mbcThresholdDb = -20f, mbcRatio = 6f)
+            viewModel.selectPreset(tight)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(-20f, viewModel.processingSettings.value.mbcThresholdDb, 0f)
+            assertEquals(6f, viewModel.processingSettings.value.mbcRatio, 0f)
+        }
+
+    @Test
+    fun `android auto connection turns car mode on for an unclassified route`() =
+        runTest {
+            val car = FakeCarConnectionRepository()
+            val viewModel = createViewModel(emptyList(), carConnectionRepository = car)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "BT Audio", id = "bt_generic"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNull(viewModel.activeContext.value)
+
+            car.carConnected.value = true
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `an explicit NONE wins over an android auto connection`() =
+        runTest {
+            val car = FakeCarConnectionRepository()
+            val viewModel = createViewModel(emptyList(), carConnectionRepository = car)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "BT Audio", id = "bt_generic"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            car.carConnected.value = true
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `disconnecting android auto re-evaluates the route`() =
+        runTest {
+            val car = FakeCarConnectionRepository()
+            val viewModel = createViewModel(emptyList(), carConnectionRepository = car)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "BT Audio", id = "bt_generic"))
+            car.carConnected.value = true
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+
+            car.carConnected.value = false
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    private val unknownBt = AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "BT Audio", id = "bt_generic")
+
+    @Test
+    fun `approx curve is applied only for foreign sessions with pre eq`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            // The band that contains 110 Hz in the pre-EQ layout (100..122 Hz).
+            val band = PreEqLayout.CUTOFFS_HZ.indexOfFirst { it >= 110f }
+
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
+            dispatcher.scheduler.advanceUntilIdle()
+            val preEqGains = viewModel.processingSettings.value.preEqGainsDb
+            assertTrue(preEqGains.isEmpty())
+
+            fakeEngine.updateCapabilities(withPreEq())
+            dispatcher.scheduler.advanceUntilIdle()
+            val foreign = viewModel.processingSettings.value.preEqGainsDb[band]
+
+            sessions.setActiveSession(AudioSession(sessionId = 2, packageName = BuildConfig.APPLICATION_ID))
+            dispatcher.scheduler.advanceUntilIdle()
+            val own = viewModel.processingSettings.value.preEqGainsDb[band]
+
+            assertTrue("foreign $foreign dB should exceed own $own dB", foreign > own + 0.5f)
+        }
+
+    @Test
+    fun `own player session never gets the approx curve`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeEngine.updateCapabilities(withPreEq())
+            viewModel.selectPreset(BuiltInPresets.Flat)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            val withoutSession = viewModel.processingSettings.value.preEqGainsDb
+
+            sessions.setActiveSession(AudioSession(sessionId = 2, packageName = BuildConfig.APPLICATION_ID))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(withoutSession, viewModel.processingSettings.value.preEqGainsDb)
+        }
+
+    @Test
+    fun `own player session gets flat system bands when the pcm eq is active`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = BuildConfig.APPLICATION_ID))
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val systemBands = fakeEngine.currentSettings.value.bandGainsDb
+            assertTrue(systemBands.values.all { it == 0f })
+            // The settings the user sees keep the real gains.
+            val userBands = viewModel.processingSettings.value.bandGainsDb
+            assertTrue(userBands.values.any { it != 0f })
+        }
+
+    @Test
+    fun `foreign session keeps system band gains`() =
+        runTest {
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val systemBands = fakeEngine.currentSettings.value.bandGainsDb
+            assertTrue(systemBands.values.any { it != 0f })
+        }
+
+    @Test
+    fun `the player gets the curve without the subsonic cut and the cutoff separately`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge = playerBridge)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInContextPresets.Car.subsonicCutoffHz, playerBridge.lastSubsonicCutoffHz, 0f)
+            // Deep Rumble boosts the lowest octave; the subsonic curve (about -8 dB at 20 Hz)
+            // is applied by the high-pass instead, so it must not be in the curve as well.
+            val lowest = playerBridge.lastPlayerCurve.minBy { it.frequencyHz }
+            assertTrue("curve at ${lowest.frequencyHz} Hz was ${lowest.gainDb} dB", lowest.gainDb >= 5f)
+        }
+
+    @Test
+    fun `master off switches the player curve off`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge = playerBridge)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(playerBridge.lastPlayerCurve.isNotEmpty())
+
+            viewModel.setMasterEnabled(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(playerBridge.lastPlayerCurve.isEmpty())
+            assertEquals(0f, playerBridge.lastSubsonicCutoffHz, 0f)
+        }
+
+    @Test
+    fun `an unclassified bluetooth route without a choice asks once`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(unknownBt, viewModel.deviceKindPrompt.value)
+        }
+
+    @Test
+    fun `answering car stores CAR and turns the mode on`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.answerDeviceKind(DeviceKind.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val saved = deviceProfileRepository.getProfileForRoute("bt_generic")
+            assertEquals("CAR", saved?.contextMode)
+            assertEquals(false, saved?.headphoneAcousticsOverride)
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertNull(viewModel.deviceKindPrompt.value)
+        }
+
+    @Test
+    fun `answering headphones stores NONE and the headphone override`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.answerDeviceKind(DeviceKind.HEADPHONES)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val saved = deviceProfileRepository.getProfileForRoute("bt_generic")
+            assertEquals("NONE", saved?.contextMode)
+            assertEquals(true, saved?.headphoneAcousticsOverride)
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `dismissing does not ask again in the same session`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.dismissDeviceKindPrompt()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.deviceKindPrompt.value)
+        }
+
+    @Test
+    fun `a classified or already answered route does not ask`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNull(viewModel.deviceKindPrompt.value)
+
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.answerDeviceKind(DeviceKind.SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.deviceKindPrompt.value)
+        }
+
+    @Test
+    fun `a manually enabled mode is not carried over to the next route`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Radio", id = "bt_radio"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `a mode switched off on a detected car route stays off on reconnect`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val car = AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car")
+            fakeRouteRepo.setRoute(car)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(car)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `a manual mode choice is remembered for that route`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            val radio = AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Radio", id = "bt_radio")
+            fakeRouteRepo.setRoute(radio)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.WIRED_HEADPHONES, name = "Wired", id = "wired"))
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(radio)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("CAR", deviceProfileRepository.getProfileForRoute("bt_radio")?.contextMode)
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `an explicit NONE wins over car detection`() =
+        runTest {
+            val routeId = "bt_car"
+            val deviceProfileRepository =
+                FakeDeviceProfileRepository(
+                    initial =
+                        mapOf(
+                            routeId to
+                                DeviceProfileEntity(
+                                    routeId = routeId,
+                                    routeType = AudioDeviceType.CAR.name,
+                                    displayName = "BMW 12345",
+                                    boundPresetId = BuiltInPresets.DeepRumble.id,
+                                    contextMode = "NONE",
+                                ),
+                        ),
+                )
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = routeId))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `a route without a saved choice follows detection`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = "bt_car"))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `a saved genre profile for a car route applies together with the car mode`() =
+        runTest {
+            val routeId = "bt_car"
+            val deviceProfileRepository =
+                FakeDeviceProfileRepository(
+                    initial =
+                        mapOf(
+                            routeId to
+                                DeviceProfileEntity(
+                                    routeId = routeId,
+                                    routeType = AudioDeviceType.CAR.name,
+                                    displayName = "BMW 12345",
+                                    boundPresetId = BuiltInPresets.DeepRumble.id,
+                                ),
+                        ),
+                )
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.CAR, name = "BMW 12345", id = routeId))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+        }
+
+    @Test
+    fun `a profile saved when context tunings were presets turns the mode on and keeps the genre preset`() =
+        runTest {
+            val routeId = "bt_car"
+            val deviceProfileRepository =
+                FakeDeviceProfileRepository(
+                    initial =
+                        mapOf(
+                            routeId to
+                                DeviceProfileEntity(
+                                    routeId = routeId,
+                                    routeType = AudioDeviceType.UNKNOWN.name,
+                                    displayName = "Some car",
+                                    boundPresetId = BuiltInContextPresets.Car.id,
+                                ),
+                        ),
+                )
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            val presetBefore = viewModel.activePreset.value.id
+
+            fakeRouteRepo.setRoute(AudioRoute(type = AudioDeviceType.UNKNOWN, name = "Some car", id = routeId))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertEquals(presetBefore, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `selecting a context preset switches the mode on instead of replacing the sound`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.selectPreset(BuiltInContextPresets.Car)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.CAR, viewModel.activeContext.value)
+            assertEquals(BuiltInPresets.DeepRumble.id, viewModel.activePreset.value.id)
+        }
+
+    @Test
+    fun `the mode survives a restart through the saved live settings`() =
+        runTest {
+            val appSettings = FakeAppSettingsRepository()
+            val first = createViewModel(emptyList(), appSettingsRepository = appSettings)
+            dispatcher.scheduler.advanceUntilIdle()
+            first.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            dispatcher.scheduler.advanceUntilIdle()
+            val saved = appSettings.savedSettings.last()
+            assertEquals("BLUETOOTH_SPEAKER", saved.activeContext)
+            assertFalse(saved.activeContextAutomatic)
+
+            val restored = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(initial = saved))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundContext.BLUETOOTH_SPEAKER, restored.activeContext.value)
+        }
+
+    @Test
+    fun `lower system volume raises the bass while the mode's loudness compensation is on`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassAtFullVolume =
+                viewModel.processingSettings.value.bandGainsDb
+                    .getValue(0)
+
+            fakeVolumeRepo.setLevelDb(-20f)
+            dispatcher.scheduler.advanceUntilIdle()
+            val bassAtLowVolume =
+                viewModel.processingSettings.value.bandGainsDb
+                    .getValue(0)
+
+            assertTrue(
+                "bass at low volume ($bassAtLowVolume) should exceed full volume ($bassAtFullVolume)",
+                bassAtLowVolume > bassAtFullVolume,
+            )
+        }
+
+    @Test
+    fun `volume changes leave the bands alone when loudness compensation is off`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.bandGainsDb
+
+            fakeVolumeRepo.setLevelDb(-20f)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(before, viewModel.processingSettings.value.bandGainsDb)
+        }
+
+    @Test
+    fun `context feature switches toggle the settings and mark the preset as edited`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            // Turning a mode on is not an edit of the preset.
+            assertFalse(viewModel.isDirty.value)
+
+            viewModel.setSubsonicFilterEnabled(false)
+            viewModel.setLoudnessCompensationEnabled(false)
+            viewModel.setVirtualBassEnabled(false)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val off = viewModel.processingSettings.value
+            assertEquals(0f, off.subsonicCutoffHz, 0f)
+            assertEquals(0f, off.loudnessMaxBoostDb, 0f)
+            assertEquals(0f, off.virtualBassMix, 0f)
+            assertTrue(viewModel.isDirty.value)
+
+            viewModel.setSubsonicFilterEnabled(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(BuiltInContextPresets.Car.subsonicCutoffHz, viewModel.processingSettings.value.subsonicCutoffHz, 0f)
+        }
+
+    @Test
+    fun `enabling a context feature on a preset that has none falls back to the car values`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setVirtualBassEnabled(true)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, viewModel.processingSettings.value.virtualBassMix, 0f)
+        }
+
+    private fun withPreEq() = FakeAudioEngine.defaultFakeCapabilities().copy(preEqCutoffsHz = PreEqLayout.CUTOFFS_HZ)
+
+    @Test
+    fun `pre eq gains are computed when the engine reports pre eq bands`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeEngine.updateCapabilities(withPreEq())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val gains = viewModel.processingSettings.value.preEqGainsDb
+            assertEquals(PreEqLayout.CUTOFFS_HZ.size, gains.size)
+            assertTrue(gains.any { it != 0f })
+        }
+
+    @Test
+    fun `without pre eq bands nothing changes`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val preEqGains = viewModel.processingSettings.value.preEqGainsDb
+            assertTrue(preEqGains.isEmpty())
+        }
+
+    @Test
+    fun `compare original zeroes pre eq gains`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeEngine.updateCapabilities(withPreEq())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.startCompare()
+            viewModel.setCompareSide(CompareSide.ORIGINAL)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val original = fakeEngine.currentSettings.value.preEqGainsDb
+            assertEquals(PreEqLayout.CUTOFFS_HZ.size, original.size)
+            assertTrue(original.all { it == 0f })
+        }
+
+    @Test
+    fun `the original side of the comparison runs flat through the effect and ending restores the live settings`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            val live = viewModel.processingSettings.value
+
+            viewModel.startCompare()
+            viewModel.setCompareSide(CompareSide.ORIGINAL)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val original = fakeEngine.currentSettings.value
+            assertFalse(original.bypass)
+            assertTrue(original.bandGainsDb.values.all { it == 0f })
+            assertFalse(original.limiterEnabled)
+            assertTrue(original.inputGainDb <= 0f)
+            // The settings the user sees are untouched.
+            assertEquals(live, viewModel.processingSettings.value)
+
+            viewModel.endCompare()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(live, fakeEngine.currentSettings.value)
+            assertEquals(null, viewModel.compare.value)
+        }
+
+    @Test
+    fun `the eq side of the comparison is never louder than the live input gain`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            val live = viewModel.processingSettings.value
+
+            viewModel.startCompare()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(fakeEngine.currentSettings.value.inputGainDb <= live.inputGainDb)
+            assertEquals(CompareSide.EQ, viewModel.compare.value?.side)
+        }
+
+    @Test
+    fun `a sound goal changes the band gains and is persisted and restored`() =
+        runTest {
+            val repo = FakeAppSettingsRepository()
+            val viewModel = createViewModel(emptyList(), appSettingsRepository = repo)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.CleanPunch)
+            dispatcher.scheduler.advanceUntilIdle()
+            val before = viewModel.processingSettings.value.bandGainsDb
+
+            viewModel.setSoundGoal(SoundGoal.LESS_BASS)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(SoundGoal.LESS_BASS, viewModel.activeGoal.value)
+            assertTrue(viewModel.processingSettings.value.bandGainsDb != before)
+            assertEquals(SoundGoal.LESS_BASS.id, repo.savedSettings.last().activeGoal)
+
+            val restored = createViewModel(emptyList(), appSettingsRepository = FakeAppSettingsRepository(repo.savedSettings.last()))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(SoundGoal.LESS_BASS, restored.activeGoal.value)
+
+            viewModel.setSoundGoal(SoundGoal.BALANCED)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(null, repo.savedSettings.last().activeGoal)
+        }
+
+    @Test
+    fun `preset actions confirm themselves with a short message`() =
+        runTest {
+            val texts = FakeTextProvider()
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            val messages = mutableListOf<String>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.feedback.toList(messages) }
+
+            viewModel.setMacroBass(2f)
+            viewModel.saveAsNewPreset("Mine")
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.resetToActivePreset()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(texts.get(R.string.feedback_saved, "Mine"), messages.first())
+            assertEquals(texts.get(R.string.feedback_reset, "Mine"), messages.last())
+        }
+
+    @Test
+    fun `virtual bass is forwarded to the player and follows master and bypass`() =
+        runTest {
+            val playerBridge = FakePlayerBridge()
+            val viewModel = createViewModel(emptyList(), playerBridge = playerBridge)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, playerBridge.lastVirtualBassMix)
+
+            // A genre change keeps it going.
+            viewModel.selectGenreIntensity(BuiltInGenrePresets.Terror, PresetIntensity.MODERATE)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, playerBridge.lastVirtualBassMix)
+
+            viewModel.setBypass(true)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(0f, playerBridge.lastVirtualBassMix)
+
+            viewModel.setBypass(false)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, playerBridge.lastVirtualBassMix)
+
+            viewModel.setContextMode(null)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(0f, playerBridge.lastVirtualBassMix)
+        }
+
+    @Test
+    fun `saving an edited sound keeps the context feature values`() =
+        runTest {
+            val presetRepository = FakePresetRepository()
+            val viewModel = createViewModel(emptyList(), presetRepository = presetRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.CAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.saveAsNewPreset("Mein Auto")
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val saved = presetRepository.savedPresets.single()
+            assertEquals(BuiltInContextPresets.Car.subsonicCutoffHz, saved.subsonicCutoffHz, 0f)
+            assertEquals(BuiltInContextPresets.Car.loudnessMaxBoostDb, saved.loudnessMaxBoostDb, 0f)
+            assertEquals(BuiltInContextPresets.Car.virtualBassMix, saved.virtualBassMix, 0f)
+        }
+
+    private fun customPreset(name: String): Preset =
+        BuiltInPresets.CleanPunch.copy(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            metadata = BuiltInPresets.CleanPunch.metadata.copy(builtIn = false),
+        )
+
+    private fun createViewModel(
+        descriptors: List<AudioEffectDescriptor>,
+        playerBridge: PlayerBridge = FakePlayerBridge(),
+        presetRepository: PresetRepository = FakePresetRepository(),
+        appSettingsRepository: AppSettingsRepository = FakeAppSettingsRepository(),
+        correctionProfileRepository: CorrectionProfileRepository = FakeCorrectionProfileRepository(),
+        deviceProfileRepository: DeviceProfileRepository = FakeDeviceProfileRepository(),
+        sessionRepository: AudioSessionRepository = FakeAudioSessionRepository(),
+        carConnectionRepository: FakeCarConnectionRepository = FakeCarConnectionRepository(),
+        appProfileRepository: AppProfileRepository = FakeAppProfileRepository(),
+    ): MainViewModel =
+        MainViewModel(
+            repository = FakeAudioEffectRepository(descriptors),
+            audioEngine = fakeEngine,
+            routeRepository = fakeRouteRepo,
+            volumeRepository = fakeVolumeRepo,
+            diagnosticsRecorder = InMemoryDiagnosticsRecorder(),
+            playerBridge = playerBridge,
+            presetRepository = presetRepository,
+            appSettingsRepository = appSettingsRepository,
+            correctionProfileRepository = correctionProfileRepository,
+            deviceProfileRepository = deviceProfileRepository,
+            texts = FakeTextProvider(),
+            sessionRepository = sessionRepository,
+            carConnectionRepository = carConnectionRepository,
+            appProfileRepository = appProfileRepository,
+            backgroundDispatcher = dispatcher,
+        )
+
+    private fun fakeDescriptor(name: String) =
+        AudioEffectDescriptor(
+            typeUuid = UUID.randomUUID(),
+            effectUuid = UUID.randomUUID(),
+            name = name,
+            implementor = "Test",
+            connectMode = EffectConnectMode.INSERT,
+        )
+
+    private class FakeAudioEffectRepository(
+        private val descriptors: List<AudioEffectDescriptor>,
+    ) : AudioEffectRepository {
+        override val knownEffectTypeIds =
+            KnownEffectTypeIds(
+                equalizer = UUID.randomUUID(),
+                dynamicsProcessing = UUID.randomUUID(),
+                bassBoost = UUID.randomUUID(),
+                loudnessEnhancer = UUID.randomUUID(),
+            )
+
+        override fun queryAvailableEffects(): List<AudioEffectDescriptor> = descriptors
+    }
+
+    private class FakeCarConnectionRepository : CarConnectionRepository {
+        override val carConnected = MutableStateFlow(false)
+    }
+
+    private class FakeAppProfileRepository : AppProfileRepository {
+        private val profiles = MutableStateFlow<List<AppProfileEntity>>(emptyList())
+        override val allProfiles: Flow<List<AppProfileEntity>> = profiles
+
+        override suspend fun getProfile(packageName: String): AppProfileEntity? =
+            profiles.value.firstOrNull { it.packageName == packageName }
+
+        override suspend fun saveProfile(
+            packageName: String,
+            boundPresetId: String,
+            boundCorrectionProfileId: String,
+        ) {
+            profiles.value = profiles.value.filterNot { it.packageName == packageName } +
+                AppProfileEntity(packageName, boundPresetId, boundCorrectionProfileId)
+        }
+
+        override suspend fun deleteProfile(packageName: String) {
+            profiles.value = profiles.value.filterNot { it.packageName == packageName }
+        }
+    }
+
+    private class FakeAudioSessionRepository : AudioSessionRepository {
+        override val sessions = MutableStateFlow<List<AudioSession>>(emptyList())
+        override val activeSession = MutableStateFlow<AudioSession?>(null)
+
+        override fun startListening() = Unit
+
+        override fun stopListening() = Unit
+
+        override fun setActiveSession(session: AudioSession?) {
+            activeSession.value = session
+        }
+    }
+
+    private class FakeAudioRouteRepository : AudioRouteRepository {
+        private val _activeRoute = MutableStateFlow(AudioRoute())
+        override val activeRoute: StateFlow<AudioRoute> = _activeRoute.asStateFlow()
+
+        fun setRoute(route: AudioRoute) {
+            _activeRoute.value = route
+        }
+
+        override fun startMonitoring() {}
+
+        override fun stopMonitoring() {}
+    }
+
+    private class FakeSystemVolumeRepository : SystemVolumeRepository {
+        private val _currentLevelDb = MutableStateFlow(0f)
+        override val currentLevelDb: StateFlow<Float> = _currentLevelDb.asStateFlow()
+
+        fun setLevelDb(levelDb: Float) {
+            _currentLevelDb.value = levelDb
+        }
+
+        override fun startMonitoring() {}
+
+        override fun stopMonitoring() {}
+    }
+
+    private class FakePlayerBridge : PlayerBridge {
+        var lastVirtualBassMix: Float? = null
+            private set
+        var lastPlayerCurve: List<TargetPoint> = emptyList()
+            private set
+        var lastSubsonicCutoffHz: Float = 0f
+            private set
+        var launchCount = 0
+            private set
+        var stopCount = 0
+            private set
+        var toggleCount = 0
+            private set
+        var lastLaunchedSource: PlayerSource? = null
+            private set
+
+        override fun launchPlayer(source: PlayerSource) {
+            launchCount++
+            lastLaunchedSource = source
+        }
+
+        override fun stopPlayer() {
+            stopCount++
+        }
+
+        override fun togglePlayback() {
+            toggleCount++
+        }
+
+        override fun setPlayerCurve(
+            curve: List<TargetPoint>,
+            subsonicCutoffHz: Float,
+        ) {
+            lastPlayerCurve = curve
+            lastSubsonicCutoffHz = subsonicCutoffHz
+        }
+
+        override fun setVirtualBassMix(mix: Float) {
+            lastVirtualBassMix = mix
+        }
+    }
+
+    private class FakePresetRepository(
+        initial: List<Preset> = emptyList(),
+    ) : PresetRepository {
+        private val presets = MutableStateFlow(initial)
+        override val customPresets: Flow<List<Preset>> = presets
+
+        val savedPresets = mutableListOf<Preset>()
+        val deletedIds = mutableListOf<String>()
+
+        override suspend fun save(preset: Preset) {
+            savedPresets.add(preset)
+            presets.value = presets.value.filterNot { it.id == preset.id } + preset
+        }
+
+        override suspend fun delete(id: String) {
+            deletedIds.add(id)
+            presets.value = presets.value.filterNot { it.id == id }
+        }
+    }
+
+    private class FakeAppSettingsRepository(
+        initial: LiveSettings? = null,
+    ) : AppSettingsRepository {
+        private val settings = MutableStateFlow(initial)
+        override val liveSettings: Flow<LiveSettings?> = settings
+
+        val savedSettings = mutableListOf<LiveSettings>()
+
+        override suspend fun save(liveSettings: LiveSettings) {
+            savedSettings.add(liveSettings)
+            settings.value = liveSettings
+        }
+    }
+
+    private class FakeCorrectionProfileRepository(
+        initial: List<CorrectionProfile> = emptyList(),
+    ) : CorrectionProfileRepository {
+        private val profiles = MutableStateFlow(initial)
+        override val customProfiles: Flow<List<CorrectionProfile>> = profiles
+
+        val savedProfiles = mutableListOf<CorrectionProfile>()
+
+        override suspend fun save(profile: CorrectionProfile) {
+            savedProfiles.add(profile)
+            profiles.value = profiles.value.filterNot { it.id == profile.id } + profile
+        }
+
+        override suspend fun delete(id: String) {
+            profiles.value = profiles.value.filterNot { it.id == id }
+        }
+    }
+
+    private class FakeDeviceProfileRepository(
+        initial: Map<String, DeviceProfileEntity> = emptyMap(),
+    ) : DeviceProfileRepository {
+        private val byRoute = initial.toMutableMap()
+        private val allFlow = MutableStateFlow(initial.values.toList())
+        override val allProfiles: Flow<List<DeviceProfileEntity>> = allFlow
+
+        val savedBindings = mutableListOf<DeviceProfileEntity>()
+
+        override suspend fun getProfileForRoute(routeId: String): DeviceProfileEntity? = byRoute[routeId]
+
+        override suspend fun saveProfile(
+            routeId: String,
+            routeType: String,
+            displayName: String,
+            boundPresetId: String,
+            boundCorrectionProfileId: String,
+            headphoneAcousticsOverride: Boolean?,
+            contextMode: String?,
+        ) {
+            val entity =
+                DeviceProfileEntity(
+                    routeId = routeId,
+                    routeType = routeType,
+                    displayName = displayName,
+                    boundPresetId = boundPresetId,
+                    boundCorrectionProfileId = boundCorrectionProfileId,
+                    headphoneAcousticsOverride = headphoneAcousticsOverride,
+                    contextMode = contextMode,
+                )
+            byRoute[routeId] = entity
+            savedBindings.add(entity)
+            allFlow.value = byRoute.values.toList()
+        }
+    }
+}

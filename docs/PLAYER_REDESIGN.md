@@ -278,7 +278,7 @@ gegeben. `MainViewModel.nowPlaying` wird für die Mini-Leiste nicht mehr gebrauc
 
 ## 5. Komponenten- und Dateiaufteilung
 
-Neu unter `app/src/main/java/com/hardbasseq/eq/ui/player/`:
+Neu unter `app/src/main/java/com/auracurve/app/ui/player/`:
 
 | Datei | Inhalt | Herkunft |
 |---|---|---|

@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.soundcloud.equalizer.player"
+    namespace = "com.auracurve.app.player"
     compileSdk = 37
 
     defaultConfig {

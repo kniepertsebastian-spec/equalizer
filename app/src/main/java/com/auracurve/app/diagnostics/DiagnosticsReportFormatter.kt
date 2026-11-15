@@ -1,0 +1,171 @@
+package com.auracurve.app.diagnostics
+
+import android.os.Build
+import com.auracurve.app.BuildConfig
+import com.auracurve.app.audio.AudioCapabilities
+import com.auracurve.app.audio.AudioEngineState
+import com.auracurve.app.audio.AudioRoute
+import com.auracurve.app.audio.ProcessingSettings
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+private val EXIT_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
+private val EVENT_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSS").withZone(ZoneId.systemDefault())
+
+object DiagnosticsReportFormatter {
+    fun generateReport(
+        engineState: AudioEngineState,
+        capabilities: AudioCapabilities,
+        route: AudioRoute,
+        processingSettings: ProcessingSettings? = null,
+        recentEvents: List<DiagnosticsEvent> = emptyList(),
+        playerSource: String? = null,
+        androidAutoConnected: Boolean? = null,
+        processExits: List<ProcessExitRecord> = emptyList(),
+        outputAudio: OutputAudioInfo? = null,
+        extendedAppDetection: Boolean? = null,
+    ): String =
+        buildString {
+            val isEffectivelyActive =
+                engineState is AudioEngineState.Active &&
+                    (processingSettings == null || (processingSettings.masterEnabled && !processingSettings.bypass))
+
+            appendLine("=== Baschtls Gedröhne Diagnostic Report ===")
+            appendLine("App Version: ${BuildConfig.VERSION_NAME}")
+            appendLine("Android API Level: ${Build.VERSION.SDK_INT}")
+            appendLine("Device Model: ${Build.MODEL}")
+            appendLine("Device Fingerprint: ${Build.FINGERPRINT}")
+            appendLine("Audio Output Route Type: ${route.type.name}")
+            appendLine("Audio Output Name: ${route.name}")
+            appendLine("Engine State: $engineState")
+            appendLine("EQ Status: ${eqStatusLine(engineState, processingSettings)}")
+            appendLine("Audio Session: ${sessionLine(engineState)}")
+            appendLine("Player: ${playerSource ?: "unknown"}")
+            androidAutoConnected?.let { appendLine("Android Auto: ${if (it) "connected" else "not connected"}") }
+            appendLine("Last Error: ${lastError(engineState) ?: "none"}")
+            appendLine("Last Process Exit: ${lastExitLine(processExits)}")
+            extendedAppDetection?.let {
+                appendLine(
+                    "Extended App Detection (DUMP): " +
+                        if (it) "granted" else "not granted (optional: adb shell pm grant com.auracurve.app android.permission.DUMP)",
+                )
+            }
+            appendLine()
+            appendLine("--- Capabilities ---")
+            appendLine("Has Equalizer: ${capabilities.hasEqualizer}")
+            appendLine("Has DynamicsProcessing: ${capabilities.hasDynamicsProcessing}")
+            appendLine("EQ Path: ${eqPathLine(capabilities)}")
+            if (processingSettings != null) {
+                appendLine("High-resolution EQ requested: ${processingSettings.highResolutionEq}")
+            }
+            capabilities.preEqUnavailableReason?.let { appendLine("High-resolution EQ unavailable: $it") }
+            appendLine("Has Input Gain: ${capabilities.hasInputGain}")
+            appendLine("Has Limiter: ${capabilities.hasLimiter}")
+            appendLine("Has Multiband Compressor: ${capabilities.hasMbc}")
+            appendLine("Band Count: ${capabilities.bands.size}")
+            capabilities.bands.forEach { band ->
+                val freqLabel = if (band.centerFreqHz >= 1000) "${band.centerFreqHz / 1000} kHz" else "${band.centerFreqHz} Hz"
+                appendLine("  Band #${band.index}: $freqLabel [${band.minGainDb} dB .. ${band.maxGainDb} dB]")
+            }
+            if (processingSettings != null) {
+                appendLine()
+                appendLine("--- Active DSP Stages ---")
+                appendLine("Hardware Processing Applied: $isEffectivelyActive")
+                appendLine("Master Enabled: ${processingSettings.masterEnabled}")
+                appendLine("Bypass: ${processingSettings.bypass}")
+                appendLine(
+                    "Input Gain: ${processingSettings.inputGainDb} dB " +
+                        "(applied=${isEffectivelyActive && capabilities.hasInputGain})",
+                )
+                appendLine(
+                    "Limiter Enabled: ${processingSettings.limiterEnabled} " +
+                        "(threshold ${processingSettings.limiterThresholdDb} dB, applied=${isEffectivelyActive && capabilities.hasLimiter})",
+                )
+                appendLine(
+                    "MBC Enabled: ${processingSettings.mbcEnabled} " +
+                        "(threshold ${processingSettings.mbcThresholdDb} dB, ratio ${processingSettings.mbcRatio}:1, " +
+                        "applied=${isEffectivelyActive && capabilities.hasMbc && processingSettings.mbcEnabled})",
+                )
+            }
+            outputAudio?.let { appendOutputAudio(it) }
+            if (processExits.isNotEmpty()) {
+                appendLine()
+                appendLine("--- Process Exit History (survives restarts) ---")
+                processExits.forEach { exit ->
+                    val time = EXIT_TIME_FORMATTER.format(Instant.ofEpochMilli(exit.timestampMillis))
+                    val detail = exit.description?.let { " - $it" } ?: ""
+                    appendLine("[$time] ${exit.reason}$detail")
+                }
+            }
+            if (recentEvents.isNotEmpty()) {
+                appendLine()
+                appendLine("--- Recent Session Events ---")
+                recentEvents.forEach { event ->
+                    val time = EVENT_TIME_FORMATTER.format(Instant.ofEpochMilli(event.timestampMillis))
+                    appendLine("[$time] ${event.message}")
+                }
+            }
+            appendLine("====================================")
+        }
+
+    private fun StringBuilder.appendOutputAudio(info: OutputAudioInfo) {
+        appendLine()
+        appendLine("--- Output Audio ---")
+        appendLine("Output Device Type: ${info.deviceType}")
+        appendLine("Native Output Sample Rate: ${info.nativeSampleRateHz?.let { "$it Hz" } ?: "unknown"}")
+        if (info.isBluetooth) {
+            appendLine("Bluetooth Sample Rates: ${info.supportedSampleRatesHz.joinToString(", ") { "$it Hz" }.ifEmpty { "not announced" }}")
+            appendLine("Bluetooth Encodings: ${info.encodings.joinToString(", ").ifEmpty { "not announced" }}")
+            appendLine("Bluetooth Codec: not readable (Android exposes the negotiated A2DP codec only via a hidden API)")
+        } else {
+            appendLine("Output Encodings: ${info.encodings.joinToString(", ").ifEmpty { "not announced" }}")
+        }
+    }
+
+    private fun lastExitLine(exits: List<ProcessExitRecord>): String {
+        val abnormal = exits.firstOrNull { it.isAbnormal() }
+        val shown = abnormal ?: exits.firstOrNull() ?: return "none recorded"
+        val time = EXIT_TIME_FORMATTER.format(Instant.ofEpochMilli(shown.timestampMillis))
+        return "${shown.reason} at $time" + if (abnormal == null) " (not a fault)" else ""
+    }
+
+    private fun eqStatusLine(
+        state: AudioEngineState,
+        settings: ProcessingSettings?,
+    ): String =
+        when {
+            settings != null && (!settings.masterEnabled || settings.bypass) -> "OFF (switched off or bypassed)"
+            state is AudioEngineState.Active -> "ACTIVE (effect confirmed on the audio path)"
+            state is AudioEngineState.Detached || state is AudioEngineState.Listening -> "WAITING (no audio session yet)"
+            state is AudioEngineState.Attaching -> "CONNECTING"
+            state is AudioEngineState.LostControl || state is AudioEngineState.Retrying -> "LOST (reconnecting)"
+            state is AudioEngineState.Unsupported -> "UNSUPPORTED (no compatible audio session)"
+            else -> "ERROR"
+        }
+
+    private fun sessionLine(state: AudioEngineState): String =
+        when (state) {
+            is AudioEngineState.Attaching -> "attaching to session ${state.sessionId}"
+            is AudioEngineState.Active -> "attached to session ${state.sessionId}"
+            is AudioEngineState.LostControl -> "lost session ${state.sessionId}"
+            is AudioEngineState.Retrying -> "retrying session ${state.sessionId} (attempt ${state.attempt})"
+            else -> "none"
+        }
+
+    private fun lastError(state: AudioEngineState): String? =
+        when (state) {
+            is AudioEngineState.LostControl -> state.reason
+            is AudioEngineState.Unsupported -> state.reason
+            is AudioEngineState.Error -> state.message
+            else -> null
+        }
+
+    private fun eqPathLine(capabilities: AudioCapabilities): String =
+        when {
+            capabilities.preEqCutoffsHz.isNotEmpty() -> "DP pre-EQ ${capabilities.preEqCutoffsHz.size}-band"
+            capabilities.hasEqualizer && capabilities.bands.isNotEmpty() -> "classic ${capabilities.bands.size}-band"
+            capabilities.hasEqualizer -> "classic (awaiting session attach for band layout)"
+            else -> "DP unavailable"
+        }
+}

@@ -17,9 +17,9 @@ This document describes recent improvements to automatic audio session detection
 - Only shuts down after 10 minutes of **no audio playback** AND no session AND app not visible
 
 **Files Changed**:
-- `app/src/main/java/com/hardbasseq/eq/audio/AudioPlaybackMonitor.kt` (NEW)
-- `app/src/main/java/com/hardbasseq/eq/di/AudioModule.kt`
-- `app/src/main/java/com/hardbasseq/eq/service/AudioSessionForegroundService.kt`
+- `app/src/main/java/com/auracurve/app/audio/AudioPlaybackMonitor.kt` (NEW)
+- `app/src/main/java/com/auracurve/app/di/AudioModule.kt`
+- `app/src/main/java/com/auracurve/app/service/AudioSessionForegroundService.kt`
 
 **How it works**:
 1. The foreground service now monitors system-wide audio playback

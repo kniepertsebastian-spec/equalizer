@@ -1,0 +1,122 @@
+package com.auracurve.app.player.playback
+
+import android.content.Context
+import com.auracurve.app.link.LinkSource
+import com.auracurve.app.link.ShareLink
+import com.auracurve.app.player.PlayerText
+import com.auracurve.app.player.R
+import com.auracurve.app.player.auth.SoundCloudLoginActivity
+import com.auracurve.app.player.model.ExternalTrackInfo
+import com.auracurve.app.player.model.ResolvedLink
+import com.auracurve.app.player.model.TrackItem
+import com.auracurve.app.player.soundcloud.SoundCloudClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import java.io.IOException
+import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
+
+// Entry point for turning a shared link into tracks, for callers outside this module.
+// Keeps SoundCloudClient (and the OkHttp types in its constructor) inside :player, so
+// :app only ever sees plain model classes.
+class LinkResolver(
+    private val context: Context,
+) {
+    private val client = SoundCloudClient()
+    private val http =
+        OkHttpClient
+            .Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
+
+    suspend fun resolve(url: String): ResolvedLink {
+        SoundCloudLoginActivity.getSavedToken(context)?.let { client.setUserAuthToken(it) }
+        return client.resolveLink(url)
+    }
+
+    /**
+     * Title (and channel) of the song behind a YouTube or Spotify link, from the
+     * service's public oEmbed preview endpoint - the same data a chat app shows as a link
+     * preview. Nothing is played or downloaded from those services.
+     */
+    suspend fun describeExternal(url: String): ExternalTrackInfo =
+        withContext(Dispatchers.IO) {
+            val endpoint =
+                when (ShareLink.classify(url)) {
+                    LinkSource.YOUTUBE -> "https://www.youtube.com/oembed?format=json&url="
+                    LinkSource.SPOTIFY -> "https://open.spotify.com/oembed?url="
+                    else -> throw IOException(PlayerText.get(R.string.err_link_unsupported_host))
+                } + URLEncoder.encode(url, "UTF-8")
+            val request =
+                Request
+                    .Builder()
+                    .url(endpoint)
+                    .header("Accept", "application/json")
+                    .build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException(
+                        if (response.code in NO_DETAILS_CODES) {
+                            PlayerText.get(R.string.err_no_details)
+                        } else {
+                            PlayerText.get(R.string.err_provider_no_answer, response.code)
+                        },
+                    )
+                }
+                val json = JSONObject(response.body?.string().orEmpty())
+                val title = json.optString("title").takeIf { it.isNotBlank() } ?: throw IOException(PlayerText.get(R.string.err_link_no_title))
+                val author = if (json.isNull("author_name")) null else json.optString("author_name").takeIf { it.isNotBlank() }
+                ExternalTrackInfo(title = title, author = author)
+            }
+        }
+
+    /**
+     * The public embed page of a Spotify playlist as text (it lists the tracks); read
+     * by SpotifyPlaylistPage. Nothing is played or downloaded from Spotify.
+     */
+    suspend fun fetchSpotifyPlaylistPage(playlistId: String): String = fetchPage(ShareLink.spotifyPlaylistEmbedUrl(playlistId))
+
+    /** The public embed page of a single Spotify track (names its artist); read by SpotifyTrackPage. */
+    suspend fun fetchSpotifyTrackPage(trackId: String): String = fetchPage(ShareLink.spotifyTrackEmbedUrl(trackId))
+
+    private suspend fun fetchPage(url: String): String =
+        withContext(Dispatchers.IO) {
+            val request =
+                Request
+                    .Builder()
+                    .url(url)
+                    .header("Accept", "text/html")
+                    .header("User-Agent", BROWSER_USER_AGENT)
+                    .build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException(
+                        if (response.code in NO_DETAILS_CODES) {
+                            PlayerText.get(R.string.err_not_public)
+                        } else {
+                            PlayerText.get(R.string.err_spotify_page_http, response.code)
+                        },
+                    )
+                }
+                response.body?.string().orEmpty()
+            }
+        }
+
+    /** SoundCloud search results as candidates: metadata only, streams are resolved when one plays. */
+    suspend fun searchTracks(
+        query: String,
+        limit: Int,
+    ): List<TrackItem> {
+        SoundCloudLoginActivity.getSavedToken(context)?.let { client.setUserAuthToken(it) }
+        return client.searchTracks(query, limit, resolveStreams = false)
+    }
+
+    private companion object {
+        val NO_DETAILS_CODES = setOf(401, 403, 404)
+        const val BROWSER_USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+    }
+}

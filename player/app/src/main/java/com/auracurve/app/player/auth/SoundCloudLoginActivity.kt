@@ -1,0 +1,279 @@
+package com.auracurve.app.player.auth
+
+import android.annotation.SuppressLint
+import android.app.Dialog
+import android.content.Context
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.Message
+import android.text.InputType
+import android.view.Gravity
+import android.view.ViewGroup
+import android.webkit.CookieManager
+import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.widget.Button
+import android.widget.EditText
+import android.widget.FrameLayout
+import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
+import com.auracurve.app.player.R
+
+class SoundCloudLoginActivity : AppCompatActivity() {
+
+    companion object {
+        const val PREFS_NAME = "sc_auth_prefs"
+        const val KEY_OAUTH_TOKEN = "oauth_token"
+
+        // Android WebView's default UA includes a "wv" token (and an old
+        // "Version/4.0" segment) that Google's login explicitly detects and
+        // blocks ("This browser or app may not be secure"), since SoundCloud's
+        // sign-in is Facebook/Google/Apple-only now (no email/password form).
+        // A UA matching a real Chrome build sidesteps that block.
+        //
+        // Must be a DESKTOP UA: soundcloud.com 307-redirects any mobile-looking UA
+        // (including a mobile Chrome one) to m.soundcloud.com/signin instead, an
+        // unverified separate flow - stick to the desktop /signin page this was
+        // actually tested against.
+        private const val CHROME_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+
+        fun getSavedToken(context: Context): String? {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getString(KEY_OAUTH_TOKEN, null)
+        }
+
+        fun saveToken(context: Context, token: String) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putString(KEY_OAUTH_TOKEN, token).apply()
+        }
+
+        fun clearToken(context: Context) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().remove(KEY_OAUTH_TOKEN).apply()
+        }
+
+        // Android WebView attaches an "X-Requested-With: <package name>" header to
+        // every request by default, on top of whatever User-Agent is set. Google's
+        // sign-in explicitly checks for that header to detect it's being loaded
+        // inside an embedded WebView rather than a real browser and blocks the
+        // flow ("This browser or app may not be secure") regardless of UA
+        // spoofing - this is the actual mechanism behind that block, not the UA
+        // string. Clearing the allow-list removes the header for every origin.
+        // RestrictedApi: the feature constant is marked library-group-only in webkit 1.11, but there
+        // is no other way to ask whether the allow-list can be set.
+        @SuppressLint("RestrictedApi")
+        private fun disableRequestedWithHeader(webView: WebView) {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())
+            }
+        }
+    }
+
+    private lateinit var webView: WebView
+    private val cookiePoller = Handler(Looper.getMainLooper())
+    private var polling = false
+    private var popupDialog: Dialog? = null
+
+    @SuppressLint("SetJavaScriptEnabled")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        webView = WebView(this)
+
+        // Google's sign-in blocks embedded WebViews outright (see
+        // disableRequestedWithHeader below) for accounts that only ever signed up
+        // via "Continue with Google" - no UA/header spoofing gets around it
+        // reliably, and there's no email/password fallback to offer instead. Until
+        // there's a real fix (would need SoundCloud's own OAuth API access, which
+        // is closed to third-party developers - see docs/DECISIONS.md), offer a
+        // manual escape hatch: log in via real Chrome (where Google's block
+        // doesn't apply) and paste the resulting oauth_token cookie in here.
+        val manualEntryButton =
+            Button(this).apply {
+                text = getString(R.string.login_manual_token)
+                setOnClickListener { showManualTokenDialog() }
+            }
+        val root =
+            FrameLayout(this).apply {
+                addView(webView, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                addView(
+                    manualEntryButton,
+                    FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                        gravity = Gravity.BOTTOM or Gravity.END
+                        val marginPx = (16 * resources.displayMetrics.density).toInt()
+                        bottomMargin = marginPx
+                        rightMargin = marginPx
+                    },
+                )
+            }
+        setContentView(root)
+
+        webView.settings.javaScriptEnabled = true
+        webView.settings.domStorageEnabled = true
+        webView.settings.userAgentString = CHROME_USER_AGENT
+        // Facebook/Google/Apple's SoundCloud sign-in buttons open their OAuth
+        // flow via window.open() - without multi-window support the WebView
+        // silently swallows that call and nothing happens on click.
+        webView.settings.setSupportMultipleWindows(true)
+        webView.settings.javaScriptCanOpenWindowsAutomatically = true
+        disableRequestedWithHeader(webView)
+
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
+
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                checkCookies()
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                checkCookies()
+                return false
+            }
+        }
+
+        webView.webChromeClient = object : WebChromeClient() {
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: Message?,
+            ): Boolean {
+                // The OAuth provider popup needs to actually be shown - the user has
+                // to type credentials/approve the sign-in on it. A previous version
+                // of this routed it to an off-screen, never-attached WebView, so
+                // nothing visibly happened on tapping Google/Facebook/Apple and
+                // those WebViews were never destroyed either (leaking on every
+                // attempt). Show it full-screen in a Dialog instead.
+                popupDialog?.dismiss()
+
+                val popup = WebView(this@SoundCloudLoginActivity)
+                popup.settings.javaScriptEnabled = true
+                popup.settings.domStorageEnabled = true
+                popup.settings.userAgentString = CHROME_USER_AGENT
+                disableRequestedWithHeader(popup)
+                cookieManager.setAcceptThirdPartyCookies(popup, true)
+
+                val dialog = Dialog(this@SoundCloudLoginActivity, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+                dialog.setContentView(popup)
+                dialog.setOnDismissListener {
+                    popup.destroy()
+                    if (popupDialog === dialog) popupDialog = null
+                }
+                popupDialog = dialog
+
+                popup.webViewClient =
+                    object : WebViewClient() {
+                        override fun onPageFinished(popupView: WebView?, url: String?) {
+                            super.onPageFinished(popupView, url)
+                            checkCookies()
+                            // Once the popup has navigated back to a soundcloud.com
+                            // page (OAuth flow completed/redirected), surface that
+                            // in the main WebView so the user sees the result and
+                            // any further first-party redirects keep working.
+                            if (url != null && url.contains("soundcloud.com") && !url.contains("accounts.google") &&
+                                !url.contains("facebook.com") && !url.contains("appleid.apple.com")
+                            ) {
+                                webView.loadUrl(url)
+                                dialog.dismiss()
+                            }
+                        }
+                    }
+                val transport = resultMsg?.obj as? WebView.WebViewTransport
+                transport?.webView = popup
+                resultMsg?.sendToTarget()
+                dialog.show()
+                return true
+            }
+        }
+
+        webView.loadUrl("https://soundcloud.com/signin")
+        startCookiePolling()
+    }
+
+    // SoundCloud's sign-in is a client-side SPA: once logged in it updates its
+    // own state without a full page navigation, so WebViewClient's
+    // onPageFinished/shouldOverrideUrlLoading callbacks alone can miss it. Poll
+    // the cookie jar directly while this screen is open as a fallback.
+    private fun startCookiePolling() {
+        if (polling) return
+        polling = true
+        val tick =
+            object : Runnable {
+                override fun run() {
+                    if (!polling) return
+                    checkCookies()
+                    cookiePoller.postDelayed(this, 1000)
+                }
+            }
+        cookiePoller.postDelayed(tick, 1000)
+    }
+
+    private fun showManualTokenDialog() {
+        val input =
+            EditText(this).apply {
+                hint = "oauth_token"
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+                val paddingPx = (16 * resources.displayMetrics.density).toInt()
+                setPadding(paddingPx, paddingPx, paddingPx, paddingPx)
+            }
+
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.login_token_title))
+            .setMessage(
+                getString(R.string.login_token_help),
+            )
+            .setView(input)
+            .setPositiveButton(getString(R.string.action_save)) { _, _ ->
+                val token = input.text.toString().trim()
+                if (token.isNotEmpty()) {
+                    polling = false
+                    saveToken(this, token)
+                    setResult(RESULT_OK)
+                    finish()
+                }
+            }
+            .setNegativeButton(getString(R.string.action_cancel), null)
+            .show()
+    }
+
+    private fun checkCookies() {
+        CookieManager.getInstance().flush()
+        val cookies = CookieManager.getInstance().getCookie("https://soundcloud.com") ?: return
+
+        for (cookie in cookies.split(";")) {
+            val pair = cookie.trim().split("=")
+            if (pair.size >= 2) {
+                val name = pair[0].trim()
+                val value = pair.subList(1, pair.size).joinToString("=").trim()
+                if (name == "oauth_token" || name == "oauth_token_v2") {
+                    polling = false
+                    saveToken(this, value)
+                    setResult(RESULT_OK)
+                    finish()
+                    return
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        polling = false
+        cookiePoller.removeCallbacksAndMessages(null)
+        popupDialog?.dismiss()
+        popupDialog = null
+        if (::webView.isInitialized) {
+            webView.destroy()
+        }
+        super.onDestroy()
+    }
+}
