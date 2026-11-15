@@ -2,8 +2,8 @@
 
 **Projekt:** AuraCurve (ehemals *HardBass EQ* / *Baschtls Gedröhne*)  
 **Stand:** 15.11.2026 (überarbeitet nach Freigabe)  
-**Bezug:** Gehört zu `eq-review.md` (dort stehen die technischen Befunde mit Datei und Zeile).  
-**Ablage:** `docs/roadmaps_in_progress/auracurve/`. Vorhanden sind bisher Teil 00 und 01; 02 bis 06 folgen. Die älteren Roadmaps in `docs/roadmaps_in_progress/` (siehe `../00-INDEX.md`) laufen unabhängig weiter.
+**Bezug:** Gehört zu [`eq-review.md`](eq-review.md) (dort stehen die technischen Befunde mit Datei und Zeile).  
+**Ablage:** `docs/roadmaps_in_progress/auracurve/`. Vorhanden sind bisher Teil 00, 01 und der Review `eq-review.md`; 02 bis 06 folgen. Die älteren Roadmaps in `docs/roadmaps_in_progress/` (siehe `../00-INDEX.md`) laufen unabhängig weiter.
 
 ---
 
