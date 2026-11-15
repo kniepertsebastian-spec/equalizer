@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "HardBassEQ"
+rootProject.name = "AuraCurve"
 
 include(":app")
 include(":core")

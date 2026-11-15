@@ -10,15 +10,19 @@ import java.util.zip.Deflater
 import java.util.zip.Inflater
 
 /**
- * Turns a preset into a short link (`hardbasseq://preset?v=1&d=...`) and back, so it can be sent in
- * a message or shown as a QR code (roadmap 06, P5-4).
+ * Turns a preset into a short link (`auracurve://preset?v=1&d=...`) and back, so it can be sent in
+ * a message or shown as a QR code (roadmap 06, P5-4). Links from before the rename to AuraCurve
+ * (`hardbasseq://preset?...`) are still read.
  *
  * The payload is the preset's JSON, deflated and base64url-encoded. Decoding is the untrusted side:
  * the inflated size is capped before anything is parsed, and the result goes through the same
  * validation as a preset imported from a file ([PresetJsonSerializer.importFromJson]).
  */
 object PresetShareCodec {
-    const val SCHEME = "hardbasseq"
+    const val SCHEME = "auracurve"
+
+    // The scheme of links shared before the rename to AuraCurve (AuraCurve roadmap 01, M.2).
+    const val LEGACY_SCHEME = "hardbasseq"
     const val HOST = "preset"
     private const val VERSION = 1
     private const val MAX_INFLATED_BYTES = 100 * 1024
@@ -32,7 +36,10 @@ object PresetShareCodec {
             encodeDefaults = false
         }
 
-    fun isShareLink(text: String): Boolean = text.trim().startsWith("$SCHEME://$HOST", ignoreCase = true)
+    fun isShareLink(text: String): Boolean {
+        val trimmed = text.trim()
+        return listOf(SCHEME, LEGACY_SCHEME).any { trimmed.startsWith("$it://$HOST", ignoreCase = true) }
+    }
 
     fun encode(preset: Preset): String {
         // Built-in status and identity are the receiver's business, not part of what is shared.
@@ -46,7 +53,7 @@ object PresetShareCodec {
     fun decode(link: String): Result<Preset> =
         runCatching {
             val trimmed = link.trim()
-            require(isShareLink(trimmed)) { "Not a HardBass EQ preset link" }
+            require(isShareLink(trimmed)) { "Not an AuraCurve preset link" }
             val query = trimmed.substringAfter('?', "")
             val params =
                 query

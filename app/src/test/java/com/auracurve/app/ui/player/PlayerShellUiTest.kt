@@ -41,7 +41,7 @@ import com.auracurve.app.ui.player.nowplaying.NowPlayingScreen
 import com.auracurve.app.ui.player.nowplaying.NowPlayingUi
 import com.auracurve.app.ui.player.queue.QueueActions
 import com.auracurve.app.ui.player.queue.QueueSheet
-import com.auracurve.app.ui.theme.HardBassEqTheme
+import com.auracurve.app.ui.theme.AuraCurveTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -116,7 +116,7 @@ class PlayerShellUiTest {
     fun miniPlayer_showsTheTrackAndControlsPlayback() {
         val calls = Calls()
         compose.setContent {
-            HardBassEqTheme {
+            AuraCurveTheme {
                 MiniPlayer(
                     ui = NowPlayingUi.from(nowPlaying()),
                     eqStatus = EqStatusKind.ACTIVE,
@@ -143,7 +143,7 @@ class PlayerShellUiTest {
     @Test
     fun miniPlayer_showsANoticeInsteadOfTheArtist() {
         compose.setContent {
-            HardBassEqTheme {
+            AuraCurveTheme {
                 MiniPlayer(
                     ui = NowPlayingUi.from(nowPlaying(isPlaying = false, notice = PlayerNotice.WaitingForNetwork, isPreview = true)),
                     eqStatus = EqStatusKind.WAITING,
@@ -166,7 +166,7 @@ class PlayerShellUiTest {
     fun nowPlaying_portrait() {
         val calls = Calls()
         compose.setContent {
-            HardBassEqTheme {
+            AuraCurveTheme {
                 Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                     NowPlayingScreen(ui = NowPlayingUi.from(nowPlaying()), context = context(), actions = actions(calls))
                 }
@@ -186,7 +186,7 @@ class PlayerShellUiTest {
     fun nowPlaying_offersTryAgainWhenPlaybackStopped() {
         val calls = Calls()
         compose.setContent {
-            HardBassEqTheme {
+            AuraCurveTheme {
                 NowPlayingScreen(
                     ui = NowPlayingUi.from(nowPlaying(isPlaying = false, notice = PlayerNotice.NetworkGaveUp)),
                     context = context(),
@@ -205,7 +205,7 @@ class PlayerShellUiTest {
     @Config(qualifiers = "w891dp-h411dp-land-xxhdpi")
     fun nowPlaying_landscape() {
         compose.setContent {
-            HardBassEqTheme {
+            AuraCurveTheme {
                 NowPlayingScreen(ui = NowPlayingUi.from(nowPlaying()), context = context(), actions = actions(Calls()))
             }
         }
@@ -219,7 +219,7 @@ class PlayerShellUiTest {
         val calls = mutableListOf<String>()
         val queue = List(6) { TrackItem(it.toLong(), "Track $it", "Artist $it", null, null, 180_000L) }
         compose.setContent {
-            HardBassEqTheme {
+            AuraCurveTheme {
                 QueueSheet(
                     queue = queue,
                     currentIndex = 1,
@@ -258,7 +258,7 @@ class PlayerShellUiTest {
         val all = List(6) { TrackItem(it.toLong(), "Track $it", "Artist $it", null, null, 180_000L) }
         var queue by mutableStateOf(all)
         compose.setContent {
-            HardBassEqTheme {
+            AuraCurveTheme {
                 QueueSheet(
                     queue = queue,
                     currentIndex = 1,

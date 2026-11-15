@@ -20,7 +20,7 @@ import com.auracurve.app.quick.QuickCommandIntents
 import com.auracurve.app.ui.main.MainViewModel
 import com.auracurve.app.ui.navigation.AppNavHost
 import com.auracurve.app.ui.player.PlayerViewModel
-import com.auracurve.app.ui.theme.HardBassEqTheme
+import com.auracurve.app.ui.theme.AuraCurveTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
             handleOpenPlayerIntent(intent)
         }
         setContent {
-            HardBassEqTheme {
+            AuraCurveTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     AppNavHost(playerViewModel = playerViewModel)
                 }
@@ -55,8 +55,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        // See HardBassEqApplication.startSessionService: a process created in the background could not start it.
-        (application as? HardBassEqApplication)?.startSessionService()
+        // See AuraCurveApplication.startSessionService: a process created in the background could not start it.
+        (application as? AuraCurveApplication)?.startSessionService()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
             mainViewModel.queueQuickCommand(command)
             return
         }
-        // A scanned QR code or tapped link: hardbasseq://preset?... (roadmap 06, P5-4).
+        // A scanned QR code or tapped link: auracurve://preset?... (also the old hardbasseq://, roadmap 06, P5-4).
         val link = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.dataString
         if (link != null && PresetShareCodec.isShareLink(link)) {
             mainViewModel.importPresetLink(link)

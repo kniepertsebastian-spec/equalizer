@@ -7,7 +7,7 @@
         <!--
           Needs an explicit AppCompat-descended theme:
           with none set here it fell back to the merged app's own application theme
-          (Theme.HardBassEQ, parent android:Theme.Material.Light.NoActionBar - not an
+          (Theme.AuraCurve, parent android:Theme.Material.Light.NoActionBar - not an
           AppCompat/Material Components theme). AppCompatActivity.setContentView()
           throws IllegalStateException("You need to use a Theme.AppCompat theme (or
           descendant) with this activity.") in that case, which crashed this activity
@@ -18,7 +18,7 @@
             android:name=".auth.SoundCloudLoginActivity"
             android:exported="false"
             android:label="SoundCloud Login"
-            android:theme="@style/Theme.SoundCloudEqualizerPlayer" />
+            android:theme="@style/Theme.AuraCurvePlayer" />
 
         <!--
           Spotify sign-in: the browser is sent back to hardbasseq://spotify-callback (the redirect

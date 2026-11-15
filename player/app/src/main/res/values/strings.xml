@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="svc_channel_name">Baschtls Gedröhne playback</string>
+    <string name="svc_channel_name">AuraCurve playback</string>
     <string name="action_save">Save</string>
     <string name="action_cancel">Cancel</string>
 </resources>

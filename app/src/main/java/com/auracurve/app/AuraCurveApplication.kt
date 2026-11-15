@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltAndroidApp
-class HardBassEqApplication :
+class AuraCurveApplication :
     Application(),
     SingletonImageLoader.Factory {
     @Inject
@@ -111,7 +111,7 @@ class HardBassEqApplication :
     }
 
     private companion object {
-        const val TAG = "HardBassEqApplication"
+        const val TAG = "AuraCurveApplication"
         const val DISCOVERY_WORK_NAME = "discovery_weekly_refresh"
         const val DISCOVERY_CHECK_HOURS = 6L
         const val COVER_CACHE_DIR = "covers"

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes recent improvements to automatic audio session detection and sound quality in HardBass EQ.
+This document describes recent improvements to automatic audio session detection and sound quality in AuraCurve.
 
 ## Changes Made
 
@@ -116,7 +116,7 @@ The app has a built-in diagnostics screen that shows:
 ### EQ Not Activating Automatically
 
 1. **Check notification permission** (Android 13+)
-   - Settings → Apps → HardBass EQ → Permissions → Notifications
+   - Settings → Apps → AuraCurve → Permissions → Notifications
    - Must be enabled to show the foreground service notification
 
 2. **Check diagnostics screen**:
@@ -124,7 +124,7 @@ The app has a built-in diagnostics screen that shows:
    - If missing, the monitoring isn't working
 
 3. **Check battery optimization**:
-   - Settings → Apps → HardBass EQ → Battery → Unrestricted
+   - Settings → Apps → AuraCurve → Battery → Unrestricted
    - Some manufacturers aggressively kill background services
 
 ### Sound Quality Issues

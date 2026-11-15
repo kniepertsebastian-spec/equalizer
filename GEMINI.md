@@ -1,7 +1,7 @@
-# HardBass EQ — Gemini Instructions
+# AuraCurve — Gemini Instructions
 
 ## Projekt
-HardBass EQ: Equalizer für Android mit begleitendem Player.
+AuraCurve (vormals HardBass EQ): Equalizer für Android mit begleitendem Player.
 - Android: Kotlin, Jetpack Compose, Material 3, Coroutines/StateFlow, Hilt, Room.
 - Gradle-Module: `:app`, `:core`, `:player` (das Desktop-Modul wurde am 5. November 2026 entfernt).
 - DSP, Preset-Kurven und Headroom-Berechnung liegen soweit möglich in `:core`.

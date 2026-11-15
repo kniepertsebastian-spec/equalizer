@@ -46,7 +46,7 @@ import com.auracurve.app.ui.theme.SonicAmber
 import com.auracurve.app.ui.theme.SonicSteel
 
 // A cover from SoundCloud, loaded and cached by Coil (memory and disk, see
-// HardBassEqApplication.newImageLoader), so scrolling a list or reopening the player does not
+// AuraCurveApplication.newImageLoader), so scrolling a list or reopening the player does not
 // download it again. Until it is there (or when there is none) a note stands in for it.
 @Composable
 fun CoverImage(

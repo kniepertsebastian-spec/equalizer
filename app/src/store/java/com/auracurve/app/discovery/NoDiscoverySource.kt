@@ -8,7 +8,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
 // Flavor "store": new uploads are looked up on SoundCloud, which this variant does not use. The
-// weekly refresh is not scheduled here (HardBassEqApplication), so this only answers a stray call.
+// weekly refresh is not scheduled here (AuraCurveApplication), so this only answers a stray call.
 class NoDiscoverySource
     @Inject
     constructor(
