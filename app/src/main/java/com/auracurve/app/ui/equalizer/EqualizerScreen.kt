@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -452,6 +453,7 @@ fun EqualizerScreen(
 
     @Composable
     fun GenreSection() {
+        var presetUsageOpen by rememberSaveable { mutableStateOf(false) }
         Section {
             SectionHeader(title = stringResource(R.string.genre_title))
             GenreChoices(
@@ -508,6 +510,28 @@ fun EqualizerScreen(
                 // P5-4: a preset link someone sent (or a scanned QR code, which opens the app directly).
                 TextButton(onClick = onImportPresetLinkRequested) {
                     Text(stringResource(R.string.preset_import_link))
+                }
+                // When the active preset (genre or custom) is a good choice; the same (i) pattern as
+                // SectionHeader. Each custom preset also has it in its own menu.
+                IconButton(onClick = { presetUsageOpen = !presetUsageOpen }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Info,
+                        contentDescription =
+                            stringResource(
+                                if (presetUsageOpen) R.string.preset_usage_active_less else R.string.preset_usage_active_more,
+                            ),
+                        tint = if (presetUsageOpen) style.accent else style.mutedText,
+                    )
+                }
+            }
+            AnimatedVisibility(visible = presetUsageOpen) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = spacing.small)) {
+                    Text(
+                        text = stringResource(R.string.preset_usage_active_label, activePreset.name),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = style.text,
+                    )
+                    PresetUsageText(preset = activePreset, style = style)
                 }
             }
             if (customPresets.isNotEmpty()) {
