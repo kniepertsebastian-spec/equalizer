@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  AuraCurve app icon: the artwork (mipmap-*/ic_launcher_art.png) is the full layer, its visible
+  72 dp centre is the picture inside its rounded square; the margin is a blurred copy for the
+  launcher's parallax and masks. The curve shape stays as the monochrome layer for themed icons.
+  Source and the 512 px store version: docs/store/icon-512.png.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <background android:drawable="@mipmap/ic_launcher_art" />
+    <foreground android:drawable="@android:color/transparent" />
+    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
 </adaptive-icon>
