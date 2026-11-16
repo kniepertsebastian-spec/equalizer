@@ -20,6 +20,7 @@ import com.auracurve.app.audio.AudioEngine
 import com.auracurve.app.audio.AudioEngineState
 import com.auracurve.app.audio.AudioRouteRepository
 import com.auracurve.app.audio.AudioSessionRepository
+import com.auracurve.app.audio.SavedSettingsRestorer
 import com.auracurve.app.audio.SystemVolumeRepository
 import com.auracurve.app.diagnostics.DiagnosticsRecorder
 import dagger.hilt.android.AndroidEntryPoint
@@ -70,6 +71,9 @@ class AudioSessionForegroundService : LifecycleService() {
     @Inject
     lateinit var sessionScanner: com.auracurve.app.audio.SessionScanner
 
+    @Inject
+    lateinit var savedSettingsRestorer: SavedSettingsRestorer
+
     private var foregroundStarted = false
 
     override fun onCreate() {
@@ -84,6 +88,10 @@ class AudioSessionForegroundService : LifecycleService() {
         playbackMonitor.startMonitoring()
 
         lifecycleScope.launch {
+            // E-008: without MainViewModel nobody else puts the saved curve on the engine, and
+            // attach() applies whatever the engine holds. Restored before the first session attaches.
+            val restored = savedSettingsRestorer.restoreIfEngineUntouched()
+            diagnosticsRecorder.record("Saved EQ settings at service start: ${if (restored) "restored" else "not restored"}")
             sessionRepository.activeSession.collect { session ->
                 if (session != null) {
                     // Only monitor volume changes while an active session exists to avoid
