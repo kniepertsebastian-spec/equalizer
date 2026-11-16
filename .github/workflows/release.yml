@@ -40,8 +40,9 @@ jobs:
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/hardbasseq-release.jks"
           VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER * 100 + GITHUB_RUN_ATTEMPT))
           VERSION_NAME="${TAG#v}"
-          # Only the "full" flavor updates itself (AuraCurve roadmap 02, 1.3); the store build comes
-          # from Google Play. Its application ID is com.auracurve.app.full.
+          # Only AuraCurve Full is released here and updates itself (AuraCurve roadmap 02, 1.3); the
+          # store build lives in its own repository and comes from Google Play. Its application ID
+          # is com.auracurve.app.full.
           ./gradlew :app:assembleFullRelease \
             -Phardbasseq.versionCode="$VERSION_CODE" \
             -Phardbasseq.versionName="$VERSION_NAME" \
