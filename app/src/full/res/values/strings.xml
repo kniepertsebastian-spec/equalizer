@@ -36,4 +36,8 @@
     <string name="remote_server_action_stop">Stop</string>
     <string name="remote_server_error_port">The server could not open port %1$d. Is another server running?</string>
     <string name="remote_server_error_not_allowed">Android did not allow the server to start. Open AuraCurve and try again.</string>
+    <string name="remote_notification_listener_label">AuraCurve remote control (Spotify)</string>
+    <string name="remote_server_spotify_access">Spotify control needs notification access.</string>
+    <string name="remote_server_spotify_access_granted">Spotify control: notification access granted.</string>
+    <string name="remote_server_open_access">Allow access</string>
 </resources>
