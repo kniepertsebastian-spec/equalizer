@@ -23,6 +23,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Hearing
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -88,7 +91,6 @@ import com.auracurve.app.ui.eq.EqStatusKind
 import com.auracurve.app.ui.eq.EqStatusLine
 import com.auracurve.app.ui.main.CompareSide
 import com.auracurve.app.ui.main.CompareState
-import com.auracurve.app.ui.theme.SonicNumerals
 import com.auracurve.app.ui.theme.spacing
 
 @Composable
@@ -534,32 +536,19 @@ fun EqualizerScreen(
             )
             val selectedGenre = selectedGenreIntensity?.first
             val selectedIntensity = selectedGenreIntensity?.second
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.intensity_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = style.text,
-                    modifier = Modifier.weight(1f),
-                )
-                if (selectedGenre != null && selectedIntensity != null && selectedGenre.allowsIntensity) {
-                    Text(text = selectedIntensity.displayName, style = SonicNumerals.value, color = style.accent)
-                }
-            }
+            // The segments name every level, so the heading needs no value of its own.
+            Text(
+                text = stringResource(R.string.intensity_title),
+                style = MaterialTheme.typography.titleSmall,
+                color = style.text,
+                modifier = Modifier.padding(top = spacing.small),
+            )
             IntensityStepper(
                 labels = intensities.map { it.displayName },
                 selectedIndex = selectedIntensity?.let { intensities.indexOf(it) }?.takeIf { it >= 0 },
                 enabled = selectedGenre?.allowsIntensity == true,
                 onSelect = { index -> selectedGenre?.let { onGenreIntensitySelected(it, intensities[index]) } },
             )
-            if (intensities.isNotEmpty()) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Caption(text = intensities.first().displayName, color = style.mutedText)
-                    Caption(text = intensities.last().displayName, color = style.mutedText)
-                }
-            }
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
@@ -630,16 +619,13 @@ fun EqualizerScreen(
                         stringResource(R.string.context_virtual_bass_desc),
                     ).joinToString("\n"),
             )
-            Row(
-                modifier = Modifier.padding(top = spacing.small),
-                horizontalArrangement = Arrangement.spacedBy(spacing.small),
-            ) {
+            Column {
                 SignalModuleTile(
                     title = stringResource(R.string.module_loudness),
                     detail = stringResource(if (settings.loudnessMaxBoostDb > 0f) R.string.module_on else R.string.module_off),
                     checked = settings.loudnessMaxBoostDb > 0f,
                     onCheckedChange = onLoudnessCompensationChanged,
-                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.Hearing,
                 )
                 SignalModuleTile(
                     title = stringResource(R.string.module_subsonic),
@@ -653,7 +639,7 @@ fun EqualizerScreen(
                         },
                     checked = settings.subsonicCutoffHz > 0f,
                     onCheckedChange = onSubsonicFilterChanged,
-                    modifier = Modifier.weight(1f),
+                    icon = Icons.Outlined.FilterAlt,
                 )
                 SignalModuleTile(
                     title = stringResource(R.string.module_virtual_bass),
@@ -668,7 +654,8 @@ fun EqualizerScreen(
                         ),
                     checked = settings.virtualBassMix > 0f,
                     onCheckedChange = onVirtualBassChanged,
-                    modifier = Modifier.weight(1f).alpha(if (isOwnPlayerSession) 1f else 0.6f),
+                    icon = Icons.Outlined.GraphicEq,
+                    modifier = Modifier.alpha(if (isOwnPlayerSession) 1f else 0.6f),
                 )
             }
         }

@@ -44,9 +44,9 @@ Use the existing design tokens if available. Extend the current theme rather tha
 
 Suggested visual direction:
 
-- Background: deep graphite or near-black.
-- Secondary surfaces: dark charcoal with subtle tonal separation.
-- Primary accent: warm amber or electric orange.
+- Background: deep blue-black (`SonicGraphite`).
+- Secondary surfaces: tonal violet-gray cards (`SonicGraphiteRaised`, `SonicGraphiteControl`) instead of hairline dividers.
+- Primary accent: a violet-to-blue gradient (`SonicAccentBrush`) for filled controls, with `SonicViolet` as its single-color form for text, outlines and thumbs.
 - Secondary accent: restrained signal green for active signal or positive states.
 - Text: high-contrast off-white.
 - Secondary text: cool gray.
@@ -55,12 +55,12 @@ Suggested visual direction:
 
 ### Visual Rules
 
-- Use amber for the primary interactive accent and selected controls.
+- Use the violet-to-blue gradient for the primary interactive accent and selected controls (pills, segments, switches, the power key).
 - Use green for meaningful signal or active-processing states, not as decoration.
 - Make active, inactive, bypassed, and unavailable states visually distinct.
-- Use gradients sparingly.
-- Avoid excessive glow, neon outlines, and glassmorphism.
-- Use consistent iconography and restrained corner radii.
+- Use gradients only for the accent: selected or primary controls and the response curve. Never for backgrounds.
+- A soft glow is allowed on the power key and slider thumbs only; avoid neon outlines and glassmorphism.
+- Use consistent iconography. Corner radii come from the theme shapes; selectable chips, tabs and segments are pills (`PillShape`).
 - Maintain readable contrast in dark environments.
 - Do not use color as the only way to communicate a state.
 

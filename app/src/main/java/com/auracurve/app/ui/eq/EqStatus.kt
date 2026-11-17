@@ -82,7 +82,7 @@ fun EqStatusLine(
     Row(
         modifier =
             modifier
-                .clip(MaterialTheme.shapes.small)
+                .clip(MaterialTheme.shapes.large)
                 .background(if (kind == EqStatusKind.ERROR) colors.errorContainer else colors.surface)
                 .clickable(onClick = onClick)
                 .heightIn(min = 48.dp)

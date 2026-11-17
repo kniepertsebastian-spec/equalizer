@@ -67,10 +67,10 @@ import com.auracurve.app.ui.player.common.SwipeAwayRow
 import com.auracurve.app.ui.player.markWhenCurrent
 import com.auracurve.app.ui.player.textAlpha
 import com.auracurve.app.ui.player.trackPlayState
-import com.auracurve.app.ui.theme.SonicAmber
 import com.auracurve.app.ui.theme.SonicGraphiteControl
 import com.auracurve.app.ui.theme.SonicPaper
 import com.auracurve.app.ui.theme.SonicSteel
+import com.auracurve.app.ui.theme.SonicViolet
 import com.auracurve.app.ui.theme.spacing
 import kotlinx.coroutines.launch
 
@@ -152,7 +152,7 @@ fun QueueSheet(
                     snackbarData = data,
                     containerColor = SonicGraphiteControl,
                     contentColor = SonicPaper,
-                    actionColor = SonicAmber,
+                    actionColor = SonicViolet,
                 )
             }
         }

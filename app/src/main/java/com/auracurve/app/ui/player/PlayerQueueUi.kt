@@ -42,8 +42,8 @@ import coil3.compose.AsyncImage
 import com.auracurve.app.R
 import com.auracurve.app.player.playback.PlayerNotice
 import com.auracurve.app.player.playback.RepeatSetting
-import com.auracurve.app.ui.theme.SonicAmber
 import com.auracurve.app.ui.theme.SonicSteel
+import com.auracurve.app.ui.theme.SonicViolet
 
 // A cover from SoundCloud, loaded and cached by Coil (memory and disk, see
 // AuraCurveApplication.newImageLoader), so scrolling a list or reopening the player does not
@@ -206,7 +206,7 @@ fun ShuffleButton(
                 stateDescription = state
             },
     ) {
-        Icon(Icons.Default.Shuffle, contentDescription = null, tint = if (on) SonicAmber else SonicSteel)
+        Icon(Icons.Default.Shuffle, contentDescription = null, tint = if (on) SonicViolet else SonicSteel)
     }
 }
 
@@ -239,7 +239,7 @@ fun RepeatButton(
         Icon(
             imageVector = if (setting == RepeatSetting.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
             contentDescription = null,
-            tint = if (setting == RepeatSetting.OFF) SonicSteel else SonicAmber,
+            tint = if (setting == RepeatSetting.OFF) SonicSteel else SonicViolet,
         )
     }
 }

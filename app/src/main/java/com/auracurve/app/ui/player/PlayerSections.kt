@@ -45,9 +45,9 @@ import com.auracurve.app.R
 import com.auracurve.app.player.model.TrackItem
 import com.auracurve.app.playlist.PlayerFormat
 import com.auracurve.app.ui.player.library.LibraryRow
-import com.auracurve.app.ui.theme.SonicAmber
 import com.auracurve.app.ui.theme.SonicPaper
 import com.auracurve.app.ui.theme.SonicSteel
+import com.auracurve.app.ui.theme.SonicViolet
 import com.auracurve.app.ui.theme.spacing
 
 // The three areas of the player screen, always reachable through the tab row.
@@ -71,7 +71,7 @@ fun PlayerTabs(
     TabRow(
         selectedTabIndex = tabs.indexOf(selected).coerceAtLeast(0),
         containerColor = Color.Transparent,
-        contentColor = SonicAmber,
+        contentColor = SonicViolet,
     ) {
         tabs.forEach { tab ->
             val label = stringResource(tab.labelRes)

@@ -36,8 +36,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -236,10 +238,24 @@ internal fun ResponseGraph(
                         lineTo(frame.left, zeroY)
                         close()
                     }
-                drawPath(fill, color = curveColor.copy(alpha = if (processing) 0.10f else 0.05f))
+                // Running: the violet-to-blue line over a fill that fades towards 0 dB. Off or
+                // bypassed: a flat steel dash, so the state also reads without color.
+                if (processing) {
+                    drawPath(
+                        fill,
+                        brush =
+                            Brush.verticalGradient(
+                                listOf(style.lineStart.copy(alpha = 0.22f), style.lineEnd.copy(alpha = 0.02f)),
+                                startY = frame.top,
+                                endY = frame.bottom,
+                            ),
+                    )
+                } else {
+                    drawPath(fill, color = curveColor.copy(alpha = 0.05f))
+                }
                 drawPath(
                     path = line,
-                    color = curveColor,
+                    brush = if (processing) style.lineBrush(frame.left, frame.right) else SolidColor(curveColor),
                     style =
                         Stroke(
                             width = 2.5.dp.toPx(),
