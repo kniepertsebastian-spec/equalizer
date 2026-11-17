@@ -89,7 +89,7 @@ class RemoteServerService : LifecycleService() {
     @Inject
     lateinit var texts: TextProvider
 
-    private val eqApi by lazy { EqRemoteApi(eqController, texts, Dispatchers.Main.immediate) }
+    private val eqApi by lazy { EqRemoteApi(eqController, texts, Dispatchers.Main.immediate, scope = lifecycleScope) }
 
     // 04c: the built-in player through PlayerController, Spotify through its MediaSession.
     @Inject
@@ -224,6 +224,8 @@ class RemoteServerService : LifecycleService() {
                     eq = eqApi,
                     playback = playbackApi,
                     feed = feedApi,
+                    // 04f: the last web remote gone ends a comparison it started.
+                    onWebSocketClients = { count -> if (count == 0) lifecycleScope.launch { eqApi.onAllClientsGone() } },
                 )
             server = embeddedServer(CIO, port = LocalAddress.PORT, host = "0.0.0.0") { remoteApi(config) }.start(wait = false)
             true
