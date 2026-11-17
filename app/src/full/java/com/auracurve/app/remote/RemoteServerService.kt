@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -42,6 +43,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.TimeZone
@@ -135,6 +137,10 @@ class RemoteServerService : LifecycleService() {
 
     private var server: EmbeddedServer<*, *>? = null
 
+    // 04e (R-19): `<name>.local` for as long as the server runs.
+    private var mdns: MdnsResponder? = null
+    private var multicastLock: WifiManager.MulticastLock? = null
+
     @Volatile
     private var token: String? = null
 
@@ -166,6 +172,8 @@ class RemoteServerService : LifecycleService() {
             updateNotification(address)
             diagnostics.record("Remote control server started on port ${LocalAddress.PORT}")
             launch { watchAddress(address) }
+            startMdns(settings.hostName.first())
+            launch { settings.hostName.collect { mdns?.name = it } }
             launch {
                 // Every EQ change, also from the app or a tile; number inputs come in quick bursts.
                 eqApi.changes().drop(1).throttleLatest(EQ_EVENT_PERIOD).collect {
@@ -207,6 +215,7 @@ class RemoteServerService : LifecycleService() {
         server = null
         // Stopping waits for open calls; not on the main thread.
         if (running != null) Thread({ runCatching { running.stop(STOP_GRACE_MS, STOP_TIMEOUT_MS) } }, "remote-server-stop").start()
+        stopMdns()
         control.onServerStopped()
         diagnostics.record("Remote control server stopped")
         super.onDestroy()
@@ -234,6 +243,26 @@ class RemoteServerService : LifecycleService() {
             Log.w(TAG, "Remote control server did not start: ${e.javaClass.simpleName}")
             false
         }
+
+    private fun startMdns(name: String) {
+        // As a Wi-Fi client Android filters multicast without this lock; in the hotspot it is harmless.
+        multicastLock =
+            runCatching {
+                getSystemService(WifiManager::class.java)?.createMulticastLock(MULTICAST_LOCK_TAG)?.apply {
+                    setReferenceCounted(false)
+                    acquire()
+                }
+            }.onFailure { Log.w(TAG, "Multicast lock not taken: ${it.javaClass.simpleName}") }
+                .getOrNull()
+        mdns = MdnsResponder(name).also { it.start() }
+    }
+
+    private fun stopMdns() {
+        mdns?.stop()
+        mdns = null
+        multicastLock?.let { lock -> runCatching { if (lock.isHeld) lock.release() } }
+        multicastLock = null
+    }
 
     private suspend fun watchAddress(initial: String?) {
         var last = initial
@@ -313,5 +342,6 @@ class RemoteServerService : LifecycleService() {
         const val WEB_DIR = "web"
         private const val STOP_GRACE_MS = 300L
         private const val STOP_TIMEOUT_MS = 1_500L
+        private const val MULTICAST_LOCK_TAG = "auracurve-remote-mdns"
     }
 }

@@ -48,6 +48,16 @@ class RemoteServerSettings
             store.edit { it[START_AT_BOOT] = enabled }
         }
 
+        /** 04e (R-19): the phone answers to `<hostName>.local` while the server runs. */
+        val hostName: Flow<String> = store.data.map { prefs -> prefs[HOST_NAME]?.let(MdnsName::normalize) ?: MdnsName.DEFAULT }
+
+        /** Stores [name] if it is valid (see [MdnsName.normalize]); false leaves the old one. */
+        suspend fun setHostName(name: String): Boolean {
+            val valid = MdnsName.normalize(name) ?: return false
+            store.edit { it[HOST_NAME] = valid }
+            return true
+        }
+
         /** A new token: every device paired with the old one has to be paired again. */
         suspend fun regenerateToken(): String {
             val fresh = RemoteToken.generate()
@@ -59,5 +69,6 @@ class RemoteServerSettings
             const val FILE_NAME = "remote_server.preferences_pb"
             val TOKEN = stringPreferencesKey("token")
             val START_AT_BOOT = booleanPreferencesKey("start_at_boot")
+            val HOST_NAME = stringPreferencesKey("host_name")
         }
     }

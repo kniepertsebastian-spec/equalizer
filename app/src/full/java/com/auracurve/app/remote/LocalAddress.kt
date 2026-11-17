@@ -18,10 +18,13 @@ object LocalAddress {
                 ?.hostAddress
         }.getOrNull()
 
+    /** The web remote's origin for [host] (an IP literal or a name like pixel9.local). */
+    fun url(host: String): String = "http://$host:$PORT"
+
     fun pairingLink(
-        address: String,
+        host: String,
         token: String,
-    ): String = "http://$address:$PORT/#token=$token"
+    ): String = "${url(host)}/#token=$token"
 
     const val PORT = 8080
 }

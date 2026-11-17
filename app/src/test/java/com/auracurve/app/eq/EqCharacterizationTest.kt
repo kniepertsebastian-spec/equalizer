@@ -135,7 +135,8 @@ class EqCharacterizationTest {
             file.writeText(actual)
             fail("Recorded new golden file ${file.path}; review it and run the test again")
         }
-        assertEquals(file.readText(), actual)
+        // .gitattributes keeps these files LF; strip CR anyway for checkouts made before it.
+        assertEquals(file.readText().replace("\r\n", "\n"), actual)
     }
 
     private val savedState =

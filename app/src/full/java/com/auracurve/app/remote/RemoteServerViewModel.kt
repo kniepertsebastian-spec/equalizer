@@ -18,8 +18,19 @@ data class RemoteServerUiState(
     val token: String? = null,
     val error: String? = null,
     val startAtBoot: Boolean = false,
+    val hostName: String = MdnsName.DEFAULT,
 ) {
-    val pairingLink: String? get() = if (address != null && token != null) LocalAddress.pairingLink(address, token) else null
+    /** 04e (R-19): the fixed name, so the link survives a new hotspot address. */
+    val nameUrl: String get() = LocalAddress.url(MdnsName.host(hostName))
+
+    val pairingLink: String? get() =
+        if (address != null &&
+            token != null
+        ) {
+            LocalAddress.pairingLink(MdnsName.host(hostName), token)
+        } else {
+            null
+        }
 }
 
 @HiltViewModel
@@ -38,7 +49,8 @@ class RemoteServerViewModel
                 settings.startAtBoot,
             ) { running, address, token, error, boot ->
                 RemoteServerUiState(control.isAvailable, running, address, token, error, boot)
-            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RemoteServerUiState(available = control.isAvailable))
+            }.combine(settings.hostName) { state, name -> state.copy(hostName = name) }
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RemoteServerUiState(available = control.isAvailable))
 
         fun setEnabled(enabled: Boolean) {
             if (enabled) {
@@ -56,6 +68,10 @@ class RemoteServerViewModel
 
         fun setStartAtBoot(enabled: Boolean) {
             viewModelScope.launch { settings.setStartAtBoot(enabled) }
+        }
+
+        fun setHostName(name: String) {
+            viewModelScope.launch { settings.setHostName(name) }
         }
 
         fun regenerateToken() {

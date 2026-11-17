@@ -1,0 +1,2 @@
+# The E-008 golden files are compared byte for byte; keep them LF on every OS (core.autocrlf=true on Windows).
+app/src/test/resources/e008-golden/*.txt text eol=lf

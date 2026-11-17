@@ -2,6 +2,7 @@ package com.auracurve.app.remote
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assume.assumeNoException
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -41,7 +42,12 @@ class StaticFilesTest {
     @Test
     fun `a symlink pointing out of the root is refused`() {
         val root = webRoot()
-        Files.createSymbolicLink(File(root, "leak.txt").toPath(), File(tmp.root, "secret.txt").toPath())
+        // Windows without admin rights (or developer mode) may not create symlinks: skip there.
+        try {
+            Files.createSymbolicLink(File(root, "leak.txt").toPath(), File(tmp.root, "secret.txt").toPath())
+        } catch (e: Exception) {
+            assumeNoException("Symlinks cannot be created here", e)
+        }
         assertNull(StaticFiles.resolve(root, "/leak.txt"))
     }
 

@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +40,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auracurve.app.R
 import com.auracurve.app.remote.LocalAddress
+import com.auracurve.app.remote.MdnsName
 import com.auracurve.app.remote.RemoteServerUiState
 import com.auracurve.app.remote.RemoteServerViewModel
 import com.auracurve.app.ui.theme.SonicRule
@@ -62,6 +65,7 @@ fun RemoteServerCard() {
         onEnabledChange = viewModel::setEnabled,
         onRegenerateToken = viewModel::regenerateToken,
         onStartAtBootChange = viewModel::setStartAtBoot,
+        onHostNameChange = viewModel::setHostName,
         onOpenNotificationAccess = {
             runCatching {
                 context.startActivity(
@@ -79,10 +83,22 @@ internal fun RemoteServerCardContent(
     onEnabledChange: (Boolean) -> Unit,
     onRegenerateToken: () -> Unit,
     onStartAtBootChange: (Boolean) -> Unit,
+    onHostNameChange: (String) -> Unit,
     onOpenNotificationAccess: () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
     val clipboard = LocalClipboardManager.current
+    var editingName by remember { mutableStateOf(false) }
+    if (editingName) {
+        HostNameDialog(
+            current = state.hostName,
+            onSave = {
+                onHostNameChange(it)
+                editingName = false
+            },
+            onDismiss = { editingName = false },
+        )
+    }
     val switchLabel = stringResource(R.string.remote_server_title)
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -115,14 +131,46 @@ internal fun RemoteServerCardContent(
             state.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             if (state.running) {
                 val address = state.address
-                Text(
-                    if (address != null) {
-                        stringResource(R.string.remote_server_address, "$address:${LocalAddress.PORT}")
-                    } else {
-                        stringResource(R.string.remote_server_notification_no_network)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                if (address != null) {
+                    // 04e (R-19): the fixed name first; the hotspot address changes, the name does not.
+                    Text(
+                        stringResource(R.string.remote_server_address, state.nameUrl),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag("remote_server_name_url"),
+                    )
+                    Text(
+                        stringResource(R.string.remote_server_ip, "$address:${LocalAddress.PORT}"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SonicSteel,
+                    )
+                } else {
+                    Text(stringResource(R.string.remote_server_notification_no_network), style = MaterialTheme.typography.bodyMedium)
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.remote_server_name_label, MdnsName.host(state.hostName)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = SonicSteel,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { editingName = true }) { Text(stringResource(R.string.remote_server_change_name)) }
+                }
+                val bootLabel = stringResource(R.string.remote_server_start_at_boot)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(bootLabel, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            stringResource(R.string.remote_server_start_at_boot_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonicSteel,
+                        )
+                    }
+                    Switch(
+                        checked = state.startAtBoot,
+                        onCheckedChange = onStartAtBootChange,
+                        modifier = Modifier.testTag("remote_server_boot_switch").semantics { contentDescription = bootLabel },
+                    )
+                }
                 state.token?.let { token ->
                     Text(
                         stringResource(R.string.remote_server_token_label),
@@ -160,4 +208,47 @@ internal fun RemoteServerCardContent(
             }
         }
     }
+}
+
+// 04e: the name the phone answers to as <name>.local; only a-z, 0-9 and '-', 1 to 30 characters.
+@Composable
+private fun HostNameDialog(
+    current: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(current) }
+    val valid = MdnsName.normalize(text)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.remote_server_name_dialog_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it.take(MdnsName.MAX_LENGTH + 10) },
+                    singleLine = true,
+                    isError = valid == null,
+                    suffix = { Text(".local") },
+                    modifier = Modifier.testTag("remote_server_name_field"),
+                )
+                Text(
+                    stringResource(R.string.remote_server_name_rule),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (valid == null) MaterialTheme.colorScheme.error else SonicSteel,
+                )
+                Text(
+                    stringResource(R.string.remote_server_name_relink),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonicSteel,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { valid?.let(onSave) }, enabled = valid != null) {
+                Text(stringResource(R.string.remote_server_name_save))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.remote_server_name_cancel)) } },
+    )
 }

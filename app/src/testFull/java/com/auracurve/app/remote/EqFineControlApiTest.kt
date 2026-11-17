@@ -24,10 +24,14 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
+import io.ktor.utils.io.ByteWriteChannel
+import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -181,6 +185,29 @@ class EqFineControlApiTest {
             assertEquals("INVALID_LINK", post("/api/v0/eq/preset/import", """{"link":"auracurve://preset?v=1&d=broken"}""").code())
             val huge = "x".repeat(17 * 1024)
             val tooBig = post("/api/v0/eq/preset/import", """{"link":"$huge"}""")
+            assertEquals(HttpStatusCode.BadRequest, tooBig.status)
+            assertEquals("BAD_REQUEST", tooBig.code())
+        }
+
+    @Test
+    fun `an oversized chunked body without Content-Length is refused`() =
+        api { _ ->
+            val chunked =
+                object : OutgoingContent.WriteChannelContent() {
+                    override val contentType = ContentType.Application.Json
+
+                    override suspend fun writeTo(channel: ByteWriteChannel) {
+                        channel.writeFully("""{"link":"""".toByteArray())
+                        // 17 KB in 1 KB pieces, no length announced: Ktor sends it chunked.
+                        repeat(17) { channel.writeFully(ByteArray(1024) { 'x'.code.toByte() }) }
+                        channel.writeFully(""""}""".toByteArray())
+                    }
+                }
+            val tooBig =
+                client.post("/api/v0/eq/preset/import") {
+                    header(HttpHeaders.Authorization, "Bearer $token")
+                    setBody(chunked)
+                }
             assertEquals(HttpStatusCode.BadRequest, tooBig.status)
             assertEquals("BAD_REQUEST", tooBig.code())
         }

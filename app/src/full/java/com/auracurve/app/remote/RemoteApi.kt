@@ -17,7 +17,7 @@ import io.ktor.server.application.isHandled
 import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
-import io.ktor.server.request.receiveText
+import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
@@ -31,6 +31,7 @@ import io.ktor.server.websocket.pingPeriod
 import io.ktor.server.websocket.timeout
 import io.ktor.server.websocket.webSocket
 import io.ktor.util.cio.ChannelIOException
+import io.ktor.utils.io.readRemaining
 import io.ktor.websocket.Frame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
+import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -238,8 +240,11 @@ private fun Route.feedRoutes(
 internal suspend fun ApplicationCall.jsonBody(maxBytes: Int = MAX_BODY_BYTES): JsonObject {
     val declared = request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
     if (declared != null && declared > maxBytes) throw EqRemoteApi.badRequest("Body zu groß")
-    val text = receiveText()
-    if (text.toByteArray(Charsets.UTF_8).size > maxBytes) throw EqRemoteApi.badRequest("Body zu groß")
+    // Read at most one byte more than allowed: a chunked body (no Content-Length) never lands in
+    // memory in full before its size is known.
+    val bytes = receiveChannel().readRemaining(maxBytes + 1L).readByteArray()
+    if (bytes.size > maxBytes) throw EqRemoteApi.badRequest("Body zu groß")
+    val text = bytes.toString(Charsets.UTF_8)
     if (text.isBlank()) return JsonObject(emptyMap())
     val element = runCatching { Json.parseToJsonElement(text) }.getOrNull() ?: throw EqRemoteApi.badRequest("Body ist kein JSON")
     return element as? JsonObject ?: throw EqRemoteApi.badRequest("Body muss ein Objekt sein")
