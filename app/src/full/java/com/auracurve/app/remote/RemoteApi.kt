@@ -41,6 +41,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -66,6 +67,8 @@ class RemoteApiConfig(
     val feed: FeedRemoteApi? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
+    /** Called with the number of open WebSockets whenever it changes (04f: compare safety net). */
+    val onWebSocketClients: (Int) -> Unit = {},
 )
 
 /** API version info (also the WebSocket's `hello`). */
@@ -116,6 +119,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
         }
     }
 
+    val clients = AtomicInteger(0)
     routing {
         get("/api/version") { respondJson(call, versionJson(config)) }
         get("/api/v0/system/status") { respondJson(call, config.systemStatus().toJson()) }
@@ -132,6 +136,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
         config.playback?.let { playback -> playbackRoutes(playback) }
         config.feed?.let { feed -> feedRoutes(feed, config.playback) }
         webSocket("/api/v0/ws") {
+            config.onWebSocketClients(clients.incrementAndGet())
             var seq = 0L
             send(Frame.Text(envelope("hello", ++seq, versionJson(config))))
             val forward =
@@ -144,6 +149,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
                 for (ignored in incoming) Unit
             } finally {
                 forward.cancel()
+                config.onWebSocketClients(clients.decrementAndGet())
             }
         }
         // Everything outside /api is the web remote (same origin, E-005). The tailcard has the
@@ -174,6 +180,14 @@ private fun Route.eqRoutes(eq: EqRemoteApi) {
     post("/api/v0/eq/preset") { respondJson(call, eq.setPreset(call.jsonBody())) }
     post("/api/v0/eq/goal") { respondJson(call, eq.setGoal(call.jsonBody())) }
     post("/api/v0/eq/context") { respondJson(call, eq.setContext(call.jsonBody())) }
+    // 04f
+    post("/api/v0/eq/preset/import") { respondJson(call, eq.importPreset(call.jsonBody(MAX_IMPORT_BYTES)), HttpStatusCode.Created) }
+    post("/api/v0/eq/preset/save") { respondJson(call, eq.savePreset(call.jsonBody()), HttpStatusCode.Created) }
+    post("/api/v0/eq/reset") { respondJson(call, eq.reset()) }
+    post("/api/v0/eq/high-resolution") { respondJson(call, eq.setHighResolution(call.jsonBody())) }
+    post("/api/v0/eq/band") { respondJson(call, eq.setBand(call.jsonBody())) }
+    post("/api/v0/eq/parametric") { respondJson(call, eq.setParametric(call.jsonBody())) }
+    post("/api/v0/eq/compare") { respondJson(call, eq.setCompare(call.jsonBody())) }
 }
 
 private fun Route.playbackRoutes(playback: PlaybackRemoteApi) {
@@ -325,3 +339,6 @@ private const val UI_MISSING_TEXT =
         "Android/data/com.auracurve.app.full/files/web/ (adb push)."
 private const val MAX_FRAME_BYTES = 64L * 1024L
 private const val MAX_BODY_BYTES = 64 * 1024
+
+// 04f: a preset link is short; the codec allows 100 KB unpacked, the request at most 16 KB.
+private const val MAX_IMPORT_BYTES = 16 * 1024

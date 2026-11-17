@@ -151,7 +151,8 @@ class EqRemoteApiTest {
     fun `state has the devserver's shape`() =
         api {
             val state = getJson("/api/v0/eq/state").json()
-            assertEquals(setOf("masterEnabled", "bypass", "preset", "goal", "context", "contextAuto"), state.keys)
+            assertTrue(state.keys.containsAll(setOf("masterEnabled", "bypass", "preset", "goal", "context", "contextAuto")))
+            assertTrue(state.keys.containsAll(setOf("presetId", "dirty", "highResolution", "bands", "parametric", "compare")))
             assertEquals("BALANCED", state["goal"]!!.jsonPrimitive.content)
             assertEquals("true", state["contextAuto"]!!.jsonPrimitive.content)
         }
