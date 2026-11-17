@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SportsMma
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -35,6 +36,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,6 +56,8 @@ import com.auracurve.app.R
 import com.auracurve.app.correction.CorrectionProfile
 import com.auracurve.app.preset.GenrePreset
 import com.auracurve.app.preset.Preset
+import com.auracurve.app.preset.PresetUsageAdvisor
+import com.auracurve.app.preset.PresetUsageHint
 import com.auracurve.app.ui.theme.Spacing
 import com.auracurve.app.ui.theme.spacing
 
@@ -230,6 +234,7 @@ internal fun PresetCard(
 ) {
     val contentColor = if (selected) style.text else style.mutedText
     var showMenu by remember { mutableStateOf(false) }
+    var showUsage by remember { mutableStateOf(false) }
 
     Surface(
         selected = selected,
@@ -275,6 +280,13 @@ internal fun PresetCard(
                 // unveränderlich" (M2 acceptance criterion).
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     DropdownMenuItem(
+                        text = { Text(stringResource(R.string.preset_usage_menu)) },
+                        onClick = {
+                            showMenu = false
+                            showUsage = true
+                        },
+                    )
+                    DropdownMenuItem(
                         text = { Text(stringResource(R.string.preset_duplicate)) },
                         onClick = {
                             showMenu = false
@@ -308,7 +320,58 @@ internal fun PresetCard(
             }
         }
     }
+
+    if (showUsage) {
+        AlertDialog(
+            onDismissRequest = { showUsage = false },
+            title = { Text(stringResource(R.string.preset_usage_title, preset.name)) },
+            text = { PresetUsageText(preset = preset, style = style) },
+            confirmButton = {
+                TextButton(onClick = { showUsage = false }) {
+                    Text(stringResource(R.string.preset_usage_close))
+                }
+            },
+        )
+    }
 }
+
+/**
+ * When a preset is a good choice, read from its own values (PresetUsageAdvisor): one line per
+ * hint, then the strongest boost, which tells why the built-in player gets quieter.
+ */
+@Composable
+internal fun PresetUsageText(
+    preset: Preset,
+    style: EqualizerDesignStyle,
+    modifier: Modifier = Modifier,
+) {
+    val usage = remember(preset) { PresetUsageAdvisor.describe(preset) }
+    val lines =
+        usage.hints.map { stringResource(it.textRes()) }.ifEmpty { listOf(stringResource(R.string.preset_usage_all_rounder)) } +
+            if (usage.strongestBoostDb >=
+                1f
+            ) {
+                listOf(stringResource(R.string.preset_usage_strongest, usage.strongestBoostDb))
+            } else {
+                emptyList()
+            }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        lines.forEach { line ->
+            Text(text = "• $line", color = style.mutedText, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+private fun PresetUsageHint.textRes(): Int =
+    when (this) {
+        PresetUsageHint.NEUTRAL -> R.string.preset_usage_neutral
+        PresetUsageHint.VERY_STRONG_BOOST -> R.string.preset_usage_very_strong
+        PresetUsageHint.KICK_FOCUS -> R.string.preset_usage_kick
+        PresetUsageHint.SUB_FOCUS -> R.string.preset_usage_sub
+        PresetUsageHint.QUIET_LISTENING -> R.string.preset_usage_quiet
+        PresetUsageHint.SMALL_DRIVERS -> R.string.preset_usage_small_drivers
+        PresetUsageHint.SOFTENED_HIGHS -> R.string.preset_usage_softened_highs
+    }
 
 internal fun presetIcon(presetId: String): ImageVector =
     when (presetId) {

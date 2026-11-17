@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -24,8 +25,10 @@ import com.auracurve.app.correction.BuiltInCorrectionProfiles
 import com.auracurve.app.dsp.HeadphonePower
 import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.BuiltInPresets
+import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.SoundGoal
+import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.theme.AuraCurveTheme
 import org.junit.Rule
 import org.junit.Test
@@ -60,7 +63,11 @@ class EqualizerScreenUiTest {
 
     private fun text(id: Int): String = RuntimeEnvironment.getApplication().getString(id)
 
-    private fun showEqualizer(state: AudioEngineState = AudioEngineState.Active(sessionId = 42)) {
+    private fun showEqualizer(
+        state: AudioEngineState = AudioEngineState.Active(sessionId = 42),
+        activePreset: Preset = BuiltInPresets.all.first(),
+        customPresets: List<Preset> = emptyList(),
+    ) {
         compose.setContent {
             AuraCurveTheme {
                 EqualizerScreen(
@@ -68,8 +75,8 @@ class EqualizerScreenUiTest {
                     route = AudioRoute(AudioDeviceType.BLUETOOTH, "Sony WH-1000XM5", "bt_sony"),
                     settings = settings,
                     bands = bands,
-                    activePreset = BuiltInPresets.all.first(),
-                    customPresets = emptyList(),
+                    activePreset = activePreset,
+                    customPresets = customPresets,
                     genrePresets = BuiltInGenrePresets.all,
                     intensities = PresetIntensity.entries,
                     selectedGenreIntensity = BuiltInGenrePresets.all.first() to PresetIntensity.entries.first(),
@@ -202,6 +209,50 @@ class EqualizerScreenUiTest {
 
         compose.onNodeWithText(text(R.string.no_session_title)).assertIsDisplayed()
         compose.onRoot().saveScreenshot("07-waiting-for-a-session")
+    }
+
+    // The values of the shared "Uptempo – Kick Snap Max" link: kick focus and a +10 dB boost.
+    private val kickSnapMax =
+        Preset(
+            id = "custom_kick_snap_max",
+            name = "Uptempo – Kick Snap Max",
+            targetCurve =
+                listOf(
+                    TargetPoint(60f, 3f),
+                    TargetPoint(110f, 3f),
+                    TargetPoint(300f, -4.5f),
+                    TargetPoint(1200f, -1f),
+                    TargetPoint(3500f, 2f),
+                    TargetPoint(7000f, 0.5f),
+                    TargetPoint(12000f, -1f),
+                ),
+            macroBassDb = 2f,
+            macroPunchDb = 5f,
+            macroHaerteDb = 1f,
+        )
+
+    @Test
+    fun presetUsageInfoExplainsTheActivePresetAndEachCustomOne() {
+        showEqualizer(activePreset = kickSnapMax, customPresets = listOf(kickSnapMax, BuiltInPresets.DeepRumble.copy(id = "c2")))
+
+        compose
+            .onNodeWithContentDescription(text(R.string.preset_usage_active_more))
+            .performScrollTo()
+            .performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(text(R.string.preset_usage_kick), substring = true).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.preset_usage_very_strong), substring = true).performScrollTo().assertIsDisplayed()
+        compose.onRoot().saveScreenshot("08-preset-usage-inline")
+
+        compose
+            .onNodeWithContentDescription(
+                RuntimeEnvironment.getApplication().getString(R.string.preset_more_actions, "Uptempo – Deep Rumble"),
+            ).performScrollTo()
+            .performClick()
+        compose.onNodeWithText(text(R.string.preset_usage_menu)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(text(R.string.preset_usage_sub), substring = true).assertIsDisplayed()
+        compose.onNode(isDialog()).saveScreenshot("09-preset-usage-dialog")
     }
 
     private fun SemanticsNodeInteraction.saveScreenshot(name: String) {
