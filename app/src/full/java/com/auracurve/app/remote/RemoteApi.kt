@@ -1,5 +1,7 @@
 package com.auracurve.app.remote
 
+import com.auracurve.app.remote.feed.FeedRemoteApi
+import com.auracurve.app.remote.playback.PlaybackRemoteApi
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -43,6 +45,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -62,8 +65,14 @@ class RemoteApiConfig(
     val tickets: WebSocketTickets = WebSocketTickets(),
     /** The EQ endpoints (04b); null leaves them out (tests of the scaffold). */
     val eq: EqRemoteApi? = null,
+    /** Playback, volume and source (04c); null leaves them out. */
+    val playback: PlaybackRemoteApi? = null,
+    /** The feed (04d); null leaves it out. */
+    val feed: FeedRemoteApi? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
+    /** Called with the number of open WebSockets whenever it changes (04f: compare safety net). */
+    val onWebSocketClients: (Int) -> Unit = {},
 )
 
 /** API version info (also the WebSocket's `hello`). */
@@ -114,6 +123,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
         }
     }
 
+    val clients = AtomicInteger(0)
     routing {
         get("/api/version") { respondJson(call, versionJson(config)) }
         get("/api/v0/system/status") { respondJson(call, config.systemStatus().toJson()) }
@@ -127,7 +137,10 @@ fun Application.remoteApi(config: RemoteApiConfig) {
             )
         }
         config.eq?.let { eq -> eqRoutes(eq) }
+        config.playback?.let { playback -> playbackRoutes(playback) }
+        config.feed?.let { feed -> feedRoutes(feed, config.playback) }
         webSocket("/api/v0/ws") {
+            config.onWebSocketClients(clients.incrementAndGet())
             var seq = 0L
             // hello goes out only once the event subscription stands, so an event emitted right
             // after a client has seen hello is never lost (SharedFlow drops it without subscribers).
@@ -144,6 +157,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
                 for (ignored in incoming) Unit
             } finally {
                 forward.cancel()
+                config.onWebSocketClients(clients.decrementAndGet())
             }
         }
         // Everything outside /api is the web remote (same origin, E-005). The tailcard has the
@@ -174,6 +188,50 @@ private fun Route.eqRoutes(eq: EqRemoteApi) {
     post("/api/v0/eq/preset") { respondJson(call, eq.setPreset(call.jsonBody())) }
     post("/api/v0/eq/goal") { respondJson(call, eq.setGoal(call.jsonBody())) }
     post("/api/v0/eq/context") { respondJson(call, eq.setContext(call.jsonBody())) }
+    // 04f
+    post("/api/v0/eq/preset/import") { respondJson(call, eq.importPreset(call.jsonBody(MAX_IMPORT_BYTES)), HttpStatusCode.Created) }
+    post("/api/v0/eq/preset/save") { respondJson(call, eq.savePreset(call.jsonBody()), HttpStatusCode.Created) }
+    post("/api/v0/eq/reset") { respondJson(call, eq.reset()) }
+    post("/api/v0/eq/high-resolution") { respondJson(call, eq.setHighResolution(call.jsonBody())) }
+    post("/api/v0/eq/band") { respondJson(call, eq.setBand(call.jsonBody())) }
+    post("/api/v0/eq/parametric") { respondJson(call, eq.setParametric(call.jsonBody())) }
+    post("/api/v0/eq/compare") { respondJson(call, eq.setCompare(call.jsonBody())) }
+}
+
+private fun Route.playbackRoutes(playback: PlaybackRemoteApi) {
+    get("/api/v0/playback/now-playing") { respondJson(call, playback.nowPlaying()) }
+    post("/api/v0/playback/playpause") { respondJson(call, playback.playPause()) }
+    post("/api/v0/playback/next") { respondJson(call, playback.next()) }
+    post("/api/v0/playback/prev") { respondJson(call, playback.previous()) }
+    post("/api/v0/playback/shuffle") { respondJson(call, playback.setShuffle(call.jsonBody())) }
+    post("/api/v0/playback/repeat") { respondJson(call, playback.setRepeat(call.jsonBody())) }
+    post("/api/v0/playback/volume") { respondJson(call, playback.setVolume(call.jsonBody())) }
+    // 202: the switch is announced as source.changed (contract 3.1).
+    post("/api/v0/system/source") {
+        playback.setSource(call.jsonBody())
+        respondJson(call, buildJsonObject { put("accepted", true) }, HttpStatusCode.Accepted)
+    }
+}
+
+private fun Route.feedRoutes(
+    feed: FeedRemoteApi,
+    playback: PlaybackRemoteApi?,
+) {
+    get("/api/v0/player/feed") { respondJson(call, feed.feed()) }
+    post("/api/v0/player/pull") {
+        feed.pull()
+        respondJson(call, buildJsonObject { put("accepted", true) }, HttpStatusCode.Accepted)
+    }
+    // Like the devserver: answered with the now-playing state of the built-in player.
+    post("/api/v0/player/play-all") {
+        val count = feed.playAll()
+        if (playback != null) {
+            playback.usePlayer()
+            respondJson(call, playback.nowPlaying())
+        } else {
+            respondJson(call, buildJsonObject { put("trackCount", count) })
+        }
+    }
 }
 
 /** The request body as a JSON object, at most [maxBytes]; anything else is 400 BAD_REQUEST. */
@@ -289,3 +347,6 @@ private const val UI_MISSING_TEXT =
         "Android/data/com.auracurve.app.full/files/web/ (adb push)."
 private const val MAX_FRAME_BYTES = 64L * 1024L
 private const val MAX_BODY_BYTES = 64 * 1024
+
+// 04f: a preset link is short; the codec allows 100 KB unpacked, the request at most 16 KB.
+private const val MAX_IMPORT_BYTES = 16 * 1024

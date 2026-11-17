@@ -30,6 +30,7 @@ DEX_MARKERS = [
     "radio-browser.info",  # Radio tab (Radio Browser directory)
     "io/ktor/",  # the local remote-control server's HTTP engine (Pixel-Car module 04)
     "RemoteServerService",  # the remote-control server itself
+    "RemoteNotificationListener",  # its notification access for Spotify (Pixel-Car 04c)
 ]
 
 # Markers in AndroidManifest.xml (binary XML stores its strings as UTF-8 or UTF-16).
@@ -40,6 +41,7 @@ MANIFEST_MARKERS = [
     "spotify-callback",
     "RemoteServerService",  # the remote-control server (Pixel-Car module 04)
     "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+    "RemoteNotificationListener",
 ]
 
 

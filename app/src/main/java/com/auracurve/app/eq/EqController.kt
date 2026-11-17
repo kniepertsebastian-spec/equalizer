@@ -926,6 +926,21 @@ class EqController
             setParametricBands(current.toMutableList().also { it.removeAt(index) })
         }
 
+        /** Sets the whole list at once (remote control, 04f); values are clamped as everything from outside. */
+        fun replaceParametricBands(bands: List<ParametricBand>) {
+            setParametricBands(bands.take(ParametricCurve.MAX_BANDS).map { it.clamped() })
+        }
+
+        /**
+         * False when this device cannot run the 34-band DynamicsProcessing pre-EQ: it refused it,
+         * or an attached effect chain has no DynamicsProcessing at all.
+         */
+        val highResolutionAvailable: Boolean
+            get() {
+                val caps = capabilities.value
+                return caps.preEqUnavailableReason == null && (caps.totalEffectCount == 0 || caps.hasDynamicsProcessing)
+            }
+
         private fun setParametricBands(bands: List<ParametricBand>) {
             _parametricBands.value = bands
             parametricCurve = ParametricCurve.bandsToCurve(bands)
