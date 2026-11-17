@@ -61,6 +61,7 @@ fun RemoteServerCard() {
         spotifyAccess = spotifyAccess,
         onEnabledChange = viewModel::setEnabled,
         onRegenerateToken = viewModel::regenerateToken,
+        onStartAtBootChange = viewModel::setStartAtBoot,
         onOpenNotificationAccess = {
             runCatching {
                 context.startActivity(
@@ -77,6 +78,7 @@ internal fun RemoteServerCardContent(
     spotifyAccess: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onRegenerateToken: () -> Unit,
+    onStartAtBootChange: (Boolean) -> Unit,
     onOpenNotificationAccess: () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing

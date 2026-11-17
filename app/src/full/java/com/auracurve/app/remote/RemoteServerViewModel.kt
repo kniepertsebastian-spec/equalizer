@@ -17,6 +17,7 @@ data class RemoteServerUiState(
     val address: String? = null,
     val token: String? = null,
     val error: String? = null,
+    val startAtBoot: Boolean = false,
 ) {
     val pairingLink: String? get() = if (address != null && token != null) LocalAddress.pairingLink(address, token) else null
 }
@@ -29,8 +30,14 @@ class RemoteServerViewModel
         private val settings: RemoteServerSettings,
     ) : ViewModel() {
         val state: StateFlow<RemoteServerUiState> =
-            combine(control.running, control.address, settings.token, control.startError) { running, address, token, error ->
-                RemoteServerUiState(control.isAvailable, running, address, token, error)
+            combine(
+                control.running,
+                control.address,
+                settings.token,
+                control.startError,
+                settings.startAtBoot,
+            ) { running, address, token, error, boot ->
+                RemoteServerUiState(control.isAvailable, running, address, token, error, boot)
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RemoteServerUiState(available = control.isAvailable))
 
         fun setEnabled(enabled: Boolean) {
@@ -41,7 +48,14 @@ class RemoteServerViewModel
                 }
             } else {
                 control.stop()
+                // The boot switch is only shown while the server is on: switching the server off
+                // by hand also stops it from coming back at the next boot.
+                viewModelScope.launch { settings.setStartAtBoot(false) }
             }
+        }
+
+        fun setStartAtBoot(enabled: Boolean) {
+            viewModelScope.launch { settings.setStartAtBoot(enabled) }
         }
 
         fun regenerateToken() {

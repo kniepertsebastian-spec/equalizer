@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Local remote-control server (Pixel-Car module 04a). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 04e: "Start at boot" for the remote-control server (off by default). -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application>
         <activity
@@ -35,6 +37,14 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Local HTTP server for a web remote in the same private network (car hotspot): controls the equalizer and playback." />
         </service>
+
+        <receiver
+            android:name=".remote.RemoteServerBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!--
           Pixel-Car module 04c (U-1): lets the user grant notification access, which the remote
