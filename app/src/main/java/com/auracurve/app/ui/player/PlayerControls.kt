@@ -113,14 +113,20 @@ internal fun PlayKey(
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle = SonicStyle,
     size: Dp = 72.dp,
+    // The soft glow; off for small keys inside list rows, whose clip would cut it.
+    glow: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     Box(
         modifier =
             modifier
                 .size(size)
-                .shadow(if (enabled) 16.dp else 0.dp, CircleShape, ambientColor = style.accentFillStart, spotColor = style.accentFillStart)
-                .clip(CircleShape)
+                .shadow(
+                    elevation = if (enabled && glow) 16.dp else 0.dp,
+                    shape = CircleShape,
+                    ambientColor = style.accentFillStart,
+                    spotColor = style.accentFillStart,
+                ).clip(CircleShape)
                 .then(if (enabled) Modifier.background(style.accentFill) else Modifier.background(style.surfaceVariant))
                 .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,

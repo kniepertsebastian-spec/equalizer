@@ -3,16 +3,17 @@ package com.auracurve.app.ui.player
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -144,20 +146,11 @@ fun PlayerScreen(
             verticalArrangement = Arrangement.spacedBy(spacing.medium),
         ) {
             item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.nav_player),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (onlineSources) {
-                        IconButton(onClick = onOpenServices) {
-                            Icon(Icons.Default.Link, contentDescription = stringResource(R.string.player_open_services))
-                        }
-                        SourceSelector(onSelectSoundCloud = { tab = PlayerTab.SEARCH })
-                    }
-                }
+                LibraryHeader(
+                    onlineSources = onlineSources,
+                    onOpenServices = onOpenServices,
+                    onSelectSoundCloud = { tab = PlayerTab.SEARCH },
+                )
             }
 
             item {
@@ -223,6 +216,31 @@ fun PlayerScreen(
                     onMerge = { mergeDialogOpen = true },
                     onlineSources = onlineSources,
                 )
+            }
+        }
+    }
+}
+
+// The tab's title row; with online sources also the linked services and the source switch.
+@Composable
+fun LibraryHeader(
+    onlineSources: Boolean,
+    onOpenServices: () -> Unit,
+    onSelectSoundCloud: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.nav_player),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = SonicPaper,
+            modifier = Modifier.weight(1f),
+        )
+        if (onlineSources) {
+            SourceSelector(onSelectSoundCloud = onSelectSoundCloud)
+            Spacer(modifier = Modifier.width(8.dp))
+            RoundControlButton(onClick = onOpenServices, enabled = true, size = 44.dp) {
+                Icon(Icons.Default.Link, contentDescription = stringResource(R.string.player_open_services))
             }
         }
     }
