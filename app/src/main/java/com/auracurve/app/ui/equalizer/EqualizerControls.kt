@@ -276,6 +276,8 @@ internal fun SonicSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     style: EqualizerDesignStyle,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onValueChangeFinished: (() -> Unit)? = null,
 ) {
     val interaction = remember { MutableInteractionSource() }
     Slider(
@@ -283,6 +285,8 @@ internal fun SonicSlider(
         onValueChange = onValueChange,
         valueRange = valueRange,
         modifier = modifier,
+        enabled = enabled,
+        onValueChangeFinished = onValueChangeFinished,
         interactionSource = interaction,
         colors = sonicSliderColors(style),
         thumb = {
@@ -290,9 +294,13 @@ internal fun SonicSlider(
                 modifier =
                     Modifier
                         .size(20.dp)
-                        .shadow(8.dp, CircleShape, ambientColor = style.accentFillStart, spotColor = style.accentFillStart)
-                        .clip(CircleShape)
-                        .background(Color.White),
+                        .shadow(
+                            if (enabled) 8.dp else 0.dp,
+                            CircleShape,
+                            ambientColor = style.accentFillStart,
+                            spotColor = style.accentFillStart,
+                        ).clip(CircleShape)
+                        .background(if (enabled) Color.White else style.mutedText),
             )
         },
         track = {
@@ -310,6 +318,7 @@ internal fun SonicSlider(
                 if (width > 0f) {
                     drawRoundRect(
                         brush = style.lineBrush(0f, size.width),
+                        alpha = if (enabled) 1f else 0.38f,
                         topLeft = Offset(left, 0f),
                         size = Size(width, size.height),
                         cornerRadius = radius,

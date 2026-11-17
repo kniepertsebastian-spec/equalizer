@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
@@ -42,7 +43,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -62,6 +63,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -75,11 +77,12 @@ import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.eq.EqStatusKind
 import com.auracurve.app.ui.eq.EqStatusLamp
 import com.auracurve.app.ui.equalizer.SonicStyle
-import com.auracurve.app.ui.player.ArtworkFrame
 import com.auracurve.app.ui.player.CoverImage
 import com.auracurve.app.ui.player.PlayKey
 import com.auracurve.app.ui.player.PlayerSoundChip
+import com.auracurve.app.ui.player.ProgressRingCover
 import com.auracurve.app.ui.player.RepeatButton
+import com.auracurve.app.ui.player.RoundControlButton
 import com.auracurve.app.ui.player.ShuffleButton
 import com.auracurve.app.ui.player.common.PreviewTag
 import com.auracurve.app.ui.player.isProblem
@@ -145,7 +148,7 @@ fun NowPlayingScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing.large)) {
                     Column(modifier = Modifier.weight(1f).then(dragModifier)) {
                         Header(onCollapse = actions.onCollapse, onAddToPlaylist = actions.onAddToPlaylist)
-                        Cover(url = ui.artworkUrl, size = min(height - 72.dp, width / 2))
+                        Cover(url = ui.artworkUrl, progress = ui.progress, size = min(height - 72.dp, width / 2))
                     }
                     Column(
                         modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
@@ -161,7 +164,7 @@ fun NowPlayingScreen(
                         Header(onCollapse = actions.onCollapse, onAddToPlaylist = actions.onAddToPlaylist)
                         Spacer(modifier = Modifier.height(spacing.small))
                         // At most 42 % of the height, so title and transport fit below on a small phone.
-                        Cover(url = ui.artworkUrl, size = min(width, height * COVER_HEIGHT_SHARE))
+                        Cover(url = ui.artworkUrl, progress = ui.progress, size = min(width, height * COVER_HEIGHT_SHARE))
                     }
                     Spacer(modifier = Modifier.height(spacing.large))
                     Controls(ui, context, actions)
@@ -180,19 +183,20 @@ private fun Header(
     onAddToPlaylist: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onCollapse) {
+    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        RoundControlButton(onClick = onCollapse, enabled = true, size = 44.dp) {
             Icon(Icons.Default.KeyboardArrowDown, contentDescription = stringResource(R.string.now_playing_collapse))
         }
         Text(
-            text = stringResource(R.string.now_playing_title),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            text = stringResource(R.string.now_playing_title).uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = SonicStyle.mutedText,
+            textAlign = TextAlign.Center,
             modifier = Modifier.weight(1f).semantics { heading() },
             maxLines = 1,
         )
         Box {
-            IconButton(onClick = { menuOpen = true }) {
+            RoundControlButton(onClick = { menuOpen = true }, enabled = true, size = 44.dp) {
                 Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.now_playing_more))
             }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -212,17 +216,19 @@ private fun Header(
 @Composable
 private fun Cover(
     url: String?,
+    progress: Float,
     size: Dp,
 ) {
     val description = stringResource(R.string.artwork_description)
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        ArtworkFrame(modifier = Modifier.size(size)) {
+        // Round cover; the ring around it is the playback position (display only).
+        ProgressRingCover(progress = progress, modifier = Modifier.size(size)) {
             CoverImage(
                 url = PlayerFormat.largeArtwork(url),
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .clip(MaterialTheme.shapes.medium)
+                        .clip(CircleShape)
                         .semantics { contentDescription = description },
                 placeholderIconSize = 64.dp,
             )
@@ -239,21 +245,29 @@ private fun Controls(
     val spacing = MaterialTheme.spacing
     val style = SonicStyle
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = ui.title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = style.text,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = ui.artist,
-            style = MaterialTheme.typography.bodyMedium,
-            color = style.mutedText,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = ui.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = style.text,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = ui.artist,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = style.mutedText,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(modifier = Modifier.width(spacing.small))
+            RoundControlButton(onClick = actions.onAddToPlaylist, enabled = true, size = 48.dp) {
+                Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = stringResource(R.string.queue_add_to_playlist))
+            }
+        }
         if (ui.isPreview) {
             Spacer(modifier = Modifier.height(spacing.extraSmall))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -290,7 +304,7 @@ private fun Controls(
                     onClick = actions.onOpenSound,
                 )
                 // The lamp in the chip's corner: whether the EQ really processes the signal.
-                EqStatusLamp(kind = context.eqStatus, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp))
+                EqStatusLamp(kind = context.eqStatus, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp))
             }
             val queueLabel = pluralStringResource(R.plurals.queue_open, context.queueCount, context.queueCount)
             TextButton(
@@ -316,12 +330,12 @@ private fun Transport(
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         ShuffleButton(enabled = ui.controlsEnabled, on = ui.shuffle, onToggle = actions.onToggleShuffle)
-        IconButton(onClick = actions.onPrevious, enabled = ui.controlsEnabled, modifier = Modifier.size(56.dp)) {
-            Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.player_previous), modifier = Modifier.size(32.dp))
+        RoundControlButton(onClick = actions.onPrevious, enabled = ui.controlsEnabled, size = 56.dp) {
+            Icon(Icons.Default.SkipPrevious, contentDescription = stringResource(R.string.player_previous), modifier = Modifier.size(30.dp))
         }
         PlayKey(onClick = actions.onTogglePlayback, enabled = ui.controlsEnabled) {
             if (ui.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(32.dp), color = SonicStyle.background)
+                CircularProgressIndicator(modifier = Modifier.size(32.dp), color = Color.White)
             } else {
                 Icon(
                     imageVector = if (ui.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
@@ -330,8 +344,8 @@ private fun Transport(
                 )
             }
         }
-        IconButton(onClick = actions.onNext, enabled = ui.controlsEnabled, modifier = Modifier.size(56.dp)) {
-            Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.player_next), modifier = Modifier.size(32.dp))
+        RoundControlButton(onClick = actions.onNext, enabled = ui.controlsEnabled, size = 56.dp) {
+            Icon(Icons.Default.SkipNext, contentDescription = stringResource(R.string.player_next), modifier = Modifier.size(30.dp))
         }
         RepeatButton(enabled = ui.controlsEnabled, setting = ui.repeat, onCycle = actions.onCycleRepeat)
     }

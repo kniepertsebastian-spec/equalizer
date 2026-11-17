@@ -188,7 +188,7 @@ fun QueueEntryMenu(
     }
 }
 
-// Shuffle on/off. On is amber (the selected-control color); the state is also spoken.
+// Shuffle on/off. On is violet (the selected-control color); the state is also spoken.
 @Composable
 fun ShuffleButton(
     enabled: Boolean,
@@ -197,9 +197,10 @@ fun ShuffleButton(
 ) {
     val label = stringResource(R.string.player_shuffle)
     val state = stringResource(if (on) R.string.state_on else R.string.state_off)
-    IconButton(
+    RoundControlButton(
         onClick = onToggle,
         enabled = enabled,
+        size = 48.dp,
         modifier =
             Modifier.semantics {
                 contentDescription = label
@@ -227,9 +228,10 @@ fun RepeatButton(
                 RepeatSetting.ONE -> R.string.player_repeat_one
             },
         )
-    IconButton(
+    RoundControlButton(
         onClick = onCycle,
         enabled = enabled,
+        size = 48.dp,
         modifier =
             Modifier.semantics {
                 contentDescription = label

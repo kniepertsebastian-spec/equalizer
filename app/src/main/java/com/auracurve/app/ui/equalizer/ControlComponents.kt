@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -202,6 +203,7 @@ internal fun MiniCurve(
     points: List<TargetPoint>,
     color: Color,
     modifier: Modifier = Modifier,
+    brush: Brush? = null,
 ) {
     Canvas(modifier = modifier) {
         val rangeDb = CurveGeometry.rangeDb(points)
@@ -215,7 +217,8 @@ internal fun MiniCurve(
             val y = middle - (gain / rangeDb) * middle * 0.9f
             if (i == 0) path.moveTo(0f, y) else path.lineTo(fraction * size.width, y)
         }
-        drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        if (brush != null) drawPath(path, brush, style = stroke) else drawPath(path, color, style = stroke)
     }
 }
 
