@@ -82,20 +82,20 @@ internal fun GenreChoices(
                 modifier =
                     Modifier
                         .width(120.dp)
-                        .height(84.dp)
+                        .height(68.dp)
                         .semantics { contentDescription = genre.displayName },
                 shape = MaterialTheme.shapes.small,
                 color = if (isSelected) style.accent.copy(alpha = 0.14f) else style.surfaceVariant,
                 border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) style.accent else style.border),
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(10.dp),
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
                     MiniCurve(
                         points = genre.base.targetCurve,
                         color = if (isSelected) style.accent else style.mutedText,
-                        modifier = Modifier.fillMaxWidth().height(28.dp),
+                        modifier = Modifier.fillMaxWidth().height(22.dp),
                     )
                     Text(
                         text = genre.displayName,

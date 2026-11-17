@@ -1,10 +1,14 @@
 package com.auracurve.app.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +20,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Icon
@@ -31,12 +37,18 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -152,6 +164,8 @@ fun EqualizerScreen(
     preEqResponseMode: com.auracurve.app.dsp.PreEqResponseMode = com.auracurve.app.dsp.PreEqResponseMode.BALANCED,
     onPreEqResponseModeChanged: ((com.auracurve.app.dsp.PreEqResponseMode) -> Unit)? = null,
     onSelectAudioSession: (AudioSession) -> Unit = {},
+    // Rarely used extras (diagnostics, debug) at the end of the Device tab, out of the way.
+    deviceTabFooter: (@Composable ColumnScope.() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
@@ -245,12 +259,43 @@ fun EqualizerScreen(
     var tab by rememberSaveable { mutableStateOf(EqualizerTab.SOUND) }
     var signalChainOpen by rememberSaveable { mutableStateOf(false) }
     var noSessionDetails by rememberSaveable { mutableStateOf(false) }
+    // The curve folds while the options below are scrolled down and unfolds at their top (or on a
+    // tap), so the options get most of a phone screen without losing sight of the curve.
+    var curveCollapsed by rememberSaveable { mutableStateOf(false) }
+    val collapseOnScroll =
+        remember {
+            object : NestedScrollConnection {
+                override fun onPreScroll(
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    if (available.y < -COLLAPSE_THRESHOLD_PX && source == NestedScrollSource.UserInput) curveCollapsed = true
+                    return Offset.Zero
+                }
+
+                override fun onPostScroll(
+                    consumed: Offset,
+                    available: Offset,
+                    source: NestedScrollSource,
+                ): Offset {
+                    // Only what the options could not take: they are at their top and the pull goes on.
+                    if (available.y > COLLAPSE_THRESHOLD_PX) curveCollapsed = false
+                    return Offset.Zero
+                }
+            }
+        }
+    val waitingForSession = state is AudioEngineState.Detached || state is AudioEngineState.Listening
 
     @Composable
     fun Head(
         graphHeight: Dp,
-        compact: Boolean,
+        collapsible: Boolean,
     ) {
+        val collapsed = collapsible && curveCollapsed
+        val shownGraphHeight by animateDpAsState(
+            targetValue = if (collapsed) CollapsedGraphHeight else graphHeight,
+            label = "graphHeight",
+        )
         Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -293,16 +338,38 @@ fun EqualizerScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(spacing.small),
             ) {
+                // Waiting for a session: the line itself opens what to do (it used to be a second card
+                // below the curve saying the same).
                 EqStatusLine(
                     kind = statusKind,
                     pathLabel = pathLabel,
-                    onClick = {},
+                    onClick = { if (waitingForSession) noSessionDetails = !noSessionDetails },
                     modifier = Modifier.weight(1f),
+                    trailing =
+                        if (waitingForSession) {
+                            {
+                                Icon(
+                                    imageVector = if (noSessionDetails) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription =
+                                        stringResource(if (noSessionDetails) R.string.info_less else R.string.info_more),
+                                    tint = style.mutedText,
+                                )
+                            }
+                        } else {
+                            null
+                        },
                 )
                 HeadroomBadge(
                     level = if (settings.masterEnabled) warningLevel else null,
                     onClick = { signalChainOpen = true },
                     style = style,
+                )
+            }
+            AnimatedVisibility(visible = waitingForSession && noSessionDetails) {
+                Text(
+                    text = stringResource(R.string.no_session_text),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = style.mutedText,
                 )
             }
             AnimatedVisibility(visible = isDirty) {
@@ -311,31 +378,50 @@ fun EqualizerScreen(
                     TextButton(onClick = onSaveAsNewRequest) { Text(stringResource(R.string.action_save)) }
                 }
             }
-            ResponseGraph(
-                height = graphHeight,
-                curve = curvePoints,
-                bands = graphBands,
-                selectedIndex = selectedBand,
-                onSelect = { selectedBand = it },
-                onGainChange = onBandGainChanged,
-                processing = processing,
-                stateLabel =
-                    when {
-                        !settings.masterEnabled -> stringResource(R.string.graph_state_off)
-                        settings.bypass -> stringResource(R.string.graph_state_bypass)
-                        else -> null
-                    },
-                hotFrequencyHz = curvePeak?.takeIf { heavyLimiting && it.gainDb > 0f }?.frequencyHz,
-                description = curveDescription,
-            )
-            // On a short screen the help line gives its room to the tabs; the readout returns as soon
-            // as a band is selected.
+            Box {
+                ResponseGraph(
+                    height = shownGraphHeight,
+                    collapsed = collapsed,
+                    hint =
+                        if (selectedBand == null) {
+                            stringResource(
+                                if (graphBands.isEmpty()) R.string.graph_hint_no_bands_short else R.string.graph_hint_select_short,
+                            )
+                        } else {
+                            null
+                        },
+                    curve = curvePoints,
+                    bands = graphBands,
+                    selectedIndex = selectedBand,
+                    onSelect = { selectedBand = it },
+                    onGainChange = onBandGainChanged,
+                    processing = processing,
+                    stateLabel =
+                        when {
+                            !settings.masterEnabled -> stringResource(R.string.graph_state_off)
+                            settings.bypass -> stringResource(R.string.graph_state_bypass)
+                            else -> null
+                        },
+                    hotFrequencyHz = curvePeak?.takeIf { heavyLimiting && it.gainDb > 0f }?.frequencyHz,
+                    description = curveDescription,
+                )
+                if (collapsed) {
+                    val expand = stringResource(R.string.graph_expand)
+                    Box(
+                        modifier =
+                            Modifier
+                                .matchParentSize()
+                                .clickable(onClickLabel = expand, role = Role.Button) { curveCollapsed = false },
+                    )
+                }
+            }
+            // The readout takes a row only while a band is selected; the help sits in the graph.
             val selected = graphBands.firstOrNull { it.index == selectedBand }
-            if (!compact || selected != null) {
+            AnimatedVisibility(visible = selected != null && !collapsed) {
                 BandReadout(
                     band = selected,
                     onGainChange = onBandGainChanged,
-                    hint = stringResource(if (graphBands.isEmpty()) R.string.graph_hint_no_bands else R.string.graph_hint_select),
+                    hint = "",
                 )
             }
         }
@@ -348,29 +434,6 @@ fun EqualizerScreen(
             state is AudioEngineState.Error ->
                 OutlinedButton(onClick = onRetryAttach, modifier = Modifier.heightIn(min = 48.dp)) {
                     Text(stringResource(R.string.action_retry))
-                }
-            // No-session guidance: the foreground service listens for new sessions in the background,
-            // but a player that was already running before it started never announces one.
-            state is AudioEngineState.Detached || state is AudioEngineState.Listening ->
-                Notice {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.no_session_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = style.text,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = { noSessionDetails = !noSessionDetails }) {
-                            Text(stringResource(if (noSessionDetails) R.string.info_less else R.string.info_more))
-                        }
-                    }
-                    AnimatedVisibility(visible = noSessionDetails) {
-                        Text(
-                            text = stringResource(R.string.no_session_text),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = style.mutedText,
-                        )
-                    }
                 }
             deviceKindPrompt != null ->
                 DeviceKindCard(
@@ -906,7 +969,11 @@ fun EqualizerScreen(
     fun TabContent(modifier: Modifier) {
         val scroll = key(tab) { rememberScrollState() }
         Column(
-            modifier = modifier.verticalScroll(scroll).padding(horizontal = spacing.medium, vertical = spacing.medium),
+            modifier =
+                modifier
+                    .nestedScroll(collapseOnScroll)
+                    .verticalScroll(scroll)
+                    .padding(horizontal = spacing.medium, vertical = spacing.medium),
             verticalArrangement = Arrangement.spacedBy(spacing.large),
         ) {
             when (tab) {
@@ -966,6 +1033,7 @@ fun EqualizerScreen(
                         )
                     }
                     ContextSection()
+                    deviceTabFooter?.invoke(this)
                 }
             }
         }
@@ -982,6 +1050,8 @@ fun EqualizerScreen(
             val wide = maxWidth > maxHeight && maxWidth >= WIDE_LAYOUT_MIN_WIDTH
             val compact = maxHeight < COMPACT_HEIGHT
             val graphHeight = if (compact) CompactGraphHeight else DefaultGraphHeight
+            // Folding only helps where the head sits above the options.
+            val collapsible = !wide
             if (wide) {
                 Row(modifier = Modifier.fillMaxSize()) {
                     Column(
@@ -992,7 +1062,7 @@ fun EqualizerScreen(
                                 .padding(spacing.medium),
                         verticalArrangement = Arrangement.spacedBy(spacing.small),
                     ) {
-                        Head(graphHeight, compact)
+                        Head(graphHeight, collapsible)
                         NoticeSlot()
                     }
                     Column(modifier = Modifier.weight(1f)) {
@@ -1006,7 +1076,7 @@ fun EqualizerScreen(
                         modifier = Modifier.padding(horizontal = spacing.medium).padding(top = spacing.medium),
                         verticalArrangement = Arrangement.spacedBy(spacing.small),
                     ) {
-                        Head(graphHeight, compact)
+                        Head(graphHeight, collapsible)
                         NoticeSlot()
                     }
                     Tabs()
@@ -1019,6 +1089,9 @@ fun EqualizerScreen(
         }
     }
 }
+
+// Finger movement (px per event) that counts as scrolling the options, not as jitter.
+private const val COLLAPSE_THRESHOLD_PX = 1f
 
 // Size of the LED meters' scale: 12 dB fills a chain.
 private const val METER_RANGE_DB = 12f

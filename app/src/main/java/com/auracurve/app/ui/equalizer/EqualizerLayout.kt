@@ -51,6 +51,9 @@ internal enum class EqualizerTab(
 // takes more than about half of it.
 internal val DefaultGraphHeight = 248.dp
 internal val CompactGraphHeight = 132.dp
+
+// The folded curve while the options are scrolled: still readable as a shape, a third of the full one.
+internal val CollapsedGraphHeight = 96.dp
 internal val COMPACT_HEIGHT = 640.dp
 internal val WIDE_LAYOUT_MIN_WIDTH = 600.dp
 

@@ -125,7 +125,6 @@
     <string name="headroom_ok">Enough headroom</string>
     <string name="headroom_limiter_sometimes">The limiter will probably work now and then (estimate)</string>
     <string name="headroom_limiter_heavy">Heavy limiting is likely (estimate)</string>
-    <string name="no_session_title">No audio session found</string>
     <string name="no_session_text">AuraCurve listens for new audio sessions only while it runs, and it closes by itself after a while without one. Open it before you start the player. If a music app has been running since before the installation or the last restart, this usually helps: pause the track and play it again, skip to the next track, or close the player app and restart it.</string>
     <string name="correction_title">My headphones</string>
     <string name="correction_detected">Detected device: %1$s</string>
@@ -472,8 +471,9 @@
     <string name="player_open_equalizer">Open equalizer: %1$s</string>
     <string name="graph_band_lower">Lower %1$s by 0.5 dB</string>
     <string name="graph_band_raise">Raise %1$s by 0.5 dB</string>
-    <string name="graph_hint_select">Drag a point up or down, or tap it and use − and + for exact steps.</string>
-    <string name="graph_hint_no_bands">The points appear once the EQ is connected to a player. Until then the graph shows the target curve.</string>
+    <string name="graph_hint_select_short">Tap or drag a point</string>
+    <string name="graph_hint_no_bands_short">Target curve – points appear once a player is connected</string>
+    <string name="graph_expand">Show the full curve</string>
     <string name="graph_note_interpolated">Points are the band settings. The line between them is drawn smooth for reading the shape; it is not a measurement.</string>
     <string name="graph_state_off">EQ off</string>
     <string name="graph_state_bypass">Bypassed</string>
