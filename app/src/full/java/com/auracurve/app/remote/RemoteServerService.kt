@@ -1,10 +1,12 @@
 package com.auracurve.app.remote
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.util.Log
@@ -174,15 +176,17 @@ class RemoteServerService : LifecycleService() {
             false
         }
 
+    // Without the notification permission the foreground notification is hidden anyway.
     private fun updateNotification(address: String?) {
-        runCatching { NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification(address)) }
+        val allowed =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (allowed) NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification(address))
     }
 
     private fun buildNotification(address: String?): Notification {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, getString(R.string.remote_server_channel), NotificationManager.IMPORTANCE_LOW)
-            NotificationManagerCompat.from(this).createNotificationChannel(channel)
-        }
+        val channel = NotificationChannel(CHANNEL_ID, getString(R.string.remote_server_channel), NotificationManager.IMPORTANCE_LOW)
+        NotificationManagerCompat.from(this).createNotificationChannel(channel)
         val open =
             PendingIntent.getActivity(
                 this,
