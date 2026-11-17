@@ -18,4 +18,22 @@
     <string name="audius_show_trending">Show trending</string>
     <!-- Overrides the store text: radio stations and Audius tracks cannot be saved yet either. -->
     <string name="local_files_not_in_playlists">Files from this device, radio stations and Audius tracks cannot be saved in playlists yet</string>
+    <!-- Local remote-control server (Pixel-Car module 04a). -->
+    <string name="remote_server_title">Remote control (local)</string>
+    <string name="remote_server_status_on">On</string>
+    <string name="remote_server_status_off">Off</string>
+    <string name="remote_server_description">Lets the web remote on another phone in the same hotspot or Wi-Fi control AuraCurve. Answers only inside a private network and only with the token below.</string>
+    <string name="remote_server_unavailable">Only available to the phone\'s main user.</string>
+    <string name="remote_server_address">Address: %1$s</string>
+    <string name="remote_server_token_label">Token</string>
+    <string name="remote_server_link_label">Pairing link</string>
+    <string name="remote_server_new_token">New token</string>
+    <string name="remote_server_copy_link">Copy link</string>
+    <string name="remote_server_channel">Remote control</string>
+    <string name="remote_server_notification_title">Remote control on</string>
+    <string name="remote_server_notification_text">Remote control on · %1$s</string>
+    <string name="remote_server_notification_no_network">No hotspot or Wi-Fi address yet</string>
+    <string name="remote_server_action_stop">Stop</string>
+    <string name="remote_server_error_port">The server could not open port %1$d. Is another server running?</string>
+    <string name="remote_server_error_not_allowed">Android did not allow the server to start. Open AuraCurve and try again.</string>
 </resources>

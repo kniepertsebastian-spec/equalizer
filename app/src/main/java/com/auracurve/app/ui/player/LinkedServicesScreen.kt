@@ -41,6 +41,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auracurve.app.R
+import com.auracurve.app.ui.remote.RemoteServerCard
 import com.auracurve.app.ui.theme.SonicPaper
 import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.SonicSteel
@@ -153,6 +154,9 @@ fun LinkedServicesScreen(
             importState.message?.takeIf { importState.isError }?.let { message ->
                 Text(text = message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
             }
+
+            // Pixel-Car module 04a: the local remote-control server ("full" only, nothing in "store").
+            RemoteServerCard()
 
             TextButton(onClick = onOpenSoundProfiles) { Text(stringResource(R.string.services_open_profiles)) }
         }

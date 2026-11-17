@@ -43,6 +43,9 @@ orgJson = "20240303"
 mockito = "5.11.0"
 androidxTestExtJunit = "1.1.5"
 espresso = "3.5.1"
+# Local remote-control server, flavor "full" only (Pixel-Car module 04). 3.6.1 is built against
+# Kotlin stdlib 2.3.21 and coroutines 1.11.0, so it compiles with Kotlin 2.3.20 (ADR 0001).
+ktor = "3.6.1"
 
 [libraries]
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
@@ -98,6 +101,10 @@ mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
 androidx-test-rules = { module = "androidx.test:rules", version = "1.6.1" }
 espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

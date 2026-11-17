@@ -131,4 +131,26 @@ class SessionIdleShutdownTest {
 
             assertEquals(1, events.size)
         }
+
+    @Test
+    fun `never closes while the remote-control server keeps it alive, and closes after it stops`() =
+        runTest {
+            val events = mutableListOf<Unit>()
+            val keepAlive = MutableStateFlow(true)
+            val job =
+                launch {
+                    idleShutdown(MutableStateFlow(false), MutableStateFlow(false), timeout, keepAlive).toList(events)
+                }
+
+            advanceTimeBy(timeout * 3)
+            runCurrent()
+            assertEquals(0, events.size)
+
+            keepAlive.value = false
+            runCurrent()
+            advanceTimeBy(timeout + 1.minutes)
+            runCurrent()
+            assertEquals(1, events.size)
+            job.join()
+        }
 }

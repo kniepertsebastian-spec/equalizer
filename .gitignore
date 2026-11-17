@@ -9,3 +9,6 @@ captures/
 .cxx/
 *.apk
 *.aab
+
+# Kotlin compiler daemon session files
+.kotlin/

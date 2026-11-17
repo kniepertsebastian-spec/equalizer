@@ -4,6 +4,8 @@ import com.auracurve.app.discovery.DiscoverySource
 import com.auracurve.app.discovery.NoDiscoverySource
 import com.auracurve.app.integration.NoOnlineSources
 import com.auracurve.app.integration.OnlineSources
+import com.auracurve.app.remote.NoRemoteServerControl
+import com.auracurve.app.remote.RemoteServerControl
 import com.auracurve.app.text.TextProvider
 import com.auracurve.app.ui.player.LinkImport
 import com.auracurve.app.ui.player.NoLinkImport
@@ -29,5 +31,8 @@ abstract class DistributionModule {
     companion object {
         @Provides
         fun provideLinkImport(texts: TextProvider): LinkImport = NoLinkImport(texts)
+
+        @Provides
+        fun provideRemoteServerControl(): RemoteServerControl = NoRemoteServerControl
     }
 }
