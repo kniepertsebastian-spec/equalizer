@@ -1,5 +1,6 @@
 package com.auracurve.app.remote
 
+import com.auracurve.app.remote.feed.FeedRemoteApi
 import com.auracurve.app.remote.playback.PlaybackRemoteApi
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -61,6 +62,8 @@ class RemoteApiConfig(
     val eq: EqRemoteApi? = null,
     /** Playback, volume and source (04c); null leaves them out. */
     val playback: PlaybackRemoteApi? = null,
+    /** The feed (04d); null leaves it out. */
+    val feed: FeedRemoteApi? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
 )
@@ -127,6 +130,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
         }
         config.eq?.let { eq -> eqRoutes(eq) }
         config.playback?.let { playback -> playbackRoutes(playback) }
+        config.feed?.let { feed -> feedRoutes(feed, config.playback) }
         webSocket("/api/v0/ws") {
             var seq = 0L
             send(Frame.Text(envelope("hello", ++seq, versionJson(config))))
@@ -184,6 +188,27 @@ private fun Route.playbackRoutes(playback: PlaybackRemoteApi) {
     post("/api/v0/system/source") {
         playback.setSource(call.jsonBody())
         respondJson(call, buildJsonObject { put("accepted", true) }, HttpStatusCode.Accepted)
+    }
+}
+
+private fun Route.feedRoutes(
+    feed: FeedRemoteApi,
+    playback: PlaybackRemoteApi?,
+) {
+    get("/api/v0/player/feed") { respondJson(call, feed.feed()) }
+    post("/api/v0/player/pull") {
+        feed.pull()
+        respondJson(call, buildJsonObject { put("accepted", true) }, HttpStatusCode.Accepted)
+    }
+    // Like the devserver: answered with the now-playing state of the built-in player.
+    post("/api/v0/player/play-all") {
+        val count = feed.playAll()
+        if (playback != null) {
+            playback.usePlayer()
+            respondJson(call, playback.nowPlaying())
+        } else {
+            respondJson(call, buildJsonObject { put("trackCount", count) })
+        }
     }
 }
 

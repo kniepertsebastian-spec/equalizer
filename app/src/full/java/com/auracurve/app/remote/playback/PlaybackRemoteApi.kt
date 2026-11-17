@@ -93,6 +93,13 @@ class PlaybackRemoteApi(
         }
     }
 
+    /** For the feed's play-all: the built-in player becomes the active source, Spotify is paused. */
+    suspend fun usePlayer() =
+        onMain {
+            if (spotify.unavailableReason() == null && spotify.isPlaying()) spotify.pause()
+            _activeSource.value = RemoteSource.PLAYER
+        }
+
     /**
      * The now-playing state whenever the track or play/pause changes (playback.changed), checked
      * every [pollMs]. Also moves the active source to the one that started playing.

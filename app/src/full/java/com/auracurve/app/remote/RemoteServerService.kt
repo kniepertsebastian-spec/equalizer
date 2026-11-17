@@ -8,6 +8,8 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -20,8 +22,11 @@ import com.auracurve.app.BuildConfig
 import com.auracurve.app.MainActivity
 import com.auracurve.app.R
 import com.auracurve.app.diagnostics.DiagnosticsRecorder
+import com.auracurve.app.discovery.DiscoveryRepository
+import com.auracurve.app.discovery.DiscoveryUpdater
 import com.auracurve.app.eq.EqController
 import com.auracurve.app.integration.PlayerController
+import com.auracurve.app.remote.feed.FeedRemoteApi
 import com.auracurve.app.remote.playback.AndroidVolumeBackend
 import com.auracurve.app.remote.playback.PlaybackRemoteApi
 import com.auracurve.app.remote.playback.PlayerPlaybackBackend
@@ -39,6 +44,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.TimeZone
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -98,6 +104,33 @@ class RemoteServerService : LifecycleService() {
         )
     }
 
+    // 04d: the same list and the same pull as the player screen.
+    @Inject
+    lateinit var discoveryRepository: DiscoveryRepository
+
+    @Inject
+    lateinit var discoveryUpdater: DiscoveryUpdater
+
+    private val feedApi by lazy {
+        FeedRemoteApi(
+            repository = discoveryRepository,
+            refresh = {
+                val now = System.currentTimeMillis()
+                discoveryUpdater.refresh(now, TimeZone.getDefault().getOffset(now).toLong(), onlyIfDue = false)
+            },
+            online = ::hasInternet,
+            playQueue = { playerController.playQueue(it, 0) },
+            scope = lifecycleScope,
+        )
+    }
+
+    private fun hasInternet(): Boolean {
+        val connectivity = getSystemService(ConnectivityManager::class.java) ?: return false
+        val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+    }
+
     private fun systemStatus(): SystemStatus = statusSource.current().copy(activeSource = playbackApi.activeSource.value.name)
 
     private var server: EmbeddedServer<*, *>? = null
@@ -138,6 +171,9 @@ class RemoteServerService : LifecycleService() {
                 eqApi.changes().drop(1).throttleLatest(EQ_EVENT_PERIOD).collect {
                     events.tryEmit(RemoteEvent("eq.changed", it))
                 }
+            }
+            launch {
+                feedApi.updates.collect { events.tryEmit(RemoteEvent("feed.updated", it)) }
             }
             launch {
                 playbackApi.changes().drop(1).collect { events.tryEmit(RemoteEvent("playback.changed", it)) }
@@ -187,6 +223,7 @@ class RemoteServerService : LifecycleService() {
                     webRoot = { getExternalFilesDir(WEB_DIR) },
                     eq = eqApi,
                     playback = playbackApi,
+                    feed = feedApi,
                 )
             server = embeddedServer(CIO, port = LocalAddress.PORT, host = "0.0.0.0") { remoteApi(config) }.start(wait = false)
             true
