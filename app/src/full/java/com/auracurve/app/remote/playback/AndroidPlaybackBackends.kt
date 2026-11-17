@@ -79,9 +79,9 @@ class SpotifyPlaybackBackend(
     private val sessions = context.getSystemService(MediaSessionManager::class.java)
     private val listener = ComponentName(context, RemoteNotificationListener::class.java)
 
-    private fun accessGranted(): Boolean = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+    internal fun accessGranted(): Boolean = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
 
-    private fun spotify(): MediaController? =
+    internal fun spotify(): MediaController? =
         if (!accessGranted()) {
             null
         } else {

@@ -1,6 +1,7 @@
 package com.auracurve.app.remote
 
 import com.auracurve.app.remote.feed.FeedRemoteApi
+import com.auracurve.app.remote.library.SpotifyLibraryRemoteApi
 import com.auracurve.app.remote.playback.PlaybackRemoteApi
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -71,6 +72,8 @@ class RemoteApiConfig(
     val playback: PlaybackRemoteApi? = null,
     /** The feed (04d); null leaves it out. */
     val feed: FeedRemoteApi? = null,
+    /** The offline copy of the Spotify library; null leaves it out. */
+    val library: SpotifyLibraryRemoteApi? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
     /** Called with the number of open WebSockets whenever it changes (04f: compare safety net). */
@@ -141,6 +144,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
         config.eq?.let { eq -> eqRoutes(eq) }
         config.playback?.let { playback -> playbackRoutes(playback) }
         config.feed?.let { feed -> feedRoutes(feed, config.playback) }
+        config.library?.let { library -> libraryRoutes(library, config.playback) }
         webSocket("/api/v0/ws") {
             config.onWebSocketClients(clients.incrementAndGet())
             var seq = 0L
@@ -232,6 +236,29 @@ private fun Route.feedRoutes(
             respondJson(call, playback.nowPlaying())
         } else {
             respondJson(call, buildJsonObject { put("trackCount", count) })
+        }
+    }
+}
+
+private fun Route.libraryRoutes(
+    library: SpotifyLibraryRemoteApi,
+    playback: PlaybackRemoteApi?,
+) {
+    get("/api/v0/library/spotify") { respondJson(call, library.index()) }
+    get("/api/v0/library/spotify/tracks") { respondJson(call, library.tracks()) }
+    post("/api/v0/library/spotify/sync") {
+        library.sync()
+        respondJson(call, buildJsonObject { put("accepted", true) }, HttpStatusCode.Accepted)
+    }
+    // Like play-all: Spotify becomes the active source and the answer is its now-playing state
+    // (the new song follows as playback.changed once Spotify reports it).
+    post("/api/v0/library/spotify/play") {
+        library.play(call.jsonBody())
+        if (playback != null) {
+            playback.useSpotify()
+            respondJson(call, playback.nowPlaying())
+        } else {
+            respondJson(call, buildJsonObject { put("accepted", true) })
         }
     }
 }
