@@ -81,7 +81,7 @@ internal fun Section(
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.large)
                 .background(style.surface)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content,
     )
@@ -347,8 +347,8 @@ internal fun IntensityStepper(
 }
 
 /**
- * One stage of the signal chain as a row: icon well, name, current value and a switch.
- * The whole row toggles; the switch's thumb position says on/off without color.
+ * One stage of the signal chain as a compact tile: icon, name and state in words. Filled
+ * with the accent gradient when on, the control tone when off; the whole tile is the switch.
  */
 @Composable
 internal fun SignalModuleTile(
@@ -360,36 +360,41 @@ internal fun SignalModuleTile(
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle = SonicStyle,
 ) {
-    Row(
+    val content = if (checked) Color.White else style.text
+    Column(
         modifier =
             modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp)
+                .heightIn(min = 76.dp)
                 .clip(MaterialTheme.shapes.medium)
+                .background(style.surfaceVariant)
+                .then(if (checked) Modifier.background(style.accentFill) else Modifier)
                 .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Box(
-            modifier = Modifier.size(40.dp).clip(CircleShape).background(style.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = if (checked) style.accent else style.mutedText)
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (checked) Color.White else style.accent,
+            modifier = Modifier.size(20.dp),
+        )
+        Text(
+            text = title,
+            color = content,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (detail != null) {
+            Text(
+                text = detail,
+                color = if (checked) Color.White.copy(alpha = 0.85f) else style.mutedText,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = style.text, style = MaterialTheme.typography.titleSmall, maxLines = 1)
-            if (detail != null) {
-                Text(
-                    text = detail,
-                    color = style.mutedText,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-        GradientSwitch(checked = checked, style = style)
     }
 }
 

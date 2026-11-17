@@ -194,6 +194,16 @@ class EqualizerScreenUiTest {
         assertCurveInHead()
     }
 
+    // The whole Sound tab on one tall screen, to check how much of it a normal phone shows
+    // without scrolling (411 x 891 dp: everything down to "Bass & loudness").
+    @Test
+    @Config(qualifiers = "w411dp-h1800dp-xxhdpi")
+    fun theWholeSoundTabOnATallScreen() {
+        showEqualizer()
+        compose.onNodeWithText(text(R.string.compare_title)).assertIsDisplayed()
+        compose.onRoot().saveScreenshot("11-sound-tab-whole")
+    }
+
     // A short phone: the head shrinks the curve, the tabs still get room.
     @Test
     @Config(qualifiers = "w360dp-h600dp-xhdpi")

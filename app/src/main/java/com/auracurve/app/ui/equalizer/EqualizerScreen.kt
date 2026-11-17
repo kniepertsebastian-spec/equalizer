@@ -476,10 +476,14 @@ fun EqualizerScreen(
     @Composable
     fun CompareSection() {
         Section {
-            SectionHeader(title = stringResource(R.string.compare_title))
+            // The side chips sit in the header; the idle explanation is behind (i), and the
+            // level-matched delta shows only while comparing.
+            SectionHeader(
+                title = stringResource(R.string.compare_title),
+                info = stringResource(R.string.compare_hint_idle),
+            )
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(spacing.small),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ChoiceChip(
@@ -492,27 +496,24 @@ fun EqualizerScreen(
                     selected = compare == null || compare.side == CompareSide.EQ,
                     onClick = { if (compare == null) onStartCompare() else onCompareSide(CompareSide.EQ) },
                 )
-                Spacer(modifier = Modifier.weight(1f))
-                if (compare != null) {
+                HoldToCompareButton(
+                    modifier = Modifier.weight(1f),
+                    onPress = { onCompareSide(CompareSide.ORIGINAL) },
+                    onRelease = onEndCompare,
+                    style = style,
+                )
+            }
+            if (compare != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.compare_hint_active, String.format("%+.1f", compare.eqLevelDeltaDb)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = style.mutedText,
+                        modifier = Modifier.weight(1f),
+                    )
                     TextButton(onClick = onEndCompare) { Text(stringResource(R.string.compare_done)) }
                 }
             }
-            HoldToCompareButton(
-                modifier = Modifier.fillMaxWidth(),
-                onPress = { onCompareSide(CompareSide.ORIGINAL) },
-                onRelease = onEndCompare,
-                style = style,
-            )
-            Text(
-                text =
-                    if (compare == null) {
-                        stringResource(R.string.compare_hint_idle)
-                    } else {
-                        stringResource(R.string.compare_hint_active, String.format("%+.1f", compare.eqLevelDeltaDb))
-                    },
-                style = MaterialTheme.typography.bodySmall,
-                color = style.mutedText,
-            )
         }
     }
 
@@ -520,51 +521,13 @@ fun EqualizerScreen(
     fun GenreSection() {
         var presetUsageOpen by rememberSaveable { mutableStateOf(false) }
         Section {
-            SectionHeader(title = stringResource(R.string.genre_title))
-            GenreChoices(
-                genres = genrePresets,
-                selected = selectedGenreIntensity?.first,
-                onSelect = { genre ->
-                    // Keep the chosen intensity when the new genre has one, otherwise
-                    // land on MODERATE - picking another genre should not silently
-                    // reset an already chosen "Aggressive".
-                    val intensity =
-                        selectedGenreIntensity?.second?.takeIf { genre.allowsIntensity } ?: PresetIntensity.MODERATE
-                    onGenreIntensitySelected(genre, intensity)
-                },
-                style = style,
-            )
-            val selectedGenre = selectedGenreIntensity?.first
-            val selectedIntensity = selectedGenreIntensity?.second
-            // The segments name every level, so the heading needs no value of its own.
-            Text(
-                text = stringResource(R.string.intensity_title),
-                style = MaterialTheme.typography.titleSmall,
-                color = style.text,
-                modifier = Modifier.padding(top = spacing.small),
-            )
-            IntensityStepper(
-                labels = intensities.map { it.displayName },
-                selectedIndex = selectedIntensity?.let { intensities.indexOf(it) }?.takeIf { it >= 0 },
-                enabled = selectedGenre?.allowsIntensity == true,
-                onSelect = { index -> selectedGenre?.let { onGenreIntensitySelected(it, intensities[index]) } },
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.presets_custom),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = style.text,
-                    modifier = Modifier.weight(1f),
-                )
+            SectionHeader(title = stringResource(R.string.genre_title)) {
                 // P5-4: a preset link someone sent (or a scanned QR code, which opens the app directly).
                 TextButton(onClick = onImportPresetLinkRequested) {
                     Text(stringResource(R.string.preset_import_link))
                 }
-                // When the active preset (genre or custom) is a good choice; the same (i) pattern as
-                // SectionHeader. Each custom preset also has it in its own menu.
+                // When the active preset (genre or custom) is a good choice; each custom preset
+                // also has it in its own menu.
                 IconButton(onClick = { presetUsageOpen = !presetUsageOpen }) {
                     Icon(
                         imageVector = Icons.Outlined.Info,
@@ -586,7 +549,39 @@ fun EqualizerScreen(
                     PresetUsageText(preset = activePreset, style = style)
                 }
             }
+            GenreChoices(
+                genres = genrePresets,
+                selected = selectedGenreIntensity?.first,
+                onSelect = { genre ->
+                    // Keep the chosen intensity when the new genre has one, otherwise
+                    // land on MODERATE - picking another genre should not silently
+                    // reset an already chosen "Aggressive".
+                    val intensity =
+                        selectedGenreIntensity?.second?.takeIf { genre.allowsIntensity } ?: PresetIntensity.MODERATE
+                    onGenreIntensitySelected(genre, intensity)
+                },
+                style = style,
+            )
+            val selectedGenre = selectedGenreIntensity?.first
+            val selectedIntensity = selectedGenreIntensity?.second
+            // The segments name every level, so the heading needs no value of its own.
+            Caption(
+                text = stringResource(R.string.intensity_title),
+                color = style.mutedText,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+            IntensityStepper(
+                labels = intensities.map { it.displayName },
+                selectedIndex = selectedIntensity?.let { intensities.indexOf(it) }?.takeIf { it >= 0 },
+                enabled = selectedGenre?.allowsIntensity == true,
+                onSelect = { index -> selectedGenre?.let { onGenreIntensitySelected(it, intensities[index]) } },
+            )
             if (customPresets.isNotEmpty()) {
+                Caption(
+                    text = stringResource(R.string.presets_custom),
+                    color = style.mutedText,
+                    modifier = Modifier.padding(top = spacing.small),
+                )
                 PresetGrid(
                     presets = customPresets,
                     activePresetId = activePreset.id,
@@ -619,13 +614,14 @@ fun EqualizerScreen(
                         stringResource(R.string.context_virtual_bass_desc),
                     ).joinToString("\n"),
             )
-            Column {
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
                 SignalModuleTile(
                     title = stringResource(R.string.module_loudness),
                     detail = stringResource(if (settings.loudnessMaxBoostDb > 0f) R.string.module_on else R.string.module_off),
                     checked = settings.loudnessMaxBoostDb > 0f,
                     onCheckedChange = onLoudnessCompensationChanged,
                     icon = Icons.Outlined.Hearing,
+                    modifier = Modifier.weight(1f),
                 )
                 SignalModuleTile(
                     title = stringResource(R.string.module_subsonic),
@@ -640,6 +636,7 @@ fun EqualizerScreen(
                     checked = settings.subsonicCutoffHz > 0f,
                     onCheckedChange = onSubsonicFilterChanged,
                     icon = Icons.Outlined.FilterAlt,
+                    modifier = Modifier.weight(1f),
                 )
                 SignalModuleTile(
                     title = stringResource(R.string.module_virtual_bass),
@@ -655,7 +652,7 @@ fun EqualizerScreen(
                     checked = settings.virtualBassMix > 0f,
                     onCheckedChange = onVirtualBassChanged,
                     icon = Icons.Outlined.GraphicEq,
-                    modifier = Modifier.alpha(if (isOwnPlayerSession) 1f else 0.6f),
+                    modifier = Modifier.weight(1f).alpha(if (isOwnPlayerSession) 1f else 0.6f),
                 )
             }
         }
@@ -960,8 +957,9 @@ fun EqualizerScreen(
                 modifier
                     .nestedScroll(collapseOnScroll)
                     .verticalScroll(scroll)
-                    .padding(horizontal = spacing.medium, vertical = spacing.medium),
-            verticalArrangement = Arrangement.spacedBy(spacing.large),
+                    .padding(horizontal = spacing.medium)
+                    .padding(top = spacing.extraSmall, bottom = spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when (tab) {
                 EqualizerTab.SOUND -> {

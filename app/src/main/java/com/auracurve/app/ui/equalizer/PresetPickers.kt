@@ -94,7 +94,7 @@ internal fun GenreChoices(
                 modifier =
                     Modifier
                         .width(112.dp)
-                        .height(96.dp)
+                        .height(84.dp)
                         .semantics { contentDescription = genre.displayName },
                 shape = MaterialTheme.shapes.medium,
                 color = style.surfaceVariant,
@@ -104,13 +104,13 @@ internal fun GenreChoices(
                         Modifier
                             .fillMaxSize()
                             .then(if (isSelected) Modifier.background(style.accentFill) else Modifier)
-                            .padding(10.dp),
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Box(
                         modifier =
                             Modifier
-                                .size(28.dp)
+                                .size(24.dp)
                                 .clip(CircleShape)
                                 .background(if (isSelected) Color.White.copy(alpha = 0.18f) else style.surface),
                         contentAlignment = Alignment.Center,

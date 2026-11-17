@@ -52,7 +52,7 @@ internal enum class EqualizerTab(
 
 // The full curve on a normal phone; a shorter one when the screen is short, so the head never
 // takes more than about half of it.
-internal val DefaultGraphHeight = 248.dp
+internal val DefaultGraphHeight = 208.dp
 internal val CompactGraphHeight = 132.dp
 
 // The folded curve while the options are scrolled: still readable as a shape, a third of the full one.
@@ -71,9 +71,9 @@ internal fun EqualizerTabs(
     Row(
         modifier =
             Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
                 .fillMaxWidth()
-                .height(48.dp)
+                .height(44.dp)
                 .clip(PillShape)
                 .background(style.surface)
                 .padding(4.dp),

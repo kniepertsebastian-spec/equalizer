@@ -365,7 +365,7 @@ internal fun HoldToCompareButton(
     Surface(
         modifier =
             modifier
-                .heightIn(min = 52.dp)
+                .heightIn(min = 48.dp)
                 .semantics {
                     contentDescription = label
                     role = Role.Button
@@ -383,14 +383,16 @@ internal fun HoldToCompareButton(
                         },
                     )
                 },
-        shape = MaterialTheme.shapes.small,
+        shape = PillShape,
         color = if (pressed) style.text else style.surfaceVariant,
         border = BorderStroke(1.dp, if (pressed) style.text else style.border),
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(14.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
             Text(
                 text = stringResource(if (pressed) R.string.compare_hold_active else R.string.compare_hold),
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
                 color = if (pressed) style.background else style.text,
             )
         }
