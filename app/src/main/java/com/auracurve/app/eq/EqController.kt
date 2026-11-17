@@ -48,6 +48,7 @@ import com.auracurve.app.ui.main.CONTEXT_MODE_NONE
 import com.auracurve.app.ui.main.CurveCalculator
 import com.auracurve.app.ui.main.CurveInputs
 import com.auracurve.app.ui.main.RouteContextResolver
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -449,7 +450,16 @@ class EqController
             val initialCorrectionProfiles = correctionProfileRepository.customProfiles.first()
             customCorrectionProfilesState.value = initialCorrectionProfiles
 
-            val saved = appSettingsRepository.liveSettings.first()
+            // Damaged saved data must not stop the controller (it would never report itself restored,
+            // and the session service waits for that): the compiled-in defaults stay then.
+            val saved =
+                try {
+                    appSettingsRepository.liveSettings.first()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    null
+                }
             if (saved != null) {
                 val preset = findPresetById(saved.activePresetId, initialCustomPresets)
                 if (preset != null) {

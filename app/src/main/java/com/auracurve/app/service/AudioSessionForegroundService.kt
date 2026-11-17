@@ -20,9 +20,9 @@ import com.auracurve.app.audio.AudioEngine
 import com.auracurve.app.audio.AudioEngineState
 import com.auracurve.app.audio.AudioRouteRepository
 import com.auracurve.app.audio.AudioSessionRepository
-import com.auracurve.app.audio.SavedSettingsRestorer
 import com.auracurve.app.audio.SystemVolumeRepository
 import com.auracurve.app.diagnostics.DiagnosticsRecorder
+import com.auracurve.app.eq.EqController
 import com.auracurve.app.remote.RemoteServerControl
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -72,8 +72,10 @@ class AudioSessionForegroundService : LifecycleService() {
     @Inject
     lateinit var sessionScanner: com.auracurve.app.audio.SessionScanner
 
+    // E-008 stage 2: the equalizer's control logic, process-wide. Created here at the latest, so
+    // quick tiles, Android Auto and the remote server can steer the EQ without the app on screen.
     @Inject
-    lateinit var savedSettingsRestorer: SavedSettingsRestorer
+    lateinit var eqController: EqController
 
     // Pixel-Car module 04: while the remote-control server ("full" only) runs, never idle out.
     @Inject
@@ -93,10 +95,10 @@ class AudioSessionForegroundService : LifecycleService() {
         playbackMonitor.startMonitoring()
 
         lifecycleScope.launch {
-            // E-008: without MainViewModel nobody else puts the saved curve on the engine, and
-            // attach() applies whatever the engine holds. Restored before the first session attaches.
-            val restored = savedSettingsRestorer.restoreIfEngineUntouched()
-            diagnosticsRecorder.record("Saved EQ settings at service start: ${if (restored) "restored" else "not restored"}")
+            // E-008: attach() applies whatever the engine holds, so the controller puts the saved
+            // sound on it (preset, route binding, player curve) before the first session attaches.
+            eqController.awaitRestored()
+            diagnosticsRecorder.record("Saved EQ settings at service start: restored by the EQ controller")
             sessionRepository.activeSession.collect { session ->
                 if (session != null) {
                     // Only monitor volume changes while an active session exists to avoid

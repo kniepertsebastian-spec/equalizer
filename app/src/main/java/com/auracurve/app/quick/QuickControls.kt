@@ -24,9 +24,10 @@ data class QuickState(
 
 /**
  * The bridge between the system surfaces (tiles, widget) and the equalizer state, which lives in
- * `MainViewModel`: the view model publishes [state] and consumes [commands]. While no view model is
- * alive ([hasConsumer] is false) a surface has to open the app with the command instead
- * ([QuickCommandIntents]) - nothing else can compose the curve and drive the engine.
+ * `EqController` (E-008 stage 2): the controller publishes [state] and consumes [commands]. It
+ * attaches once and stays for the life of the process (the session service creates it), so a tile
+ * works with the app closed. Only while no controller exists yet ([hasConsumer] is false) does a
+ * surface have to open the app with the command instead ([QuickCommandIntents]).
  */
 @Singleton
 class QuickControls
@@ -54,13 +55,13 @@ class QuickControls
             refreshSurfaces()
         }
 
-        /** Returns whether a view model is there to act on it; if not nothing is queued. */
+        /** Returns whether a controller is there to act on it; if not nothing is queued. */
         fun send(command: QuickCommand): Boolean {
             if (!hasConsumer) return false
             return channel.trySend(command).isSuccess
         }
 
-        /** Called by the view model whenever what the surfaces show may have changed. */
+        /** Called by the controller whenever what the surfaces show may have changed. */
         fun publish(state: QuickState) {
             if (_state.value == state) return
             _state.value = state
