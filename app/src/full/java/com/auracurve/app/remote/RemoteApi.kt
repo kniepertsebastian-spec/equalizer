@@ -31,7 +31,11 @@ import io.ktor.server.websocket.webSocket
 import io.ktor.util.cio.ChannelIOException
 import io.ktor.websocket.Frame
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -125,10 +129,14 @@ fun Application.remoteApi(config: RemoteApiConfig) {
         config.eq?.let { eq -> eqRoutes(eq) }
         webSocket("/api/v0/ws") {
             var seq = 0L
-            send(Frame.Text(envelope("hello", ++seq, versionJson(config))))
+            // hello goes out only once the event subscription stands, so an event emitted right
+            // after a client has seen hello is never lost (SharedFlow drops it without subscribers).
             val forward =
-                launch {
-                    config.events.collect { event -> send(Frame.Text(envelope(event.type, ++seq, event.data))) }
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    val hello: suspend () -> Unit = { send(Frame.Text(envelope("hello", ++seq, versionJson(config)))) }
+                    val events = config.events
+                    val stream = if (events is SharedFlow) events.onSubscription { hello() } else events.onStart { hello() }
+                    stream.collect { event -> send(Frame.Text(envelope(event.type, ++seq, event.data))) }
                 }
             try {
                 // Server to client only (contract section 4): incoming frames are read and dropped,
