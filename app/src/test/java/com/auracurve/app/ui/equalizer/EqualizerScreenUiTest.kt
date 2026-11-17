@@ -2,10 +2,15 @@ package com.auracurve.app.ui.equalizer
 
 import android.app.Application
 import android.graphics.Bitmap
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -15,6 +20,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.unit.height
 import com.auracurve.app.R
 import com.auracurve.app.audio.AudioDeviceType
 import com.auracurve.app.audio.AudioEngineState
@@ -30,6 +38,8 @@ import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.theme.AuraCurveTheme
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -67,6 +77,7 @@ class EqualizerScreenUiTest {
         state: AudioEngineState = AudioEngineState.Active(sessionId = 42),
         activePreset: Preset = BuiltInPresets.all.first(),
         customPresets: List<Preset> = emptyList(),
+        deviceTabFooter: (@Composable ColumnScope.() -> Unit)? = null,
     ) {
         compose.setContent {
             AuraCurveTheme {
@@ -124,6 +135,7 @@ class EqualizerScreenUiTest {
                     onMacroHaerteChanged = {},
                     onBandGainChanged = { _, _ -> },
                     onRetryAttach = {},
+                    deviceTabFooter = deviceTabFooter,
                 )
             }
         }
@@ -182,6 +194,16 @@ class EqualizerScreenUiTest {
         assertCurveInHead()
     }
 
+    // The whole Sound tab on one tall screen, to check how much of it a normal phone shows
+    // without scrolling (411 x 891 dp: everything down to "Bass & loudness").
+    @Test
+    @Config(qualifiers = "w411dp-h1800dp-xxhdpi")
+    fun theWholeSoundTabOnATallScreen() {
+        showEqualizer()
+        compose.onNodeWithText(text(R.string.compare_title)).assertIsDisplayed()
+        compose.onRoot().saveScreenshot("11-sound-tab-whole")
+    }
+
     // A short phone: the head shrinks the curve, the tabs still get room.
     @Test
     @Config(qualifiers = "w360dp-h600dp-xhdpi")
@@ -203,12 +225,47 @@ class EqualizerScreenUiTest {
         compose.onRoot().saveScreenshot("06-landscape")
     }
 
+    // Waiting for a session is said once, by the status line; tapping it opens what to do.
     @Test
     fun waitingForASessionRenders() {
         showEqualizer(state = AudioEngineState.Listening)
 
-        compose.onNodeWithText(text(R.string.no_session_title)).assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.eq_status_waiting)).assertIsDisplayed()
+        compose.onAllNodesWithText(text(R.string.no_session_text)).assertCountEquals(0)
         compose.onRoot().saveScreenshot("07-waiting-for-a-session")
+
+        compose.onNodeWithText(text(R.string.eq_status_waiting)).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(text(R.string.no_session_text)).assertIsDisplayed()
+    }
+
+    // Scrolling the options down folds the curve to give them the room; a tap brings it back.
+    @Test
+    fun scrollingTheOptionsFoldsTheCurveAndATapUnfoldsIt() {
+        showEqualizer()
+        val curve = compose.onNodeWithContentDescription(curveDescription, substring = true)
+        val fullHeight = curve.getUnclippedBoundsInRoot().height
+
+        compose.onAllNodesWithText(text(R.string.genre_title)).onFirst().performTouchInput { swipeUp() }
+        compose.waitForIdle()
+        val foldedHeight = curve.getUnclippedBoundsInRoot().height
+        assertTrue("folded $foldedHeight, full $fullHeight", foldedHeight < fullHeight / 2)
+        assertCurveInHead()
+        compose.onRoot().saveScreenshot("10-curve-folded")
+
+        curve.performClick()
+        compose.waitForIdle()
+        assertEquals(fullHeight, curve.getUnclippedBoundsInRoot().height)
+    }
+
+    // Diagnostics live at the end of the Device tab, not under every tab.
+    @Test
+    fun theDiagnosticsEntryIsInTheDeviceTabOnly() {
+        showEqualizer(deviceTabFooter = { Text(text(R.string.more_tools_show)) })
+
+        compose.onAllNodesWithText(text(R.string.more_tools_show)).assertCountEquals(0)
+        openTab(R.string.eq_tab_device)
+        compose.onNodeWithText(text(R.string.more_tools_show)).performScrollTo().assertIsDisplayed()
     }
 
     // The values of the shared "Uptempo – Kick Snap Max" link: kick focus and a +10 dB boost.

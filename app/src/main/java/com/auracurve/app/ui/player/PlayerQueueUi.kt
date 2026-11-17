@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -42,8 +43,9 @@ import coil3.compose.AsyncImage
 import com.auracurve.app.R
 import com.auracurve.app.player.playback.PlayerNotice
 import com.auracurve.app.player.playback.RepeatSetting
-import com.auracurve.app.ui.theme.SonicAmber
+import com.auracurve.app.ui.equalizer.SonicStyle
 import com.auracurve.app.ui.theme.SonicSteel
+import com.auracurve.app.ui.theme.SonicViolet
 
 // A cover from SoundCloud, loaded and cached by Coil (memory and disk, see
 // AuraCurveApplication.newImageLoader), so scrolling a list or reopening the player does not
@@ -53,12 +55,24 @@ fun CoverImage(
     url: String?,
     modifier: Modifier = Modifier,
     placeholderIconSize: Dp = 20.dp,
+    // Without artwork, a title gives the square one of the accent tones, so a list of tracks
+    // without covers still tells its rows apart. Null keeps the neutral surface.
+    seed: String? = null,
 ) {
+    val tone = seed?.let { coverTone(it) }
     Box(
-        modifier = modifier.background(MaterialTheme.colorScheme.surfaceVariant),
+        modifier =
+            modifier
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .then(if (tone != null) Modifier.background(tone.copy(alpha = 0.55f)) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Default.MusicNote, contentDescription = null, tint = SonicSteel, modifier = Modifier.size(placeholderIconSize))
+        Icon(
+            Icons.Default.MusicNote,
+            contentDescription = null,
+            tint = if (tone != null) Color.White.copy(alpha = 0.85f) else SonicSteel,
+            modifier = Modifier.size(placeholderIconSize),
+        )
         if (url != null) {
             AsyncImage(
                 model = url,
@@ -72,8 +86,17 @@ fun CoverImage(
 
 // The small cover at the start of a list row.
 @Composable
-fun CoverThumb(url: String?) {
-    CoverImage(url = url, modifier = Modifier.size(40.dp).clip(MaterialTheme.shapes.small))
+fun CoverThumb(
+    url: String?,
+    seed: String? = null,
+    size: Dp = 40.dp,
+) {
+    CoverImage(url = url, modifier = Modifier.size(size).clip(MaterialTheme.shapes.small), seed = seed)
+}
+
+private fun coverTone(seed: String): Color {
+    val tones = listOf(SonicStyle.accentFillStart, SonicStyle.accentFillEnd, SonicStyle.lineStart, SonicStyle.lineEnd)
+    return tones[Math.floorMod(seed.hashCode(), tones.size)]
 }
 
 // "⋮" on a track outside the queue (search result, playlist entry): put it into the queue. A
@@ -188,7 +211,7 @@ fun QueueEntryMenu(
     }
 }
 
-// Shuffle on/off. On is amber (the selected-control color); the state is also spoken.
+// Shuffle on/off. On is violet (the selected-control color); the state is also spoken.
 @Composable
 fun ShuffleButton(
     enabled: Boolean,
@@ -197,16 +220,17 @@ fun ShuffleButton(
 ) {
     val label = stringResource(R.string.player_shuffle)
     val state = stringResource(if (on) R.string.state_on else R.string.state_off)
-    IconButton(
+    RoundControlButton(
         onClick = onToggle,
         enabled = enabled,
+        size = 48.dp,
         modifier =
             Modifier.semantics {
                 contentDescription = label
                 stateDescription = state
             },
     ) {
-        Icon(Icons.Default.Shuffle, contentDescription = null, tint = if (on) SonicAmber else SonicSteel)
+        Icon(Icons.Default.Shuffle, contentDescription = null, tint = if (on) SonicViolet else SonicSteel)
     }
 }
 
@@ -227,9 +251,10 @@ fun RepeatButton(
                 RepeatSetting.ONE -> R.string.player_repeat_one
             },
         )
-    IconButton(
+    RoundControlButton(
         onClick = onCycle,
         enabled = enabled,
+        size = 48.dp,
         modifier =
             Modifier.semantics {
                 contentDescription = label
@@ -239,7 +264,7 @@ fun RepeatButton(
         Icon(
             imageVector = if (setting == RepeatSetting.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
             contentDescription = null,
-            tint = if (setting == RepeatSetting.OFF) SonicSteel else SonicAmber,
+            tint = if (setting == RepeatSetting.OFF) SonicSteel else SonicViolet,
         )
     }
 }

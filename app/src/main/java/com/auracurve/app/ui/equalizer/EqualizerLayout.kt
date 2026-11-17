@@ -8,18 +8,19 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -31,9 +32,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.dsp.HeadroomWarningLevel
+import com.auracurve.app.ui.theme.PillShape
 
 // AuraCurve roadmap 04, part A (docs/EQUALIZER_REDESIGN.md): the building blocks of the equalizer's
 // new layout. The sections themselves are unchanged and live in EqualizerScreen.
@@ -49,31 +52,53 @@ internal enum class EqualizerTab(
 
 // The full curve on a normal phone; a shorter one when the screen is short, so the head never
 // takes more than about half of it.
-internal val DefaultGraphHeight = 248.dp
+internal val DefaultGraphHeight = 208.dp
 internal val CompactGraphHeight = 132.dp
+
+// The folded curve while the options are scrolled: still readable as a shape, a third of the full one.
+internal val CollapsedGraphHeight = 96.dp
 internal val COMPACT_HEIGHT = 640.dp
 internal val WIDE_LAYOUT_MIN_WIDTH = 600.dp
 
-// Same look as the player's tabs (PlayerTabs): amber marker, selected label light, the others steel.
+// A pill-shaped segmented control: the chosen tab filled with the accent gradient and set in
+// bold white, the others steel on the control tone. Each segment is a Role.Tab for TalkBack.
 @Composable
 internal fun EqualizerTabs(
     selected: EqualizerTab,
     onSelect: (EqualizerTab) -> Unit,
     style: EqualizerDesignStyle = SonicStyle,
 ) {
-    TabRow(
-        selectedTabIndex = selected.ordinal,
-        containerColor = Color.Transparent,
-        contentColor = style.accent,
+    Row(
+        modifier =
+            Modifier
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .fillMaxWidth()
+                .height(44.dp)
+                .clip(PillShape)
+                .background(style.surface)
+                .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         EqualizerTab.entries.forEach { tab ->
-            Tab(
-                selected = selected == tab,
-                onClick = { onSelect(tab) },
-                text = { Text(stringResource(tab.labelRes), maxLines = 1) },
-                selectedContentColor = style.text,
-                unselectedContentColor = style.mutedText,
-            )
+            val isSelected = selected == tab
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(PillShape)
+                        .then(if (isSelected) Modifier.background(style.accentFill) else Modifier)
+                        .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(tab) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = stringResource(tab.labelRes),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = if (isSelected) Color.White else style.mutedText,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
@@ -100,7 +125,7 @@ internal fun HeadroomBadge(
     Row(
         modifier =
             modifier
-                .clip(MaterialTheme.shapes.small)
+                .clip(PillShape)
                 .background(style.surface)
                 .clickable(role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = description }

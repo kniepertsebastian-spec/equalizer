@@ -1,5 +1,6 @@
 package com.auracurve.app.ui.player.mini
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -21,10 +22,8 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,6 +31,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -45,7 +46,10 @@ import com.auracurve.app.R
 import com.auracurve.app.player.playback.PlayerNotice
 import com.auracurve.app.ui.eq.EqStatusKind
 import com.auracurve.app.ui.eq.EqStatusLamp
+import com.auracurve.app.ui.equalizer.SonicStyle
+import com.auracurve.app.ui.equalizer.lineBrush
 import com.auracurve.app.ui.player.CoverImage
+import com.auracurve.app.ui.player.PlayKey
 import com.auracurve.app.ui.player.common.PreviewTag
 import com.auracurve.app.ui.player.isProblem
 import com.auracurve.app.ui.player.noticeText
@@ -73,10 +77,13 @@ fun MiniPlayer(
     val playPauseLabel = stringResource(if (ui.isPlaying) R.string.player_pause else R.string.player_play)
     val nextLabel = stringResource(R.string.player_next)
     val openLabel = stringResource(R.string.player_open_full)
+    // A floating card with a little room around it, so it reads as one control above the tabs.
     Surface(
         modifier =
             modifier
                 .fillMaxWidth()
+                .padding(horizontal = spacing.small, vertical = 6.dp)
+                .clip(MaterialTheme.shapes.large)
                 .draggable(
                     orientation = Orientation.Vertical,
                     // Up is a negative delta on screen; the sheet counts pulling up as positive.
@@ -98,30 +105,21 @@ fun MiniPlayer(
                             },
                         )
                 },
-        color = MaterialTheme.colorScheme.surface,
+        color = SonicStyle.surface,
+        shape = MaterialTheme.shapes.large,
     ) {
         Column {
             // The playback position as the top edge: also the hint that there is more above.
-            if (ui.durationMs > 0) {
-                LinearProgressIndicator(
-                    progress = { ui.progress },
-                    modifier = Modifier.fillMaxWidth().height(2.dp),
-                    trackColor = MaterialTheme.colorScheme.outline,
-                    drawStopIndicator = {},
-                    gapSize = 0.dp,
-                )
-            } else {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
-            }
+            ProgressLine(progress = if (ui.durationMs > 0) ui.progress else 0f)
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
                         .heightIn(min = 64.dp)
-                        .padding(start = spacing.medium, end = spacing.small),
+                        .padding(start = spacing.small, end = spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CoverImage(url = ui.artworkUrl, modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.small))
+                CoverImage(url = ui.artworkUrl, modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.medium))
                 Spacer(modifier = Modifier.width(spacing.small))
                 Column(modifier = Modifier.weight(1f).padding(vertical = spacing.small)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -154,20 +152,37 @@ fun MiniPlayer(
                 ) {
                     EqStatusLamp(kind = eqStatus)
                 }
-                IconButton(onClick = onTogglePlayback) {
-                    if (ui.isLoading) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(
-                            imageVector = if (ui.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = playPauseLabel,
-                        )
+                // 44 dp key inside a 48 dp touch target.
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                    PlayKey(onClick = onTogglePlayback, enabled = true, size = 44.dp) {
+                        if (ui.isLoading) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+                        } else {
+                            Icon(
+                                imageVector = if (ui.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                contentDescription = playPauseLabel,
+                            )
+                        }
                     }
                 }
                 IconButton(onClick = onNext) {
                     Icon(Icons.Default.SkipNext, contentDescription = nextLabel)
                 }
             }
+        }
+    }
+}
+
+// The playback position as a thin gradient line along the card's top edge: also the hint that
+// there is more above.
+@Composable
+private fun ProgressLine(progress: Float) {
+    val style = SonicStyle
+    Canvas(modifier = Modifier.fillMaxWidth().height(3.dp)) {
+        drawRect(color = style.surfaceVariant)
+        val width = size.width * progress.coerceIn(0f, 1f)
+        if (width > 0f) {
+            drawRect(brush = style.lineBrush(0f, size.width), size = Size(width, size.height))
         }
     }
 }

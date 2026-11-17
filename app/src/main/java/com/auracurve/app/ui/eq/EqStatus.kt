@@ -69,6 +69,8 @@ fun EqStatusLine(
     pathLabel: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    // Optional end slot, e.g. a "more" chevron when tapping the line opens an explanation.
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val label =
@@ -80,7 +82,7 @@ fun EqStatusLine(
     Row(
         modifier =
             modifier
-                .clip(MaterialTheme.shapes.small)
+                .clip(MaterialTheme.shapes.large)
                 .background(if (kind == EqStatusKind.ERROR) colors.errorContainer else colors.surface)
                 .clickable(onClick = onClick)
                 .heightIn(min = 48.dp)
@@ -89,12 +91,13 @@ fun EqStatusLine(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         EqStatusLamp(kind = kind, modifier = Modifier.padding(top = 6.dp))
-        Column {
+        Column(modifier = if (trailing != null) Modifier.weight(1f) else Modifier) {
             Text(text = label, style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
             kind.hintRes?.let { hint ->
                 Text(text = stringResource(hint), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
             }
         }
+        trailing?.invoke()
     }
 }
 

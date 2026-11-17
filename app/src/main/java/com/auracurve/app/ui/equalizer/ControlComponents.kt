@@ -2,6 +2,7 @@ package com.auracurve.app.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -14,7 +15,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -23,10 +23,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,44 +39,53 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.auracurve.app.R
 import com.auracurve.app.preset.TargetPoint
+import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicNumerals
 
-// Building blocks shared by the equalizer and the player. They separate content with
-// hairlines and tonal steps rather than stacked cards, and carry state in text and shape as
-// well as color: a selected control is filled and outlined, never only tinted.
+// Building blocks shared by the equalizer and the player. Content sits on tonal cards with
+// round corners; selected controls are pills filled with the violet-to-blue gradient. State
+// is carried in fill, weight and position as well as color, never only in a tint.
 
-/** A titled block of the screen: a hairline above, generous space, no box around it. */
+/** A titled block of the screen: one tonal card, generous padding, no outline. */
 @Composable
 internal fun Section(
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle = SonicStyle,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        HorizontalDivider(thickness = 1.dp, color = style.border)
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            content = content,
-        )
-    }
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.large)
+                .background(style.surface)
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        content = content,
+    )
 }
 
 /** A raised, tonal area for something that needs an answer, e.g. a question or a hint. */
@@ -115,7 +124,10 @@ internal fun Caption(
     )
 }
 
-/** Selectable choice: outlined when off; tinted, outlined in amber and bold when on. */
+/**
+ * Selectable choice as a pill: a flat control-tone pill when off; filled with the accent
+ * gradient, white and bold when on - the fill and the weight carry the state, not the hue.
+ */
 @Composable
 internal fun ChoiceChip(
     text: String,
@@ -130,12 +142,17 @@ internal fun ChoiceChip(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.heightIn(min = 48.dp),
-        shape = MaterialTheme.shapes.small,
-        color = if (selected) style.accent.copy(alpha = 0.14f) else style.surfaceVariant,
-        contentColor = if (selected) style.text else style.mutedText,
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) style.accent else style.border),
+        shape = PillShape,
+        color = style.surfaceVariant,
+        contentColor = if (selected) Color.White else style.mutedText,
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier =
+                Modifier
+                    .then(if (selected) Modifier.background(style.accentFill) else Modifier)
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+        ) {
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelLarge,
@@ -146,7 +163,10 @@ internal fun ChoiceChip(
     }
 }
 
-/** The master switch, built like a hardware key: lit amber when on, dark when off. */
+/**
+ * The master switch: a round key, filled with the accent gradient and a soft glow when on,
+ * a dark outlined disc when off.
+ */
 @Composable
 internal fun PowerKey(
     checked: Boolean,
@@ -155,16 +175,21 @@ internal fun PowerKey(
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle = SonicStyle,
 ) {
-    val fill by animateColorAsState(if (checked) style.accent else style.surfaceVariant, tween(150), label = "powerFill")
-    val tint by animateColorAsState(if (checked) style.background else style.mutedText, tween(150), label = "powerTint")
+    val tint by animateColorAsState(if (checked) Color.White else style.mutedText, tween(150), label = "powerTint")
+    val glow by animateDpAsState(if (checked) 14.dp else 0.dp, tween(200), label = "powerGlow")
     Box(
         modifier =
             modifier
                 .size(52.dp)
-                .clip(MaterialTheme.shapes.medium)
-                .background(fill)
-                .border(BorderStroke(1.dp, if (checked) style.accent else style.border), MaterialTheme.shapes.medium)
-                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+                .shadow(glow, CircleShape, ambientColor = style.accentFillStart, spotColor = style.accentFillStart)
+                .clip(CircleShape)
+                .then(
+                    if (checked) {
+                        Modifier.background(style.accentFill)
+                    } else {
+                        Modifier.background(style.surfaceVariant).border(1.dp, style.border, CircleShape)
+                    },
+                ).toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
                 .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
@@ -178,6 +203,7 @@ internal fun MiniCurve(
     points: List<TargetPoint>,
     color: Color,
     modifier: Modifier = Modifier,
+    brush: Brush? = null,
 ) {
     Canvas(modifier = modifier) {
         val rangeDb = CurveGeometry.rangeDb(points)
@@ -191,7 +217,8 @@ internal fun MiniCurve(
             val y = middle - (gain / rangeDb) * middle * 0.9f
             if (i == 0) path.moveTo(0f, y) else path.lineTo(fraction * size.width, y)
         }
-        drawPath(path, color, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        if (brush != null) drawPath(path, brush, style = stroke) else drawPath(path, color, style = stroke)
     }
 }
 
@@ -266,8 +293,9 @@ internal fun LedMeter(
 }
 
 /**
- * Stepped slider for the intensity levels: an amber track up to the chosen step. Each step
- * is its own selectable target, so TalkBack reads them as radio buttons.
+ * Segmented control for the intensity levels: one pill track, the chosen level filled with
+ * the accent gradient. Each segment is its own selectable target, so TalkBack reads them as
+ * radio buttons.
  */
 @Composable
 internal fun IntensityStepper(
@@ -278,110 +306,94 @@ internal fun IntensityStepper(
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle = SonicStyle,
 ) {
-    val count = labels.size.coerceAtLeast(1)
-    Box(modifier = modifier.fillMaxWidth().height(48.dp)) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val trackHeight = 4.dp.toPx()
-            val centerY = size.height / 2f
-
-            fun xFor(index: Int): Float = (index + 0.5f) / count * size.width
-            drawLine(
-                color = style.surfaceVariant,
-                start = Offset(xFor(0), centerY),
-                end = Offset(xFor(count - 1), centerY),
-                strokeWidth = trackHeight,
-                cap = StrokeCap.Round,
-            )
-            val selected = selectedIndex?.takeIf { enabled }
-            if (selected != null && selected > 0) {
-                drawLine(
-                    color = style.accent,
-                    start = Offset(xFor(0), centerY),
-                    end = Offset(xFor(selected), centerY),
-                    strokeWidth = trackHeight,
-                    cap = StrokeCap.Round,
-                )
-            }
-            for (i in 0 until count) {
-                val reached = selected != null && i <= selected
-                drawCircle(
-                    color = if (reached) style.accent else style.mutedText.copy(alpha = if (enabled) 0.7f else 0.35f),
-                    radius = 3.dp.toPx(),
-                    center = Offset(xFor(i), centerY),
-                )
-            }
-            if (selected != null) {
-                val center = Offset(xFor(selected), centerY)
-                drawCircle(color = style.background, radius = 12.dp.toPx(), center = center)
-                drawCircle(color = style.accent, radius = 10.dp.toPx(), center = center)
-                drawCircle(color = style.background, radius = 3.dp.toPx(), center = center)
-            }
-        }
-        Row(modifier = Modifier.fillMaxSize()) {
-            labels.forEachIndexed { index, label ->
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .selectable(
-                                selected = index == selectedIndex,
-                                enabled = enabled,
-                                role = Role.RadioButton,
-                                onClick = { onSelect(index) },
-                            ).semantics { contentDescription = label },
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(PillShape)
+                .background(style.surfaceVariant)
+                .padding(3.dp)
+                .alpha(if (enabled) 1f else 0.45f),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        labels.forEachIndexed { index, label ->
+            val selected = enabled && index == selectedIndex
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(PillShape)
+                        .then(if (selected) Modifier.background(style.accentFill) else Modifier)
+                        .selectable(
+                            selected = index == selectedIndex,
+                            enabled = enabled,
+                            role = Role.RadioButton,
+                            onClick = { onSelect(index) },
+                        ).semantics { contentDescription = label },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = label,
+                    color = if (selected) Color.White else style.mutedText,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    lineHeight = 12.sp,
+                    modifier = Modifier.padding(horizontal = 2.dp),
                 )
             }
         }
     }
 }
 
-/** One stage of the signal chain: a switch tile with a status lamp and its value. */
+/**
+ * One stage of the signal chain as a compact tile: icon, name and state in words. Filled
+ * with the accent gradient when on, the control tone when off; the whole tile is the switch.
+ */
 @Composable
 internal fun SignalModuleTile(
     title: String,
     detail: String?,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    icon: ImageVector,
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle = SonicStyle,
 ) {
-    val shape = MaterialTheme.shapes.small
+    val content = if (checked) Color.White else style.text
     Column(
         modifier =
             modifier
-                .heightIn(min = 84.dp)
-                .clip(shape)
-                .background(if (checked) style.accent.copy(alpha = 0.10f) else style.surfaceVariant)
-                .border(BorderStroke(if (checked) 1.5.dp else 1.dp, if (checked) style.accent else style.border), shape)
+                .heightIn(min = 76.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .background(style.surfaceVariant)
+                .then(if (checked) Modifier.background(style.accentFill) else Modifier)
                 .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .padding(horizontal = 10.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        // The lamp: a filled square when on, an empty one when off - readable without color.
-        Box(
-            modifier =
-                Modifier
-                    .size(8.dp)
-                    .then(
-                        if (checked) {
-                            Modifier.background(style.accent)
-                        } else {
-                            Modifier.border(1.dp, style.mutedText)
-                        },
-                    ),
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (checked) Color.White else style.accent,
+            modifier = Modifier.size(20.dp),
         )
         Text(
             text = title,
-            color = style.text,
+            color = content,
             style = MaterialTheme.typography.labelLarge,
-            maxLines = 2,
+            fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
         if (detail != null) {
             Text(
                 text = detail,
-                color = if (checked) style.text else style.mutedText,
-                style = MaterialTheme.typography.labelMedium,
+                color = if (checked) Color.White.copy(alpha = 0.85f) else style.mutedText,
+                style = MaterialTheme.typography.labelSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -389,7 +401,39 @@ internal fun SignalModuleTile(
     }
 }
 
-/** Short status tag, e.g. "Limiting often": outlined in its color, text in sentence case. */
+/** Display-only switch track; the row around it handles input and semantics. */
+@Composable
+internal fun GradientSwitch(
+    checked: Boolean,
+    modifier: Modifier = Modifier,
+    style: EqualizerDesignStyle = SonicStyle,
+) {
+    val offset by animateDpAsState(if (checked) 20.dp else 0.dp, tween(150), label = "switchThumb")
+    Box(
+        modifier =
+            modifier
+                .size(width = 48.dp, height = 28.dp)
+                .clip(PillShape)
+                .then(
+                    if (checked) {
+                        Modifier.background(style.accentFill)
+                    } else {
+                        Modifier.background(style.surfaceVariant).border(1.dp, style.border, PillShape)
+                    },
+                ).padding(3.dp),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .padding(start = offset)
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(if (checked) Color.White else style.mutedText),
+        )
+    }
+}
+
+/** Short status tag, e.g. "Limiting often": a pill outlined in its color, text in sentence case. */
 @Composable
 internal fun StatusTag(
     text: String,
@@ -399,8 +443,10 @@ internal fun StatusTag(
     Box(
         modifier =
             modifier
-                .border(BorderStroke(1.dp, color), MaterialTheme.shapes.extraSmall)
-                .padding(horizontal = 8.dp, vertical = 3.dp),
+                .clip(PillShape)
+                .background(color.copy(alpha = 0.10f))
+                .border(BorderStroke(1.dp, color.copy(alpha = 0.6f)), PillShape)
+                .padding(horizontal = 10.dp, vertical = 3.dp),
     ) {
         Text(text = text, color = color, style = MaterialTheme.typography.labelMedium, maxLines = 1)
     }

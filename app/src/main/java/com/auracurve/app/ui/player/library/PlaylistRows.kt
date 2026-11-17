@@ -13,12 +13,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +38,9 @@ import com.auracurve.app.playlist.PlaylistSearch
 import com.auracurve.app.playlist.SavedPlaylist
 import com.auracurve.app.playlist.SavedTrack
 import com.auracurve.app.ui.player.CoverThumb
+import com.auracurve.app.ui.player.PillTextField
+import com.auracurve.app.ui.player.PlayKey
+import com.auracurve.app.ui.player.RoundControlButton
 import com.auracurve.app.ui.player.TrackQueueMenu
 import com.auracurve.app.ui.player.TrackStateIcon
 import com.auracurve.app.ui.player.markWhenCurrent
@@ -43,7 +48,6 @@ import com.auracurve.app.ui.player.textAlpha
 import com.auracurve.app.ui.player.trackPlayState
 import com.auracurve.app.ui.theme.SonicPaper
 import com.auracurve.app.ui.theme.SonicSteel
-import com.auracurve.app.ui.theme.spacing
 
 // One tappable entry of the SoundCloud library: tap anywhere (or the play button) to
 // load its tracks and play them as the queue.
@@ -60,14 +64,14 @@ internal fun LibraryRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
+                .clip(MaterialTheme.shapes.medium)
                 .clickable(onClick = onPlay)
                 .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showCover) {
-            CoverThumb(url = artworkUrl)
-            Spacer(modifier = Modifier.size(MaterialTheme.spacing.small))
+            CoverThumb(url = artworkUrl, seed = title, size = 48.dp)
+            Spacer(modifier = Modifier.size(12.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -78,12 +82,14 @@ internal fun LibraryRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = SonicSteel)
+            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = SonicSteel, maxLines = 1)
         }
-        IconButton(onClick = onPlay) {
-            Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.player_play))
+        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            RoundControlButton(onClick = onPlay, enabled = true, size = 40.dp) {
+                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.player_play))
+            }
         }
-        menu?.invoke()
+        CompositionLocalProvider(LocalContentColor provides SonicSteel) { menu?.invoke() }
     }
 }
 
@@ -106,14 +112,18 @@ internal fun PlaylistRow(
     var expanded by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
     Column(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { expanded = !expanded },
-            ) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CoverThumb(url = playlist.tracks.firstOrNull()?.artworkUrl, seed = playlist.title, size = 48.dp)
+            Spacer(modifier = Modifier.size(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = playlist.title,
                     style = MaterialTheme.typography.bodyMedium,
@@ -132,14 +142,16 @@ internal fun PlaylistRow(
             }
             if (onSendToSoundCloud != null) {
                 IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
-                    Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.playlist_to_soundcloud))
+                    Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.playlist_to_soundcloud), tint = SonicSteel)
                 }
             }
-            IconButton(onClick = onPlay, enabled = playlist.tracks.isNotEmpty()) {
-                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play))
-            }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.playlist_delete))
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.playlist_delete), tint = SonicSteel)
+            }
+            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                PlayKey(onClick = onPlay, enabled = playlist.tracks.isNotEmpty(), size = 40.dp, glow = false) {
+                    Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play))
+                }
             }
         }
         if (expanded) {
@@ -152,12 +164,11 @@ internal fun PlaylistRow(
             }
             // A search box once the list is long enough to need one.
             if (playlist.tracks.size >= SEARCH_MIN_TRACKS) {
-                OutlinedTextField(
+                PillTextField(
                     value = search,
                     onValueChange = { search = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(R.string.playlist_search_hint)) },
-                    singleLine = true,
+                    placeholder = stringResource(R.string.playlist_search_hint),
+                    leadingIcon = Icons.Default.Search,
                 )
             }
             val hits = PlaylistSearch.filter(playlist.tracks, search)
@@ -182,7 +193,7 @@ internal fun PlaylistRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
-                    CoverThumb(url = track.artworkUrl)
+                    CoverThumb(url = track.artworkUrl, seed = track.title)
                     Spacer(modifier = Modifier.size(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(

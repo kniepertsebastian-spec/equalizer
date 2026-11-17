@@ -1,19 +1,25 @@
 package com.auracurve.app.ui.equalizer
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -47,6 +57,7 @@ import com.auracurve.app.R
 import com.auracurve.app.audio.AudioEngineState
 import com.auracurve.app.audio.MAX_RETRY_ATTEMPTS
 import com.auracurve.app.dsp.HeadphonePower
+import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicNumerals
 import com.auracurve.app.ui.theme.spacing
 import kotlinx.coroutines.delay
@@ -149,7 +160,7 @@ internal fun SwitchRow(
             }
         }
         // The row handles the toggle, so the switch itself only shows the state.
-        Switch(checked = checked, onCheckedChange = null)
+        GradientSwitch(checked = checked, style = style)
     }
 }
 
@@ -168,9 +179,9 @@ internal fun ValueSlider(
     Column {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(text = label, style = MaterialTheme.typography.bodyMedium, color = style.text, modifier = Modifier.weight(1f))
-            Text(text = shown, style = SonicNumerals.value, color = style.text)
+            ValueBadge(text = shown, style = style)
         }
-        Slider(
+        SonicSlider(
             modifier =
                 Modifier.semantics {
                     contentDescription = label
@@ -179,7 +190,7 @@ internal fun ValueSlider(
             value = value,
             onValueChange = onValueChange,
             valueRange = valueRange,
-            colors = sonicSliderColors(style),
+            style = style,
         )
         if (description != null) {
             Text(text = description, style = MaterialTheme.typography.bodySmall, color = style.mutedText)
@@ -213,7 +224,7 @@ internal fun BandSliderRow(
             color = if (selected) style.accent else style.mutedText,
             modifier = Modifier.width(64.dp),
         )
-        Slider(
+        SonicSlider(
             modifier =
                 Modifier.weight(1f).semantics {
                     contentDescription = frequency
@@ -222,7 +233,7 @@ internal fun BandSliderRow(
             value = band.gainDb,
             onValueChange = onGainChange,
             valueRange = band.minGainDb..band.maxGainDb,
-            colors = sonicSliderColors(style),
+            style = style,
         )
         Text(
             text = value,
@@ -232,6 +243,90 @@ internal fun BandSliderRow(
             modifier = Modifier.width(76.dp),
         )
     }
+}
+
+/** The exact value as a small pill next to a control's name. */
+@Composable
+internal fun ValueBadge(
+    text: String,
+    style: EqualizerDesignStyle,
+) {
+    Text(
+        text = text,
+        style = SonicNumerals.value,
+        color = style.text,
+        modifier =
+            Modifier
+                .clip(PillShape)
+                .background(style.surfaceVariant)
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+    )
+}
+
+/**
+ * Slider in the app's look: a pill track, the active part in the accent gradient and a white
+ * thumb with a soft glow. When the range spans 0 (dB gain), the active part grows from 0 to
+ * either side, so boost and cut read at a glance.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SonicSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    style: EqualizerDesignStyle,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onValueChangeFinished: (() -> Unit)? = null,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        valueRange = valueRange,
+        modifier = modifier,
+        enabled = enabled,
+        onValueChangeFinished = onValueChangeFinished,
+        interactionSource = interaction,
+        colors = sonicSliderColors(style),
+        thumb = {
+            Box(
+                modifier =
+                    Modifier
+                        .size(20.dp)
+                        .shadow(
+                            if (enabled) 8.dp else 0.dp,
+                            CircleShape,
+                            ambientColor = style.accentFillStart,
+                            spotColor = style.accentFillStart,
+                        ).clip(CircleShape)
+                        .background(if (enabled) Color.White else style.mutedText),
+            )
+        },
+        track = {
+            val span = valueRange.endInclusive - valueRange.start
+            val origin = if (valueRange.start < 0f && valueRange.endInclusive > 0f) 0f else valueRange.start
+
+            fun fraction(v: Float) = if (span <= 0f) 0f else ((v - valueRange.start) / span).coerceIn(0f, 1f)
+            Canvas(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+                val radius = CornerRadius(size.height / 2f)
+                drawRoundRect(color = style.surfaceVariant, cornerRadius = radius)
+                val a = fraction(origin) * size.width
+                val b = fraction(value) * size.width
+                val left = minOf(a, b)
+                val width = kotlin.math.abs(b - a)
+                if (width > 0f) {
+                    drawRoundRect(
+                        brush = style.lineBrush(0f, size.width),
+                        alpha = if (enabled) 1f else 0.38f,
+                        topLeft = Offset(left, 0f),
+                        size = Size(width, size.height),
+                        cornerRadius = radius,
+                    )
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -279,7 +374,7 @@ internal fun HoldToCompareButton(
     Surface(
         modifier =
             modifier
-                .heightIn(min = 52.dp)
+                .heightIn(min = 48.dp)
                 .semantics {
                     contentDescription = label
                     role = Role.Button
@@ -297,14 +392,16 @@ internal fun HoldToCompareButton(
                         },
                     )
                 },
-        shape = MaterialTheme.shapes.small,
+        shape = PillShape,
         color = if (pressed) style.text else style.surfaceVariant,
         border = BorderStroke(1.dp, if (pressed) style.text else style.border),
     ) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(14.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
             Text(
                 text = stringResource(if (pressed) R.string.compare_hold_active else R.string.compare_hold),
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
                 color = if (pressed) style.background else style.text,
             )
         }

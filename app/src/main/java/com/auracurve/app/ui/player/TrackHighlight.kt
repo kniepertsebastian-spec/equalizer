@@ -15,9 +15,9 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
-import com.auracurve.app.ui.theme.SonicAmber
 import com.auracurve.app.ui.theme.SonicGraphiteRaised
 import com.auracurve.app.ui.theme.SonicSteel
+import com.auracurve.app.ui.theme.SonicViolet
 
 // Where a track in a list stands: the one playing now, one that was already played in
 // this session, or not played yet.
@@ -42,7 +42,7 @@ fun Modifier.markWhenCurrent(state: TrackPlayState): Modifier {
     val shape = MaterialTheme.shapes.small
     return this
         .background(SonicGraphiteRaised, shape)
-        .border(1.5.dp, SonicAmber, shape)
+        .border(1.5.dp, SonicViolet, shape)
 }
 
 // Small marker in front of a row: equalizer bars for the current track, a check for a
@@ -54,7 +54,7 @@ fun TrackStateIcon(state: TrackPlayState) {
             Icon(
                 Icons.Default.GraphicEq,
                 contentDescription = stringResource(R.string.track_state_current),
-                tint = SonicAmber,
+                tint = SonicViolet,
                 modifier = Modifier.size(20.dp),
             )
 

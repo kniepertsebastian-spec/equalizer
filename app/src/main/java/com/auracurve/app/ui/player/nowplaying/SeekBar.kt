@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -18,6 +17,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import com.auracurve.app.R
 import com.auracurve.app.playlist.PlayerFormat
+import com.auracurve.app.ui.equalizer.SonicSlider
+import com.auracurve.app.ui.equalizer.SonicStyle
 
 // Dragging shows where the thumb is without seeking on every frame; the seek
 // happens once, when the finger lifts.
@@ -32,10 +33,13 @@ internal fun SeekBar(
     val fraction = dragFraction ?: PlayerFormat.progress(positionMs, durationMs)
     Column(modifier = Modifier.fillMaxWidth()) {
         val seekDescription = stringResource(R.string.seek_description)
-        Slider(
+        // The app's slider: gradient track up to the position, white thumb.
+        SonicSlider(
             modifier = Modifier.semantics { contentDescription = seekDescription },
             value = fraction,
             onValueChange = { dragFraction = it },
+            valueRange = 0f..1f,
+            style = SonicStyle,
             onValueChangeFinished = {
                 dragFraction?.let { onSeek((it * durationMs).toLong()) }
                 dragFraction = null
@@ -46,8 +50,9 @@ internal fun SeekBar(
             Text(
                 text = PlayerFormat.duration(dragFraction?.let { (it * durationMs).toLong() } ?: positionMs),
                 style = MaterialTheme.typography.labelSmall,
+                color = SonicStyle.mutedText,
             )
-            Text(text = PlayerFormat.duration(durationMs), style = MaterialTheme.typography.labelSmall)
+            Text(text = PlayerFormat.duration(durationMs), style = MaterialTheme.typography.labelSmall, color = SonicStyle.mutedText)
         }
     }
 }

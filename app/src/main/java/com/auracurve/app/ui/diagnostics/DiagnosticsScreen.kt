@@ -38,8 +38,8 @@ import com.auracurve.app.diagnostics.DiagnosticsEvent
 import com.auracurve.app.diagnostics.DiagnosticsReportFormatter
 import com.auracurve.app.diagnostics.OutputAudioInfo
 import com.auracurve.app.diagnostics.ProcessExitRecord
-import com.auracurve.app.ui.theme.SonicAmber
 import com.auracurve.app.ui.theme.SonicSteel
+import com.auracurve.app.ui.theme.SonicViolet
 import com.auracurve.app.ui.theme.spacing
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -153,7 +153,7 @@ private fun AboutCard() {
             Text(
                 text = stringResource(R.string.about_slogan),
                 style = MaterialTheme.typography.titleSmall,
-                color = SonicAmber,
+                color = SonicViolet,
             )
             Spacer(modifier = Modifier.height(spacing.small))
             Text(

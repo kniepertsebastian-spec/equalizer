@@ -36,8 +36,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -58,6 +60,8 @@ import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -133,6 +137,10 @@ internal fun ResponseGraph(
     modifier: Modifier = Modifier,
     // Shorter on short screens (EqualizerLayout.CompactGraphHeight); the drawing scales with it.
     height: Dp = GraphHeight,
+    // A short help line drawn into the plot's top left, so it needs no row of its own.
+    hint: String? = null,
+    // Folded while the options below are scrolled: a flat overview without points or gestures.
+    collapsed: Boolean = false,
     style: EqualizerDesignStyle = SonicStyle,
 ) {
     val sorted = bands.sortedBy { it.frequencyHz }
@@ -161,6 +169,7 @@ internal fun ResponseGraph(
     val measurer = rememberTextMeasurer()
     val axisStyle = SonicNumerals.axis.copy(color = style.mutedText)
     val stateStyle = MaterialTheme.typography.labelMedium.copy(color = style.mutedText)
+    val hintStyle = MaterialTheme.typography.labelSmall.copy(color = style.mutedText)
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth().height(height)) {
         Canvas(
@@ -169,12 +178,14 @@ internal fun ResponseGraph(
                     .fillMaxWidth()
                     .height(height)
                     .semantics { contentDescription = description }
-                    .pointerInput(scaleDb) {
+                    .pointerInput(scaleDb, collapsed) {
+                        if (collapsed) return@pointerInput
                         detectTapGestures { offset ->
                             val frame = PlotFrame(Size(size.width.toFloat(), size.height.toFloat()), this, scaleDb)
                             nearestBand(currentBands, frame.fractionAt(offset.x))?.let { currentOnSelect(it.index) }
                         }
-                    }.pointerInput(scaleDb) {
+                    }.pointerInput(scaleDb, collapsed) {
+                        if (collapsed) return@pointerInput
                         var active: GraphBand? = null
                         var gain = 0f
                         var sent = 0f
@@ -211,8 +222,8 @@ internal fun ResponseGraph(
                     },
         ) {
             val frame = PlotFrame(size, this, scaleDb)
-            drawGrid(frame, scaleDb, style, measurer, axisStyle)
-            val selected = sorted.indexOfFirst { it.index == selectedIndex }
+            drawGrid(frame, scaleDb, style, measurer, axisStyle, sparse = collapsed)
+            val selected = if (collapsed) -1 else sorted.indexOfFirst { it.index == selectedIndex }
             if (selected >= 0) drawSelection(frame, sorted, selected, style)
 
             val points =
@@ -227,10 +238,24 @@ internal fun ResponseGraph(
                         lineTo(frame.left, zeroY)
                         close()
                     }
-                drawPath(fill, color = curveColor.copy(alpha = if (processing) 0.10f else 0.05f))
+                // Running: the violet-to-blue line over a fill that fades towards 0 dB. Off or
+                // bypassed: a flat steel dash, so the state also reads without color.
+                if (processing) {
+                    drawPath(
+                        fill,
+                        brush =
+                            Brush.verticalGradient(
+                                listOf(style.lineStart.copy(alpha = 0.22f), style.lineEnd.copy(alpha = 0.02f)),
+                                startY = frame.top,
+                                endY = frame.bottom,
+                            ),
+                    )
+                } else {
+                    drawPath(fill, color = curveColor.copy(alpha = 0.05f))
+                }
                 drawPath(
                     path = line,
-                    color = curveColor,
+                    brush = if (processing) style.lineBrush(frame.left, frame.right) else SolidColor(curveColor),
                     style =
                         Stroke(
                             width = 2.5.dp.toPx(),
@@ -243,50 +268,69 @@ internal fun ResponseGraph(
 
             hotFrequencyHz?.let { drawHotMarker(frame, it, style) }
 
-            sorted.forEachIndexed { i, band ->
-                drawNode(
-                    center = Offset(frame.x(band.frequencyHz), frame.y(shownGains[i])),
-                    selected = i == selected,
-                    processing = processing,
-                    hot = hotFrequencyHz != null && band.frequencyHz == hotFrequencyHz,
-                    style = style,
-                )
+            if (!collapsed) {
+                sorted.forEachIndexed { i, band ->
+                    drawNode(
+                        center = Offset(frame.x(band.frequencyHz), frame.y(shownGains[i])),
+                        selected = i == selected,
+                        processing = processing,
+                        hot = hotFrequencyHz != null && band.frequencyHz == hotFrequencyHz,
+                        style = style,
+                    )
+                }
             }
 
             stateLabel?.let { label ->
                 val layout = measurer.measure(AnnotatedString(label), style = stateStyle)
                 drawText(layout, topLeft = Offset(frame.right - layout.size.width - 6.dp.toPx(), frame.top + 6.dp.toPx()))
             }
+            if (!collapsed) {
+                hint?.let { text ->
+                    val reserved = if (stateLabel != null) 72.dp.toPx() else 0f
+                    val maxWidth = (frame.width - 12.dp.toPx() - reserved).toInt().coerceAtLeast(1)
+                    val layout =
+                        measurer.measure(
+                            AnnotatedString(text),
+                            style = hintStyle,
+                            constraints = Constraints(maxWidth = maxWidth),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    drawText(layout, topLeft = Offset(frame.left + 6.dp.toPx(), frame.top + 4.dp.toPx()))
+                }
+            }
         }
 
         // Invisible TalkBack targets: each band becomes an adjustable value at its point.
         val plotWidth = maxWidth - GutterStart - PlotEnd
         val plotHeight = height - PlotTop - GutterBottom
-        sorted.forEachIndexed { i, band ->
-            val label = CurveGeometry.formatFrequency(band.frequencyHz)
-            val value = CurveGeometry.formatGain(band.gainDb)
-            val x = GutterStart + plotWidth * CurveGeometry.xFraction(band.frequencyHz)
-            val y = PlotTop + plotHeight * (1f - (shownGains[i].coerceIn(-scaleDb, scaleDb) + scaleDb) / (2f * scaleDb))
-            Box(
-                modifier =
-                    Modifier
-                        .offset(x = x - NodeTarget / 2, y = y - NodeTarget / 2)
-                        .size(NodeTarget)
-                        .semantics {
-                            contentDescription = label
-                            stateDescription = value
-                            progressBarRangeInfo = ProgressBarRangeInfo(band.gainDb, band.minGainDb..band.maxGainDb)
-                            setProgress { target ->
-                                val stepped = (target / GAIN_STEP_DB).roundToInt() * GAIN_STEP_DB
-                                onGainChange(band.index, stepped.coerceIn(band.minGainDb, band.maxGainDb))
-                                true
-                            }
-                            onClick {
-                                onSelect(band.index)
-                                true
-                            }
-                        },
-            )
+        if (!collapsed) {
+            sorted.forEachIndexed { i, band ->
+                val label = CurveGeometry.formatFrequency(band.frequencyHz)
+                val value = CurveGeometry.formatGain(band.gainDb)
+                val x = GutterStart + plotWidth * CurveGeometry.xFraction(band.frequencyHz)
+                val y = PlotTop + plotHeight * (1f - (shownGains[i].coerceIn(-scaleDb, scaleDb) + scaleDb) / (2f * scaleDb))
+                Box(
+                    modifier =
+                        Modifier
+                            .offset(x = x - NodeTarget / 2, y = y - NodeTarget / 2)
+                            .size(NodeTarget)
+                            .semantics {
+                                contentDescription = label
+                                stateDescription = value
+                                progressBarRangeInfo = ProgressBarRangeInfo(band.gainDb, band.minGainDb..band.maxGainDb)
+                                setProgress { target ->
+                                    val stepped = (target / GAIN_STEP_DB).roundToInt() * GAIN_STEP_DB
+                                    onGainChange(band.index, stepped.coerceIn(band.minGainDb, band.maxGainDb))
+                                    true
+                                }
+                                onClick {
+                                    onSelect(band.index)
+                                    true
+                                }
+                            },
+                )
+            }
         }
     }
 }
@@ -302,6 +346,8 @@ private fun DrawScope.drawGrid(
     style: EqualizerDesignStyle,
     measurer: TextMeasurer,
     axisStyle: TextStyle,
+    // Folded graph: only 0 dB and the outer ticks are labelled, the rest would overlap.
+    sparse: Boolean = false,
 ) {
     val hairline = 1.dp.toPx()
     drawRect(color = style.surface, topLeft = Offset(frame.left, frame.top), size = Size(frame.width, frame.height))
@@ -321,6 +367,7 @@ private fun DrawScope.drawGrid(
     CurveGeometry.gainTicks(scaleDb).forEach { gain ->
         val y = frame.y(gain)
         if (gain != 0f) drawLine(style.border, Offset(frame.left, y), Offset(frame.right, y), hairline)
+        if (sparse && gain != 0f && kotlin.math.abs(gain) != scaleDb) return@forEach
         val layout = measurer.measure(AnnotatedString(CurveGeometry.gainTickLabel(gain)), style = axisStyle)
         val labelY = (y - layout.size.height / 2f).coerceIn(0f, size.height - layout.size.height)
         drawText(layout, topLeft = Offset(frame.left - 6.dp.toPx() - layout.size.width, labelY))

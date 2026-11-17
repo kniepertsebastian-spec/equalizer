@@ -1,6 +1,7 @@
 package com.auracurve.app.ui.equalizer
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,13 +16,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Equalizer
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Nightlife
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
@@ -45,6 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -58,11 +68,12 @@ import com.auracurve.app.preset.GenrePreset
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetUsageAdvisor
 import com.auracurve.app.preset.PresetUsageHint
+import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.Spacing
 import com.auracurve.app.ui.theme.spacing
 
-// Genre picker: one choice per genre with its own curve, scrolling sideways, so every
-// genre is visible and one tap away. The genre shows in the curve, not in a color theme.
+// Genre picker: one card per genre with an icon, its name and its own curve, scrolling
+// sideways so every genre is one tap away. The chosen card is filled with the accent gradient.
 @Composable
 internal fun GenreChoices(
     genres: List<GenrePreset>,
@@ -76,40 +87,74 @@ internal fun GenreChoices(
     ) {
         genres.forEach { genre ->
             val isSelected = genre.id == selected?.id
+            val content = if (isSelected) Color.White else style.text
             Surface(
                 selected = isSelected,
                 onClick = { onSelect(genre) },
                 modifier =
                     Modifier
-                        .width(120.dp)
+                        .width(112.dp)
                         .height(84.dp)
                         .semantics { contentDescription = genre.displayName },
-                shape = MaterialTheme.shapes.small,
-                color = if (isSelected) style.accent.copy(alpha = 0.14f) else style.surfaceVariant,
-                border = BorderStroke(if (isSelected) 1.5.dp else 1.dp, if (isSelected) style.accent else style.border),
+                shape = MaterialTheme.shapes.medium,
+                color = style.surfaceVariant,
             ) {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(10.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .then(if (isSelected) Modifier.background(style.accentFill) else Modifier)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    MiniCurve(
-                        points = genre.base.targetCurve,
-                        color = if (isSelected) style.accent else style.mutedText,
-                        modifier = Modifier.fillMaxWidth().height(28.dp),
-                    )
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(if (isSelected) Color.White.copy(alpha = 0.18f) else style.surface),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = genreIcon(genre.id),
+                            contentDescription = null,
+                            tint = if (isSelected) Color.White else style.accent,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                     Text(
                         text = genre.displayName,
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        color = style.text,
+                        color = content,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                    )
+                    MiniCurve(
+                        points = genre.base.targetCurve,
+                        color = if (isSelected) Color.White else style.accent,
+                        modifier = Modifier.fillMaxWidth().height(18.dp),
                     )
                 }
             }
         }
     }
 }
+
+// One icon per genre, so the cards can be told apart before the name is read.
+internal fun genreIcon(genreId: String): ImageVector =
+    when (genreId) {
+        "genre_terror" -> Icons.Filled.Whatshot
+        "genre_uptempo" -> Icons.Filled.Speed
+        "genre_gabber" -> Icons.Filled.Bolt
+        "genre_early" -> Icons.Filled.History
+        "genre_frenchcore" -> Icons.Filled.GraphicEq
+        "genre_dance" -> Icons.Filled.Nightlife
+        "genre_pop" -> Icons.Filled.Mic
+        "genre_rap" -> Icons.Filled.RecordVoiceOver
+        "genre_flat" -> Icons.Filled.Remove
+        else -> Icons.Filled.MusicNote
+    }
 
 // Three-per-row grid of the user's own presets. Static/chunked rather than
 // LazyVerticalGrid since the list is small.
@@ -173,9 +218,9 @@ internal fun CorrectionProfileRow(
                 selected = selected,
                 onClick = { onProfileSelected(profile) },
                 modifier = Modifier.heightIn(min = 56.dp),
-                shape = MaterialTheme.shapes.small,
-                color = if (selected) style.accent.copy(alpha = 0.14f) else style.surfaceVariant,
-                border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) style.accent else style.border),
+                shape = MaterialTheme.shapes.medium,
+                color = if (selected) style.accent.copy(alpha = 0.16f) else style.surfaceVariant,
+                border = if (selected) BorderStroke(1.5.dp, style.accent) else null,
             ) {
                 Row(
                     modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
@@ -232,26 +277,29 @@ internal fun PresetCard(
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle,
 ) {
-    val contentColor = if (selected) style.text else style.mutedText
+    val contentColor = if (selected) Color.White else style.text
     var showMenu by remember { mutableStateOf(false) }
     var showUsage by remember { mutableStateOf(false) }
 
     Surface(
         selected = selected,
         onClick = onClick,
-        modifier = modifier.height(64.dp),
-        shape = MaterialTheme.shapes.small,
-        color = if (selected) style.accent.copy(alpha = 0.14f) else style.surfaceVariant,
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) style.accent else style.border),
+        modifier = modifier.height(56.dp),
+        shape = PillShape,
+        color = style.surfaceVariant,
     ) {
         Row(
-            modifier = Modifier.fillMaxSize().padding(start = 10.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .then(if (selected) Modifier.background(style.accentFill) else Modifier)
+                    .padding(start = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = presetIcon(preset.id),
                 contentDescription = null,
-                tint = if (selected) style.accent else contentColor,
+                tint = if (selected) Color.White else style.accent,
                 modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))

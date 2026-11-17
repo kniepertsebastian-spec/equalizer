@@ -3,7 +3,6 @@ package com.auracurve.app.ui.player.library
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,17 +14,16 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
@@ -42,13 +40,14 @@ import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.playlist.PlayerFormat
 import com.auracurve.app.playlist.SavedPlaylist
+import com.auracurve.app.ui.equalizer.SonicStyle
 import com.auracurve.app.ui.player.BridgeUiState
 import com.auracurve.app.ui.player.EmptyState
 import com.auracurve.app.ui.player.ImportUiState
 import com.auracurve.app.ui.player.LibraryUiState
 import com.auracurve.app.ui.player.PendingImport
+import com.auracurve.app.ui.player.PillTextField
 import com.auracurve.app.ui.player.PlayerViewModel
-import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
 
@@ -74,9 +73,8 @@ fun LazyListScope.playlistsTabItems(
         var linkText by rememberSaveable { mutableStateOf("") }
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, SonicRule),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = SonicStyle.surface),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Text(
@@ -108,12 +106,11 @@ fun LazyListScope.playlistsTabItems(
                 }
                 if (onlineSources) {
                     Spacer(modifier = Modifier.height(spacing.small))
-                    OutlinedTextField(
+                    PillTextField(
                         value = linkText,
                         onValueChange = { linkText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { Text("https://soundcloud.com/…") },
-                        singleLine = true,
+                        placeholder = "https://soundcloud.com/…",
+                        leadingIcon = Icons.Default.Link,
                     )
                 }
                 Row(
@@ -184,7 +181,7 @@ fun LazyListScope.playlistsTabItems(
                     }
                 }
                 if (playlists.isNotEmpty()) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = spacing.small))
+                    Spacer(modifier = Modifier.height(spacing.small))
                     playlists.forEach { playlist ->
                         PlaylistRow(
                             playlist = playlist,
@@ -219,9 +216,8 @@ fun LazyListScope.playlistsTabItems(
             val spacing = MaterialTheme.spacing
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, SonicRule),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = SonicStyle.surface),
             ) {
                 Column(modifier = Modifier.padding(spacing.medium)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -266,9 +262,8 @@ fun LazyListScope.playlistsTabItems(
             val spacing = MaterialTheme.spacing
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, SonicRule),
+                shape = MaterialTheme.shapes.large,
+                colors = CardDefaults.cardColors(containerColor = SonicStyle.surface),
             ) {
                 Column(modifier = Modifier.padding(spacing.medium)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.dp
 // Dark only: the app is used in dark rooms and cars, and the palette is built for it.
 private val SonicColorScheme =
     darkColorScheme(
-        primary = SonicAmber,
+        primary = SonicViolet,
         onPrimary = SonicGraphite,
         primaryContainer = SonicGraphiteControl,
         onPrimaryContainer = SonicPaper,
@@ -42,16 +42,19 @@ private val SonicColorScheme =
         onErrorContainer = SonicPaper,
     )
 
-// Radii follow hierarchy: small controls are nearly square like hardware keys, sheets and
-// dialogs a little softer. Nothing is a pill except switches.
+// Radii follow hierarchy: tags and wells are slightly rounded, cards and tiles soft,
+// sheets and dialogs softest. Chips, tabs and switches are pills (see PillShape).
 private val SonicShapes =
     Shapes(
-        extraSmall = RoundedCornerShape(2.dp),
-        small = RoundedCornerShape(4.dp),
-        medium = RoundedCornerShape(6.dp),
-        large = RoundedCornerShape(10.dp),
-        extraLarge = RoundedCornerShape(14.dp),
+        extraSmall = RoundedCornerShape(6.dp),
+        small = RoundedCornerShape(12.dp),
+        medium = RoundedCornerShape(16.dp),
+        large = RoundedCornerShape(20.dp),
+        extraLarge = RoundedCornerShape(28.dp),
     )
+
+/** Fully rounded ends: chips, tabs, status pills, the navigation bar. */
+val PillShape = RoundedCornerShape(percent = 50)
 
 @Composable
 fun AuraCurveTheme(content: @Composable () -> Unit) {
