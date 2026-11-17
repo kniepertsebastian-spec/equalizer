@@ -15,9 +15,11 @@ import io.ktor.server.application.isHandled
 import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
+import io.ktor.server.request.receiveText
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
+import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
@@ -31,6 +33,7 @@ import io.ktor.websocket.Frame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -53,6 +56,8 @@ class RemoteApiConfig(
     val addressAllowed: (local: String, remote: String) -> Boolean = PrivateNetwork::allows,
     val rateLimiter: AuthRateLimiter = AuthRateLimiter(),
     val tickets: WebSocketTickets = WebSocketTickets(),
+    /** The EQ endpoints (04b); null leaves them out (tests of the scaffold). */
+    val eq: EqRemoteApi? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
 )
@@ -117,6 +122,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
                 },
             )
         }
+        config.eq?.let { eq -> eqRoutes(eq) }
         webSocket("/api/v0/ws") {
             var seq = 0L
             send(Frame.Text(envelope("hello", ++seq, versionJson(config))))
@@ -145,6 +151,32 @@ fun Application.remoteApi(config: RemoteApiConfig) {
             }
         }
     }
+}
+
+private fun Route.eqRoutes(eq: EqRemoteApi) {
+    get("/api/v0/eq/state") {
+        if (!eq.ready) throw EqRemoteApi.notReady()
+        respondJson(call, eq.state())
+    }
+    get("/api/v0/eq/options") {
+        if (!eq.ready) throw EqRemoteApi.notReady()
+        respondJson(call, eq.options())
+    }
+    post("/api/v0/eq/bypass") { respondJson(call, eq.setBypass(call.jsonBody())) }
+    post("/api/v0/eq/preset") { respondJson(call, eq.setPreset(call.jsonBody())) }
+    post("/api/v0/eq/goal") { respondJson(call, eq.setGoal(call.jsonBody())) }
+    post("/api/v0/eq/context") { respondJson(call, eq.setContext(call.jsonBody())) }
+}
+
+/** The request body as a JSON object, at most [maxBytes]; anything else is 400 BAD_REQUEST. */
+internal suspend fun ApplicationCall.jsonBody(maxBytes: Int = MAX_BODY_BYTES): JsonObject {
+    val declared = request.headers[HttpHeaders.ContentLength]?.toLongOrNull()
+    if (declared != null && declared > maxBytes) throw EqRemoteApi.badRequest("Body zu groß")
+    val text = receiveText()
+    if (text.toByteArray(Charsets.UTF_8).size > maxBytes) throw EqRemoteApi.badRequest("Body zu groß")
+    if (text.isBlank()) return JsonObject(emptyMap())
+    val element = runCatching { Json.parseToJsonElement(text) }.getOrNull() ?: throw EqRemoteApi.badRequest("Body ist kein JSON")
+    return element as? JsonObject ?: throw EqRemoteApi.badRequest("Body muss ein Objekt sein")
 }
 
 /** The checks every request goes through before routing. Null means it may pass. */
@@ -248,3 +280,4 @@ private const val UI_MISSING_TEXT =
     "Oberfläche nicht installiert. Die Dateien der Fernbedienung gehören nach " +
         "Android/data/com.auracurve.app.full/files/web/ (adb push)."
 private const val MAX_FRAME_BYTES = 64L * 1024L
+private const val MAX_BODY_BYTES = 64 * 1024

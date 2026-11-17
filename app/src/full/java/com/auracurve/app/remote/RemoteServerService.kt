@@ -20,7 +20,9 @@ import com.auracurve.app.BuildConfig
 import com.auracurve.app.MainActivity
 import com.auracurve.app.R
 import com.auracurve.app.diagnostics.DiagnosticsRecorder
+import com.auracurve.app.eq.EqController
 import com.auracurve.app.service.AudioSessionForegroundService
+import com.auracurve.app.text.TextProvider
 import dagger.hilt.android.AndroidEntryPoint
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
@@ -33,6 +35,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "RemoteServerService"
@@ -40,6 +43,7 @@ private const val CHANNEL_ID = "remote_server"
 private const val NOTIFICATION_ID = 4080
 private const val ACTION_STOP = "com.auracurve.app.remote.STOP"
 private const val ADDRESS_CHECK_MS = 15_000L
+private val EQ_EVENT_PERIOD = 250.milliseconds
 
 /**
  * The local remote-control server (Pixel-Car module 04a): Ktor CIO on port 8080, answering only
@@ -66,6 +70,15 @@ class RemoteServerService : LifecycleService() {
 
     @Inject
     lateinit var diagnostics: DiagnosticsRecorder
+
+    // 04b: the EQ endpoints steer the process-wide controller (E-008 stage 2), never a view model.
+    @Inject
+    lateinit var eqController: EqController
+
+    @Inject
+    lateinit var texts: TextProvider
+
+    private val eqApi by lazy { EqRemoteApi(eqController, texts, Dispatchers.Main.immediate) }
 
     private var server: EmbeddedServer<*, *>? = null
 
@@ -100,6 +113,12 @@ class RemoteServerService : LifecycleService() {
             updateNotification(address)
             diagnostics.record("Remote control server started on port ${LocalAddress.PORT}")
             launch { watchAddress(address) }
+            launch {
+                // Every EQ change, also from the app or a tile; number inputs come in quick bursts.
+                eqApi.changes().drop(1).throttleLatest(EQ_EVENT_PERIOD).collect {
+                    events.tryEmit(RemoteEvent("eq.changed", it))
+                }
+            }
             launch {
                 statusSource.changes().drop(1).throttleLatest(5.seconds).collect {
                     events.tryEmit(RemoteEvent("system.changed", it.toJson()))
@@ -137,6 +156,7 @@ class RemoteServerService : LifecycleService() {
                     systemStatus = { statusSource.current() },
                     events = events,
                     webRoot = { getExternalFilesDir(WEB_DIR) },
+                    eq = eqApi,
                 )
             server = embeddedServer(CIO, port = LocalAddress.PORT, host = "0.0.0.0") { remoteApi(config) }.start(wait = false)
             true

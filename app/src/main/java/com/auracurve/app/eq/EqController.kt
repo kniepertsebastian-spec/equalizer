@@ -248,6 +248,14 @@ class EqController
 
         // Saved context choice of the current route: null = none, CONTEXT_MODE_NONE = off.
         private var routeContextMode: String? = null
+            set(value) {
+                field = value
+                _contextFollowsRoute.value = value == null
+            }
+        private val _contextFollowsRoute = MutableStateFlow(true)
+
+        /** True while the route's detection decides the mode (no saved choice for the current route). */
+        val contextFollowsRoute: StateFlow<Boolean> = _contextFollowsRoute.asStateFlow()
         private var pendingRestoredContext: SoundContext? = null
 
         // What the preset grid actually renders: built-ins (fixed, compile-time)
@@ -620,6 +628,16 @@ class EqController
             contextSetAutomatically = false
             routeContextMode = context?.name ?: CONTEXT_MODE_NONE
             applyContextMode(context)
+            saveDeviceProfileBinding()
+        }
+
+        /**
+         * Hands the mode back to the current route's detection (remote control: `eq/context` with
+         * `{"auto":true}`): the route's saved choice is cleared and detection decides again.
+         */
+        fun setContextAutomatic() {
+            routeContextMode = null
+            applyContextModeForRoute(currentRoute.value, legacyContext = null)
             saveDeviceProfileBinding()
         }
 
