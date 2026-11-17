@@ -173,6 +173,14 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.zxing.core)
+    // Local remote-control server (Pixel-Car module 04): flavor "full" only, the store APK has no
+    // server (scripts/check_store_apk.py checks for io/ktor/). No ContentNegotiation: since Ktor 3.6
+    // it pulls in auth, sessions, CSRF, the HTTP client and OpenAPI; the server encodes its JSON
+    // with the kotlinx-serialization the app already has.
+    "fullImplementation"(libs.ktor.server.core)
+    "fullImplementation"(libs.ktor.server.cio)
+    "fullImplementation"(libs.ktor.server.websockets)
+    "testFullImplementation"(libs.ktor.server.test.host)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

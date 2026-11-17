@@ -5,6 +5,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.transformLatest
 import kotlin.time.Duration
@@ -23,14 +24,19 @@ val SESSION_IDLE_TIMEOUT: Duration = 10.minutes
  * completes. "Nothing to work on" means no usable audio session ([hasSession] false) while the
  * app is not on screen ([appVisible] false). A session opening, or the app being opened,
  * restarts the wait - someone looking at the equalizer is never cut off.
+ *
+ * [keepAlive] true (the remote-control server of the "full" flavor runs, Pixel-Car module 04)
+ * also counts as busy: the phone is then controlled from outside and must keep the equalizer on
+ * whatever plays next, however long nothing plays.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 fun idleShutdown(
     hasSession: Flow<Boolean>,
     appVisible: Flow<Boolean>,
     timeout: Duration,
+    keepAlive: Flow<Boolean> = flowOf(false),
 ): Flow<Unit> =
-    combine(hasSession, appVisible) { session, visible -> !session && !visible }
+    combine(hasSession, appVisible, keepAlive) { session, visible, kept -> !session && !visible && !kept }
         .distinctUntilChanged()
         .transformLatest { idle ->
             if (idle) {

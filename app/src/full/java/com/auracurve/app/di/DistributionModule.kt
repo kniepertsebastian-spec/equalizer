@@ -12,6 +12,8 @@ import com.auracurve.app.player.catalog.RadioBrowserClient
 import com.auracurve.app.player.catalog.RadioCatalog
 import com.auracurve.app.playlist.DataStoreSpotifyImportRepository
 import com.auracurve.app.playlist.SpotifyImportRepository
+import com.auracurve.app.remote.AndroidRemoteServerControl
+import com.auracurve.app.remote.RemoteServerControl
 import com.auracurve.app.ui.player.LinkImport
 import com.auracurve.app.ui.player.SoundCloudLinkImport
 import dagger.Binds
@@ -40,6 +42,11 @@ abstract class DistributionModule {
     @Binds
     @Singleton
     abstract fun bindSpotifyImportRepository(impl: DataStoreSpotifyImportRepository): SpotifyImportRepository
+
+    // Local remote-control server (Pixel-Car module 04).
+    @Binds
+    @Singleton
+    abstract fun bindRemoteServerControl(impl: AndroidRemoteServerControl): RemoteServerControl
 
     // Not a singleton: each PlayerViewModel gets its own, which reports into that view model.
     @Binds

@@ -23,6 +23,7 @@ import com.auracurve.app.audio.AudioSessionRepository
 import com.auracurve.app.audio.SavedSettingsRestorer
 import com.auracurve.app.audio.SystemVolumeRepository
 import com.auracurve.app.diagnostics.DiagnosticsRecorder
+import com.auracurve.app.remote.RemoteServerControl
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -73,6 +74,10 @@ class AudioSessionForegroundService : LifecycleService() {
 
     @Inject
     lateinit var savedSettingsRestorer: SavedSettingsRestorer
+
+    // Pixel-Car module 04: while the remote-control server ("full" only) runs, never idle out.
+    @Inject
+    lateinit var remoteServer: RemoteServerControl
 
     private var foregroundStarted = false
 
@@ -141,7 +146,7 @@ class AudioSessionForegroundService : LifecycleService() {
                 ) { session, state, isPlaying ->
                     (session != null && state !is AudioEngineState.Error) || isPlaying
                 }
-            idleShutdown(hasUsableSession, appVisibility.visible, SESSION_IDLE_TIMEOUT).first()
+            idleShutdown(hasUsableSession, appVisibility.visible, SESSION_IDLE_TIMEOUT, remoteServer.running).first()
             diagnosticsRecorder.record(
                 "No audio session for ${SESSION_IDLE_TIMEOUT.inWholeMinutes} min and the app is closed: stopping the service",
             )

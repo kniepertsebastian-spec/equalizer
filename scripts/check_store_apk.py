@@ -3,7 +3,8 @@
 
 AuraCurve roadmap 02, task 1.3: the "store" flavor is what Google Play and SoundCloud get to see.
 It must not contain the unofficial SoundCloud access, the Spotify/YouTube link resolution or the
-self-update - not hidden, but absent from the code. This script looks for markers of that code in
+self-update - not hidden, but absent from the code. The same goes for the local remote-control
+server (Pixel-Car module 04). This script looks for markers of that code in
 the DEX files and the binary manifest of an APK.
 
     check_store_apk.py store.apk                    # fails if any marker is present
@@ -27,6 +28,8 @@ DEX_MARKERS = [
     "SoundCloudLinkImport",  # link import of pasted and shared text
     "api.audius.co",  # Audius tab (full flavor only until its use in the store is cleared)
     "radio-browser.info",  # Radio tab (Radio Browser directory)
+    "io/ktor/",  # the local remote-control server's HTTP engine (Pixel-Car module 04)
+    "RemoteServerService",  # the remote-control server itself
 ]
 
 # Markers in AndroidManifest.xml (binary XML stores its strings as UTF-8 or UTF-16).
@@ -35,6 +38,8 @@ MANIFEST_MARKERS = [
     "SoundCloudLoginActivity",
     "SpotifyLoginActivity",
     "spotify-callback",
+    "RemoteServerService",  # the remote-control server (Pixel-Car module 04)
+    "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
 ]
 
 
