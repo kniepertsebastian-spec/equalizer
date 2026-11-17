@@ -3,8 +3,11 @@ package com.auracurve.app.player.spotify
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import com.auracurve.app.link.LibraryTrack
+import com.auracurve.app.link.PlaylistInfo
 import com.auracurve.app.link.SpotifyApiJson
 import com.auracurve.app.link.SpotifyAuth
+import com.auracurve.app.link.SpotifyLibraryJson
 import com.auracurve.app.link.SpotifyPlaylist
 import com.auracurve.app.link.SpotifyPlaylistPage
 import com.auracurve.app.link.SpotifyTokens
@@ -111,6 +114,37 @@ class SpotifyApiClient private constructor(
             SpotifyPlaylist(name ?: SpotifyPlaylistPage.DEFAULT_TITLE, tracks.take(MAX_TRACKS))
         }
 
+    // The user's playlists (own, collaborative and followed) for the offline library copy.
+    suspend fun readMyPlaylists(): List<PlaylistInfo> =
+        withContext(Dispatchers.IO) {
+            val playlists = mutableListOf<PlaylistInfo>()
+            var url: String? = "$API/me/playlists?limit=$PAGE_SIZE&offset=0"
+            while (url != null && playlists.size < MAX_LIBRARY_PLAYLISTS) {
+                val page = SpotifyLibraryJson.parsePlaylistsPage(getJson(url)) ?: throw IOException(PlayerText.get(R.string.err_spotify_format))
+                playlists.addAll(page.entries)
+                url = page.next
+            }
+            playlists.take(MAX_LIBRARY_PLAYLISTS)
+        }
+
+    // The songs of one playlist with ids, album and length, in playlist order. Null when Spotify
+    // does not hand them out (403/404: a playlist the user only follows); other errors throw.
+    suspend fun readPlaylistTracks(playlistId: String): List<LibraryTrack>? =
+        withContext(Dispatchers.IO) {
+            val tracks = mutableListOf<LibraryTrack>()
+            var url: String? = "$API/playlists/$playlistId/items?limit=$PAGE_SIZE&offset=0"
+            try {
+                while (url != null && tracks.size < MAX_LIBRARY_TRACKS) {
+                    val page = SpotifyLibraryJson.parseTracksPage(getJson(url)) ?: throw IOException(PlayerText.get(R.string.err_spotify_format))
+                    tracks.addAll(page.entries)
+                    url = page.next
+                }
+            } catch (e: SpotifyRefusedException) {
+                return@withContext null
+            }
+            tracks.take(MAX_LIBRARY_TRACKS)
+        }
+
     // One GET with the sign-in: renews the access token when needed, once more after a 401,
     // and waits out Spotify's rate limit a few times.
     private suspend fun getJson(url: String): String {
@@ -129,8 +163,8 @@ class SpotifyApiClient private constructor(
                     }
 
                     code == 401 -> throw IOException(SIGN_IN_AGAIN)
-                    code == 403 -> throw IOException(NOT_YOURS)
-                    code == 404 -> throw IOException(PlayerText.get(R.string.err_spotify_unknown_playlist))
+                    code == 403 -> throw SpotifyRefusedException(NOT_YOURS)
+                    code == 404 -> throw SpotifyRefusedException(PlayerText.get(R.string.err_spotify_unknown_playlist))
                     code == 429 && waits < MAX_RATE_LIMIT_WAITS -> {
                         waits++
                         val seconds = response.header("Retry-After")?.toLongOrNull() ?: 1L
@@ -199,6 +233,8 @@ class SpotifyApiClient private constructor(
         private const val TOKEN_URL = "https://accounts.spotify.com/api/token"
         private const val PAGE_SIZE = 50
         private const val MAX_TRACKS = 1_000
+        private const val MAX_LIBRARY_PLAYLISTS = 500
+        private const val MAX_LIBRARY_TRACKS = 5_000
         private const val MAX_RATE_LIMIT_WAITS = 3
         private const val MAX_RETRY_AFTER_SECONDS = 10L
         private val SIGN_IN_AGAIN get() = PlayerText.get(R.string.err_spotify_sign_in_again)
@@ -212,3 +248,9 @@ class SpotifyApiClient private constructor(
             instance ?: synchronized(this) { instance ?: SpotifyApiClient(context).also { instance = it } }
     }
 }
+
+// Spotify answered 403 or 404: the playlist is not the user's (or gone). Still an IOException, so
+// callers that only show the message keep working.
+class SpotifyRefusedException(
+    message: String,
+) : IOException(message)

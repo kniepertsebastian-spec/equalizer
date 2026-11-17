@@ -100,6 +100,13 @@ class PlaybackRemoteApi(
             _activeSource.value = RemoteSource.PLAYER
         }
 
+    /** For the Spotify library: Spotify (user 0) becomes the active source, the built-in player is paused. */
+    suspend fun useSpotify() =
+        onMain {
+            if (player.unavailableReason() == null && player.isPlaying()) player.pause()
+            _activeSource.value = RemoteSource.SPOTIFY_MAIN
+        }
+
     /**
      * The now-playing state whenever the track or play/pause changes (playback.changed), checked
      * every [pollMs]. Also moves the active source to the one that started playing.

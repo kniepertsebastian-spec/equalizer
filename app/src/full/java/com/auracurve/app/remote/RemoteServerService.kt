@@ -27,7 +27,12 @@ import com.auracurve.app.discovery.DiscoveryRepository
 import com.auracurve.app.discovery.DiscoveryUpdater
 import com.auracurve.app.eq.EqController
 import com.auracurve.app.integration.PlayerController
+import com.auracurve.app.player.spotify.SpotifyApiClient
 import com.auracurve.app.remote.feed.FeedRemoteApi
+import com.auracurve.app.remote.library.AndroidSpotifyStarter
+import com.auracurve.app.remote.library.ApiClientLibraryReader
+import com.auracurve.app.remote.library.FileSpotifyLibraryStore
+import com.auracurve.app.remote.library.SpotifyLibraryRemoteApi
 import com.auracurve.app.remote.playback.AndroidVolumeBackend
 import com.auracurve.app.remote.playback.PlaybackRemoteApi
 import com.auracurve.app.remote.playback.PlayerPlaybackBackend
@@ -46,9 +51,11 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.TimeZone
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 private const val TAG = "RemoteServerService"
@@ -56,6 +63,8 @@ private const val CHANNEL_ID = "remote_server"
 private const val NOTIFICATION_ID = 4080
 private const val ACTION_STOP = "com.auracurve.app.remote.STOP"
 private const val ADDRESS_CHECK_MS = 15_000L
+private const val LIBRARY_FILE = "spotify_library.json"
+private val LIBRARY_CHECK_PERIOD = 15.minutes
 private val EQ_EVENT_PERIOD = 250.milliseconds
 
 /**
@@ -97,10 +106,12 @@ class RemoteServerService : LifecycleService() {
     @Inject
     lateinit var playerController: PlayerController
 
+    private val spotifyBackend by lazy { SpotifyPlaybackBackend(applicationContext) }
+
     private val playbackApi by lazy {
         PlaybackRemoteApi(
             player = PlayerPlaybackBackend(playerController),
-            spotify = SpotifyPlaybackBackend(applicationContext),
+            spotify = spotifyBackend,
             volume = AndroidVolumeBackend(applicationContext),
             mainDispatcher = Dispatchers.Main.immediate,
         )
@@ -122,6 +133,18 @@ class RemoteServerService : LifecycleService() {
             },
             online = ::hasInternet,
             playQueue = { playerController.playQueue(it, 0) },
+            scope = lifecycleScope,
+        )
+    }
+
+    // Way B: a copy of the Spotify playlists, synced while online, played through the Spotify app.
+    private val libraryApi by lazy {
+        SpotifyLibraryRemoteApi(
+            reader = ApiClientLibraryReader(SpotifyApiClient.get(applicationContext)),
+            store = FileSpotifyLibraryStore(File(filesDir, LIBRARY_FILE)),
+            online = ::hasInternet,
+            starter = AndroidSpotifyStarter(applicationContext, spotifyBackend),
+            mainDispatcher = Dispatchers.Main.immediate,
             scope = lifecycleScope,
         )
     }
@@ -184,6 +207,16 @@ class RemoteServerService : LifecycleService() {
                 feedApi.updates.collect { events.tryEmit(RemoteEvent("feed.updated", it)) }
             }
             launch {
+                libraryApi.updates.collect { events.tryEmit(RemoteEvent("library.updated", it)) }
+            }
+            launch {
+                // At home in the Wi-Fi the copy renews itself; in the car (no internet) nothing happens.
+                while (true) {
+                    runCatching { libraryApi.syncIfDue() }.onFailure { Log.w(TAG, "Library sync check failed", it) }
+                    delay(LIBRARY_CHECK_PERIOD)
+                }
+            }
+            launch {
                 playbackApi.changes().drop(1).collect { events.tryEmit(RemoteEvent("playback.changed", it)) }
             }
             launch {
@@ -233,6 +266,7 @@ class RemoteServerService : LifecycleService() {
                     eq = eqApi,
                     playback = playbackApi,
                     feed = feedApi,
+                    library = libraryApi,
                     // 04f: the last web remote gone ends a comparison it started.
                     onWebSocketClients = { count -> if (count == 0) lifecycleScope.launch { eqApi.onAllClientsGone() } },
                 )
