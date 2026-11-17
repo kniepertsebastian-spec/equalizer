@@ -23,14 +23,12 @@ data class RemoteServerUiState(
     /** 04e (R-19): the fixed name, so the link survives a new hotspot address. */
     val nameUrl: String get() = LocalAddress.url(MdnsName.host(hostName))
 
-    val pairingLink: String? get() =
-        if (address != null &&
-            token != null
-        ) {
-            LocalAddress.pairingLink(MdnsName.host(hostName), token)
-        } else {
-            null
-        }
+    val pairingLink: String? get() = linkTo(MdnsName.host(hostName))
+
+    /** The same link with the IP, for networks that do not resolve `.local` (QR dialog). */
+    val ipPairingLink: String? get() = address?.let(::linkTo)
+
+    private fun linkTo(host: String): String? = if (address != null && token != null) LocalAddress.pairingLink(host, token) else null
 }
 
 @HiltViewModel

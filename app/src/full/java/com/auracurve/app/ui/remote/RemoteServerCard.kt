@@ -5,6 +5,7 @@ import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +35,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.SecureFlagPolicy
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -43,6 +47,7 @@ import com.auracurve.app.remote.LocalAddress
 import com.auracurve.app.remote.MdnsName
 import com.auracurve.app.remote.RemoteServerUiState
 import com.auracurve.app.remote.RemoteServerViewModel
+import com.auracurve.app.ui.share.QrCode
 import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
@@ -89,6 +94,10 @@ internal fun RemoteServerCardContent(
     val spacing = MaterialTheme.spacing
     val clipboard = LocalClipboardManager.current
     var editingName by remember { mutableStateOf(false) }
+    // The QR code shows the token: only on request, closed as soon as the server is off.
+    var showingQr by rememberSaveable { mutableStateOf(false) }
+    if (showingQr && (!state.running || state.pairingLink == null)) showingQr = false
+    if (showingQr) PairingQrDialog(state = state, onDismiss = { showingQr = false })
     if (editingName) {
         HostNameDialog(
             current = state.hostName,
@@ -194,7 +203,8 @@ internal fun RemoteServerCardContent(
                     style = MaterialTheme.typography.bodySmall,
                     color = SonicSteel,
                 )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                // Up to four buttons: they wrap on a narrow phone instead of squeezing each other.
+                FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     if (!spotifyAccess) {
                         TextButton(onClick = onOpenNotificationAccess) { Text(stringResource(R.string.remote_server_open_access)) }
                     }
@@ -202,6 +212,11 @@ internal fun RemoteServerCardContent(
                     state.pairingLink?.let { link ->
                         TextButton(onClick = { clipboard.setText(AnnotatedString(link)) }) {
                             Text(stringResource(R.string.remote_server_copy_link))
+                        }
+                    }
+                    if (state.pairingLink != null) {
+                        TextButton(onClick = { showingQr = true }, modifier = Modifier.testTag("remote_server_show_qr")) {
+                            Text(stringResource(R.string.remote_server_show_qr))
                         }
                     }
                 }
@@ -250,5 +265,48 @@ private fun HostNameDialog(
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.remote_server_name_cancel)) } },
+    )
+}
+
+/**
+ * The pairing link as a QR code, so the other phone only has to scan it. It contains the token,
+ * so the dialog window is secure (FLAG_SECURE: no screenshot, blank in recent apps). It follows
+ * the state: a new token shows the new link.
+ */
+@Composable
+private fun PairingQrDialog(
+    state: RemoteServerUiState,
+    onDismiss: () -> Unit,
+) {
+    var useIp by rememberSaveable { mutableStateOf(false) }
+    val link = (if (useIp) state.ipPairingLink else state.pairingLink) ?: return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
+        modifier = Modifier.testTag("remote_server_qr_dialog"),
+        title = { Text(stringResource(R.string.remote_server_qr_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                QrCode(text = link, description = stringResource(R.string.remote_server_qr_description))
+                Text(link, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                val ipLabel = stringResource(R.string.remote_server_qr_use_ip)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(ipLabel, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            stringResource(R.string.remote_server_qr_use_ip_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonicSteel,
+                        )
+                    }
+                    Switch(
+                        checked = useIp,
+                        onCheckedChange = { useIp = it },
+                        modifier = Modifier.testTag("remote_server_qr_use_ip").semantics { contentDescription = ipLabel },
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.remote_server_qr_close)) } },
     )
 }
