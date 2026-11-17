@@ -1,5 +1,6 @@
 package com.auracurve.app.remote
 
+import com.auracurve.app.remote.playback.PlaybackRemoteApi
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -58,6 +59,8 @@ class RemoteApiConfig(
     val tickets: WebSocketTickets = WebSocketTickets(),
     /** The EQ endpoints (04b); null leaves them out (tests of the scaffold). */
     val eq: EqRemoteApi? = null,
+    /** Playback, volume and source (04c); null leaves them out. */
+    val playback: PlaybackRemoteApi? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
 )
@@ -123,6 +126,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
             )
         }
         config.eq?.let { eq -> eqRoutes(eq) }
+        config.playback?.let { playback -> playbackRoutes(playback) }
         webSocket("/api/v0/ws") {
             var seq = 0L
             send(Frame.Text(envelope("hello", ++seq, versionJson(config))))
@@ -166,6 +170,21 @@ private fun Route.eqRoutes(eq: EqRemoteApi) {
     post("/api/v0/eq/preset") { respondJson(call, eq.setPreset(call.jsonBody())) }
     post("/api/v0/eq/goal") { respondJson(call, eq.setGoal(call.jsonBody())) }
     post("/api/v0/eq/context") { respondJson(call, eq.setContext(call.jsonBody())) }
+}
+
+private fun Route.playbackRoutes(playback: PlaybackRemoteApi) {
+    get("/api/v0/playback/now-playing") { respondJson(call, playback.nowPlaying()) }
+    post("/api/v0/playback/playpause") { respondJson(call, playback.playPause()) }
+    post("/api/v0/playback/next") { respondJson(call, playback.next()) }
+    post("/api/v0/playback/prev") { respondJson(call, playback.previous()) }
+    post("/api/v0/playback/shuffle") { respondJson(call, playback.setShuffle(call.jsonBody())) }
+    post("/api/v0/playback/repeat") { respondJson(call, playback.setRepeat(call.jsonBody())) }
+    post("/api/v0/playback/volume") { respondJson(call, playback.setVolume(call.jsonBody())) }
+    // 202: the switch is announced as source.changed (contract 3.1).
+    post("/api/v0/system/source") {
+        playback.setSource(call.jsonBody())
+        respondJson(call, buildJsonObject { put("accepted", true) }, HttpStatusCode.Accepted)
+    }
 }
 
 /** The request body as a JSON object, at most [maxBytes]; anything else is 400 BAD_REQUEST. */

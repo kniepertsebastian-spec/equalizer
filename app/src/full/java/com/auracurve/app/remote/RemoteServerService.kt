@@ -21,6 +21,11 @@ import com.auracurve.app.MainActivity
 import com.auracurve.app.R
 import com.auracurve.app.diagnostics.DiagnosticsRecorder
 import com.auracurve.app.eq.EqController
+import com.auracurve.app.integration.PlayerController
+import com.auracurve.app.remote.playback.AndroidVolumeBackend
+import com.auracurve.app.remote.playback.PlaybackRemoteApi
+import com.auracurve.app.remote.playback.PlayerPlaybackBackend
+import com.auracurve.app.remote.playback.SpotifyPlaybackBackend
 import com.auracurve.app.service.AudioSessionForegroundService
 import com.auracurve.app.text.TextProvider
 import dagger.hilt.android.AndroidEntryPoint
@@ -80,6 +85,21 @@ class RemoteServerService : LifecycleService() {
 
     private val eqApi by lazy { EqRemoteApi(eqController, texts, Dispatchers.Main.immediate) }
 
+    // 04c: the built-in player through PlayerController, Spotify through its MediaSession.
+    @Inject
+    lateinit var playerController: PlayerController
+
+    private val playbackApi by lazy {
+        PlaybackRemoteApi(
+            player = PlayerPlaybackBackend(playerController),
+            spotify = SpotifyPlaybackBackend(applicationContext),
+            volume = AndroidVolumeBackend(applicationContext),
+            mainDispatcher = Dispatchers.Main.immediate,
+        )
+    }
+
+    private fun systemStatus(): SystemStatus = statusSource.current().copy(activeSource = playbackApi.activeSource.value.name)
+
     private var server: EmbeddedServer<*, *>? = null
 
     @Volatile
@@ -120,8 +140,17 @@ class RemoteServerService : LifecycleService() {
                 }
             }
             launch {
+                playbackApi.changes().drop(1).collect { events.tryEmit(RemoteEvent("playback.changed", it)) }
+            }
+            launch {
+                playbackApi.volumeChanges().drop(1).collect { events.tryEmit(RemoteEvent("volume.changed", it)) }
+            }
+            launch {
+                playbackApi.activeSource.drop(1).collect { events.tryEmit(RemoteEvent("source.changed", systemStatus().toJson())) }
+            }
+            launch {
                 statusSource.changes().drop(1).throttleLatest(5.seconds).collect {
-                    events.tryEmit(RemoteEvent("system.changed", it.toJson()))
+                    events.tryEmit(RemoteEvent("system.changed", it.copy(activeSource = playbackApi.activeSource.value.name).toJson()))
                 }
             }
         }
@@ -153,10 +182,11 @@ class RemoteServerService : LifecycleService() {
                 RemoteApiConfig(
                     appVersion = BuildConfig.VERSION_NAME,
                     token = { token },
-                    systemStatus = { statusSource.current() },
+                    systemStatus = { withContext(Dispatchers.Main.immediate) { systemStatus() } },
                     events = events,
                     webRoot = { getExternalFilesDir(WEB_DIR) },
                     eq = eqApi,
+                    playback = playbackApi,
                 )
             server = embeddedServer(CIO, port = LocalAddress.PORT, host = "0.0.0.0") { remoteApi(config) }.start(wait = false)
             true

@@ -36,6 +36,20 @@
                 android:value="Local HTTP server for a web remote in the same private network (car hotspot): controls the equalizer and playback." />
         </service>
 
+        <!--
+          Pixel-Car module 04c (U-1): lets the user grant notification access, which the remote
+          server needs to read and steer Spotify's MediaSession. It reads no notifications.
+        -->
+        <service
+            android:name=".remote.playback.RemoteNotificationListener"
+            android:exported="true"
+            android:label="@string/remote_notification_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.updates"
