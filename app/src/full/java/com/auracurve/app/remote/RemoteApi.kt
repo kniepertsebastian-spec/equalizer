@@ -31,13 +31,17 @@ import io.ktor.server.websocket.WebSockets
 import io.ktor.server.websocket.pingPeriod
 import io.ktor.server.websocket.timeout
 import io.ktor.server.websocket.webSocket
+import io.ktor.util.AttributeKey
 import io.ktor.util.cio.ChannelIOException
 import io.ktor.utils.io.readRemaining
+import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
@@ -46,6 +50,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
@@ -55,8 +61,8 @@ import kotlin.time.Duration.Companion.seconds
 /** Everything the API needs from outside, so tests can run it with Ktor's test host and fakes. */
 class RemoteApiConfig(
     val appVersion: String,
-    /** The current token; null means none is set yet and nothing authenticates. */
-    val token: () -> String?,
+    /** The single token of the scaffold (tests); ignored once [devices] is set. Null: nothing authenticates. */
+    val token: () -> String? = { null },
     val systemStatus: suspend () -> SystemStatus,
     /** Broadcast to every open WebSocket (each connection numbers them with its own seq). */
     val events: Flow<RemoteEvent>,
@@ -68,6 +74,8 @@ class RemoteApiConfig(
     val addressAllowed: (local: String, remote: String) -> Boolean = PrivateNetwork::allows,
     val rateLimiter: AuthRateLimiter = AuthRateLimiter(),
     val tickets: WebSocketTickets = WebSocketTickets(),
+    /** Module 05: one token per paired device, pairing by one-time code, removal one by one. */
+    val devices: RemoteDevices? = null,
     /** The EQ endpoints (04b); null leaves them out (tests of the scaffold). */
     val eq: EqRemoteApi? = null,
     /** Playback, volume and source (04c); null leaves them out. */
@@ -138,17 +146,27 @@ fun Application.remoteApi(config: RemoteApiConfig) {
             respondJson(
                 call,
                 buildJsonObject {
-                    put("ticket", config.tickets.issue())
+                    put("ticket", config.tickets.issue(call.attributes.getOrNull(DEVICE_KEY).orEmpty()))
                     put("expiresInS", WebSocketTickets.TTL_MS / 1000)
                 },
             )
         }
+        config.devices?.let { devices -> pairRoutes(devices, config.rateLimiter) }
         config.eq?.let { eq -> eqRoutes(eq) }
         config.playback?.let { playback -> playbackRoutes(playback) }
         config.feed?.let { feed -> feedRoutes(feed, config.playback) }
         config.library?.let { library -> libraryRoutes(library, config.playback) }
         webSocket("/api/v0/ws") {
             config.onWebSocketClients(clients.incrementAndGet())
+            // Module 05: removing the device in the app ends its connection at once.
+            val owner = call.attributes.getOrNull(DEVICE_KEY)
+            val revoked =
+                config.devices?.let { devices ->
+                    launch(start = CoroutineStart.UNDISPATCHED) {
+                        devices.revoked.first { it == owner || it == RemoteDevices.ALL }
+                        close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Gerät entfernt"))
+                    }
+                }
             var seq = 0L
             // hello goes out only once the event subscription stands, so an event emitted right
             // after a client has seen hello is never lost (SharedFlow drops it without subscribers).
@@ -165,6 +183,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
                 for (ignored in incoming) Unit
             } finally {
                 forward.cancel()
+                revoked?.cancel()
                 config.onWebSocketClients(clients.decrementAndGet())
             }
         }
@@ -180,6 +199,49 @@ fun Application.remoteApi(config: RemoteApiConfig) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Module 05: a phone sends the code shown in the app and gets its own token, once. Needs no
+ * token; a wrong code counts as a failed attempt for the rate limit like a wrong token.
+ */
+private fun Route.pairRoutes(
+    devices: RemoteDevices,
+    rateLimiter: AuthRateLimiter,
+) {
+    post("/api/v0/pair") {
+        val body = call.jsonBody()
+        val code = runCatching { body["code"]?.jsonPrimitive?.contentOrNull }.getOrNull()
+        val name = runCatching { body["name"]?.jsonPrimitive?.contentOrNull }.getOrNull()
+        val paired =
+            try {
+                devices.pair(code, name)
+            } catch (e: RemoteDevices.TooManyDevices) {
+                throw ApiError(HttpStatusCode.Conflict, "TOO_MANY_DEVICES", "Zu viele Geräte gekoppelt, in der App eins entfernen")
+            }
+        if (paired == null) {
+            rateLimiter.recordFailure(call.request.local.remoteAddress)
+            throw ApiError(
+                HttpStatusCode.Unauthorized,
+                "PAIRING_FAILED",
+                "Code falsch oder abgelaufen, in der App einen neuen zeigen lassen",
+            )
+        }
+        respondJson(
+            call,
+            buildJsonObject {
+                put("token", paired.token)
+                put(
+                    "device",
+                    buildJsonObject {
+                        put("id", paired.device.id)
+                        put("name", paired.device.name)
+                    },
+                )
+            },
+            HttpStatusCode.Created,
+        )
     }
 }
 
@@ -297,13 +359,25 @@ private fun gate(
     val ip = point.remoteAddress
     if (config.rateLimiter.isBlocked(ip)) return ApiError.rateLimited()
     if (path == "/api/v0/ws") {
-        return if (config.tickets.redeem(call.request.queryParameters["ticket"])) null else ApiError.badTicket()
+        val owner = config.tickets.redeemOwner(call.request.queryParameters["ticket"]) ?: return ApiError.badTicket()
+        call.attributes.put(DEVICE_KEY, owner)
+        return null
     }
+    // Module 05: pairing is what gives a phone its token; it has its own check of the code.
+    if (path == PAIR_PATH && config.devices != null) return null
     val sent = RemoteToken.fromAuthorizationHeader(call.request.headers[HttpHeaders.Authorization])
-    if (!RemoteToken.matches(config.token(), sent)) {
+    val devices = config.devices
+    val device =
+        if (devices != null) {
+            devices.authenticate(sent)?.id
+        } else {
+            SCAFFOLD_DEVICE.takeIf { RemoteToken.matches(config.token(), sent) }
+        }
+    if (device == null) {
         config.rateLimiter.recordFailure(ip)
         return ApiError.unauthorized()
     }
+    call.attributes.put(DEVICE_KEY, device)
     return null
 }
 
@@ -389,6 +463,11 @@ private const val UI_MISSING_TEXT =
     "Oberfläche nicht installiert. Mit Internet lädt die App sie selbst (bis zu einer Stunde); " +
         "zum Entwickeln gehören die Dateien nach Android/data/com.auracurve.app.full/files/web/ (adb push)."
 private const val MAX_FRAME_BYTES = 64L * 1024L
+private const val PAIR_PATH = "/api/v0/pair"
+private const val SCAFFOLD_DEVICE = "token"
+
+/** The device a request or WebSocket belongs to (module 05). */
+private val DEVICE_KEY = AttributeKey<String>("remoteDevice")
 private const val MAX_BODY_BYTES = 64 * 1024
 
 // 04f: a preset link is short; the codec allows 100 KB unpacked, the request at most 16 KB.

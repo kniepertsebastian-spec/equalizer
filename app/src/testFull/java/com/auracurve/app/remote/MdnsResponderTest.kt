@@ -209,10 +209,19 @@ class MdnsResponderTest {
 
     @Test
     fun `the card and the pairing link use the name`() {
-        val state = RemoteServerUiState(available = true, running = true, address = "10.40.5.1", token = "abc", hostName = "pixel9")
+        val state =
+            RemoteServerUiState(
+                available = true,
+                running = true,
+                address = "10.40.5.1",
+                hostName = "pixel9",
+                pairing = PairingCode("ABCDEFGH", 1L),
+            )
         assertEquals("http://pixel9.local:8080", state.nameUrl)
-        assertEquals("http://pixel9.local:8080/#token=abc", state.pairingLink)
+        // Module 05: the link carries the one-time code, never a token.
+        assertEquals("http://pixel9.local:8080/#pair=ABCDEFGH", state.pairingLink)
         assertNull(state.copy(address = null).pairingLink)
+        assertNull(state.copy(pairing = null).pairingLink)
     }
 
     private fun u16(
