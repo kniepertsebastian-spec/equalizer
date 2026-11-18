@@ -51,16 +51,32 @@ interface SpotifyLibraryStore {
     suspend fun save(library: SpotifyLibrary)
 }
 
+/** What Spotify's media session reports right now. [mediaId] is a spotify: address when Spotify sets one. */
+data class SpotifyNow(
+    val mediaId: String?,
+    val title: String,
+    val playing: Boolean,
+)
+
 /** Hands a spotify: address to the Spotify app in user 0. Called on the main thread. */
 interface SpotifyStarter {
     /** Null when Spotify can be reached at all, else why not (German). */
     fun unavailableReason(): String?
 
-    /** True when Spotify's session took the address, false when there is no session yet. */
+    /**
+     * Sends the address to Spotify's session. True when there was a session to send it to,
+     * false when there is no session yet. Spotify may still ignore it: [play] checks [nowPlaying].
+     */
     fun playUri(uri: String): Boolean
 
     /** Wakes Spotify without a session (a media button press), so a session comes up. */
     fun wake()
+
+    /** Spotify's current song, null without a session. */
+    fun nowPlaying(): SpotifyNow?
+
+    /** Opens the address in the Spotify app itself; false when Android did not take the request. */
+    fun openUri(uri: String): Boolean
 }
 
 /**
@@ -85,6 +101,8 @@ class SpotifyLibraryRemoteApi(
     private val syncTimeoutMs: Long = SYNC_TIMEOUT_MS,
     private val wakeWaitMs: Long = WAKE_WAIT_MS,
     private val wakePollMs: Long = WAKE_POLL_MS,
+    private val confirmWaitMs: Long = CONFIRM_WAIT_MS,
+    private val openWaitMs: Long = OPEN_WAIT_MS,
 ) {
     private val loadLock = Mutex()
     private var loaded = false
@@ -154,6 +172,54 @@ class SpotifyLibraryRemoteApi(
             throw ApiError(HttpStatusCode.NotFound, "TRACK_NOT_FOUND", "Titel nicht in dieser Playlist")
         }
         val uri = if (trackId != null) "spotify:track:$trackId" else "spotify:playlist:${playlist.id}"
+        val wanted = (if (trackId != null) listOf(trackId) else playlist.trackIds.orEmpty()).toSet()
+        val songs = current()?.tracks.orEmpty()
+        val titles = wanted.mapNotNull { id -> songs[id]?.let { normalizeTitle(it.title) } }.toSet()
+        // For a playlist, a song of it that was already playing does not show that Spotify followed.
+        val before = if (trackId == null) withContext(mainDispatcher) { starter.nowPlaying() }?.takeIf { it.playing } else null
+        val handedOver = handOver(uri)
+        // Spotify can take the address without playing it (it ignores commands from some apps):
+        // only a song from the request counts. Otherwise open it in the Spotify app itself.
+        if (handedOver && confirmed(wanted, titles, before, confirmWaitMs)) return
+        val opened = withContext(mainDispatcher) { starter.openUri(uri) }
+        if (opened && confirmed(wanted, titles, before, openWaitMs)) return
+        throw sourceUnavailable(
+            if (handedOver || opened) {
+                "Spotify hat den Titel nicht gestartet (nicht heruntergeladen oder Befehl abgelehnt)"
+            } else {
+                "Spotify startet nicht"
+            },
+        )
+    }
+
+    private suspend fun confirmed(
+        wanted: Set<String>,
+        titles: Set<String>,
+        before: SpotifyNow?,
+        waitMs: Long,
+    ): Boolean {
+        var waited = 0L
+        while (true) {
+            val now = withContext(mainDispatcher) { starter.nowPlaying() }
+            if (now != null && now.playing && now != before && matches(now, wanted, titles)) return true
+            if (waited >= waitMs) return false
+            delay(wakePollMs)
+            waited += wakePollMs
+        }
+    }
+
+    private fun matches(
+        now: SpotifyNow,
+        wanted: Set<String>,
+        titles: Set<String>,
+    ): Boolean {
+        val id = now.mediaId?.substringAfterLast(':')
+        if (id != null && id in wanted) return true
+        return normalizeTitle(now.title).let { it.isNotEmpty() && it in titles }
+    }
+
+    /** Sends the address to Spotify's session, waking Spotify first if needed. False when no session came up. */
+    private suspend fun handOver(uri: String): Boolean {
         val started =
             withContext(mainDispatcher) {
                 starter.unavailableReason()?.let { throw sourceUnavailable(it) }
@@ -164,16 +230,18 @@ class SpotifyLibraryRemoteApi(
                     false
                 }
             }
-        if (started) return
+        if (started) return true
         // Spotify had no session: the media button starts it; hand over the address once it is up.
         var waited = 0L
         while (waited < wakeWaitMs) {
             delay(wakePollMs)
             waited += wakePollMs
-            if (withContext(mainDispatcher) { starter.playUri(uri) }) return
+            if (withContext(mainDispatcher) { starter.playUri(uri) }) return true
         }
-        throw sourceUnavailable("Spotify startet nicht")
+        return false
     }
+
+    private fun normalizeTitle(title: String): String = title.trim().lowercase()
 
     private suspend fun runSync() {
         val event =
@@ -262,6 +330,10 @@ class SpotifyLibraryRemoteApi(
         const val SYNC_TIMEOUT_MS = 5 * 60_000L
         const val WAKE_WAIT_MS = 6_000L
         const val WAKE_POLL_MS = 300L
+
+        /** How long Spotify gets to report a requested song, after the session command and after opening it. */
+        const val CONFIRM_WAIT_MS = 3_000L
+        const val OPEN_WAIT_MS = 4_000L
 
         /** The server syncs by itself when online and the copy is older than this. */
         const val AUTO_SYNC_AGE_MS = 6 * 60 * 60_000L

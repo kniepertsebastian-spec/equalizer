@@ -2,14 +2,18 @@ package com.auracurve.app.remote.library
 
 import android.content.Context
 import android.content.Intent
+import android.media.MediaMetadata
+import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.SystemClock
+import android.util.Log
 import android.view.KeyEvent
 import com.auracurve.app.link.LibraryTrack
 import com.auracurve.app.link.PlaylistInfo
 import com.auracurve.app.link.SpotifyLibrary
 import com.auracurve.app.link.SpotifyLibraryJson
 import com.auracurve.app.player.spotify.SpotifyApiClient
+import com.auracurve.app.remote.playback.NowPlayingSnapshot
 import com.auracurve.app.remote.playback.SpotifyPlaybackBackend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -49,8 +53,10 @@ class FileSpotifyLibraryStore(
 
 /**
  * Spotify in user 0 through its MediaSession (the same notification access as playback):
- * `playFromUri` with a spotify: address. Without a session, an explicit media button press
- * starts Spotify in the background (no activity start, which a service may not do).
+ * `playFromUri` with a spotify: address, or `playFromMediaId` when Spotify only offers that.
+ * Without a session, an explicit media button press starts Spotify in the background. When
+ * Spotify ignores the session command, [openUri] opens the address in the Spotify app; Android
+ * lets a background service do that only in some states (e.g. while AuraCurve is on screen).
  */
 class AndroidSpotifyStarter(
     private val context: Context,
@@ -60,8 +66,37 @@ class AndroidSpotifyStarter(
 
     override fun playUri(uri: String): Boolean {
         val controller = spotify.spotify() ?: return false
-        controller.transportControls.playFromUri(Uri.parse(uri), null)
+        val actions = controller.playbackState?.actions ?: 0L
+        val byUri = actions and PlaybackState.ACTION_PLAY_FROM_URI != 0L
+        val byMediaId = actions and PlaybackState.ACTION_PLAY_FROM_MEDIA_ID != 0L
+        Log.i(TAG, "Spotify session actions=0x${actions.toString(16)}, fromUri=$byUri, fromMediaId=$byMediaId")
+        if (byMediaId && !byUri) {
+            controller.transportControls.playFromMediaId(uri, null)
+        } else {
+            controller.transportControls.playFromUri(Uri.parse(uri), null)
+        }
         return true
+    }
+
+    override fun nowPlaying(): SpotifyNow? {
+        val controller = spotify.spotify() ?: return null
+        val metadata = controller.metadata
+        return SpotifyNow(
+            mediaId = metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID),
+            title = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty(),
+            playing = controller.playbackState?.let { NowPlayingSnapshot.isPlayingState(it.state) } == true,
+        )
+    }
+
+    override fun openUri(uri: String): Boolean {
+        val intent =
+            Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                .setPackage(SpotifyPlaybackBackend.SPOTIFY_PACKAGE)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .putExtra(Intent.EXTRA_REFERRER, Uri.parse("android-app://" + context.packageName))
+        return runCatching { context.startActivity(intent) }
+            .onFailure { Log.w(TAG, "Spotify did not open $uri", it) }
+            .isSuccess
     }
 
     override fun wake() {
@@ -73,5 +108,9 @@ class AndroidSpotifyStarter(
                     .putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(now, now, action, KeyEvent.KEYCODE_MEDIA_PLAY, 0))
             runCatching { context.sendBroadcast(intent) }
         }
+    }
+
+    private companion object {
+        const val TAG = "SpotifyStarter"
     }
 }
