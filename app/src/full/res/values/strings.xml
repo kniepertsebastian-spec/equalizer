@@ -46,6 +46,9 @@
     <string name="remote_server_spotify_access">Spotify control needs notification access.</string>
     <string name="remote_server_spotify_access_granted">Spotify control: notification access granted.</string>
     <string name="remote_server_open_access">Allow access</string>
+    <string name="remote_server_open_spotify">Playing from the library needs \"Display over other apps\": Android only lets AuraCurve open a song in Spotify with it.</string>
+    <string name="remote_server_open_spotify_granted">Playing from the library: AuraCurve may open Spotify.</string>
+    <string name="remote_server_allow_open_spotify">Allow opening Spotify</string>
     <string name="remote_server_start_at_boot">Start at boot</string>
     <string name="remote_server_ip">IP: %1$s</string>
     <string name="remote_server_name_label">Name in the network: %1$s</string>

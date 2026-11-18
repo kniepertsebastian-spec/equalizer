@@ -13,6 +13,12 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- 04e (R-19): the mDNS responder for pixel9.local; as a Wi-Fi client Android filters multicast otherwise. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!--
+      Remote library: the server opens a song in the Spotify app while AuraCurve is in the
+      background. Android blocks such activity starts unless the user allowed "Display over
+      other apps"; AuraCurve never draws an overlay.
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application>
         <activity
