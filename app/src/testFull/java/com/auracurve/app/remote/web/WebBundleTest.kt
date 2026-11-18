@@ -205,6 +205,41 @@ class WebBundleTest {
         }
 
     @Test
+    fun `a failed check does not block the next one`() =
+        runTest {
+            var broken = true
+            val source =
+                object : WebReleaseSource {
+                    override suspend fun latest(): WebRelease? =
+                        if (broken) throw java.net.UnknownHostException("api.github.com") else release("0.5.0")
+
+                    override suspend fun download(
+                        release: WebRelease,
+                        maxBytes: Long,
+                    ) = bundle("0.5.0")
+                }
+            var checked = 0
+            val updater =
+                WebBundleUpdater(
+                    source,
+                    verifier,
+                    WebBundleStore(tmp.newFolder("x")),
+                    { true },
+                    "0.2",
+                    clock = { 0L },
+                    onChecked = { checked++ },
+                )
+            try {
+                updater.updateIfDue()
+                fail("expected the failure")
+            } catch (_: java.net.UnknownHostException) {
+            }
+            assertEquals(0, checked)
+            broken = false
+            assertEquals(WebBundleUpdater.Result.Installed("0.5.0"), updater.updateIfDue())
+        }
+
+    @Test
     fun `coming online checks again after five minutes instead of an hour and reports it`() =
         runTest {
             val source = FakeSource(release("0.5.0"), bundle("0.5.0"))
