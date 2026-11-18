@@ -83,6 +83,8 @@ class SpotifyLibraryRemoteApiTest {
         var ignoresSession: Boolean = false,
         // Whether opening the address in the Spotify app starts it.
         var opens: Boolean = true,
+        // "Display over other apps": without it Android drops the open request silently.
+        var mayOpen: Boolean = true,
     ) : SpotifyStarter {
         val played = mutableListOf<String>()
         val openedUris = mutableListOf<String>()
@@ -97,9 +99,11 @@ class SpotifyLibraryRemoteApiTest {
 
         override fun openUri(uri: String): Boolean {
             openedUris += uri
-            if (opens) playing = uri.toTrackUri()
+            if (opens && mayOpen) playing = uri.toTrackUri()
             return true
         }
+
+        override fun mayOpenFromBackground() = mayOpen
 
         // Spotify plays the first song of a playlist; the fake library's first song is songA.
         private fun String.toTrackUri() = if (startsWith("spotify:playlist:")) "spotify:track:4uLU6hMCjMI75M1A2tKUQC" else this
@@ -353,6 +357,33 @@ class SpotifyLibraryRemoteApiTest {
         runTest {
             val api = synced(this, FakeStarter(ignoresSession = true, opens = false))
             assertEquals("PLAY_NOT_CONFIRMED", errorCode { api.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) })
+        }
+
+    @Test
+    fun `a blocked background open names the setting instead of blaming spotify or the internet`() =
+        runTest {
+            val starter = FakeStarter(ignoresSession = true, mayOpen = false)
+            starter.other = SpotifyNow("spotify:track:$songB", "Zwei", true)
+            val log = mutableListOf<String>()
+            val api = synced(this, starter, online = false, log = log)
+
+            val message = errorMessage { api.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) }
+
+            assertTrue(message, message.contains("Allow opening Spotify"))
+            assertFalse(message.contains("Internet"))
+            assertTrue(log.first(), log.first().contains("mayOpen=false"))
+            assertTrue(log.last(), log.last().contains("failed OPEN_NOT_ALLOWED"))
+        }
+
+    @Test
+    fun `a blocked open still succeeds when spotify follows the session command`() =
+        runTest {
+            val starter = FakeStarter(mayOpen = false)
+            val api = synced(this, starter)
+
+            api.play(body("""{"playlistId":"$own","trackId":"$songA"}"""))
+
+            assertTrue(starter.openedUris.isEmpty())
         }
 
     private suspend fun errorMessage(block: suspend () -> Unit): String =

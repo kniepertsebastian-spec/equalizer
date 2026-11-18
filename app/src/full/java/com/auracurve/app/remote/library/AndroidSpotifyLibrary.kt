@@ -6,6 +6,7 @@ import android.media.MediaMetadata
 import android.media.session.PlaybackState
 import android.net.Uri
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
 import com.auracurve.app.link.LibraryTrack
@@ -133,6 +134,8 @@ class AndroidSpotifyStarter(
             .onFailure { Log.w(TAG, "Spotify did not open $uri", it) }
             .isSuccess
     }
+
+    override fun mayOpenFromBackground(): Boolean = Settings.canDrawOverlays(context)
 
     override fun wake() {
         val now = SystemClock.uptimeMillis()

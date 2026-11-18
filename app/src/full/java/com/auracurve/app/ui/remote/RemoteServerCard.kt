@@ -1,6 +1,7 @@
 package com.auracurve.app.ui.remote
 
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -61,12 +62,16 @@ fun RemoteServerCard() {
     val context = LocalContext.current
     // 04c (U-1): Spotify is steered through its MediaSession, which needs notification access.
     var spotifyAccess by remember { mutableStateOf(false) }
+    // The library opens songs in Spotify from the background, which Android only allows with "Display over other apps".
+    var mayOpenSpotify by remember { mutableStateOf(true) }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         spotifyAccess = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        mayOpenSpotify = Settings.canDrawOverlays(context)
     }
     RemoteServerCardContent(
         state = state,
         spotifyAccess = spotifyAccess,
+        mayOpenSpotify = mayOpenSpotify,
         onEnabledChange = viewModel::setEnabled,
         onRegenerateToken = viewModel::regenerateToken,
         onStartAtBootChange = viewModel::setStartAtBoot,
@@ -75,6 +80,14 @@ fun RemoteServerCard() {
             runCatching {
                 context.startActivity(
                     Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+        },
+        onAllowOpenSpotify = {
+            runCatching {
+                context.startActivity(
+                    Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + context.packageName))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             }
         },
@@ -90,6 +103,8 @@ internal fun RemoteServerCardContent(
     onStartAtBootChange: (Boolean) -> Unit,
     onHostNameChange: (String) -> Unit,
     onOpenNotificationAccess: () -> Unit,
+    mayOpenSpotify: Boolean = true,
+    onAllowOpenSpotify: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     val clipboard = LocalClipboardManager.current
@@ -203,10 +218,22 @@ internal fun RemoteServerCardContent(
                     style = MaterialTheme.typography.bodySmall,
                     color = SonicSteel,
                 )
-                // Up to four buttons: they wrap on a narrow phone instead of squeezing each other.
+                Text(
+                    stringResource(
+                        if (mayOpenSpotify) R.string.remote_server_open_spotify_granted else R.string.remote_server_open_spotify,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonicSteel,
+                )
+                // Up to five buttons: they wrap on a narrow phone instead of squeezing each other.
                 FlowRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     if (!spotifyAccess) {
                         TextButton(onClick = onOpenNotificationAccess) { Text(stringResource(R.string.remote_server_open_access)) }
+                    }
+                    if (!mayOpenSpotify) {
+                        TextButton(onClick = onAllowOpenSpotify, modifier = Modifier.testTag("remote_server_allow_open_spotify")) {
+                            Text(stringResource(R.string.remote_server_allow_open_spotify))
+                        }
                     }
                     TextButton(onClick = onRegenerateToken) { Text(stringResource(R.string.remote_server_new_token)) }
                     state.pairingLink?.let { link ->

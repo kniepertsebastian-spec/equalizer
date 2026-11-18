@@ -76,8 +76,18 @@ interface SpotifyStarter {
     /** Spotify's current song, null without a session. */
     fun nowPlaying(): SpotifyNow?
 
-    /** Opens the address in the Spotify app itself; false when Android did not take the request. */
+    /**
+     * Opens the address in the Spotify app itself; false when Android did not take the request.
+     * Android may still block the start without telling (background activity start): see
+     * [mayOpenFromBackground].
+     */
     fun openUri(uri: String): Boolean
+
+    /**
+     * Whether Android lets the app open Spotify while it is in the background ("Display over other
+     * apps" granted). Without it [openUri] only works while AuraCurve is on screen.
+     */
+    fun mayOpenFromBackground(): Boolean = true
 
     /**
      * Spotify's session as one log line for the device test (state, position, actions, media id,
@@ -190,7 +200,10 @@ class SpotifyLibraryRemoteApi(
         val titles = wanted.mapNotNull { id -> songs[id]?.let { normalizeTitle(it.title) } }.toSet()
         val attempt = Attempt(attempts.incrementAndGet(), elapsedClock())
         val offline = !online()
-        attempt.log("start uri=$uri extras=none songs=${wanted.size} online=${!offline} spotify=${describeOnMain()}")
+        val mayOpen = withContext(mainDispatcher) { starter.mayOpenFromBackground() }
+        attempt.log(
+            "start uri=$uri extras=none songs=${wanted.size} online=${!offline} mayOpen=$mayOpen spotify=${describeOnMain()}",
+        )
         try {
             // For a playlist, a song of it that was already playing does not show that Spotify followed.
             val before = if (trackId == null) withContext(mainDispatcher) { starter.nowPlaying() }?.takeIf { it.playing } else null
@@ -209,7 +222,12 @@ class SpotifyLibraryRemoteApi(
             }
             val now = withContext(mainDispatcher) { starter.nowPlaying() }
             val error =
-                if (handedOver || opened) notConfirmed(now, offline) else sourceUnavailable("Spotify startet nicht")
+                when {
+                    // Android dropped the open request without an error: name the setting, not Spotify.
+                    !mayOpen -> openNotAllowed()
+                    handedOver || opened -> notConfirmed(now, offline)
+                    else -> sourceUnavailable("Spotify startet nicht")
+                }
             attempt.done("failed ${error.code}: handedOver=$handedOver opened=$opened spotify=${describeOnMain()}")
             throw error
         } catch (e: ApiError) {
@@ -425,8 +443,12 @@ class SpotifyLibraryRemoteApi(
         const val WAKE_WAIT_MS = 6_000L
         const val WAKE_POLL_MS = 300L
 
-        /** How long Spotify gets to report a requested song, after the session command and after opening it. */
-        const val CONFIRM_WAIT_MS = 3_000L
+        /**
+         * How long Spotify gets to report a requested song, after the session command and after
+         * opening it. Spotify ignores the session command from other apps on the device test
+         * (playFromUri, 18 Nov 2026), so it gets only a short look before opening.
+         */
+        const val CONFIRM_WAIT_MS = 1_200L
         const val OPEN_WAIT_MS = 4_000L
 
         /**
@@ -442,6 +464,14 @@ class SpotifyLibraryRemoteApi(
 
         fun notSignedIn() =
             ApiError(HttpStatusCode.Conflict, "NOT_SIGNED_IN", "Auf dem Pixel in AuraCurve bei Spotify anmelden (Player → Linked services)")
+
+        fun openNotAllowed() =
+            ApiError(
+                HttpStatusCode.Conflict,
+                "OPEN_NOT_ALLOWED",
+                "Android lässt AuraCurve Spotify nicht öffnen. Auf dem Pixel: AuraCurve → Player → Linked services → " +
+                    "Remote control → „Allow opening Spotify“",
+            )
 
         fun sourceUnavailable(message: String) = ApiError(HttpStatusCode.Conflict, "SOURCE_UNAVAILABLE", message)
     }
