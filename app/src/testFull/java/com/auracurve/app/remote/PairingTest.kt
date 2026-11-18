@@ -220,6 +220,19 @@ class PairingTest {
     }
 
     @Test
+    fun `the phone's own hotspot never counts as a client network`() {
+        // As Android 17 on the Pixel 9 reports them: the hotspot as a local network without internet.
+        val hotspot = NetworkZone.Network(setOf(InetAddress.getByName("10.40.5.90")), hasInternet = false, localOnly = true)
+        val homeWifi = NetworkZone.Network(setOf(InetAddress.getByName("192.168.178.37")), hasInternet = true, localOnly = false)
+        val clients = NetworkZone.clientAddresses(listOf(hotspot, homeWifi))
+        assertEquals(setOf(InetAddress.getByName("192.168.178.37")), clients)
+        assertTrue(NetworkZone.allows("10.40.5.90", clients, allowClientNetworks = false))
+        assertFalse(NetworkZone.allows("192.168.178.37", clients, allowClientNetworks = false))
+        // Even if a hotspot ever claimed internet, local-only keeps it out.
+        assertTrue(NetworkZone.clientAddresses(listOf(hotspot.copy(hasInternet = true))).isEmpty())
+    }
+
+    @Test
     fun `the home wi-fi is only reachable with the switch`() {
         val wifi = setOf(InetAddress.getByName("192.168.178.37"))
         assertFalse(NetworkZone.allows("192.168.178.37", wifi, allowClientNetworks = false))
