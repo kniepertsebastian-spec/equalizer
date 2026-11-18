@@ -94,6 +94,8 @@ class RemoteApiTest {
             assertEquals("v0", body["api"]!!.jsonPrimitive.content)
             assertEquals("2.0.0-test", body["app"]!!.jsonPrimitive.content)
             assertEquals("0.2", body["minPwa"]!!.jsonPrimitive.content)
+            // Module 10: no signed bundle in this test, the files come from the folder.
+            assertEquals("false", body["web"]!!.jsonObject["verified"]!!.jsonPrimitive.content)
         }
 
     @Test

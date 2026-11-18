@@ -62,6 +62,8 @@ class RemoteApiConfig(
     val events: Flow<RemoteEvent>,
     /** The web remote's directory, or null when the app has none (no external storage). */
     val webRoot: () -> File?,
+    /** Version of the verified bundle being delivered (module 10); null for files pushed with adb. */
+    val webBundleVersion: () -> String? = { null },
     /** Local and remote IP literal of a connection: false closes it without an answer. */
     val addressAllowed: (local: String, remote: String) -> Boolean = PrivateNetwork::allows,
     val rateLimiter: AuthRateLimiter = AuthRateLimiter(),
@@ -343,6 +345,15 @@ private fun versionJson(config: RemoteApiConfig): JsonObject =
         put("api", API_VERSION)
         put("app", config.appVersion)
         put("minPwa", MIN_PWA_VERSION)
+        // Module 10: which web remote the phone delivers; "verified" = signed bundle, checked.
+        val web = config.webBundleVersion()
+        put(
+            "web",
+            buildJsonObject {
+                put("verified", web != null)
+                put("version", web)
+            },
+        )
     }
 
 private fun envelope(
@@ -375,8 +386,8 @@ private suspend fun respondError(
 }
 
 private const val UI_MISSING_TEXT =
-    "Oberfläche nicht installiert. Die Dateien der Fernbedienung gehören nach " +
-        "Android/data/com.auracurve.app.full/files/web/ (adb push)."
+    "Oberfläche nicht installiert. Mit Internet lädt die App sie selbst (bis zu einer Stunde); " +
+        "zum Entwickeln gehören die Dateien nach Android/data/com.auracurve.app.full/files/web/ (adb push)."
 private const val MAX_FRAME_BYTES = 64L * 1024L
 private const val MAX_BODY_BYTES = 64 * 1024
 
