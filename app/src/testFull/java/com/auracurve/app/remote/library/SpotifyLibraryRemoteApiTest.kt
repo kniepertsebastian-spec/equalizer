@@ -417,7 +417,7 @@ class SpotifyLibraryRemoteApiTest {
     fun `spotify that never comes up or no notification access is a conflict`() =
         runTest {
             val never = synced(this, FakeStarter(sessionAfter = -1, opens = false))
-            assertEquals("SOURCE_UNAVAILABLE", errorCode { never.play(body("""{"playlistId":"$own"}""")) })
+            assertEquals("PLAY_NOT_CONFIRMED", errorCode { never.play(body("""{"playlistId":"$own"}""")) })
             val noAccess = synced(this, FakeStarter(reason = "Benachrichtigungszugriff fehlt"))
             assertEquals("SOURCE_UNAVAILABLE", errorCode { noAccess.play(body("""{"playlistId":"$own"}""")) })
         }
