@@ -200,8 +200,9 @@ class RemoteServerService : LifecycleService() {
     }
 
     /**
-     * The phone's addresses in networks it is a client of (Wi-Fi, mobile, VPN); the hotspot is not
-     * among them. Asked again at most every few seconds, it is read for every request.
+     * The phone's addresses in networks it is a client of (Wi-Fi, mobile, VPN). Android 15+ lists
+     * its own hotspot too, as a local network without internet; NetworkZone leaves that out.
+     * Asked again at most every few seconds, it is read for every request.
      */
     private fun clientNetworkAddresses(): Set<InetAddress> {
         val now = System.currentTimeMillis()
@@ -210,12 +211,27 @@ class RemoteServerService : LifecycleService() {
         val set =
             runCatching {
                 @Suppress("DEPRECATION")
-                connectivity
-                    ?.allNetworks
-                    .orEmpty()
-                    .flatMap { network -> connectivity?.getLinkProperties(network)?.linkAddresses.orEmpty() }
-                    .map { it.address }
-                    .toSet()
+                val networks =
+                    connectivity
+                        ?.allNetworks
+                        .orEmpty()
+                        .map { network ->
+                            val capabilities = connectivity?.getNetworkCapabilities(network)
+                            NetworkZone.Network(
+                                addresses =
+                                    connectivity
+                                        ?.getLinkProperties(network)
+                                        ?.linkAddresses
+                                        .orEmpty()
+                                        .map { it.address }
+                                        .toSet(),
+                                hasInternet = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true,
+                                localOnly =
+                                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&
+                                        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_LOCAL_NETWORK) == true,
+                            )
+                        }
+                NetworkZone.clientAddresses(networks)
             }.getOrDefault(emptySet())
         clientAddresses = now to set
         return set
