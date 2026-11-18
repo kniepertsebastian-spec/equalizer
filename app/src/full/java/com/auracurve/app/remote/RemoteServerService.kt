@@ -37,6 +37,11 @@ import com.auracurve.app.remote.playback.AndroidVolumeBackend
 import com.auracurve.app.remote.playback.PlaybackRemoteApi
 import com.auracurve.app.remote.playback.PlayerPlaybackBackend
 import com.auracurve.app.remote.playback.SpotifyPlaybackBackend
+import com.auracurve.app.remote.web.GitHubWebReleaseSource
+import com.auracurve.app.remote.web.WebBundleKey
+import com.auracurve.app.remote.web.WebBundleStore
+import com.auracurve.app.remote.web.WebBundleUpdater
+import com.auracurve.app.remote.web.WebBundleVerifier
 import com.auracurve.app.service.AudioSessionForegroundService
 import com.auracurve.app.text.TextProvider
 import dagger.hilt.android.AndroidEntryPoint
@@ -65,6 +70,8 @@ private const val ACTION_STOP = "com.auracurve.app.remote.STOP"
 private const val ADDRESS_CHECK_MS = 15_000L
 private const val LIBRARY_FILE = "spotify_library.json"
 private const val LIBRARY_PLAY_TAG = "LibraryPlay"
+private const val WEB_BUNDLE_TAG = "WebBundle"
+private const val WEB_BUNDLE_DIR = "web-bundles"
 private val LIBRARY_CHECK_PERIOD = 15.minutes
 private val EQ_EVENT_PERIOD = 250.milliseconds
 
@@ -152,6 +159,20 @@ class RemoteServerService : LifecycleService() {
         )
     }
 
+    // Module 10: verified web bundles in private storage, loaded while online (E-012).
+    private val webStore by lazy { WebBundleStore(File(filesDir, WEB_BUNDLE_DIR)) }
+
+    private val webUpdater by lazy {
+        WebBundleUpdater(
+            source = GitHubWebReleaseSource("AuraCurve/${BuildConfig.VERSION_NAME}"),
+            verifier = WebBundleVerifier(WebBundleVerifier.publicKey(WebBundleKey.PUBLIC_KEY), API_VERSION),
+            store = webStore,
+            online = ::hasInternet,
+            minVersion = MIN_PWA_VERSION,
+            log = { Log.i(WEB_BUNDLE_TAG, it) },
+        )
+    }
+
     private fun hasInternet(): Boolean {
         val connectivity = getSystemService(ConnectivityManager::class.java) ?: return false
         val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return false
@@ -220,6 +241,18 @@ class RemoteServerService : LifecycleService() {
                 }
             }
             launch {
+                // Module 10: a newer web remote while online (at most hourly); offline nothing changes.
+                while (true) {
+                    runCatching { webUpdater.updateIfDue() }.onFailure {
+                        Log.w(
+                            WEB_BUNDLE_TAG,
+                            "Web bundle check failed: ${it.javaClass.simpleName}",
+                        )
+                    }
+                    delay(LIBRARY_CHECK_PERIOD)
+                }
+            }
+            launch {
                 playbackApi.changes().drop(1).collect { events.tryEmit(RemoteEvent("playback.changed", it)) }
             }
             launch {
@@ -265,7 +298,9 @@ class RemoteServerService : LifecycleService() {
                     token = { token },
                     systemStatus = { withContext(Dispatchers.Main.immediate) { systemStatus() } },
                     events = events,
-                    webRoot = { getExternalFilesDir(WEB_DIR) },
+                    // A verified bundle wins; the adb folder is only for development and first start.
+                    webRoot = { webStore.installed()?.dir ?: getExternalFilesDir(WEB_DIR) },
+                    webBundleVersion = { webStore.installed()?.version },
                     eq = eqApi,
                     playback = playbackApi,
                     feed = feedApi,
