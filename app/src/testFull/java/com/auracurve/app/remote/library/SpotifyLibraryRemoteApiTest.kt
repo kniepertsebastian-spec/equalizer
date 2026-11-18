@@ -79,16 +79,36 @@ class SpotifyLibraryRemoteApiTest {
         var reason: String? = null,
         // How many playUri calls find no session before Spotify is up (-1: never).
         var sessionAfter: Int = 0,
+        // Spotify takes the session command but plays nothing (seen on the device).
+        var ignoresSession: Boolean = false,
+        // Whether opening the address in the Spotify app starts it.
+        var opens: Boolean = true,
     ) : SpotifyStarter {
         val played = mutableListOf<String>()
+        val openedUris = mutableListOf<String>()
         var wakes = 0
         private var attempts = 0
+        private var playing: String? = null
+
+        override fun nowPlaying() = playing?.let { SpotifyNow(it, "", true) }
+
+        override fun openUri(uri: String): Boolean {
+            openedUris += uri
+            if (opens) playing = uri.toTrackUri()
+            return true
+        }
+
+        // Spotify plays the first song of a playlist; the fake library's first song is songA.
+        private fun String.toTrackUri() = if (startsWith("spotify:playlist:")) "spotify:track:4uLU6hMCjMI75M1A2tKUQC" else this
 
         override fun unavailableReason() = reason
 
         override fun playUri(uri: String): Boolean {
             val ok = sessionAfter >= 0 && attempts++ >= sessionAfter
-            if (ok) played += uri
+            if (ok) {
+                played += uri
+                if (!ignoresSession) playing = uri.toTrackUri()
+            }
             return ok
         }
 
@@ -128,6 +148,8 @@ class SpotifyLibraryRemoteApiTest {
         zone = ZoneOffset.UTC,
         wakeWaitMs = 1_000,
         wakePollMs = 100,
+        confirmWaitMs = 500,
+        openWaitMs = 500,
     )
 
     private suspend fun errorCode(block: suspend () -> Unit): String =
@@ -278,9 +300,39 @@ class SpotifyLibraryRemoteApiTest {
         }
 
     @Test
+    fun `when spotify ignores the session command the address is opened in spotify`() =
+        runTest {
+            val starter = FakeStarter(ignoresSession = true)
+            val api = synced(this, starter)
+
+            api.play(body("""{"playlistId":"$own","trackId":"$songB"}"""))
+            api.play(body("""{"playlistId":"$own"}"""))
+
+            assertEquals(listOf("spotify:track:$songB", "spotify:playlist:$own"), starter.openedUris)
+        }
+
+    @Test
+    fun `a session command spotify follows needs no opening`() =
+        runTest {
+            val starter = FakeStarter()
+            val api = synced(this, starter)
+
+            api.play(body("""{"playlistId":"$own","trackId":"$songA"}"""))
+
+            assertTrue(starter.openedUris.isEmpty())
+        }
+
+    @Test
+    fun `nothing playing after both ways is a conflict instead of a silent success`() =
+        runTest {
+            val api = synced(this, FakeStarter(ignoresSession = true, opens = false))
+            assertEquals("SOURCE_UNAVAILABLE", errorCode { api.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) })
+        }
+
+    @Test
     fun `spotify that never comes up or no notification access is a conflict`() =
         runTest {
-            val never = synced(this, FakeStarter(sessionAfter = -1))
+            val never = synced(this, FakeStarter(sessionAfter = -1, opens = false))
             assertEquals("SOURCE_UNAVAILABLE", errorCode { never.play(body("""{"playlistId":"$own"}""")) })
             val noAccess = synced(this, FakeStarter(reason = "Benachrichtigungszugriff fehlt"))
             assertEquals("SOURCE_UNAVAILABLE", errorCode { noAccess.play(body("""{"playlistId":"$own"}""")) })
