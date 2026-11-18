@@ -64,6 +64,7 @@ private const val NOTIFICATION_ID = 4080
 private const val ACTION_STOP = "com.auracurve.app.remote.STOP"
 private const val ADDRESS_CHECK_MS = 15_000L
 private const val LIBRARY_FILE = "spotify_library.json"
+private const val LIBRARY_PLAY_TAG = "LibraryPlay"
 private val LIBRARY_CHECK_PERIOD = 15.minutes
 private val EQ_EVENT_PERIOD = 250.milliseconds
 
@@ -146,6 +147,8 @@ class RemoteServerService : LifecycleService() {
             starter = AndroidSpotifyStarter(applicationContext, spotifyBackend),
             mainDispatcher = Dispatchers.Main.immediate,
             scope = lifecycleScope,
+            // Device test of playing from the library: adb logcat -s LibraryPlay
+            playLog = { Log.i(LIBRARY_PLAY_TAG, it) },
         )
     }
 

@@ -33,6 +33,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Reads the signed-in user's playlists from Spotify's Web API (needs internet). */
 interface SpotifyLibraryReader {
@@ -77,6 +78,12 @@ interface SpotifyStarter {
 
     /** Opens the address in the Spotify app itself; false when Android did not take the request. */
     fun openUri(uri: String): Boolean
+
+    /**
+     * Spotify's session as one log line for the device test (state, position, actions, media id,
+     * title). Never contains tokens. Only compared for changes, not parsed.
+     */
+    fun describe(): String = nowPlaying()?.toString() ?: "no session"
 }
 
 /**
@@ -103,7 +110,13 @@ class SpotifyLibraryRemoteApi(
     private val wakePollMs: Long = WAKE_POLL_MS,
     private val confirmWaitMs: Long = CONFIRM_WAIT_MS,
     private val openWaitMs: Long = OPEN_WAIT_MS,
+    private val playBudgetMs: Long = PLAY_BUDGET_MS,
+    /** Monotonic milliseconds for the play deadline and the log; tests pass virtual time. */
+    private val elapsedClock: () -> Long = { System.nanoTime() / 1_000_000 },
+    /** One line per step of a play attempt (device test). The full build logs it to logcat. */
+    private val playLog: (String) -> Unit = {},
 ) {
+    private val attempts = AtomicInteger()
     private val loadLock = Mutex()
     private var loaded = false
 
@@ -175,20 +188,82 @@ class SpotifyLibraryRemoteApi(
         val wanted = (if (trackId != null) listOf(trackId) else playlist.trackIds.orEmpty()).toSet()
         val songs = current()?.tracks.orEmpty()
         val titles = wanted.mapNotNull { id -> songs[id]?.let { normalizeTitle(it.title) } }.toSet()
-        // For a playlist, a song of it that was already playing does not show that Spotify followed.
-        val before = if (trackId == null) withContext(mainDispatcher) { starter.nowPlaying() }?.takeIf { it.playing } else null
-        val handedOver = handOver(uri)
-        // Spotify can take the address without playing it (it ignores commands from some apps):
-        // only a song from the request counts. Otherwise open it in the Spotify app itself.
-        if (handedOver && confirmed(wanted, titles, before, confirmWaitMs)) return
-        val opened = withContext(mainDispatcher) { starter.openUri(uri) }
-        if (opened && confirmed(wanted, titles, before, openWaitMs)) return
-        throw sourceUnavailable(
-            if (handedOver || opened) {
-                "Spotify hat den Titel nicht gestartet (nicht heruntergeladen oder Befehl abgelehnt)"
-            } else {
-                "Spotify startet nicht"
-            },
+        val attempt = Attempt(attempts.incrementAndGet(), elapsedClock())
+        val offline = !online()
+        attempt.log("start uri=$uri extras=none songs=${wanted.size} online=${!offline} spotify=${describeOnMain()}")
+        try {
+            // For a playlist, a song of it that was already playing does not show that Spotify followed.
+            val before = if (trackId == null) withContext(mainDispatcher) { starter.nowPlaying() }?.takeIf { it.playing } else null
+            val handedOver = handOver(uri, attempt)
+            // Spotify can take the address without playing it (it ignores commands from some apps):
+            // only a song from the request counts. Otherwise open it in the Spotify app itself.
+            if (handedOver) {
+                val wait = minOf(confirmWaitMs, attempt.remaining())
+                if (confirmed(wanted, titles, before, wait, attempt, "session")) return attempt.done("ok via playFromUri")
+            }
+            val opened = withContext(mainDispatcher) { starter.openUri(uri) }
+            attempt.log("openUri accepted=$opened")
+            // The open step gets what is left of the budget, so the answer stays inside the remote's limit.
+            if (opened && confirmed(wanted, titles, before, minOf(openWaitMs, attempt.remaining()), attempt, "open")) {
+                return attempt.done("ok via openUri")
+            }
+            val now = withContext(mainDispatcher) { starter.nowPlaying() }
+            val error =
+                if (handedOver || opened) notConfirmed(now, offline) else sourceUnavailable("Spotify startet nicht")
+            attempt.done("failed ${error.code}: handedOver=$handedOver opened=$opened spotify=${describeOnMain()}")
+            throw error
+        } catch (e: ApiError) {
+            if (!attempt.finished) attempt.done("failed ${e.code}: ${e.message}")
+            throw e
+        }
+    }
+
+    /** One play request in the log: number, start time and whether its last line was written. */
+    private inner class Attempt(
+        val number: Int,
+        val startMs: Long,
+    ) {
+        var finished = false
+
+        fun elapsed() = elapsedClock() - startMs
+
+        fun remaining() = (playBudgetMs - elapsed()).coerceAtLeast(0)
+
+        fun log(text: String) = playLog("#$number +${elapsed()}ms $text")
+
+        fun done(text: String) {
+            finished = true
+            log("$text total=${elapsed()}ms")
+        }
+    }
+
+    private suspend fun describeOnMain(): String = withContext(mainDispatcher) { describeNow() }
+
+    /** On the main thread: the log line must never break a play request. */
+    private fun describeNow(): String = runCatching { starter.describe() }.getOrDefault("?")
+
+    /**
+     * Spotify had the command but no song of the request came up. Says only what the app knows:
+     * what Spotify reports now and whether the phone is offline; the cause itself is unknown.
+     */
+    private fun notConfirmed(
+        now: SpotifyNow?,
+        offline: Boolean,
+    ): ApiError {
+        val facts =
+            listOfNotNull(
+                when {
+                    now == null -> "keine Spotify-Sitzung"
+                    !now.playing -> "Spotify spielt nichts"
+                    now.title.isNotBlank() -> "Spotify meldet „${now.title}“"
+                    else -> "Spotify meldet einen anderen Titel"
+                },
+                "Pixel ohne Internet".takeIf { offline },
+            )
+        return ApiError(
+            HttpStatusCode.Conflict,
+            "PLAY_NOT_CONFIRMED",
+            "Spotify hat den Befehl nicht ausgeführt (${facts.joinToString("; ")})",
         )
     }
 
@@ -197,14 +272,23 @@ class SpotifyLibraryRemoteApi(
         titles: Set<String>,
         before: SpotifyNow?,
         waitMs: Long,
+        attempt: Attempt,
+        phase: String,
     ): Boolean {
-        var waited = 0L
+        val until = attempt.elapsed() + waitMs
+        var last: String? = null
         while (true) {
-            val now = withContext(mainDispatcher) { starter.nowPlaying() }
+            val (now, line) = withContext(mainDispatcher) { starter.nowPlaying() to describeNow() }
+            if (line != last) {
+                attempt.log("$phase spotify=$line")
+                last = line
+            }
             if (now != null && now.playing && now != before && matches(now, wanted, titles)) return true
-            if (waited >= waitMs) return false
+            if (attempt.elapsed() >= until) {
+                attempt.log("$phase no requested song after ${waitMs}ms")
+                return false
+            }
             delay(wakePollMs)
-            waited += wakePollMs
         }
     }
 
@@ -219,7 +303,10 @@ class SpotifyLibraryRemoteApi(
     }
 
     /** Sends the address to Spotify's session, waking Spotify first if needed. False when no session came up. */
-    private suspend fun handOver(uri: String): Boolean {
+    private suspend fun handOver(
+        uri: String,
+        attempt: Attempt,
+    ): Boolean {
         val started =
             withContext(mainDispatcher) {
                 starter.unavailableReason()?.let { throw sourceUnavailable(it) }
@@ -230,14 +317,21 @@ class SpotifyLibraryRemoteApi(
                     false
                 }
             }
-        if (started) return true
-        // Spotify had no session: the media button starts it; hand over the address once it is up.
-        var waited = 0L
-        while (waited < wakeWaitMs) {
-            delay(wakePollMs)
-            waited += wakePollMs
-            if (withContext(mainDispatcher) { starter.playUri(uri) }) return true
+        if (started) {
+            attempt.log("playFromUri sent to the running session")
+            return true
         }
+        // Spotify had no session: the media button starts it; hand over the address once it is up.
+        attempt.log("no session, media button sent")
+        val until = attempt.elapsed() + minOf(wakeWaitMs, attempt.remaining())
+        while (attempt.elapsed() < until) {
+            delay(wakePollMs)
+            if (withContext(mainDispatcher) { starter.playUri(uri) }) {
+                attempt.log("session up, playFromUri sent")
+                return true
+            }
+        }
+        attempt.log("still no session after waking")
         return false
     }
 
@@ -334,6 +428,13 @@ class SpotifyLibraryRemoteApi(
         /** How long Spotify gets to report a requested song, after the session command and after opening it. */
         const val CONFIRM_WAIT_MS = 3_000L
         const val OPEN_WAIT_MS = 4_000L
+
+        /**
+         * The most a play request may take (wake, session command, opening): the open step gets
+         * only what is left. The remote waits 18 s (LIBRARY_PLAY_TIMEOUT_MS), so 12 s leave room
+         * for the network and a busy main thread.
+         */
+        const val PLAY_BUDGET_MS = 12_000L
 
         /** The server syncs by itself when online and the copy is older than this. */
         const val AUTO_SYNC_AGE_MS = 6 * 60 * 60_000L

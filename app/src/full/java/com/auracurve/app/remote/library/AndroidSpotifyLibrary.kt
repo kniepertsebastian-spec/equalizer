@@ -69,7 +69,11 @@ class AndroidSpotifyStarter(
         val actions = controller.playbackState?.actions ?: 0L
         val byUri = actions and PlaybackState.ACTION_PLAY_FROM_URI != 0L
         val byMediaId = actions and PlaybackState.ACTION_PLAY_FROM_MEDIA_ID != 0L
-        Log.i(TAG, "Spotify session actions=0x${actions.toString(16)}, fromUri=$byUri, fromMediaId=$byMediaId")
+        val method = if (byMediaId && !byUri) "playFromMediaId" else "playFromUri"
+        Log.i(
+            TAG,
+            "Spotify session actions=0x${actions.toString(16)}, fromUri=$byUri, fromMediaId=$byMediaId, sending $method($uri, extras=null)",
+        )
         if (byMediaId && !byUri) {
             controller.transportControls.playFromMediaId(uri, null)
         } else {
@@ -87,6 +91,37 @@ class AndroidSpotifyStarter(
             playing = controller.playbackState?.let { NowPlayingSnapshot.isPlayingState(it.state) } == true,
         )
     }
+
+    override fun describe(): String {
+        val controller = spotify.spotify() ?: return "no session"
+        val state = controller.playbackState
+        val metadata = controller.metadata
+        return buildString {
+            append(state?.state?.let(::stateName) ?: "NO_STATE")
+            append(" pos=").append(state?.position ?: -1)
+            append(" actions=0x").append((state?.actions ?: 0L).toString(16))
+            state?.errorMessage?.let { append(" error=").append(it) }
+            append(" mediaId=").append(metadata?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID))
+            append(" title=").append(metadata?.getString(MediaMetadata.METADATA_KEY_TITLE))
+        }
+    }
+
+    private fun stateName(state: Int): String =
+        when (state) {
+            PlaybackState.STATE_NONE -> "NONE"
+            PlaybackState.STATE_STOPPED -> "STOPPED"
+            PlaybackState.STATE_PAUSED -> "PAUSED"
+            PlaybackState.STATE_PLAYING -> "PLAYING"
+            PlaybackState.STATE_FAST_FORWARDING -> "FAST_FORWARDING"
+            PlaybackState.STATE_REWINDING -> "REWINDING"
+            PlaybackState.STATE_BUFFERING -> "BUFFERING"
+            PlaybackState.STATE_ERROR -> "ERROR"
+            PlaybackState.STATE_CONNECTING -> "CONNECTING"
+            PlaybackState.STATE_SKIPPING_TO_PREVIOUS -> "SKIPPING_TO_PREVIOUS"
+            PlaybackState.STATE_SKIPPING_TO_NEXT -> "SKIPPING_TO_NEXT"
+            PlaybackState.STATE_SKIPPING_TO_QUEUE_ITEM -> "SKIPPING_TO_QUEUE_ITEM"
+            else -> "STATE_$state"
+        }
 
     override fun openUri(uri: String): Boolean {
         val intent =

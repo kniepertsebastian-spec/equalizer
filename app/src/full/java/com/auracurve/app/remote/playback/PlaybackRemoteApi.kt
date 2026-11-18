@@ -4,15 +4,19 @@ import com.auracurve.app.remote.ApiError
 import com.auracurve.app.remote.EqRemoteApi
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -34,6 +38,8 @@ class PlaybackRemoteApi(
     private val volume: VolumeBackend,
     private val mainDispatcher: CoroutineDispatcher,
     private val pollMs: Long = POLL_MS,
+    private val settleMs: Long = SETTLE_MS,
+    private val settlePollMs: Long = SETTLE_POLL_MS,
 ) {
     private val _activeSource = MutableStateFlow(RemoteSource.PLAYER)
     val activeSource: StateFlow<RemoteSource> = _activeSource.asStateFlow()
@@ -47,11 +53,11 @@ class PlaybackRemoteApi(
 
     suspend fun nowPlaying(): JsonObject = onMain { usable(backend()).let { current(it).toJson() } }
 
-    suspend fun playPause(): JsonObject = command { it.playPause() }
+    suspend fun playPause(): JsonObject = command(settle = true) { it.playPause() }
 
-    suspend fun next(): JsonObject = command { it.next() }
+    suspend fun next(): JsonObject = command(settle = true) { it.next() }
 
-    suspend fun previous(): JsonObject = command { it.previous() }
+    suspend fun previous(): JsonObject = command(settle = true) { it.previous() }
 
     suspend fun setShuffle(body: JsonObject): JsonObject {
         val enabled =
@@ -108,11 +114,15 @@ class PlaybackRemoteApi(
         }
 
     /**
-     * The now-playing state whenever the track or play/pause changes (playback.changed), checked
-     * every [pollMs]. Also moves the active source to the one that started playing.
+     * The now-playing state whenever the track or play/pause changes (playback.changed): checked
+     * at once on a backend's change signal (session callbacks) and otherwise every [pollMs], which
+     * covers a source without callbacks (e.g. notification access granted later). Also moves the
+     * active source to the one that started playing.
      */
     fun changes(): Flow<JsonObject> =
-        flow {
+        channelFlow {
+            val wake = Channel<Unit>(Channel.CONFLATED)
+            launch { merge(player.changeSignals, spotify.changeSignals).collect { wake.trySend(Unit) } }
             var wasPlaying = mapOf(RemoteSource.PLAYER to false, RemoteSource.SPOTIFY_MAIN to false)
             while (true) {
                 val result =
@@ -124,8 +134,8 @@ class PlaybackRemoteApi(
                         val active = backend()
                         if (active.unavailableReason() == null) current(active) else null
                     }
-                if (result != null) emit(result)
-                delay(pollMs)
+                if (result != null) send(result)
+                withTimeoutOrNull(pollMs) { wake.receive() }
             }
         }.distinctUntilChanged { a, b -> a.changeKey == b.changeKey }
             .map { it.toJson() }
@@ -140,12 +150,31 @@ class PlaybackRemoteApi(
         return backend.snapshot(vol) ?: NowPlayingSnapshot(backend.source, "", "", false, 0, 0, null, null, vol)
     }
 
-    private suspend fun command(action: (PlaybackBackend) -> Unit): JsonObject =
-        onMain {
-            val target = usable(backend())
-            action(target)
-            current(target).toJson()
+    /**
+     * Runs [action] on the active source. With [settle], answers with the state after the command:
+     * Spotify (and the player) apply it a moment later, so the state read right away would still
+     * be the old one and the remote would show it until the next playback.changed. Waits at most
+     * [settleMs]; a command that changes nothing (next on the last song) is answered then.
+     */
+    private suspend fun command(
+        settle: Boolean = false,
+        action: (PlaybackBackend) -> Unit,
+    ): JsonObject {
+        val (target, before) =
+            onMain {
+                val target = usable(backend())
+                val before = current(target).changeKey
+                action(target)
+                target to before
+            }
+        var waited = 0L
+        while (true) {
+            val now = onMain { current(target) }
+            if (!settle || now.changeKey != before || waited >= settleMs) return now.toJson()
+            delay(settlePollMs)
+            waited += settlePollMs
         }
+    }
 
     private fun usable(backend: PlaybackBackend): PlaybackBackend {
         backend.unavailableReason()?.let { throw sourceUnavailable(it) }
@@ -159,6 +188,10 @@ class PlaybackRemoteApi(
     companion object {
         val REPEAT_MODES = setOf("OFF", "ALL", "ONE")
         const val POLL_MS = 1_000L
+
+        /** How long play/pause, next and previous wait for the source to report the new state. */
+        const val SETTLE_MS = 600L
+        const val SETTLE_POLL_MS = 50L
 
         fun sourceUnavailable(message: String) = ApiError(HttpStatusCode.Conflict, "SOURCE_UNAVAILABLE", message)
     }
