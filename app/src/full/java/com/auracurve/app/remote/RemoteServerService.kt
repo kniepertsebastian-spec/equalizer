@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
+import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.Build
@@ -37,6 +38,8 @@ import com.auracurve.app.remote.playback.AndroidVolumeBackend
 import com.auracurve.app.remote.playback.PlaybackRemoteApi
 import com.auracurve.app.remote.playback.PlayerPlaybackBackend
 import com.auracurve.app.remote.playback.SpotifyPlaybackBackend
+import com.auracurve.app.remote.sync.SyncRemoteApi
+import com.auracurve.app.remote.sync.SyncTimes
 import com.auracurve.app.remote.web.GitHubWebReleaseSource
 import com.auracurve.app.remote.web.WebBundleKey
 import com.auracurve.app.remote.web.WebBundleStore
@@ -74,6 +77,8 @@ private const val LIBRARY_FILE = "spotify_library.json"
 private const val LIBRARY_PLAY_TAG = "LibraryPlay"
 private const val WEB_BUNDLE_TAG = "WebBundle"
 private const val WEB_BUNDLE_DIR = "web-bundles"
+private const val SYNC_TAG = "Sync"
+private const val SYNC_TIMES_FILE = "sync_times.json"
 private val LIBRARY_CHECK_PERIOD = 15.minutes
 private val EQ_EVENT_PERIOD = 250.milliseconds
 
@@ -167,6 +172,21 @@ class RemoteServerService : LifecycleService() {
     // Module 10: verified web bundles in private storage, loaded while online (E-012).
     private val webStore by lazy { WebBundleStore(File(filesDir, WEB_BUNDLE_DIR)) }
 
+    // Module 08: when the phone last had internet; it is online only at home in the Wi-Fi.
+    private val syncTimes by lazy { SyncTimes(File(filesDir, SYNC_TIMES_FILE)) }
+
+    private val syncApi by lazy {
+        SyncRemoteApi(
+            times = syncTimes,
+            online = ::hasInternet,
+            librarySyncedAtMs = { libraryApi.syncedAtMs() },
+            feedUpdatedAtMs = { discoveryRepository.current().updatedAtMs.takeIf { it > 0 } },
+            webVersion = { webStore.installed()?.version },
+        )
+    }
+
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
     private val webUpdater by lazy {
         WebBundleUpdater(
             source = GitHubWebReleaseSource("AuraCurve/${BuildConfig.VERSION_NAME}"),
@@ -175,6 +195,7 @@ class RemoteServerService : LifecycleService() {
             online = ::hasInternet,
             minVersion = MIN_PWA_VERSION,
             log = { Log.i(WEB_BUNDLE_TAG, it) },
+            onChecked = { syncTimes.markWebChecked() },
         )
     }
 
@@ -198,6 +219,47 @@ class RemoteServerService : LifecycleService() {
             }.getOrDefault(emptySet())
         clientAddresses = now to set
         return set
+    }
+
+    /**
+     * Module 08: the moment the phone gets internet (home Wi-Fi; the hotspot stays on, the Pixel
+     * can do both), everything that needs it catches up at once instead of at its next turn.
+     */
+    private fun watchInternet() {
+        val connectivity = getSystemService(ConnectivityManager::class.java) ?: return
+        val callback =
+            object : ConnectivityManager.NetworkCallback() {
+                private var wasOnline = false
+
+                override fun onCapabilitiesChanged(
+                    network: Network,
+                    capabilities: NetworkCapabilities,
+                ) {
+                    val online =
+                        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                    if (online && !wasOnline) lifecycleScope.launch { catchUp() }
+                    wasOnline = online
+                }
+
+                override fun onLost(network: Network) {
+                    wasOnline = false
+                }
+            }
+        runCatching { connectivity.registerDefaultNetworkCallback(callback) }
+            .onSuccess { networkCallback = callback }
+            .onFailure { Log.w(TAG, "No network callback: ${it.javaClass.simpleName}") }
+    }
+
+    private suspend fun catchUp() {
+        Log.i(SYNC_TAG, "Online: catching up library, web remote and feed")
+        syncTimes.markOnline()
+        runCatching { libraryApi.syncIfDue() }.onFailure { Log.w(SYNC_TAG, "Library: ${it.javaClass.simpleName}") }
+        runCatching { webUpdater.updateIfDue(force = true) }.onFailure { Log.w(SYNC_TAG, "Web remote: ${it.javaClass.simpleName}") }
+        runCatching {
+            val now = System.currentTimeMillis()
+            discoveryUpdater.refresh(now, TimeZone.getDefault().getOffset(now).toLong(), onlyIfDue = true)
+        }.onFailure { Log.w(SYNC_TAG, "Feed: ${it.javaClass.simpleName}") }
     }
 
     private fun hasInternet(): Boolean {
@@ -251,6 +313,7 @@ class RemoteServerService : LifecycleService() {
             updateNotification(address)
             diagnostics.record("Remote control server started on port ${LocalAddress.PORT}")
             launch { watchAddress(address) }
+            watchInternet()
             startMdns(settings.hostName.first())
             launch { settings.hostName.collect { mdns?.name = it } }
             launch {
@@ -317,6 +380,10 @@ class RemoteServerService : LifecycleService() {
         // Stopping waits for open calls; not on the main thread.
         if (running != null) Thread({ runCatching { running.stop(STOP_GRACE_MS, STOP_TIMEOUT_MS) } }, "remote-server-stop").start()
         stopMdns()
+        networkCallback?.let { callback ->
+            runCatching { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(callback) }
+        }
+        networkCallback = null
         control.onServerStopped()
         diagnostics.record("Remote control server stopped")
         super.onDestroy()
@@ -340,6 +407,7 @@ class RemoteServerService : LifecycleService() {
                     playback = playbackApi,
                     feed = feedApi,
                     library = libraryApi,
+                    sync = syncApi,
                     // 04f: the last web remote gone ends a comparison it started.
                     onWebSocketClients = { count -> if (count == 0) lifecycleScope.launch { eqApi.onAllClientsGone() } },
                 )

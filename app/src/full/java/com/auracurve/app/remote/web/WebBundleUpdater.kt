@@ -36,6 +36,8 @@ class WebBundleUpdater(
     private val clock: () -> Long = System::currentTimeMillis,
     private val periodMs: Long = CHECK_PERIOD_MS,
     private val log: (String) -> Unit = {},
+    /** The release repository answered (module 08: shown as "web remote checked at"). */
+    private val onChecked: () -> Unit = {},
 ) {
     sealed interface Result {
         data object NotDue : Result
@@ -60,12 +62,20 @@ class WebBundleUpdater(
     @Volatile
     private var lastCheckMs: Long? = null
 
-    suspend fun updateIfDue(): Result {
+    /**
+     * [force] (module 08: the phone just came online) skips the hourly period, but never checks
+     * more often than every [FORCED_GAP_MS].
+     */
+    suspend fun updateIfDue(force: Boolean = false): Result {
         val last = lastCheckMs
-        if (last != null && clock() - last < periodMs) return Result.NotDue
+        val gap = if (force) FORCED_GAP_MS else periodMs
+        if (last != null && clock() - last < gap) return Result.NotDue
         if (!online()) return Result.Offline
         lastCheckMs = clock()
-        return update().also { log("Web bundle: $it") }
+        return update().also {
+            onChecked()
+            log("Web bundle: $it")
+        }
     }
 
     private suspend fun update(): Result {
@@ -89,6 +99,7 @@ class WebBundleUpdater(
 
     companion object {
         const val CHECK_PERIOD_MS = 60 * 60_000L
+        const val FORCED_GAP_MS = 5 * 60_000L
         const val MAX_DOWNLOAD_BYTES = 5L * 1024 * 1024
     }
 }

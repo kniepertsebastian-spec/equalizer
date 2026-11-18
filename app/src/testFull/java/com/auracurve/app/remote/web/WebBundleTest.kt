@@ -205,6 +205,32 @@ class WebBundleTest {
         }
 
     @Test
+    fun `coming online checks again after five minutes instead of an hour and reports it`() =
+        runTest {
+            val source = FakeSource(release("0.5.0"), bundle("0.5.0"))
+            var now = 0L
+            var checked = 0
+            val updater =
+                WebBundleUpdater(
+                    source,
+                    verifier,
+                    WebBundleStore(tmp.newFolder("f")),
+                    { true },
+                    "0.2",
+                    clock = { now },
+                    onChecked = { checked++ },
+                )
+            updater.updateIfDue()
+            assertEquals(1, checked)
+            now += WebBundleUpdater.FORCED_GAP_MS - 1
+            assertEquals(WebBundleUpdater.Result.NotDue, updater.updateIfDue(force = true))
+            now += 1
+            assertEquals(WebBundleUpdater.Result.UpToDate("0.5.0"), updater.updateIfDue(force = true))
+            assertEquals(2, checked)
+            assertEquals(WebBundleUpdater.Result.NotDue, updater.updateIfDue())
+        }
+
+    @Test
     fun `the updater refuses old, renamed and broken bundles and keeps the current one`() =
         runTest {
             val store = WebBundleStore(tmp.newFolder("r"))
