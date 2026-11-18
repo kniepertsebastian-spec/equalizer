@@ -90,7 +90,10 @@ class SpotifyLibraryRemoteApiTest {
         private var attempts = 0
         private var playing: String? = null
 
-        override fun nowPlaying() = playing?.let { SpotifyNow(it, "", true) }
+        // What Spotify reports while it ignores a request (e.g. the song it kept playing).
+        var other: SpotifyNow? = null
+
+        override fun nowPlaying() = playing?.let { SpotifyNow(it, "", true) } ?: other
 
         override fun openUri(uri: String): Boolean {
             openedUris += uri
@@ -137,6 +140,10 @@ class SpotifyLibraryRemoteApiTest {
         store: FakeStore = FakeStore(),
         starter: FakeStarter = FakeStarter(),
         online: Boolean = true,
+        log: MutableList<String> = mutableListOf(),
+        budgetMs: Long = 12_000,
+        wakeWaitMs: Long = 1_000,
+        openWaitMs: Long = 500,
     ) = SpotifyLibraryRemoteApi(
         reader = reader,
         store = store,
@@ -146,10 +153,13 @@ class SpotifyLibraryRemoteApiTest {
         scope = this,
         clock = { 1_700_000_000_000 },
         zone = ZoneOffset.UTC,
-        wakeWaitMs = 1_000,
+        wakeWaitMs = wakeWaitMs,
         wakePollMs = 100,
         confirmWaitMs = 500,
-        openWaitMs = 500,
+        openWaitMs = openWaitMs,
+        playBudgetMs = budgetMs,
+        elapsedClock = { testScheduler.currentTime },
+        playLog = { log += it },
     )
 
     private suspend fun errorCode(block: suspend () -> Unit): String =
@@ -264,9 +274,25 @@ class SpotifyLibraryRemoteApiTest {
     private suspend fun synced(
         scope: TestScope,
         starter: FakeStarter,
+        online: Boolean = true,
+        log: MutableList<String> = mutableListOf(),
+        budgetMs: Long = 12_000,
+        wakeWaitMs: Long = 1_000,
+        openWaitMs: Long = 500,
     ): SpotifyLibraryRemoteApi {
-        val api = scope.api(starter = starter)
-        api.syncIfDue()
+        // The copy is synced while online; [online] is the state when playing.
+        val store = FakeStore()
+        scope.api(store = store).syncIfDue()
+        val api =
+            scope.api(
+                store = store,
+                starter = starter,
+                online = online,
+                log = log,
+                budgetMs = budgetMs,
+                wakeWaitMs = wakeWaitMs,
+                openWaitMs = openWaitMs,
+            )
         return api
     }
 
@@ -326,7 +352,65 @@ class SpotifyLibraryRemoteApiTest {
     fun `nothing playing after both ways is a conflict instead of a silent success`() =
         runTest {
             val api = synced(this, FakeStarter(ignoresSession = true, opens = false))
-            assertEquals("SOURCE_UNAVAILABLE", errorCode { api.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) })
+            assertEquals("PLAY_NOT_CONFIRMED", errorCode { api.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) })
+        }
+
+    private suspend fun errorMessage(block: suspend () -> Unit): String =
+        try {
+            block()
+            fail("expected an error")
+            ""
+        } catch (e: ApiError) {
+            e.message
+        }
+
+    @Test
+    fun `the error names only what the app knows, never a missing download`() =
+        runTest {
+            val starter = FakeStarter(ignoresSession = true, opens = false)
+            starter.other = SpotifyNow("spotify:track:$songB", "Zwei", true)
+            val offline = synced(this, starter, online = false)
+            val message = errorMessage { offline.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) }
+            assertEquals("Spotify hat den Befehl nicht ausgeführt (Spotify meldet „Zwei“; Pixel ohne Internet)", message)
+            assertFalse(message.contains("heruntergeladen"))
+
+            starter.other = SpotifyNow(null, "Zwei", false)
+            val online = synced(this, starter)
+            assertEquals(
+                "Spotify hat den Befehl nicht ausgeführt (Spotify spielt nichts)",
+                errorMessage { online.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) },
+            )
+        }
+
+    @Test
+    fun `every attempt logs address, steps, the failing branch and the total time`() =
+        runTest {
+            val log = mutableListOf<String>()
+            val api = synced(this, FakeStarter(ignoresSession = true, opens = false), log = log)
+            errorCode { api.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) }
+
+            assertTrue(log.first(), log.first().startsWith("#1 +0ms start uri=spotify:track:$songA"))
+            assertTrue(log.any { it.contains("playFromUri sent") })
+            assertTrue(log.any { it.contains("session no requested song") })
+            assertTrue(log.any { it.contains("openUri accepted=true") })
+            assertTrue(log.last(), log.last().contains("failed PLAY_NOT_CONFIRMED") && log.last().contains("total="))
+            assertTrue(log.none { it.contains("Bearer") || it.contains("token", ignoreCase = true) })
+        }
+
+    @Test
+    fun `a slow wake leaves the open step only what is left of the budget`() =
+        runTest {
+            val log = mutableListOf<String>()
+            // Spotify needs 1 s to come up, then ignores the command and the opened address.
+            val starter = FakeStarter(sessionAfter = 10, ignoresSession = true, opens = false)
+            val api = synced(this, starter, log = log, budgetMs = 2_000, wakeWaitMs = 1_500, openWaitMs = 1_000)
+            val start = testScheduler.currentTime
+
+            errorCode { api.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) }
+
+            // Without the budget: 1.5 s wake + 0.5 s confirm + 1 s open = 3 s.
+            assertTrue("took ${testScheduler.currentTime - start}ms", testScheduler.currentTime - start <= 2_000)
+            assertTrue(log.last(), log.last().contains("total=2000ms"))
         }
 
     @Test
