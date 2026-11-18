@@ -671,6 +671,7 @@ fun EqualizerScreen(
                 when (route.type) {
                     AudioDeviceType.CAR -> stringResource(R.string.context_car_detected, route.name)
                     AudioDeviceType.BLUETOOTH_SPEAKER -> stringResource(R.string.context_speaker_detected, route.name)
+                    AudioDeviceType.SOUNDBAR -> stringResource(R.string.context_soundbar_detected, route.name)
                     else -> null
                 }
             if (detectedRoute != null) {

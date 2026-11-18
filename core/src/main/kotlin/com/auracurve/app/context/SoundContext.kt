@@ -3,9 +3,13 @@ package com.auracurve.app.context
 // Where the sound is being played, as far as it can be told from the audio
 // route. Only contexts that have their own built-in preset are modeled; every
 // other route (headphones, phone speaker, unknown) is simply "no context".
+// IN_EAR is never detected (earbud names are too ambiguous, and headphone mode
+// already covers them by default) - it is a manual choice only.
 enum class SoundContext {
     CAR,
     BLUETOOTH_SPEAKER,
+    SOUNDBAR,
+    IN_EAR,
 }
 
 // Android does not say what kind of Bluetooth device an output is: reading the
@@ -36,9 +40,19 @@ object SoundContextClassifier {
     private val speakerWords =
         (
             "speaker lautsprecher box soundbox boombox boom megaboom " +
-                "wonderboom partybox soundlink flip xtreme charge soundbar " +
+                "wonderboom partybox soundlink flip xtreme charge " +
                 "stormbox pill boomster rockster emberton stanmore acton onyx"
         ).split(' ').toSet()
+
+    private val soundbarWords = "soundbar playbar playbase".split(' ').toSet()
+
+    // Sonos' soundbar names are ordinary words, so they only count next to the brand.
+    private val soundbarWordPairs =
+        listOf(
+            setOf("sonos", "beam"),
+            setOf("sonos", "arc"),
+            setOf("sonos", "ray"),
+        )
 
     // Names split on hyphens/spaces ("MEDIA-NAV", "R-Link"): adjacent words are also
     // tried joined, so the compound keyword still matches.
@@ -54,6 +68,11 @@ object SoundContextClassifier {
     fun classifyBluetoothName(name: String): SoundContext? {
         val words = name.lowercase().split(Regex("[^\\p{L}\\p{N}]+")).filter { it.isNotEmpty() }
         return when {
+            // Before the car check: "soundbar" is unambiguous, while car brand words are
+            // not ("Bose Smart Soundbar" is no Smart car).
+            words.any { it in soundbarWords } -> SoundContext.SOUNDBAR
+            words.zipWithNext { a, b -> a + b }.any { it in soundbarWords } -> SoundContext.SOUNDBAR
+            soundbarWordPairs.any { pair -> words.containsAll(pair) } -> SoundContext.SOUNDBAR
             words.any { it in carWords || carPrefixes.any { prefix -> it.startsWith(prefix) } } -> SoundContext.CAR
             words.zipWithNext { a, b -> a + b }.any { it in carWords } -> SoundContext.CAR
             words.any { it in speakerWords } -> SoundContext.BLUETOOTH_SPEAKER

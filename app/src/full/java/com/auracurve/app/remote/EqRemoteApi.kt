@@ -357,6 +357,8 @@ class EqRemoteApi(
             when (this) {
                 SoundContext.CAR -> R.string.context_name_car
                 SoundContext.BLUETOOTH_SPEAKER -> R.string.context_name_speaker
+                SoundContext.SOUNDBAR -> R.string.context_name_soundbar
+                SoundContext.IN_EAR -> R.string.context_name_in_ear
             }
 
         fun notReady() = ApiError(HttpStatusCode.ServiceUnavailable, "ENGINE_NOT_READY", "Der EQ ist noch nicht gestartet")

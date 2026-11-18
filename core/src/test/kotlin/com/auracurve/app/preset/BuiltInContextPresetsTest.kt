@@ -9,9 +9,12 @@ import org.junit.Test
 
 class BuiltInContextPresetsTest {
     @Test
-    fun `every context has a default preset and both are built in`() {
+    fun `every context has a default preset and all are built in`() {
         assertEquals(BuiltInContextPresets.Car, BuiltInContextPresets.defaultFor(SoundContext.CAR))
         assertEquals(BuiltInContextPresets.BluetoothSpeaker, BuiltInContextPresets.defaultFor(SoundContext.BLUETOOTH_SPEAKER))
+        assertEquals(BuiltInContextPresets.Soundbar, BuiltInContextPresets.defaultFor(SoundContext.SOUNDBAR))
+        assertEquals(BuiltInContextPresets.InEar, BuiltInContextPresets.defaultFor(SoundContext.IN_EAR))
+        assertEquals(SoundContext.entries.size, BuiltInContextPresets.all.size)
         BuiltInContextPresets.all.forEach { preset ->
             assertTrue(preset.metadata.builtIn)
             assertTrue("${preset.id} missing from BuiltInPresets.all", BuiltInPresets.all.any { it.id == preset.id })
@@ -54,6 +57,32 @@ class BuiltInContextPresetsTest {
     fun `bluetooth speaker protects the driver harder than the car preset`() {
         assertTrue(BuiltInContextPresets.BluetoothSpeaker.subsonicCutoffHz > BuiltInContextPresets.Car.subsonicCutoffHz)
         assertTrue(BuiltInContextPresets.BluetoothSpeaker.limiter.thresholdDb < BuiltInContextPresets.Car.limiter.thresholdDb)
+    }
+
+    @Test
+    fun `small speaker puts its bass where the driver can play it`() {
+        val speaker = BuiltInContextPresets.BluetoothSpeaker
+        val peak = speaker.targetCurve.maxBy { it.gainDb }
+        // The kick lift sits above the subsonic corner, never below it.
+        assertTrue(peak.frequencyHz > speaker.subsonicCutoffHz)
+        assertTrue(speaker.targetCurve.none { it.frequencyHz < speaker.subsonicCutoffHz && it.gainDb > 0f })
+        // Synthesized harmonics carry the bass the driver cannot.
+        assertTrue(speaker.virtualBassMix > BuiltInContextPresets.Soundbar.virtualBassMix)
+    }
+
+    @Test
+    fun `in-ears and soundbars push real low end, small speakers do not`() {
+        fun lowGain(preset: Preset) = preset.targetCurve.filter { it.frequencyHz <= 60f }.maxOfOrNull { it.gainDb } ?: 0f
+        assertTrue(lowGain(BuiltInContextPresets.InEar) >= 3f)
+        assertTrue(lowGain(BuiltInContextPresets.Soundbar) >= 3f)
+        assertEquals(0f, lowGain(BuiltInContextPresets.BluetoothSpeaker), 0f)
+        assertTrue(BuiltInContextPresets.InEar.subsonicCutoffHz < BuiltInContextPresets.Soundbar.subsonicCutoffHz)
+    }
+
+    @Test
+    fun `in-ear tames sibilance`() {
+        val sibilance = BuiltInContextPresets.InEar.targetCurve.filter { it.frequencyHz in 5000f..8000f }
+        assertTrue(sibilance.isNotEmpty() && sibilance.all { it.gainDb < 0f })
     }
 
     @Test

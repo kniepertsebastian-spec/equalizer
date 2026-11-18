@@ -404,6 +404,7 @@ private fun AudioDeviceType.icon(): ImageVector =
         AudioDeviceType.BLUETOOTH -> Icons.Default.Bluetooth
         AudioDeviceType.CAR -> Icons.Default.DirectionsCar
         AudioDeviceType.BLUETOOTH_SPEAKER -> Icons.Default.Speaker
+        AudioDeviceType.SOUNDBAR -> Icons.Default.Speaker
         AudioDeviceType.USB -> Icons.Default.Usb
         AudioDeviceType.UNKNOWN -> Icons.Default.Speaker
     }
