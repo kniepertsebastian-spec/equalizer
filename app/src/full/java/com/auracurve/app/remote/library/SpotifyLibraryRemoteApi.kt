@@ -33,6 +33,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Reads the signed-in user's playlists from Spotify's Web API (needs internet). */
 interface SpotifyLibraryReader {
@@ -115,7 +116,7 @@ class SpotifyLibraryRemoteApi(
     /** One line per step of a play attempt (device test). The full build logs it to logcat. */
     private val playLog: (String) -> Unit = {},
 ) {
-    private val attempts = java.util.concurrent.atomic.AtomicInteger()
+    private val attempts = AtomicInteger()
     private val loadLock = Mutex()
     private var loaded = false
 
