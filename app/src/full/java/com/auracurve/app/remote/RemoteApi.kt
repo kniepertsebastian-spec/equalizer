@@ -3,6 +3,7 @@ package com.auracurve.app.remote
 import com.auracurve.app.remote.feed.FeedRemoteApi
 import com.auracurve.app.remote.library.SpotifyLibraryRemoteApi
 import com.auracurve.app.remote.playback.PlaybackRemoteApi
+import com.auracurve.app.remote.sync.SyncRemoteApi
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -84,6 +85,8 @@ class RemoteApiConfig(
     val feed: FeedRemoteApi? = null,
     /** The offline copy of the Spotify library; null leaves it out. */
     val library: SpotifyLibraryRemoteApi? = null,
+    /** Module 08: online state and the times of the last syncs; null leaves it out. */
+    val sync: SyncRemoteApi? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
     /** Called with the number of open WebSockets whenever it changes (04f: compare safety net). */
@@ -142,6 +145,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
     routing {
         get("/api/version") { respondJson(call, versionJson(config)) }
         get("/api/v0/system/status") { respondJson(call, config.systemStatus().toJson()) }
+        config.sync?.let { sync -> get("/api/v0/system/sync") { respondJson(call, sync.status()) } }
         post("/api/v0/ws-ticket") {
             respondJson(
                 call,

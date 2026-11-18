@@ -427,6 +427,9 @@ class SpotifyLibraryRemoteApi(
         return SpotifyLibrary(clock(), playlists, tracks)
     }
 
+    /** When the copy was last synced, or null without one (module 08: sync status). */
+    suspend fun syncedAtMs(): Long? = current()?.syncedAtMs?.takeIf { it > 0 }
+
     private suspend fun current(): SpotifyLibrary? {
         if (!loaded) {
             loadLock.withLock {
