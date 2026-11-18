@@ -26,6 +26,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -34,6 +35,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.random.Random
 
 /** Reads the signed-in user's playlists from Spotify's Web API (needs internet). */
 interface SpotifyLibraryReader {
@@ -125,6 +127,8 @@ class SpotifyLibraryRemoteApi(
     private val elapsedClock: () -> Long = { System.nanoTime() / 1_000_000 },
     /** One line per step of a play attempt (device test). The full build logs it to logcat. */
     private val playLog: (String) -> Unit = {},
+    /** Picks the first song of a shuffled playlist; tests pass a seeded one. */
+    private val random: Random = Random.Default,
 ) {
     private val attempts = AtomicInteger()
     private val loadLock = Mutex()
@@ -182,44 +186,65 @@ class SpotifyLibraryRemoteApi(
     }
 
     /**
-     * Plays a song of a playlist from the copy, or the whole playlist without `trackId`. Only ids
-     * from the copy are ever turned into a spotify: address.
+     * Plays a song of a playlist from the copy, or the whole playlist without `trackId` (from its
+     * first song, or a random one with `shuffle: true`). Only ids from the copy are ever turned
+     * into a spotify: address.
+     *
+     * The address carries the playlist as context: offline, Spotify plays a downloaded song only
+     * within its playlist and ignores `spotify:track:<id>` and `spotify:playlist:<id>` without a
+     * word (device test 18 Nov 2026, 7 of 7 songs started with the context). Opening that address
+     * in the Spotify app is the way that was measured, so it comes first; the session command
+     * (playFromUri) follows only when opening did not start the song.
+     *
+     * A newer play request supersedes a running one: the older one stops sending commands and
+     * answers with the current state instead of an error about a song nobody wants any more.
      */
     suspend fun play(body: JsonObject) {
         val playlistId = body.text("playlistId") ?: throw EqRemoteApi.badRequest("playlistId fehlt")
         val trackId = body.text("trackId")
+        val shuffle = (body["shuffle"] as? JsonPrimitive)?.booleanOrNull == true
         val playlist =
             current()?.playlist(playlistId)
                 ?: throw ApiError(HttpStatusCode.NotFound, "PLAYLIST_NOT_FOUND", "Playlist nicht in der Bibliothek")
         if (trackId != null && playlist.trackIds?.contains(trackId) != true) {
             throw ApiError(HttpStatusCode.NotFound, "TRACK_NOT_FOUND", "Titel nicht in dieser Playlist")
         }
-        val uri = if (trackId != null) "spotify:track:$trackId" else "spotify:playlist:${playlist.id}"
-        val wanted = (if (trackId != null) listOf(trackId) else playlist.trackIds.orEmpty()).toSet()
+        val ids = playlist.trackIds.orEmpty()
+        val first = trackId ?: if (shuffle) ids.randomOrNull(random) else ids.firstOrNull()
+        // Without its songs (not the user's playlist) only the bare playlist address is left.
+        val uri = first?.let { trackInPlaylist(it, playlist.id) } ?: "spotify:playlist:${playlist.id}"
+        val wanted = first?.let { setOf(it) } ?: ids.toSet()
         val songs = current()?.tracks.orEmpty()
         val titles = wanted.mapNotNull { id -> songs[id]?.let { normalizeTitle(it.title) } }.toSet()
         val attempt = Attempt(attempts.incrementAndGet(), elapsedClock())
         val offline = !online()
         val mayOpen = withContext(mainDispatcher) { starter.mayOpenFromBackground() }
         attempt.log(
-            "start uri=$uri extras=none songs=${wanted.size} online=${!offline} mayOpen=$mayOpen spotify=${describeOnMain()}",
+            "start uri=$uri extras=none songs=${ids.size} shuffle=$shuffle online=${!offline} mayOpen=$mayOpen " +
+                "spotify=${describeOnMain()}",
         )
-        try {
-            // For a playlist, a song of it that was already playing does not show that Spotify followed.
-            val before = if (trackId == null) withContext(mainDispatcher) { starter.nowPlaying() }?.takeIf { it.playing } else null
-            val handedOver = handOver(uri, attempt)
-            // Spotify can take the address without playing it (it ignores commands from some apps):
-            // only a song from the request counts. Otherwise open it in the Spotify app itself.
-            if (handedOver) {
-                val wait = minOf(confirmWaitMs, attempt.remaining())
-                if (confirmed(wanted, titles, before, wait, attempt, "session")) return attempt.done("ok via playFromUri")
-            }
-            val opened = withContext(mainDispatcher) { starter.openUri(uri) }
+        var opened = false
+        var handedOver = false
+
+        // Opens the address in the Spotify app; the step gets what is left of the budget.
+        suspend fun open(): Boolean {
+            attempt.ensureCurrent()
+            opened = withContext(mainDispatcher) { starter.openUri(uri) }
             attempt.log("openUri accepted=$opened")
-            // The open step gets what is left of the budget, so the answer stays inside the remote's limit.
-            if (opened && confirmed(wanted, titles, before, minOf(openWaitMs, attempt.remaining()), attempt, "open")) {
-                return attempt.done("ok via openUri")
+            return opened && confirmed(wanted, titles, minOf(openWaitMs, attempt.remaining()), attempt, "open")
+        }
+        try {
+            withContext(mainDispatcher) { starter.unavailableReason() }?.let { throw sourceUnavailable(it) }
+            // Without "Display over other apps" Android drops the open request while AuraCurve is
+            // in the background, so the session command goes first then.
+            if (mayOpen && open()) return attempt.done("ok via openUri")
+            handedOver = handOver(uri, attempt)
+            // Spotify can take the address without playing it: only a song from the request counts.
+            if (handedOver && confirmed(wanted, titles, minOf(confirmWaitMs, attempt.remaining()), attempt, "session")) {
+                return attempt.done("ok via playFromUri")
             }
+            // AuraCurve may be on screen, then Android lets it open Spotify after all.
+            if (!mayOpen && open()) return attempt.done("ok via openUri")
             val now = withContext(mainDispatcher) { starter.nowPlaying() }
             val error =
                 when {
@@ -230,11 +255,16 @@ class SpotifyLibraryRemoteApi(
                 }
             attempt.done("failed ${error.code}: handedOver=$handedOver opened=$opened spotify=${describeOnMain()}")
             throw error
+        } catch (e: Superseded) {
+            attempt.done("superseded by #${attempts.get()}: handedOver=$handedOver opened=$opened")
         } catch (e: ApiError) {
             if (!attempt.finished) attempt.done("failed ${e.code}: ${e.message}")
             throw e
         }
     }
+
+    /** A newer play request took over; the older one ends quietly. */
+    private class Superseded : Exception()
 
     /** One play request in the log: number, start time and whether its last line was written. */
     private inner class Attempt(
@@ -248,6 +278,11 @@ class SpotifyLibraryRemoteApi(
         fun remaining() = (playBudgetMs - elapsed()).coerceAtLeast(0)
 
         fun log(text: String) = playLog("#$number +${elapsed()}ms $text")
+
+        /** Throws [Superseded] once a newer play request has started. */
+        fun ensureCurrent() {
+            if (attempts.get() != number) throw Superseded()
+        }
 
         fun done(text: String) {
             finished = true
@@ -288,7 +323,6 @@ class SpotifyLibraryRemoteApi(
     private suspend fun confirmed(
         wanted: Set<String>,
         titles: Set<String>,
-        before: SpotifyNow?,
         waitMs: Long,
         attempt: Attempt,
         phase: String,
@@ -296,12 +330,13 @@ class SpotifyLibraryRemoteApi(
         val until = attempt.elapsed() + waitMs
         var last: String? = null
         while (true) {
+            attempt.ensureCurrent()
             val (now, line) = withContext(mainDispatcher) { starter.nowPlaying() to describeNow() }
             if (line != last) {
                 attempt.log("$phase spotify=$line")
                 last = line
             }
-            if (now != null && now.playing && now != before && matches(now, wanted, titles)) return true
+            if (now != null && now.playing && matches(now, wanted, titles)) return true
             if (attempt.elapsed() >= until) {
                 attempt.log("$phase no requested song after ${waitMs}ms")
                 return false
@@ -325,9 +360,9 @@ class SpotifyLibraryRemoteApi(
         uri: String,
         attempt: Attempt,
     ): Boolean {
+        attempt.ensureCurrent()
         val started =
             withContext(mainDispatcher) {
-                starter.unavailableReason()?.let { throw sourceUnavailable(it) }
                 if (starter.playUri(uri)) {
                     true
                 } else {
@@ -344,6 +379,7 @@ class SpotifyLibraryRemoteApi(
         val until = attempt.elapsed() + minOf(wakeWaitMs, attempt.remaining())
         while (attempt.elapsed() < until) {
             delay(wakePollMs)
+            attempt.ensureCurrent()
             if (withContext(mainDispatcher) { starter.playUri(uri) }) {
                 attempt.log("session up, playFromUri sent")
                 return true
@@ -446,7 +482,7 @@ class SpotifyLibraryRemoteApi(
         /**
          * How long Spotify gets to report a requested song, after the session command and after
          * opening it. Spotify ignores the session command from other apps on the device test
-         * (playFromUri, 18 Nov 2026), so it gets only a short look before opening.
+         * (playFromUri, 18 Nov 2026), so after an open that did not start the song it gets only a short look.
          */
         const val CONFIRM_WAIT_MS = 1_200L
         const val OPEN_WAIT_MS = 4_000L
@@ -472,6 +508,15 @@ class SpotifyLibraryRemoteApi(
                 "Android lässt AuraCurve Spotify nicht öffnen. Auf dem Pixel: AuraCurve → Player → Linked services → " +
                     "Remote control → „Allow opening Spotify“",
             )
+
+        /**
+         * A song in the context of its playlist: `spotify:track:<id>?context=spotify%3Aplaylist%3A<id>`.
+         * Both ids are base62 from the copy, so only the colons of the context need encoding.
+         */
+        fun trackInPlaylist(
+            trackId: String,
+            playlistId: String,
+        ) = "spotify:track:$trackId?context=spotify%3Aplaylist%3A$playlistId"
 
         fun sourceUnavailable(message: String) = ApiError(HttpStatusCode.Conflict, "SOURCE_UNAVAILABLE", message)
     }

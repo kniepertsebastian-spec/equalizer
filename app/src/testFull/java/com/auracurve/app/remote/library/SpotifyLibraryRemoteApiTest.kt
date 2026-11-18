@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -41,6 +42,7 @@ import org.junit.Assert.fail
 import org.junit.Test
 import java.io.IOException
 import java.time.ZoneOffset
+import kotlin.random.Random
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SpotifyLibraryRemoteApiTest {
@@ -106,7 +108,8 @@ class SpotifyLibraryRemoteApiTest {
         override fun mayOpenFromBackground() = mayOpen
 
         // Spotify plays the first song of a playlist; the fake library's first song is songA.
-        private fun String.toTrackUri() = if (startsWith("spotify:playlist:")) "spotify:track:4uLU6hMCjMI75M1A2tKUQC" else this
+        private fun String.toTrackUri() =
+            if (startsWith("spotify:playlist:")) "spotify:track:4uLU6hMCjMI75M1A2tKUQC" else substringBefore('?')
 
         override fun unavailableReason() = reason
 
@@ -148,6 +151,7 @@ class SpotifyLibraryRemoteApiTest {
         budgetMs: Long = 12_000,
         wakeWaitMs: Long = 1_000,
         openWaitMs: Long = 500,
+        random: Random = Random.Default,
     ) = SpotifyLibraryRemoteApi(
         reader = reader,
         store = store,
@@ -164,6 +168,7 @@ class SpotifyLibraryRemoteApiTest {
         playBudgetMs = budgetMs,
         elapsedClock = { testScheduler.currentTime },
         playLog = { log += it },
+        random = random,
     )
 
     private suspend fun errorCode(block: suspend () -> Unit): String =
@@ -283,6 +288,7 @@ class SpotifyLibraryRemoteApiTest {
         budgetMs: Long = 12_000,
         wakeWaitMs: Long = 1_000,
         openWaitMs: Long = 500,
+        random: Random = Random.Default,
     ): SpotifyLibraryRemoteApi {
         // The copy is synced while online; [online] is the state when playing.
         val store = FakeStore()
@@ -296,9 +302,12 @@ class SpotifyLibraryRemoteApiTest {
                 budgetMs = budgetMs,
                 wakeWaitMs = wakeWaitMs,
                 openWaitMs = openWaitMs,
+                random = random,
             )
         return api
     }
+
+    private fun inPlaylist(trackId: String) = SpotifyLibraryRemoteApi.trackInPlaylist(trackId, own)
 
     @Test
     fun `play turns only ids from the copy into spotify addresses`() =
@@ -307,9 +316,10 @@ class SpotifyLibraryRemoteApiTest {
             val api = synced(this, starter)
 
             api.play(body("""{"playlistId":"$own","trackId":"$songB"}"""))
+            // The whole playlist starts with its first song, in the playlist's context.
             api.play(body("""{"playlistId":"$own"}"""))
 
-            assertEquals(listOf("spotify:track:$songB", "spotify:playlist:$own"), starter.played)
+            assertEquals(listOf(inPlaylist(songB), inPlaylist(songA)), starter.openedUris)
             assertEquals("BAD_REQUEST", errorCode { api.play(body("{}")) })
             assertEquals("BAD_REQUEST", errorCode { api.play(body("""{"playlistId":"spotify:playlist:x"}""")) })
             assertEquals("BAD_REQUEST", errorCode { api.play(body("""{"playlistId":"$own","trackId":"../../x"}""")) })
@@ -320,36 +330,71 @@ class SpotifyLibraryRemoteApiTest {
     @Test
     fun `without a spotify session the media button wakes it and the address follows`() =
         runTest {
-            val starter = FakeStarter(sessionAfter = 3)
+            val starter = FakeStarter(sessionAfter = 3, mayOpen = false)
             val api = synced(this, starter)
 
             api.play(body("""{"playlistId":"$own","trackId":"$songA"}"""))
 
             assertEquals(1, starter.wakes)
-            assertEquals(listOf("spotify:track:$songA"), starter.played)
+            assertEquals(listOf(inPlaylist(songA)), starter.played)
         }
 
     @Test
-    fun `when spotify ignores the session command the address is opened in spotify`() =
+    fun `the song is opened in spotify with its playlist first and needs no session command`() =
         runTest {
             val starter = FakeStarter(ignoresSession = true)
             val api = synced(this, starter)
 
             api.play(body("""{"playlistId":"$own","trackId":"$songB"}"""))
-            api.play(body("""{"playlistId":"$own"}"""))
 
-            assertEquals(listOf("spotify:track:$songB", "spotify:playlist:$own"), starter.openedUris)
+            assertEquals(listOf("spotify:track:$songB?context=spotify%3Aplaylist%3A$own"), starter.openedUris)
+            assertTrue(starter.played.isEmpty())
         }
 
     @Test
-    fun `a session command spotify follows needs no opening`() =
+    fun `when opening does not start the song the session command follows`() =
         runTest {
-            val starter = FakeStarter()
-            val api = synced(this, starter)
+            val starter = FakeStarter(opens = false)
+            val log = mutableListOf<String>()
+            val api = synced(this, starter, log = log)
 
             api.play(body("""{"playlistId":"$own","trackId":"$songA"}"""))
 
-            assertTrue(starter.openedUris.isEmpty())
+            assertEquals(listOf(inPlaylist(songA)), starter.openedUris)
+            assertEquals(listOf(inPlaylist(songA)), starter.played)
+            assertTrue(log.last(), log.last().contains("ok via playFromUri"))
+        }
+
+    @Test
+    fun `shuffle starts a random song of the playlist, still in its context`() =
+        runTest {
+            val starter = FakeStarter()
+            val api = synced(this, starter, random = Random(7))
+
+            repeat(6) { api.play(body("""{"playlistId":"$own","shuffle":true}""")) }
+
+            val same = Random(7)
+            assertEquals(List(6) { inPlaylist(listOf(songA, songB).random(same)) }, starter.openedUris)
+        }
+
+    @Test
+    fun `a newer request supersedes a running one, which stops sending and fails nothing`() =
+        runTest {
+            val starter = FakeStarter(ignoresSession = true, opens = false)
+            val log = mutableListOf<String>()
+            val api = synced(this, starter, log = log)
+
+            val older = async { api.play(body("""{"playlistId":"$own","trackId":"$songA"}""")) }
+            advanceTimeBy(250)
+            starter.opens = true
+            api.play(body("""{"playlistId":"$own","trackId":"$songB"}"""))
+            older.await()
+
+            assertTrue(log.toString(), log.any { it.startsWith("#1 ") && it.contains("superseded by #2") })
+            assertTrue(log.toString(), log.any { it.startsWith("#2 ") && it.contains("ok via openUri") })
+            // The older request sent nothing after the newer one started.
+            assertEquals(listOf(inPlaylist(songA), inPlaylist(songB)), starter.openedUris)
+            assertTrue(starter.played.isEmpty())
         }
 
     @Test
@@ -433,7 +478,7 @@ class SpotifyLibraryRemoteApiTest {
         runTest {
             val log = mutableListOf<String>()
             // Spotify needs 1 s to come up, then ignores the command and the opened address.
-            val starter = FakeStarter(sessionAfter = 10, ignoresSession = true, opens = false)
+            val starter = FakeStarter(sessionAfter = 10, ignoresSession = true, opens = false, mayOpen = false)
             val api = synced(this, starter, log = log, budgetMs = 2_000, wakeWaitMs = 1_500, openWaitMs = 1_000)
             val start = testScheduler.currentTime
 
