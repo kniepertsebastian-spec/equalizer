@@ -21,10 +21,11 @@ object LocalAddress {
     /** The web remote's origin for [host] (an IP literal or a name like pixel9.local). */
     fun url(host: String): String = "http://$host:$PORT"
 
+    /** Module 05: the link carries a one-time code, never a token; the web remote trades it for its own token. */
     fun pairingLink(
         host: String,
-        token: String,
-    ): String = "${url(host)}/#token=$token"
+        code: String,
+    ): String = "${url(host)}/#pair=$code"
 
     const val PORT = 8080
 }

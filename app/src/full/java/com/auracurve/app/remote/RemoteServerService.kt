@@ -57,6 +57,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.net.InetAddress
 import java.util.TimeZone
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
@@ -68,6 +69,7 @@ private const val CHANNEL_ID = "remote_server"
 private const val NOTIFICATION_ID = 4080
 private const val ACTION_STOP = "com.auracurve.app.remote.STOP"
 private const val ADDRESS_CHECK_MS = 15_000L
+private const val CLIENT_ADDRESS_CACHE_MS = 3_000L
 private const val LIBRARY_FILE = "spotify_library.json"
 private const val LIBRARY_PLAY_TAG = "LibraryPlay"
 private const val WEB_BUNDLE_TAG = "WebBundle"
@@ -94,6 +96,9 @@ class RemoteServerService : LifecycleService() {
 
     @Inject
     lateinit var settings: RemoteServerSettings
+
+    @Inject
+    lateinit var registry: RemoteDeviceRegistry
 
     @Inject
     lateinit var statusSource: SystemStatusSource
@@ -173,6 +178,28 @@ class RemoteServerService : LifecycleService() {
         )
     }
 
+    /**
+     * The phone's addresses in networks it is a client of (Wi-Fi, mobile, VPN); the hotspot is not
+     * among them. Asked again at most every few seconds, it is read for every request.
+     */
+    private fun clientNetworkAddresses(): Set<InetAddress> {
+        val now = System.currentTimeMillis()
+        clientAddresses?.let { (at, set) -> if (now - at < CLIENT_ADDRESS_CACHE_MS) return set }
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        val set =
+            runCatching {
+                @Suppress("DEPRECATION")
+                connectivity
+                    ?.allNetworks
+                    .orEmpty()
+                    .flatMap { network -> connectivity?.getLinkProperties(network)?.linkAddresses.orEmpty() }
+                    .map { it.address }
+                    .toSet()
+            }.getOrDefault(emptySet())
+        clientAddresses = now to set
+        return set
+    }
+
     private fun hasInternet(): Boolean {
         val connectivity = getSystemService(ConnectivityManager::class.java) ?: return false
         val capabilities = connectivity.getNetworkCapabilities(connectivity.activeNetwork) ?: return false
@@ -188,8 +215,12 @@ class RemoteServerService : LifecycleService() {
     private var mdns: MdnsResponder? = null
     private var multicastLock: WifiManager.MulticastLock? = null
 
+    // Module 05 (E-016): the home Wi-Fi only with the switch; the hotspot always.
     @Volatile
-    private var token: String? = null
+    private var allowWifi = false
+
+    @Volatile
+    private var clientAddresses: Pair<Long, Set<InetAddress>>? = null
 
     private val events = MutableSharedFlow<RemoteEvent>(extraBufferCapacity = 32, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
@@ -206,8 +237,9 @@ class RemoteServerService : LifecycleService() {
             .onFailure { Log.w(TAG, "Session service not started", it) }
 
         lifecycleScope.launch {
-            token = settings.ensureToken()
-            launch { settings.token.collect { token = it } }
+            registry.migrateLegacyToken()
+            allowWifi = settings.allowWifi.first()
+            launch { settings.allowWifi.collect { allowWifi = it } }
             val started = withContext(Dispatchers.IO) { startServer() }
             if (!started) {
                 control.onServerStopped(getString(R.string.remote_server_error_port, LocalAddress.PORT))
@@ -295,7 +327,10 @@ class RemoteServerService : LifecycleService() {
             val config =
                 RemoteApiConfig(
                     appVersion = BuildConfig.VERSION_NAME,
-                    token = { token },
+                    devices = registry.devices,
+                    addressAllowed = { local, remote ->
+                        PrivateNetwork.allows(local, remote) && NetworkZone.allows(local, clientNetworkAddresses(), allowWifi)
+                    },
                     systemStatus = { withContext(Dispatchers.Main.immediate) { systemStatus() } },
                     events = events,
                     // A verified bundle wins; the adb folder is only for development and first start.

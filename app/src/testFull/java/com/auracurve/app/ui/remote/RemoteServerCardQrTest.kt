@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -15,8 +14,11 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.auracurve.app.remote.PairingCode
+import com.auracurve.app.remote.RemoteDevice
 import com.auracurve.app.remote.RemoteServerUiState
 import com.auracurve.app.ui.theme.AuraCurveTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
@@ -26,16 +28,21 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowDialog
 
-// The pairing QR code of the remote card: only on request, in a secure window, following the
-// token and the server state. A plain Application: the Hilt app would build the whole graph.
+// Module 05 in the remote card: the pairing code with its QR code while it is valid, in a secure
+// window, the paired devices and the Wi-Fi switch. A plain Application: the Hilt app would build the whole graph.
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], application = Application::class, qualifiers = "w411dp-h891dp-xxhdpi")
 class RemoteServerCardQrTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val running =
-        RemoteServerUiState(available = true, running = true, address = "10.40.5.1", token = "tok1", hostName = "pixel9")
+    private val running = RemoteServerUiState(available = true, running = true, address = "10.40.5.1", hostName = "pixel9")
+    private val code = PairingCode("ABCDEFGH", Long.MAX_VALUE)
+
+    private var pairingStarted = 0
+    private var cancelled = 0
+    private val removed = mutableListOf<String>()
+    private var wifi: Boolean? = null
 
     private fun show(initial: RemoteServerUiState): (RemoteServerUiState) -> Unit {
         var state by mutableStateOf(initial)
@@ -45,7 +52,11 @@ class RemoteServerCardQrTest {
                     state = state,
                     spotifyAccess = true,
                     onEnabledChange = {},
-                    onRegenerateToken = {},
+                    onStartPairing = { pairingStarted++ },
+                    onCancelPairing = { cancelled++ },
+                    onRemoveDevice = { removed += it },
+                    onRemoveAllDevices = {},
+                    onAllowWifiChange = { wifi = it },
                     onStartAtBootChange = {},
                     onHostNameChange = {},
                     onOpenNotificationAccess = {},
@@ -57,50 +68,49 @@ class RemoteServerCardQrTest {
 
     private fun dialogs() = compose.onAllNodes(isDialog())
 
-    // The card shows the link as text too: look inside the dialog only.
     private fun inDialog(text: String) = compose.onNode(hasText(text) and hasAnyAncestor(isDialog()))
 
     @Test
-    fun `the QR code only shows on request, with the name link, in a secure window`() {
-        show(running)
+    fun `pairing shows the code and its link in a secure window`() {
+        val update = show(running)
         dialogs().assertCountEquals(0)
+        compose.onNodeWithTag("remote_server_pair").performClick()
+        assertEquals(1, pairingStarted)
 
-        compose.onNodeWithText("Show QR code").performClick()
+        update(running.copy(pairing = code))
+        inDialog("ABCD-EFGH").assertExists()
+        inDialog("http://pixel9.local:8080/#pair=ABCDEFGH").assertExists()
         compose.onNodeWithContentDescription("Pairing link as QR code").assertExists()
-        inDialog("http://pixel9.local:8080/#token=tok1").assertExists()
-        // The screen reader never reads the token out.
-        compose.onAllNodes(hasContentDescription("tok1", substring = true)).assertCountEquals(0)
-
         val dialog = ShadowDialog.getLatestDialog()
         assertNotNull(dialog)
         assertNotEquals(0, dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
 
-        compose.onNodeWithText("Close").performClick()
-        dialogs().assertCountEquals(0)
-    }
-
-    @Test
-    fun `use IP instead switches the link`() {
-        show(running)
-        compose.onNodeWithText("Show QR code").performClick()
         compose.onNodeWithTag("remote_server_qr_use_ip").performClick()
-        inDialog("http://10.40.5.1:8080/#token=tok1").assertExists()
+        inDialog("http://10.40.5.1:8080/#pair=ABCDEFGH").assertExists()
+
+        compose.onNodeWithText("Close").performClick()
+        assertEquals(1, cancelled)
     }
 
     @Test
-    fun `a new token shows the new link, the server going off closes the dialog`() {
-        val update = show(running)
-        compose.onNodeWithText("Show QR code").performClick()
-
-        update(running.copy(token = "tok2"))
-        inDialog("http://pixel9.local:8080/#token=tok2").assertExists()
+    fun `a used or expired code or the server going off closes the dialog`() {
+        val update = show(running.copy(pairing = code))
         dialogs().assertCountEquals(1)
-
-        update(running.copy(token = "tok2", running = false, address = null))
+        update(running)
         dialogs().assertCountEquals(0)
-
-        // Back on: the dialog stays closed until asked for again.
-        update(running.copy(token = "tok2"))
+        update(running.copy(pairing = code, running = false, address = null))
         dialogs().assertCountEquals(0)
+    }
+
+    @Test
+    fun `paired devices are listed and removed one by one, the wi-fi switch reports`() {
+        show(running.copy(devices = listOf(RemoteDevice("d1", "Pixel 10", "h", 0), RemoteDevice("d2", "iPhone", "h", 0))))
+        compose.onNodeWithText("Paired devices (2)").assertExists()
+        compose.onNodeWithText("iPhone").assertExists()
+        compose.onNodeWithTag("remote_server_device_d2").assertExists()
+        compose.onAllNodes(hasText("Remove"))[1].performClick()
+        assertEquals(listOf("d2"), removed)
+        compose.onNodeWithTag("remote_server_wifi_switch").performClick()
+        assertEquals(true, wifi)
     }
 }

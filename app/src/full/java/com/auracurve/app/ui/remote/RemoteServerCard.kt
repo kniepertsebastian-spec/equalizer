@@ -54,7 +54,7 @@ import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
 
 // Flavor "full" (Pixel-Car module 04a): the switch for the local remote-control server, with the
-// address, the token and the pairing link the web remote understands. Off by default.
+// address and, since module 05, the paired devices and pairing by one-time code. Off by default.
 @Composable
 fun RemoteServerCard() {
     val viewModel: RemoteServerViewModel = hiltViewModel()
@@ -73,7 +73,11 @@ fun RemoteServerCard() {
         spotifyAccess = spotifyAccess,
         mayOpenSpotify = mayOpenSpotify,
         onEnabledChange = viewModel::setEnabled,
-        onRegenerateToken = viewModel::regenerateToken,
+        onStartPairing = viewModel::startPairing,
+        onCancelPairing = viewModel::cancelPairing,
+        onRemoveDevice = viewModel::removeDevice,
+        onRemoveAllDevices = viewModel::removeAllDevices,
+        onAllowWifiChange = viewModel::setAllowWifi,
         onStartAtBootChange = viewModel::setStartAtBoot,
         onHostNameChange = viewModel::setHostName,
         onOpenNotificationAccess = {
@@ -99,7 +103,11 @@ internal fun RemoteServerCardContent(
     state: RemoteServerUiState,
     spotifyAccess: Boolean,
     onEnabledChange: (Boolean) -> Unit,
-    onRegenerateToken: () -> Unit,
+    onStartPairing: () -> Unit,
+    onCancelPairing: () -> Unit,
+    onRemoveDevice: (String) -> Unit,
+    onRemoveAllDevices: () -> Unit,
+    onAllowWifiChange: (Boolean) -> Unit,
     onStartAtBootChange: (Boolean) -> Unit,
     onHostNameChange: (String) -> Unit,
     onOpenNotificationAccess: () -> Unit,
@@ -107,12 +115,26 @@ internal fun RemoteServerCardContent(
     onAllowOpenSpotify: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
-    val clipboard = LocalClipboardManager.current
     var editingName by remember { mutableStateOf(false) }
-    // The QR code shows the token: only on request, closed as soon as the server is off.
-    var showingQr by rememberSaveable { mutableStateOf(false) }
-    if (showingQr && (!state.running || state.pairingLink == null)) showingQr = false
-    if (showingQr) PairingQrDialog(state = state, onDismiss = { showingQr = false })
+    var confirmRemoveAll by remember { mutableStateOf(false) }
+    // Module 05: the code is shown while it is valid; used, expired or the server off closes it.
+    if (state.running && state.pairingLink != null) PairingDialog(state = state, onDismiss = onCancelPairing)
+    if (confirmRemoveAll) {
+        AlertDialog(
+            onDismissRequest = { confirmRemoveAll = false },
+            title = { Text(stringResource(R.string.remote_server_remove_all_title)) },
+            text = { Text(stringResource(R.string.remote_server_remove_all_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRemoveAll = false
+                    onRemoveAllDevices()
+                }) { Text(stringResource(R.string.remote_server_remove_all)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemoveAll = false }) { Text(stringResource(R.string.remote_server_name_cancel)) }
+            },
+        )
+    }
     if (editingName) {
         HostNameDialog(
             current = state.hostName,
@@ -195,21 +217,35 @@ internal fun RemoteServerCardContent(
                         modifier = Modifier.testTag("remote_server_boot_switch").semantics { contentDescription = bootLabel },
                     )
                 }
-                state.token?.let { token ->
-                    Text(
-                        stringResource(R.string.remote_server_token_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = SonicSteel,
+                val wifiLabel = stringResource(R.string.remote_server_allow_wifi)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(wifiLabel, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            stringResource(R.string.remote_server_allow_wifi_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonicSteel,
+                        )
+                    }
+                    Switch(
+                        checked = state.allowWifi,
+                        onCheckedChange = onAllowWifiChange,
+                        modifier = Modifier.testTag("remote_server_wifi_switch").semantics { contentDescription = wifiLabel },
                     )
-                    Text(token, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
                 }
-                state.pairingLink?.let { link ->
-                    Text(
-                        stringResource(R.string.remote_server_link_label),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = SonicSteel,
-                    )
-                    Text(link, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                Text(
+                    stringResource(R.string.remote_server_devices_label, state.devices.size),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = SonicSteel,
+                )
+                if (state.devices.isEmpty()) {
+                    Text(stringResource(R.string.remote_server_no_devices), style = MaterialTheme.typography.bodySmall, color = SonicSteel)
+                }
+                state.devices.forEach { device ->
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("remote_server_device_${device.id}")) {
+                        Text(device.name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        TextButton(onClick = { onRemoveDevice(device.id) }) { Text(stringResource(R.string.remote_server_remove_device)) }
+                    }
                 }
                 Text(
                     stringResource(
@@ -235,15 +271,12 @@ internal fun RemoteServerCardContent(
                             Text(stringResource(R.string.remote_server_allow_open_spotify))
                         }
                     }
-                    TextButton(onClick = onRegenerateToken) { Text(stringResource(R.string.remote_server_new_token)) }
-                    state.pairingLink?.let { link ->
-                        TextButton(onClick = { clipboard.setText(AnnotatedString(link)) }) {
-                            Text(stringResource(R.string.remote_server_copy_link))
-                        }
+                    if (state.devices.isNotEmpty()) {
+                        TextButton(onClick = { confirmRemoveAll = true }) { Text(stringResource(R.string.remote_server_remove_all)) }
                     }
-                    if (state.pairingLink != null) {
-                        TextButton(onClick = { showingQr = true }, modifier = Modifier.testTag("remote_server_show_qr")) {
-                            Text(stringResource(R.string.remote_server_show_qr))
+                    if (state.address != null) {
+                        TextButton(onClick = onStartPairing, modifier = Modifier.testTag("remote_server_pair")) {
+                            Text(stringResource(R.string.remote_server_pair))
                         }
                     }
                 }
@@ -296,16 +329,18 @@ private fun HostNameDialog(
 }
 
 /**
- * The pairing link as a QR code, so the other phone only has to scan it. It contains the token,
- * so the dialog window is secure (FLAG_SECURE: no screenshot, blank in recent apps). It follows
- * the state: a new token shows the new link.
+ * Module 05: the one-time code, as text to type and as a QR code of the pairing link, so the other
+ * phone only has to scan it. Valid five minutes and once; the window is secure anyway (FLAG_SECURE:
+ * no screenshot, blank in recent apps). It closes by itself when the code is used or expires.
  */
 @Composable
-private fun PairingQrDialog(
+private fun PairingDialog(
     state: RemoteServerUiState,
     onDismiss: () -> Unit,
 ) {
+    val clipboard = LocalClipboardManager.current
     var useIp by rememberSaveable { mutableStateOf(false) }
+    val code = state.pairing ?: return
     val link = (if (useIp) state.ipPairingLink else state.pairingLink) ?: return
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -314,8 +349,19 @@ private fun PairingQrDialog(
         title = { Text(stringResource(R.string.remote_server_qr_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                Text(
+                    code.display,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.testTag("remote_server_pair_code"),
+                )
+                Text(stringResource(R.string.remote_server_pair_hint), style = MaterialTheme.typography.bodySmall, color = SonicSteel)
                 QrCode(text = link, description = stringResource(R.string.remote_server_qr_description))
                 Text(link, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                TextButton(
+                    onClick = { clipboard.setText(AnnotatedString(link)) },
+                ) { Text(stringResource(R.string.remote_server_copy_link)) }
                 val ipLabel = stringResource(R.string.remote_server_qr_use_ip)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {

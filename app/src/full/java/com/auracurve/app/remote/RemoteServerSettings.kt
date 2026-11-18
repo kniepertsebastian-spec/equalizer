@@ -16,9 +16,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * The remote-control token (Pixel-Car module 04a). It lives in the app's no-backup directory
- * (Context.noBackupFilesDir), which neither Auto Backup nor device transfer copies, so a restored
- * phone never answers to the old phone's token. Never logged.
+ * Settings of the remote control. They live in the app's no-backup directory
+ * (Context.noBackupFilesDir), which neither Auto Backup nor device transfer copies. The paired
+ * devices are kept beside them (RemoteDevices, module 05); the single token of module 04a is only
+ * read once more to take it over.
  */
 @Singleton
 class RemoteServerSettings
@@ -29,16 +30,18 @@ class RemoteServerSettings
         private val store: DataStore<Preferences> =
             PreferenceDataStoreFactory.create(produceFile = { File(context.noBackupFilesDir, FILE_NAME) })
 
-        val token: Flow<String?> = store.data.map { it[TOKEN] }
+        /** The single token of app versions before module 05, if there still is one. */
+        suspend fun legacyToken(): String? = store.data.first()[TOKEN]
 
-        /** The stored token; one is created the first time. */
-        suspend fun ensureToken(): String {
-            token.first()?.let { return it }
-            var created = ""
-            store.edit { prefs ->
-                created = prefs[TOKEN] ?: RemoteToken.generate().also { prefs[TOKEN] = it }
-            }
-            return created
+        suspend fun clearLegacyToken() {
+            store.edit { it.remove(TOKEN) }
+        }
+
+        /** Module 05 (E-016): also answer in networks the phone is a client of, like the home Wi-Fi. Off by default. */
+        val allowWifi: Flow<Boolean> = store.data.map { it[ALLOW_WIFI] ?: false }
+
+        suspend fun setAllowWifi(enabled: Boolean) {
+            store.edit { it[ALLOW_WIFI] = enabled }
         }
 
         /** 04e (U-2): start the server when the phone has booted and was unlocked once. Off by default. */
@@ -58,17 +61,11 @@ class RemoteServerSettings
             return true
         }
 
-        /** A new token: every device paired with the old one has to be paired again. */
-        suspend fun regenerateToken(): String {
-            val fresh = RemoteToken.generate()
-            store.edit { it[TOKEN] = fresh }
-            return fresh
-        }
-
         private companion object {
             const val FILE_NAME = "remote_server.preferences_pb"
             val TOKEN = stringPreferencesKey("token")
             val START_AT_BOOT = booleanPreferencesKey("start_at_boot")
             val HOST_NAME = stringPreferencesKey("host_name")
+            val ALLOW_WIFI = booleanPreferencesKey("allow_wifi")
         }
     }
