@@ -9,9 +9,10 @@ import org.junit.Test
 
 class AudioRouteTest {
     @Test
-    fun `only car and bluetooth speaker routes imply a sound context`() {
+    fun `only car, bluetooth speaker and soundbar routes imply a sound context`() {
         assertEquals(SoundContext.CAR, AudioDeviceType.CAR.soundContext())
         assertEquals(SoundContext.BLUETOOTH_SPEAKER, AudioDeviceType.BLUETOOTH_SPEAKER.soundContext())
+        assertEquals(SoundContext.SOUNDBAR, AudioDeviceType.SOUNDBAR.soundContext())
         listOf(
             AudioDeviceType.SPEAKER,
             AudioDeviceType.WIRED_HEADPHONES,
@@ -25,6 +26,7 @@ class AudioRouteTest {
     fun `car and speaker routes do not default to headphone acoustics`() {
         assertFalse(AudioDeviceType.CAR.defaultHeadphoneAcoustics())
         assertFalse(AudioDeviceType.BLUETOOTH_SPEAKER.defaultHeadphoneAcoustics())
+        assertFalse(AudioDeviceType.SOUNDBAR.defaultHeadphoneAcoustics())
         assertTrue(AudioDeviceType.BLUETOOTH.defaultHeadphoneAcoustics())
     }
 }

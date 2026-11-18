@@ -105,7 +105,9 @@ class AndroidAudioRouteRepository
                             when (SoundContextClassifier.classifyBluetoothName(name)) {
                                 SoundContext.CAR -> AudioDeviceType.CAR
                                 SoundContext.BLUETOOTH_SPEAKER -> AudioDeviceType.BLUETOOTH_SPEAKER
-                                null -> AudioDeviceType.BLUETOOTH
+                                SoundContext.SOUNDBAR -> AudioDeviceType.SOUNDBAR
+                                // Never returned by the classifier; in-ear is a manual choice.
+                                SoundContext.IN_EAR, null -> AudioDeviceType.BLUETOOTH
                             }
                         }
                     // The id stays "bt_<hash of name>" whatever the detected type or

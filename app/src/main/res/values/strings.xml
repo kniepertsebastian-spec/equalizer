@@ -133,10 +133,11 @@
     <string name="action_apply">Apply</string>
     <string name="headphone_mode_title">Headphone mode</string>
     <string name="headphone_mode_desc">A little more bass, slightly less harshness in the highs</string>
-    <string name="context_title">Car &amp; Bluetooth speaker</string>
+    <string name="context_title">Listening device</string>
     <string name="context_car_detected">Car detected: %1$s</string>
     <string name="context_speaker_detected">Bluetooth speaker detected: %1$s</string>
-    <string name="context_default_desc">Sounds optimized for car or Bluetooth speaker</string>
+    <string name="context_soundbar_detected">Soundbar detected: %1$s</string>
+    <string name="context_default_desc">Tuning for car, Bluetooth speaker, soundbar or in-ears, layered on top of your sound</string>
     <string name="context_loudness_title">Volume loudness</string>
     <string name="context_loudness_desc">Raises bass and treble when you listen quietly</string>
     <string name="context_subsonic_on">Cuts deep bass below about %1$s Hz - more headroom</string>
@@ -399,6 +400,8 @@
     <string name="age_days_ago">%1$s days ago</string>
     <string name="context_name_car">Car</string>
     <string name="context_name_speaker">Bluetooth speaker</string>
+    <string name="context_name_soundbar">Soundbar</string>
+    <string name="context_name_in_ear">In-ear</string>
     <string name="correction_none_name">No correction profile</string>
     <string name="source_label_manual">Manual</string>
     <string name="source_label_none">No correction</string>

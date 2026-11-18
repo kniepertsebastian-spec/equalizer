@@ -1,6 +1,7 @@
 package com.auracurve.app.context
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -95,6 +96,34 @@ class SoundContextClassifierTest {
             "Soundcore Motion+",
         ).forEach { name ->
             assertEquals(name, SoundContext.BLUETOOTH_SPEAKER, SoundContextClassifier.classifyBluetoothName(name))
+        }
+    }
+
+    @Test
+    fun `soundbar names are classified as soundbar`() {
+        listOf(
+            "JBL Soundbar 9.1",
+            "Bose Smart Soundbar 600",
+            "Samsung Sound Bar Q990",
+            "Sonos Beam",
+            "Sonos Arc Ultra",
+            "Sonos Playbar",
+        ).forEach { name ->
+            assertEquals(name, SoundContext.SOUNDBAR, SoundContextClassifier.classifyBluetoothName(name))
+        }
+    }
+
+    @Test
+    fun `sonos soundbar words alone do not count`() {
+        listOf("Beam", "Arc", "Ray").forEach { name ->
+            assertNull(name, SoundContextClassifier.classifyBluetoothName(name))
+        }
+    }
+
+    @Test
+    fun `in-ears are never detected, only chosen`() {
+        listOf("AirPods Pro", "Galaxy Buds3 Pro", "Pixel Buds Pro", "WF-1000XM5", "In-Ear Monitor").forEach { name ->
+            assertNotEquals(name, SoundContext.IN_EAR, SoundContextClassifier.classifyBluetoothName(name))
         }
     }
 

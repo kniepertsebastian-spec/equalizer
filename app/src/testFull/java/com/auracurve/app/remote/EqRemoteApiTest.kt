@@ -135,7 +135,7 @@ class EqRemoteApiTest {
                 options["goals"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.content },
             )
             assertEquals(
-                listOf("CAR", "BLUETOOTH_SPEAKER"),
+                listOf("CAR", "BLUETOOTH_SPEAKER", "SOUNDBAR", "IN_EAR"),
                 options["contexts"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.content },
             )
             assertTrue(

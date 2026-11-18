@@ -14,6 +14,7 @@ enum class AudioDeviceType {
     // needs no schema change.
     CAR,
     BLUETOOTH_SPEAKER,
+    SOUNDBAR,
     USB,
     UNKNOWN,
 }
@@ -24,6 +25,7 @@ fun AudioDeviceType.soundContext(): SoundContext? =
     when (this) {
         AudioDeviceType.CAR -> SoundContext.CAR
         AudioDeviceType.BLUETOOTH_SPEAKER -> SoundContext.BLUETOOTH_SPEAKER
+        AudioDeviceType.SOUNDBAR -> SoundContext.SOUNDBAR
         else -> null
     }
 
@@ -40,7 +42,9 @@ fun AudioDeviceType.soundContext(): SoundContext? =
 fun AudioDeviceType.defaultHeadphoneAcoustics(): Boolean =
     when (this) {
         AudioDeviceType.WIRED_HEADPHONES, AudioDeviceType.BLUETOOTH, AudioDeviceType.USB -> true
-        AudioDeviceType.SPEAKER, AudioDeviceType.UNKNOWN, AudioDeviceType.CAR, AudioDeviceType.BLUETOOTH_SPEAKER -> false
+        AudioDeviceType.SPEAKER, AudioDeviceType.UNKNOWN, AudioDeviceType.CAR,
+        AudioDeviceType.BLUETOOTH_SPEAKER, AudioDeviceType.SOUNDBAR,
+        -> false
     }
 
 data class AudioRoute(
