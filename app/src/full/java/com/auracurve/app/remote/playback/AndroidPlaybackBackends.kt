@@ -170,6 +170,7 @@ class SpotifyPlaybackBackend(
                 next?.registerCallback(callback, handler)
                 trySend(Unit)
             }
+
             val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { watch(it) }
             val listening =
                 accessGranted() && runCatching { sessions.addOnActiveSessionsChangedListener(sessionsChanged, listener, handler) }.isSuccess

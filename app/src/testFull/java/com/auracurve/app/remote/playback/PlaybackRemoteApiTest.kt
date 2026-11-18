@@ -129,6 +129,7 @@ class PlaybackRemoteApiTest {
     private val player = FakeBackend(RemoteSource.PLAYER)
     private val spotify = FakeBackend(RemoteSource.SPOTIFY_MAIN, supportsModes = false)
     private val volume = FakeVolume()
+
     // settleMs = 0: these fakes change their state at once or never, no waiting needed.
     private val api = PlaybackRemoteApi(player, spotify, volume, Dispatchers.Unconfined, pollMs = 1, settleMs = 0)
 
