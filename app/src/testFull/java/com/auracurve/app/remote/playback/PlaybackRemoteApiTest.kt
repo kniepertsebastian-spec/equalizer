@@ -12,13 +12,20 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -29,6 +36,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class PlaybackRemoteApiTest {
     private class FakeBackend(
         override val source: RemoteSource,
@@ -39,9 +47,24 @@ class PlaybackRemoteApiTest {
     ) : PlaybackBackend {
         val calls = mutableListOf<String>()
 
+        // Like a session callback: tests emit here after changing the state.
+        val signals = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
+        override val changeSignals: Flow<Unit> = signals
+
+        // Spotify applies a skip a moment later: next() takes effect when [now] reaches it.
+        var now: () -> Long = { 0 }
+        var nextTitle: String? = null
+        var nextAt = Long.MAX_VALUE
+        var skipDelayMs: Long? = null
+
         override fun unavailableReason() = reason
 
-        override fun snapshot(volume: VolumeLevel) =
+        override fun snapshot(volume: VolumeLevel): NowPlayingSnapshot {
+            applyPending()
+            return snapshotNow(volume)
+        }
+
+        private fun snapshotNow(volume: VolumeLevel) =
             NowPlayingSnapshot(
                 source,
                 title,
@@ -68,6 +91,17 @@ class PlaybackRemoteApiTest {
 
         override fun next() {
             calls += "next"
+            skipDelayMs?.let {
+                nextTitle = "Next"
+                nextAt = now() + it
+            }
+        }
+
+        private fun applyPending() {
+            if (nextTitle != null && now() >= nextAt) {
+                title = nextTitle!!
+                nextTitle = null
+            }
         }
 
         override fun previous() {
@@ -95,7 +129,8 @@ class PlaybackRemoteApiTest {
     private val player = FakeBackend(RemoteSource.PLAYER)
     private val spotify = FakeBackend(RemoteSource.SPOTIFY_MAIN, supportsModes = false)
     private val volume = FakeVolume()
-    private val api = PlaybackRemoteApi(player, spotify, volume, Dispatchers.Unconfined, pollMs = 1)
+    // settleMs = 0: these fakes change their state at once or never, no waiting needed.
+    private val api = PlaybackRemoteApi(player, spotify, volume, Dispatchers.Unconfined, pollMs = 1, settleMs = 0)
 
     private fun json(text: String) = Json.parseToJsonElement(text).jsonObject
 
@@ -219,6 +254,72 @@ class PlaybackRemoteApiTest {
             val events = api.changes().take(1).toList()
             assertEquals(RemoteSource.SPOTIFY_MAIN, api.activeSource.value)
             assertEquals("SPOTIFY_MAIN", events.single()["source"]!!.jsonPrimitive.content)
+        }
+
+    @Test
+    fun `a change signal sends playback changed at once instead of at the next poll`() =
+        runTest {
+            val api = PlaybackRemoteApi(player, spotify, volume, StandardTestDispatcher(testScheduler), pollMs = 60_000)
+            val events = mutableListOf<JsonObject>()
+            val job = launch { api.changes().collect { events += it } }
+            runCurrent()
+            assertEquals(1, events.size)
+
+            player.title = "Other"
+            player.signals.emit(Unit)
+            runCurrent()
+
+            assertEquals(0L, testScheduler.currentTime)
+            assertEquals(listOf("Track", "Other"), events.map { it["title"]!!.jsonPrimitive.content })
+            job.cancel()
+        }
+
+    @Test
+    fun `the poll still notices a change without a signal`() =
+        runTest {
+            val api = PlaybackRemoteApi(player, spotify, volume, StandardTestDispatcher(testScheduler), pollMs = 1_000)
+            val events = mutableListOf<JsonObject>()
+            val job = launch { api.changes().collect { events += it } }
+            runCurrent()
+            player.title = "Other"
+            advanceTimeBy(1_001)
+            assertEquals(2, events.size)
+            job.cancel()
+        }
+
+    @Test
+    fun `next answers with the new song once the source reports it`() =
+        runTest {
+            player.now = { testScheduler.currentTime }
+            player.skipDelayMs = 200
+            val api = PlaybackRemoteApi(player, spotify, volume, StandardTestDispatcher(testScheduler))
+
+            val answer = api.next()
+
+            assertEquals("Next", answer["title"]!!.jsonPrimitive.content)
+            assertTrue("waited ${testScheduler.currentTime}ms", testScheduler.currentTime in 200L..250L)
+        }
+
+    @Test
+    fun `a command that changes nothing is answered after the settle time`() =
+        runTest {
+            val api = PlaybackRemoteApi(player, spotify, volume, StandardTestDispatcher(testScheduler))
+
+            val answer = api.previous()
+
+            assertEquals("Track", answer["title"]!!.jsonPrimitive.content)
+            assertEquals(PlaybackRemoteApi.SETTLE_MS, testScheduler.currentTime)
+        }
+
+    @Test
+    fun `play pause answers without waiting when the state flips at once`() =
+        runTest {
+            val api = PlaybackRemoteApi(player, spotify, volume, StandardTestDispatcher(testScheduler))
+
+            val answer = api.playPause()
+
+            assertEquals("true", answer["isPlaying"]!!.jsonPrimitive.content)
+            assertEquals(0L, testScheduler.currentTime)
         }
 
     @Test

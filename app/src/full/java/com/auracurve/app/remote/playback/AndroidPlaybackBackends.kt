@@ -15,9 +15,13 @@ import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import com.auracurve.app.integration.PlayerController
 import com.auracurve.app.player.playback.RepeatSetting
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 
 /** The built-in player, through the same PlayerController the player screen uses. */
 class PlayerPlaybackBackend(
@@ -44,6 +48,13 @@ class PlayerPlaybackBackend(
     }
 
     override fun isPlaying(): Boolean = controller.nowPlaying.value?.isPlaying == true
+
+    // nowPlaying also moves with the position: only what playback.changed is about counts.
+    override val changeSignals: Flow<Unit> =
+        controller.nowPlaying
+            .map { now -> now?.let { listOf(it.title, it.artist, it.isPlaying, it.shuffle, it.repeat, it.durationMs) } }
+            .distinctUntilChanged()
+            .map { }
 
     override fun playPause() = controller.togglePlayback()
 
@@ -126,6 +137,48 @@ class SpotifyPlaybackBackend(
     }
 
     override fun isPlaying(): Boolean = spotify()?.playbackState?.let { NowPlayingSnapshot.isPlayingState(it.state) } == true
+
+    /**
+     * Spotify's own session callbacks (state, metadata, session gone) plus Android's list of active
+     * sessions, so a Spotify that starts or stops is picked up too. Without notification access
+     * Android refuses the session listener: then only the API's poll notices changes.
+     */
+    override val changeSignals: Flow<Unit> =
+        callbackFlow {
+            val handler = Handler(Looper.getMainLooper())
+            var watched: MediaController? = null
+            val callback =
+                object : MediaController.Callback() {
+                    override fun onPlaybackStateChanged(state: PlaybackState?) {
+                        trySend(Unit)
+                    }
+
+                    override fun onMetadataChanged(metadata: MediaMetadata?) {
+                        trySend(Unit)
+                    }
+
+                    override fun onSessionDestroyed() {
+                        trySend(Unit)
+                    }
+                }
+
+            fun watch(controllers: List<MediaController>?) {
+                val next = controllers?.firstOrNull { it.packageName == SPOTIFY_PACKAGE }
+                if (next?.sessionToken == watched?.sessionToken) return
+                watched?.unregisterCallback(callback)
+                watched = next
+                next?.registerCallback(callback, handler)
+                trySend(Unit)
+            }
+            val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { watch(it) }
+            val listening =
+                accessGranted() && runCatching { sessions.addOnActiveSessionsChangedListener(sessionsChanged, listener, handler) }.isSuccess
+            watch(listOfNotNull(spotify()))
+            awaitClose {
+                if (listening) runCatching { sessions.removeOnActiveSessionsChangedListener(sessionsChanged) }
+                watched?.unregisterCallback(callback)
+            }
+        }.flowOn(Dispatchers.Main.immediate)
 
     override fun playPause() {
         val controller = spotify() ?: return
