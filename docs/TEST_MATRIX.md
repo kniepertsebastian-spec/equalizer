@@ -397,7 +397,7 @@ Wiederherstellung und Lautstärkefolge. **Nicht** automatisiert prüfbar:
 | K7 | Virtual Bass A/B im eingebauten Player (SoundCloud) auf kleiner Box/Telefonlautsprecher | Bass wirkt tiefer/präsenter, keine hörbaren Artefakte, kein Knacken bei Seek/Trackwechsel |
 | K8 | Virtual Bass bei Spotify | Schalter hat dort keine Wirkung (erwartet, steht in der UI) |
 | K9 | CPU/Akku bei 30 Minuten Wiedergabe mit Virtual Bass | unauffällig gegenüber ausgeschaltet |
-| K10 | Android Auto (kabelgebunden/drahtlos) | dokumentieren, ob eine Session erkannt wird und ein Effekt greift |
+| K10 | Android Auto (kabelgebunden/drahtlos) | dokumentieren, ob eine Session erkannt wird und ein Effekt greift — ✅ 18.11.2026: EQ greift unter Android Auto (Pixel 10, Android 17, Spotify, Hyundai i30; Nutzerbestätigung, Verbindungsart nicht festgehalten) |
 | K11 | 👤 Roadmap A1-G1: LE-Audio-Kopfhörer bzw. -Box verbinden | Diagnose zeigt richtige Route (Box = Speaker-Typ), SCO-only-Auto löst keinen Auto-Modus aus (offen) |
 | K12 | 👤 Roadmap A2-G1: Update-Installation über eine Version mit Schema 1 | App startet, bestehende Profile sind noch da (offen) |
 | K13 | 👤 Roadmap A2-G2: Gerät ohne Stichwort, „Car“ manuell → beim nächsten Verbinden wieder an (= K3 mit A2-Semantik) | offen |
@@ -405,7 +405,7 @@ Wiederherstellung und Lautstärkefolge. **Nicht** automatisiert prüfbar:
 | K15 | 👤 Roadmap A4-G1: unbekanntes BT-Gerät verbinden | Frage erscheint genau einmal, Antwort bleibt nach App-Neustart (offen) |
 | K16 | 👤 Roadmap B1-G1: Spotify spielt, Virtual Bass an | Kachel zeigt „player only“ (offen) |
 | K17 | 👤 Roadmap B2-G1 (= D3): Box-Modus, basslastiger Track, laut | weniger Pumpen als vorher (offen) |
-| K18 | 👤 Roadmap A5 (= K10): Android Auto kabelgebunden und drahtlos | Modus geht an; Diagnose zeigt „Android Auto: connected“; dokumentieren, ob der EQ auf der Spotify-Session greift (offen) |
+| K18 | 👤 Roadmap A5 (= K10): Android Auto kabelgebunden und drahtlos | Modus geht an; Diagnose zeigt „Android Auto: connected“; dokumentieren, ob der EQ auf der Spotify-Session greift — EQ-Wirkung ✅ 18.11.2026 (siehe K10); getrennter Nachweis kabelgebunden/drahtlos und Diagnosezeile noch offen |
 | K19 | 👤 Roadmap D1-G1: SoundCloud-Track im Player, Box-Modus, Subsonic an/aus | Box verzerrt mit „an“ hörbar weniger; keine Knackser bei Seek/Titelwechsel (offen) |
 | K20 | 👤 Roadmap D1-G2: CPU/Akku 30 min im Player | unauffällig (offen) |
 | K21 | 👤 Roadmap E1-G1: Spotify auf kleiner Box, A/B mit Original/EQ-Vergleich | Kick wirkt präsenter, Box pumpt nicht stärker als ohne (offen) |
