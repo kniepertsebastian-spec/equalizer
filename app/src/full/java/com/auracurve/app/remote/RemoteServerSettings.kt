@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.auracurve.app.car.SpeedVolumeSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -61,7 +63,34 @@ class RemoteServerSettings
             return true
         }
 
+        /** Module 11, F6: louder at speed. Off until switched on in the remote. */
+        val speedVolume: Flow<SpeedVolumeSettings> =
+            store.data.map { prefs ->
+                val d = SpeedVolumeSettings()
+                SpeedVolumeSettings(
+                    enabled = prefs[SPEED_VOLUME_ON] ?: d.enabled,
+                    maxBoostDb = prefs[SPEED_VOLUME_MAX_DB] ?: d.maxBoostDb,
+                    startSpeedKmh = prefs[SPEED_VOLUME_START_KMH] ?: d.startSpeedKmh,
+                    fullSpeedKmh = prefs[SPEED_VOLUME_FULL_KMH] ?: d.fullSpeedKmh,
+                ).sanitized()
+            }
+
+        suspend fun setSpeedVolume(settings: SpeedVolumeSettings): SpeedVolumeSettings {
+            val clean = settings.sanitized()
+            store.edit {
+                it[SPEED_VOLUME_ON] = clean.enabled
+                it[SPEED_VOLUME_MAX_DB] = clean.maxBoostDb
+                it[SPEED_VOLUME_START_KMH] = clean.startSpeedKmh
+                it[SPEED_VOLUME_FULL_KMH] = clean.fullSpeedKmh
+            }
+            return clean
+        }
+
         private companion object {
+            val SPEED_VOLUME_ON = booleanPreferencesKey("speed_volume_on")
+            val SPEED_VOLUME_MAX_DB = floatPreferencesKey("speed_volume_max_db")
+            val SPEED_VOLUME_START_KMH = floatPreferencesKey("speed_volume_start_kmh")
+            val SPEED_VOLUME_FULL_KMH = floatPreferencesKey("speed_volume_full_kmh")
             const val FILE_NAME = "remote_server.preferences_pb"
             val TOKEN = stringPreferencesKey("token")
             val START_AT_BOOT = booleanPreferencesKey("start_at_boot")

@@ -160,6 +160,33 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `speed gain sits on top of the reserved headroom and forces the limiter on`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setBandGain(bandIndex = 0, gainDb = 8f)
+            dispatcher.scheduler.advanceUntilIdle()
+            val controller =
+                MainViewModel::class.java
+                    .getDeclaredField("controller")
+                    .apply { isAccessible = true }
+                    .get(viewModel) as com.auracurve.app.eq.EqController
+            val limiterBefore = fakeEngine.currentSettings.value.limiterEnabled
+
+            controller.setSpeedGainDb(3f)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(-1f, fakeEngine.currentSettings.value.inputGainDb, 0.001f)
+            assertTrue(fakeEngine.currentSettings.value.limiterEnabled)
+            // Live only: the stored settings keep their own headroom.
+            assertEquals(-4f, viewModel.processingSettings.value.inputGainDb, 0.001f)
+
+            controller.setSpeedGainDb(0f)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(-4f, fakeEngine.currentSettings.value.inputGainDb, 0.001f)
+            assertEquals(limiterBefore, fakeEngine.currentSettings.value.limiterEnabled)
+        }
+
+    @Test
     fun `manual boost automatically reserves half of it as headroom`() =
         runTest {
             val viewModel = createViewModel(emptyList())

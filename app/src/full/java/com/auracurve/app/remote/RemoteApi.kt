@@ -26,6 +26,7 @@ import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.WebSockets
@@ -87,6 +88,8 @@ class RemoteApiConfig(
     val library: SpotifyLibraryRemoteApi? = null,
     /** Module 08: online state and the times of the last syncs; null leaves it out. */
     val sync: SyncRemoteApi? = null,
+    /** Module 11, F6. */
+    val speedVolume: com.auracurve.app.remote.car.SpeedVolumeRemoteApi? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
     /** Called with the number of open WebSockets whenever it changes (04f: compare safety net). */
@@ -146,6 +149,10 @@ fun Application.remoteApi(config: RemoteApiConfig) {
         get("/api/version") { respondJson(call, versionJson(config)) }
         get("/api/v0/system/status") { respondJson(call, config.systemStatus().toJson()) }
         config.sync?.let { sync -> get("/api/v0/system/sync") { respondJson(call, sync.status()) } }
+        config.speedVolume?.let { sv ->
+            get("/api/v0/settings/autoVolume") { respondJson(call, sv.get()) }
+            put("/api/v0/settings/autoVolume") { respondJson(call, sv.put(call.jsonBody())) }
+        }
         post("/api/v0/ws-ticket") {
             respondJson(
                 call,

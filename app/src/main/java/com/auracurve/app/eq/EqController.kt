@@ -92,6 +92,9 @@ private const val INPUT_GAIN_SAFETY_RATIO = 0.5f
 private const val SPEAKER_INPUT_GAIN_SAFETY_RATIO = 0.8f
 private const val FEEDBACK_BUFFER = 8
 
+/** Pixel-Car module 11, F6: the most the speed regulator may add (SpeedVolumeSettings.MAX_BOOST_DB). */
+const val MAX_SPEED_GAIN_DB = 6f
+
 // Where a new parametric band is put first: free spots from the mids outwards.
 private val PARAMETRIC_START_FREQUENCIES_HZ = listOf(1000f, 100f, 4000f, 250f, 8000f, 60f, 2000f, 500f)
 
@@ -308,6 +311,11 @@ class EqController
         // Original/EQ comparison with matched loudness: both sides run through the effect, the louder
         // one turned down by the estimated difference. Ends with endCompare(); nothing is saved.
         private val _compare = MutableStateFlow<CompareState?>(null)
+
+        // Pixel-Car module 11, F6: extra level at speed, set by the remote server's regulator.
+        // Live only, never saved; 0 leaves the chain exactly as it was.
+        private val _speedGainDb = MutableStateFlow(0f)
+        val speedGainDb: StateFlow<Float> = _speedGainDb.asStateFlow()
         val compare: StateFlow<CompareState?> = _compare.asStateFlow()
 
         // Sound goal ("Gesang vorne", "Mehr Power", ...): a small curve on top of the genre preset.
@@ -1114,6 +1122,15 @@ class EqController
 
         // What the engine really gets: the live settings, or - while the Original/EQ comparison
         // runs - the loudness-matched version of the chosen side (see LoudnessMatch).
+
+        /** Module 11, F6: the speed regulator's extra gain (0 … 6 dB). Call on the main thread. */
+        fun setSpeedGainDb(db: Float) {
+            val clamped = db.coerceIn(0f, MAX_SPEED_GAIN_DB)
+            if (clamped == _speedGainDb.value) return
+            _speedGainDb.value = clamped
+            pushToEngine(_processingSettings.value)
+        }
+
         private fun pushToEngine(settings: ProcessingSettings) {
             val compare = _compare.value
             val forEngine =
@@ -1146,8 +1163,16 @@ class EqController
                 } else {
                     forEngine
                 }
+            // F6: on top of the headroom the EQ reserved, caught by the limiter (forced on). The base
+            // stays capped at 0 dB as before, only the speed gain may lift the input above it.
+            val speed = _speedGainDb.value
+            val withSpeed =
+                forSystem.copy(
+                    inputGainDb = forSystem.inputGainDb.coerceAtMost(0f) + speed,
+                    limiterEnabled = forSystem.limiterEnabled || speed > 0f,
+                )
             scope.launch {
-                audioEngine.apply(forSystem)
+                audioEngine.apply(withSpeed)
             }
             val forPlayer = if (compare?.side == CompareSide.ORIGINAL) settings.copy(bypass = true) else settings
             pushVirtualBass(forPlayer)
