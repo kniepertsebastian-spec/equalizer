@@ -129,6 +129,9 @@ internal fun RemoteServerCardContent(
     val spacing = MaterialTheme.spacing
     var editingName by remember { mutableStateOf(false) }
     var confirmRemoveAll by remember { mutableStateOf(false) }
+    var showAddress by remember { mutableStateOf(false) }
+    // 19 Nov 2026: the address alone for phones already paired; it carries no code and no token.
+    if (showAddress && state.running && state.address != null) AddressDialog(state = state, onDismiss = { showAddress = false })
     // Module 05: the code is shown while it is valid; used, expired or the server off closes it.
     if (state.running && state.pairingLink != null) PairingDialog(state = state, onDismiss = onCancelPairing)
     if (confirmRemoveAll) {
@@ -288,6 +291,11 @@ internal fun RemoteServerCardContent(
                         TextButton(onClick = { confirmRemoveAll = true }) { Text(stringResource(R.string.remote_server_remove_all)) }
                     }
                     if (state.address != null) {
+                        TextButton(onClick = { showAddress = true }, modifier = Modifier.testTag("remote_server_address_qr")) {
+                            Text(stringResource(R.string.remote_server_address_qr))
+                        }
+                    }
+                    if (state.address != null) {
                         TextButton(onClick = onStartPairing, modifier = Modifier.testTag("remote_server_pair")) {
                             Text(stringResource(R.string.remote_server_pair))
                         }
@@ -389,6 +397,59 @@ private fun PairingDialog(
                         checked = useIp,
                         onCheckedChange = { useIp = it },
                         modifier = Modifier.testTag("remote_server_qr_use_ip").semantics { contentDescription = ipLabel },
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.remote_server_qr_close)) } },
+    )
+}
+
+/**
+ * 19 Nov 2026: the web remote's address as a QR code, for phones that are already paired. No code,
+ * no token: the phone keeps the key it stored when it was paired, so nothing new is paired and the
+ * window needs no FLAG_SECURE. The browser keeps that key per address, so the name (stable across
+ * hotspots) is the default; the IP works only for a phone paired by this same IP.
+ */
+@Composable
+private fun AddressDialog(
+    state: RemoteServerUiState,
+    onDismiss: () -> Unit,
+) {
+    val clipboard = LocalClipboardManager.current
+    var useIp by rememberSaveable { mutableStateOf(false) }
+    val link = (if (useIp) state.ipUrl else state.nameUrl) ?: return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("remote_server_address_dialog"),
+        title = { Text(stringResource(R.string.remote_server_address_qr_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                Text(stringResource(R.string.remote_server_address_qr_hint), style = MaterialTheme.typography.bodySmall, color = SonicSteel)
+                QrCode(text = link, description = stringResource(R.string.remote_server_address_qr_description))
+                Text(
+                    link,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.testTag("remote_server_address_link"),
+                )
+                TextButton(
+                    onClick = { clipboard.setText(AnnotatedString(link)) },
+                ) { Text(stringResource(R.string.remote_server_copy_link)) }
+                val ipLabel = stringResource(R.string.remote_server_qr_use_ip)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(ipLabel, style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            stringResource(R.string.remote_server_address_qr_use_ip_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = SonicSteel,
+                        )
+                    }
+                    Switch(
+                        checked = useIp,
+                        onCheckedChange = { useIp = it },
+                        modifier = Modifier.testTag("remote_server_address_use_ip").semantics { contentDescription = ipLabel },
                     )
                 }
             }

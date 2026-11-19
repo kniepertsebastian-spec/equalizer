@@ -93,6 +93,26 @@ class RemoteServerCardQrTest {
     }
 
     @Test
+    fun `the address qr carries only the address and starts no pairing`() {
+        show(running)
+        compose.onNodeWithTag("remote_server_address_qr").performClick()
+        assertEquals(0, pairingStarted)
+        inDialog("http://pixel9.local:8080").assertExists()
+        compose.onNodeWithContentDescription("Web remote address as QR code").assertExists()
+        val dialog = ShadowDialog.getLatestDialog()
+        assertNotNull(dialog)
+        assertEquals(0, dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE)
+
+        compose.onNodeWithTag("remote_server_address_use_ip").performClick()
+        inDialog("http://10.40.5.1:8080").assertExists()
+        compose.onAllNodes(hasText("#pair", substring = true)).assertCountEquals(0)
+
+        compose.onNodeWithText("Close").performClick()
+        dialogs().assertCountEquals(0)
+        assertEquals(0, cancelled)
+    }
+
+    @Test
     fun `a used or expired code or the server going off closes the dialog`() {
         val update = show(running.copy(pairing = code))
         dialogs().assertCountEquals(1)
