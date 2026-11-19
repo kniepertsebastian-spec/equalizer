@@ -190,7 +190,8 @@ class AndroidAudioEngine
                     val attempts: List<Pair<List<Float>?, Boolean>> =
                         if (_currentSettings.value.highResolutionEq) {
                             // Finest layout first, then the coarser one, then no pre-EQ at all.
-                            val layouts = listOf(PreEqLayout.CUTOFFS_HZ, PreEqLayout.COARSE_CUTOFFS_HZ)
+                            // Roadmap 07, L1 (own branch only): the layout with the measurement gap first.
+                            val layouts = listOf(PreEqLayout.CUTOFFS_WITH_NOTCH_HZ, PreEqLayout.CUTOFFS_HZ, PreEqLayout.COARSE_CUTOFFS_HZ)
                             layouts.flatMap { listOf(it to true, it to false) } + listOf(null to true, null to false)
                         } else {
                             listOf(null to true, null to false)

@@ -23,6 +23,7 @@ import com.auracurve.app.dsp.HeadroomCalculator
 import com.auracurve.app.dsp.LoudnessMatch
 import com.auracurve.app.dsp.ParametricBand
 import com.auracurve.app.dsp.ParametricCurve
+import com.auracurve.app.dsp.PreEqLayout
 import com.auracurve.app.integration.PlayerBridge
 import com.auracurve.app.preset.BuiltInContextPresets
 import com.auracurve.app.preset.BuiltInGenrePresets
@@ -1138,9 +1139,11 @@ class EqController
             // Only the dynamics (MBC, limiter) stay on the system path for the own player.
             val forSystem =
                 if (pcmEqualizerOwnsTheCurve(settings)) {
+                    // Roadmap 07, L1: the measurement gap stays cut on the system path too.
+                    val notch = PreEqLayout.notchBandIndex(capabilities.value.preEqCutoffsHz)
                     forEngine.copy(
                         bandGainsDb = forEngine.bandGainsDb.mapValues { 0f },
-                        preEqGainsDb = forEngine.preEqGainsDb.map { 0f },
+                        preEqGainsDb = forEngine.preEqGainsDb.mapIndexed { i, _ -> if (i == notch) PreEqLayout.NOTCH_GAIN_DB else 0f },
                         inputGainDb = 0f,
                     )
                 } else {
