@@ -14,11 +14,23 @@
     <!-- 04e (R-19): the mDNS responder for pixel9.local; as a Wi-Fi client Android filters multicast otherwise. -->
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!--
+      Trusted Wi-Fi names (19 Nov 2026): Android only tells an app the name of the Wi-Fi it is in
+      with the location permission. Asked for only when the user taps "Allow" in the remote card;
+      the server does not read the location itself.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!--
       Remote library: the server opens a song in the Spotify app while AuraCurve is in the
       background. Android blocks such activity starts unless the user allowed "Display over
       other apps"; AuraCurve never draws an overlay.
     -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!--
+      Pixel-Car module 11, Z1: android.media.audiofx.Visualizer (the spectrum of what plays) needs
+      it. The microphone is never opened; granted once by adb or in the settings.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application>
         <activity

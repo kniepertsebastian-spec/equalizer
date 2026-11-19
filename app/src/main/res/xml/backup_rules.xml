@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Auto Backup for Android 11 and older. Everything is backed up, including the SoundCloud and
-  Spotify sign-in (SoundCloudLoginActivity.PREFS_NAME, SpotifyApiClient.PREFS): after restoring on a
-  new phone nobody should have to sign in again (open_questions.md Q16). No rules means no exclusions.
+  Auto Backup for Android 11 and older. Everything is backed up except the SoundCloud and Spotify
+  sign-in (SoundCloudLoginActivity.PREFS_NAME, SpotifyApiClient.PREFS): AuraCurve roadmap 03, 2.2.
+  The tokens are encrypted with a Keystore key that never leaves the phone (2.1), so a restored copy
+  could not be read anyway. After a restore the user signs in again. This replaces the earlier
+  choice to let the sign-in travel along (open_questions.md Q16).
 -->
-<full-backup-content />
+<full-backup-content>
+    <exclude domain="sharedpref" path="sc_auth_prefs.xml" />
+    <exclude domain="sharedpref" path="spotify_auth.xml" />
+</full-backup-content>

@@ -1385,6 +1385,38 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `soundbar mode gets the speaker input gain protection`() =
+        runTest {
+            val viewModel = createViewModel(emptyList())
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.setContextMode(SoundContext.SOUNDBAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.setBandGain(bandIndex = 0, gainDb = 8f)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // Same ratio as the Bluetooth speaker (0.8), not the default 0.5 (-4 dB).
+            assertEquals(-6.4f, viewModel.processingSettings.value.inputGainDb, 0.01f)
+        }
+
+    @Test
+    fun `answering soundbar stores SOUNDBAR and turns the mode on`() =
+        runTest {
+            val deviceProfileRepository = FakeDeviceProfileRepository()
+            val viewModel = createViewModel(emptyList(), deviceProfileRepository = deviceProfileRepository)
+            dispatcher.scheduler.advanceUntilIdle()
+            fakeRouteRepo.setRoute(unknownBt)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            viewModel.answerDeviceKind(DeviceKind.SOUNDBAR)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals("SOUNDBAR", deviceProfileRepository.getProfileForRoute("bt_generic")?.contextMode)
+            assertEquals(SoundContext.SOUNDBAR, viewModel.activeContext.value)
+            assertNull(viewModel.deviceKindPrompt.value)
+        }
+
+    @Test
     fun `car mode keeps the genre mbc when it is already tighter`() =
         runTest {
             val viewModel = createViewModel(emptyList())

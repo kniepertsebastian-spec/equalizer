@@ -115,6 +115,11 @@
                 android:resource="@xml/quick_widget_info" />
         </receiver>
 
+        <!-- The widget's buttons; not exported, so other apps cannot send it commands (roadmap 03, 2.5). -->
+        <receiver
+            android:name=".quick.QuickWidgetCommandReceiver"
+            android:exported="false" />
+
         <!--
           Android Auto: this app is a media app. The browser the car connects to is the player's
           own AudioPlayerService (a MediaLibraryService, declared in :player's manifest); these
