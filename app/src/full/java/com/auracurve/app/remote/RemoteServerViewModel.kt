@@ -38,6 +38,9 @@ data class RemoteServerUiState(
     /** 04e (R-19): the fixed name, so the link survives a new hotspot address. */
     val nameUrl: String get() = LocalAddress.url(MdnsName.host(hostName))
 
+    /** The plain address by IP, for phones already paired there (address QR, no code). */
+    val ipUrl: String? get() = address?.let(LocalAddress::url)
+
     val pairingLink: String? get() = linkTo(MdnsName.host(hostName))
 
     /** The same link with the IP, for networks that do not resolve `.local` (QR dialog). */

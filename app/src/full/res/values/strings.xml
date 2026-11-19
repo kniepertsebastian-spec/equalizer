@@ -47,6 +47,11 @@
     <string name="remote_server_qr_use_ip">Use IP instead</string>
     <string name="remote_server_qr_use_ip_desc">For networks that do not resolve .local names. This link stops working when the hotspot address changes.</string>
     <string name="remote_server_qr_close">Close</string>
+    <string name="remote_server_address_qr">Address QR</string>
+    <string name="remote_server_address_qr_title">Open the web remote</string>
+    <string name="remote_server_address_qr_hint">For phones that are already paired: opens the web remote without pairing again. The phone keeps its key. A phone not yet paired at this address still needs \"Pair a device\".</string>
+    <string name="remote_server_address_qr_description">Web remote address as QR code</string>
+    <string name="remote_server_address_qr_use_ip_desc">For networks that do not resolve .local names. The browser keeps the pairing per address: this only works for a phone paired by this same IP.</string>
     <string name="remote_server_channel">Remote control</string>
     <string name="remote_server_notification_title">Remote control on</string>
     <string name="remote_server_notification_text">Remote control on · %1$s</string>
