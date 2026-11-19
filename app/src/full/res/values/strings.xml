@@ -27,6 +27,12 @@
     <string name="remote_server_address">Address: %1$s</string>
     <string name="remote_server_allow_wifi">Also reachable in Wi-Fi</string>
     <string name="remote_server_allow_wifi_desc">Off: only phones in this phone\'s hotspot. On: also in a Wi-Fi this phone is connected to, for testing at home.</string>
+    <string name="remote_server_trusted_wifi_label">Phone hotspots (%1$d)</string>
+    <string name="remote_server_trusted_wifi_desc">Wi-Fi networks reachable like this phone\'s own hotspot, for example the hotspot of the driver\'s phone that gives this phone internet in the car.</string>
+    <string name="remote_server_trusted_wifi_permission">Android only tells the Wi-Fi name with the location permission.</string>
+    <string name="remote_server_trusted_wifi_allow">Allow</string>
+    <string name="remote_server_trusted_wifi_add">Add \u201c%1$s\u201d</string>
+    <string name="remote_server_trusted_wifi_none">Connect this phone to the hotspot, then add it here.</string>
     <string name="remote_server_devices_label">Paired devices (%1$d)</string>
     <string name="remote_server_no_devices">No phone paired yet.</string>
     <string name="remote_server_remove_device">Remove</string>
