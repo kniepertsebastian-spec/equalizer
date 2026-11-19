@@ -87,6 +87,8 @@ class RemoteApiConfig(
     val library: SpotifyLibraryRemoteApi? = null,
     /** Module 08: online state and the times of the last syncs; null leaves it out. */
     val sync: SyncRemoteApi? = null,
+    /** Module 11, Z1: `POST /api/v0/visualizer {"enabled": …}` (lease for the `spectrum` events). */
+    val visualizer: ((Boolean) -> JsonObject)? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
     /** Called with the number of open WebSockets whenever it changes (04f: compare safety net). */
@@ -146,6 +148,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
         get("/api/version") { respondJson(call, versionJson(config)) }
         get("/api/v0/system/status") { respondJson(call, config.systemStatus().toJson()) }
         config.sync?.let { sync -> get("/api/v0/system/sync") { respondJson(call, sync.status()) } }
+        config.visualizer?.let { viz -> post("/api/v0/visualizer") { respondJson(call, viz(call.jsonBody().bool("enabled"))) } }
         post("/api/v0/ws-ticket") {
             respondJson(
                 call,

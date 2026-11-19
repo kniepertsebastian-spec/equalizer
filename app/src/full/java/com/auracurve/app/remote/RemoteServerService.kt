@@ -116,6 +116,9 @@ class RemoteServerService : LifecycleService() {
     lateinit var ignitionMonitor: IgnitionMonitor
 
     @Inject
+    lateinit var spectrum: SpectrumHub
+
+    @Inject
     lateinit var diagnostics: DiagnosticsRecorder
 
     // 04b: the EQ endpoints steer the process-wide controller (E-008 stage 2), never a view model.
@@ -392,6 +395,8 @@ class RemoteServerService : LifecycleService() {
             launch {
                 playbackApi.activeSource.drop(1).collect { events.tryEmit(RemoteEvent("source.changed", systemStatus().toJson())) }
             }
+            // Module 11, Z1: spectrum only while a remote holds a lease.
+            launch { spectrum.run { events.tryEmit(it) } }
             launch {
                 statusSource.changes().drop(1).throttleLatest(5.seconds).collect {
                     val status = it.copy(activeSource = playbackApi.activeSource.value.name, ignition = ignitionMonitor.state.value)
@@ -452,6 +457,7 @@ class RemoteServerService : LifecycleService() {
                     feed = feedApi,
                     library = libraryApi,
                     sync = syncApi,
+                    visualizer = { enabled -> spectrum.request(enabled) },
                     // 04f: the last web remote gone ends a comparison it started.
                     onWebSocketClients = { count -> if (count == 0) lifecycleScope.launch { eqApi.onAllClientsGone() } },
                 )
