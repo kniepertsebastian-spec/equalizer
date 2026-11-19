@@ -111,6 +111,13 @@ class RemoteServerSettings
             return clean
         }
 
+        /** Module 11, F3: only the last parking spot (JSON), no history; null when none or deleted. */
+        val parking: Flow<String?> = store.data.map { it[PARKING] }
+
+        suspend fun setParking(json: String?) {
+            store.edit { if (json == null) it.remove(PARKING) else it[PARKING] = json }
+        }
+
         companion object {
             /** Enough for the phones of everyone who drives the car. */
             const val MAX_TRUSTED_WIFI = 5
@@ -124,5 +131,6 @@ class RemoteServerSettings
             private val SPEED_VOLUME_MAX_DB = floatPreferencesKey("speed_volume_max_db")
             private val SPEED_VOLUME_START_KMH = floatPreferencesKey("speed_volume_start_kmh")
             private val SPEED_VOLUME_FULL_KMH = floatPreferencesKey("speed_volume_full_kmh")
+            private val PARKING = stringPreferencesKey("parking")
         }
     }
