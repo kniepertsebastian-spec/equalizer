@@ -88,6 +88,40 @@ class RemoteServerSettings
             return true
         }
 
+        /** Fixed address via DuckDNS (19 Nov 2026); null while not set up. */
+        val dynDns: Flow<DynDnsConfig?> =
+            store.data.map { prefs ->
+                val name = prefs[DYNDNS_NAME]?.let(DuckDns::normalizeName)
+                val token = prefs[DYNDNS_TOKEN]?.let(DuckDns::normalizeToken)
+                if (name != null && token != null) DynDnsConfig(name, token) else null
+            }
+
+        /** Stores both if they are valid; an empty [token] keeps the stored one (changing only the name). */
+        suspend fun setDynDns(
+            name: String,
+            token: String,
+        ): Boolean {
+            val validName = DuckDns.normalizeName(name) ?: return false
+            val validToken =
+                if (token.isBlank()) {
+                    store.data.first()[DYNDNS_TOKEN] ?: return false
+                } else {
+                    DuckDns.normalizeToken(token) ?: return false
+                }
+            store.edit {
+                it[DYNDNS_NAME] = validName
+                it[DYNDNS_TOKEN] = validToken
+            }
+            return true
+        }
+
+        suspend fun clearDynDns() {
+            store.edit {
+                it.remove(DYNDNS_NAME)
+                it.remove(DYNDNS_TOKEN)
+            }
+        }
+
         /** Module 11, F6: louder at speed. Off until switched on in the remote. */
         val speedVolume: Flow<SpeedVolumeSettings> =
             store.data.map { prefs ->
@@ -132,5 +166,7 @@ class RemoteServerSettings
             private val SPEED_VOLUME_START_KMH = floatPreferencesKey("speed_volume_start_kmh")
             private val SPEED_VOLUME_FULL_KMH = floatPreferencesKey("speed_volume_full_kmh")
             private val PARKING = stringPreferencesKey("parking")
+            private val DYNDNS_NAME = stringPreferencesKey("dyndns_name")
+            private val DYNDNS_TOKEN = stringPreferencesKey("dyndns_token")
         }
     }
