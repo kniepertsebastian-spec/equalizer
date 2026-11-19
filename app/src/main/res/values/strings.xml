@@ -144,6 +144,14 @@
     <string name="context_subsonic_off">Cuts deep bass that small speakers cannot reproduce</string>
     <string name="context_virtual_bass_desc">Creates bass overtones for small speakers - only in the built-in player, not in Spotify &amp; co.</string>
     <string name="presets_custom">Custom presets</string>
+    <string name="genre_presets_title">Presets by genre</string>
+    <string name="genre_presets_active">active: %1$s</string>
+    <string name="genre_presets_expanded">Expanded</string>
+    <string name="genre_presets_collapsed">Collapsed</string>
+    <plurals name="genre_presets_count">
+        <item quantity="one">%1$d preset</item>
+        <item quantity="other">%1$d presets</item>
+    </plurals>
     <string name="bands_title">Graphic EQ (%1$s bands)</string>
     <string name="clipping_danger">Clipping risk: +%1$s dB. Recommended reduction: %2$s dB.</string>
     <string name="clipping_protected">Clipping protection ready. Input gain: %1$s dB.</string>
@@ -469,6 +477,7 @@
     <string name="device_kind_headphones">Headphones</string>
     <string name="device_kind_car">Car</string>
     <string name="device_kind_speaker">Speaker</string>
+    <string name="device_kind_soundbar">Soundbar</string>
     <string name="device_kind_later">Later</string>
     <string name="module_off">off</string>
     <string name="player_open_equalizer">Open equalizer: %1$s</string>

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Hearing
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -50,6 +52,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -82,6 +85,7 @@ import com.auracurve.app.dsp.VirtualBassApproxCurve
 import com.auracurve.app.dsp.VolumeLevelMapper
 import com.auracurve.app.preset.BuiltInContextPresets
 import com.auracurve.app.preset.GenrePreset
+import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.SoundGoal
@@ -549,9 +553,14 @@ fun EqualizerScreen(
                     PresetUsageText(preset = activePreset, style = style)
                 }
             }
+            // A genre variant (e.g. "Uptempo – Car") is no genre x intensity combination, but its
+            // genre card still shows as chosen; no intensity step is then highlighted.
+            val selectedGenre =
+                selectedGenreIntensity?.first
+                    ?: GenrePresetGroups.genreOf(activePreset.id)?.let { genre -> genrePresets.firstOrNull { it.id == genre.id } }
             GenreChoices(
                 genres = genrePresets,
-                selected = selectedGenreIntensity?.first,
+                selected = selectedGenre,
                 onSelect = { genre ->
                     // Keep the chosen intensity when the new genre has one, otherwise
                     // land on MODERATE - picking another genre should not silently
@@ -562,7 +571,6 @@ fun EqualizerScreen(
                 },
                 style = style,
             )
-            val selectedGenre = selectedGenreIntensity?.first
             val selectedIntensity = selectedGenreIntensity?.second
             // The segments name every level, so the heading needs no value of its own.
             Caption(
@@ -576,23 +584,47 @@ fun EqualizerScreen(
                 enabled = selectedGenre?.allowsIntensity == true,
                 onSelect = { index -> selectedGenre?.let { onGenreIntensitySelected(it, intensities[index]) } },
             )
+            Caption(
+                text = stringResource(R.string.genre_presets_title),
+                color = style.mutedText,
+                modifier = Modifier.padding(top = spacing.small),
+            )
+            GenrePresetList(
+                groups = remember(genrePresets) { GenrePresetGroups.forGenres(genrePresets) },
+                activePresetId = activePreset.id,
+                onPresetSelected = onPresetSelected,
+                onDuplicatePreset = onDuplicatePreset,
+                onSharePreset = onSharePreset,
+                style = style,
+            )
             if (customPresets.isNotEmpty()) {
-                Caption(
-                    text = stringResource(R.string.presets_custom),
-                    color = style.mutedText,
-                    modifier = Modifier.padding(top = spacing.small),
-                )
-                PresetGrid(
-                    presets = customPresets,
-                    activePresetId = activePreset.id,
-                    onPresetSelected = onPresetSelected,
-                    onDuplicatePreset = onDuplicatePreset,
-                    onRenamePresetRequest = onRenamePresetRequest,
-                    onDeletePresetRequest = onDeletePresetRequest,
-                    onSharePreset = onSharePreset,
-                    spacing = spacing,
+                var customOpen by rememberSaveable { mutableStateOf(true) }
+                val activeCustom = customPresets.firstOrNull { it.id == activePreset.id }
+                Spacer(modifier = Modifier.height(2.dp))
+                ExpandableGroupHeader(
+                    title = stringResource(R.string.presets_custom),
+                    subtitle =
+                        pluralStringResource(R.plurals.genre_presets_count, customPresets.size, customPresets.size) +
+                            (activeCustom?.let { " · " + stringResource(R.string.genre_presets_active, it.name) } ?: ""),
+                    icon = Icons.Outlined.Tune,
+                    expanded = customOpen,
+                    highlighted = activeCustom != null,
+                    onToggle = { customOpen = !customOpen },
                     style = style,
                 )
+                AnimatedVisibility(visible = customOpen) {
+                    PresetGrid(
+                        presets = customPresets,
+                        activePresetId = activePreset.id,
+                        onPresetSelected = onPresetSelected,
+                        onDuplicatePreset = onDuplicatePreset,
+                        onRenamePresetRequest = onRenamePresetRequest,
+                        onDeletePresetRequest = onDeletePresetRequest,
+                        onSharePreset = onSharePreset,
+                        spacing = spacing,
+                        style = style,
+                    )
+                }
             }
         }
     }

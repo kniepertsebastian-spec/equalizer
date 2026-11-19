@@ -111,6 +111,9 @@ class RemoteServerService : LifecycleService() {
     lateinit var settings: RemoteServerSettings
 
     @Inject
+    lateinit var wifiNames: WifiNames
+
+    @Inject
     lateinit var registry: RemoteDeviceRegistry
 
     @Inject
@@ -130,6 +133,9 @@ class RemoteServerService : LifecycleService() {
 
     @Inject
     lateinit var parking: ParkingController
+
+    @Inject
+    lateinit var spectrum: SpectrumHub
 
     @Inject
     lateinit var diagnostics: DiagnosticsRecorder
@@ -253,9 +259,10 @@ class RemoteServerService : LifecycleService() {
                                 localOnly =
                                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&
                                         capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_LOCAL_NETWORK) == true,
+                                wifiName = wifiNames.nameOf(network),
                             )
                         }
-                NetworkZone.clientAddresses(networks)
+                NetworkZone.clientAddresses(networks, trustedWifi)
             }.getOrDefault(emptySet())
         clientAddresses = now to set
         return set
@@ -330,6 +337,10 @@ class RemoteServerService : LifecycleService() {
     @Volatile
     private var allowWifi = false
 
+    // 19 Nov 2026: the drivers' phone hotspots, which give the Pixel internet in the car.
+    @Volatile
+    private var trustedWifi: Set<String> = emptySet()
+
     @Volatile
     private var clientAddresses: Pair<Long, Set<InetAddress>>? = null
 
@@ -351,6 +362,13 @@ class RemoteServerService : LifecycleService() {
             registry.migrateLegacyToken()
             allowWifi = settings.allowWifi.first()
             launch { settings.allowWifi.collect { allowWifi = it } }
+            wifiNames.ensureRegistered()
+            launch {
+                settings.trustedWifi.collect {
+                    trustedWifi = it
+                    clientAddresses = null
+                }
+            }
             val started = withContext(Dispatchers.IO) { startServer() }
             if (!started) {
                 control.onServerStopped(getString(R.string.remote_server_error_port, LocalAddress.PORT))
@@ -411,6 +429,8 @@ class RemoteServerService : LifecycleService() {
             launch {
                 playbackApi.activeSource.drop(1).collect { events.tryEmit(RemoteEvent("source.changed", systemStatus().toJson())) }
             }
+            // Module 11, Z1: spectrum only while a remote holds a lease.
+            launch { spectrum.run { events.tryEmit(it) } }
             launch {
                 statusSource.changes().drop(1).throttleLatest(5.seconds).collect {
                     events.tryEmit(RemoteEvent("system.changed", withLiveState(it).toJson()))
@@ -492,6 +512,7 @@ class RemoteServerService : LifecycleService() {
                     sync = syncApi,
                     parking = parking,
                     speedVolume = SpeedVolumeRemoteApi(settings, { speedVolume.live.value }, carLocation::hasPermission),
+                    visualizer = { enabled -> spectrum.request(enabled) },
                     // 04f: the last web remote gone ends a comparison it started.
                     onWebSocketClients = { count -> if (count == 0) lifecycleScope.launch { eqApi.onAllClientsGone() } },
                 )

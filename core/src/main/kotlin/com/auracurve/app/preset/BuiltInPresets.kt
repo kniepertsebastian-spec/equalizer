@@ -209,5 +209,5 @@ object BuiltInPresets {
             FastAttack,
             MaximumDistortion,
             FinalSmash,
-        ) + BuiltInGenrePresets.allResolvedPresets + BuiltInContextPresets.all
+        ) + BuiltInGenrePresets.allResolvedPresets + BuiltInContextPresets.all + BuiltInGenreVariants.allPresets
 }

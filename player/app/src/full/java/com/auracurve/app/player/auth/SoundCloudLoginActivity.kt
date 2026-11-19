@@ -44,19 +44,26 @@ class SoundCloudLoginActivity : AppCompatActivity() {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
-        fun getSavedToken(context: Context): String? {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            return prefs.getString(KEY_OAUTH_TOKEN, null)
-        }
+        // Roadmap 03, 2.1: the token is encrypted with a Keystore key.
+        private fun vault(context: Context) =
+            TokenVault(context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE), KeystoreTokenCrypto())
+
+        fun getSavedToken(context: Context): String? = vault(context).get(KEY_OAUTH_TOKEN)
 
         fun saveToken(context: Context, token: String) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit().putString(KEY_OAUTH_TOKEN, token).apply()
+            vault(context).put(KEY_OAUTH_TOKEN, token)
         }
 
+        // Roadmap 03, 2.3: signing out also forgets the sign-in page's cookies, otherwise the
+        // next login screen would sign straight back in (and the session would stay on the phone).
         fun clearToken(context: Context) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit().remove(KEY_OAUTH_TOKEN).apply()
+            vault(context).put(KEY_OAUTH_TOKEN, null)
+            runCatching {
+                CookieManager.getInstance().apply {
+                    removeAllCookies(null)
+                    flush()
+                }
+            }
         }
 
         // Android WebView attaches an "X-Requested-With: <package name>" header to
