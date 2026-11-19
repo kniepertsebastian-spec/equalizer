@@ -278,6 +278,7 @@ private fun Route.eqRoutes(eq: EqRemoteApi) {
     post("/api/v0/eq/bypass") { respondJson(call, eq.setBypass(call.jsonBody())) }
     post("/api/v0/eq/preset") { respondJson(call, eq.setPreset(call.jsonBody())) }
     post("/api/v0/eq/goal") { respondJson(call, eq.setGoal(call.jsonBody())) }
+    post("/api/v0/eq/intensity") { respondJson(call, eq.setMoreIntensity(call.jsonBody())) }
     post("/api/v0/eq/context") { respondJson(call, eq.setContext(call.jsonBody())) }
     // 04f
     post("/api/v0/eq/preset/import") { respondJson(call, eq.importPreset(call.jsonBody(MAX_IMPORT_BYTES)), HttpStatusCode.Created) }

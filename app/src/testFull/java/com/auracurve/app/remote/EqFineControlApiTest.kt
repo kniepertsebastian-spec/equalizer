@@ -16,6 +16,7 @@ import com.auracurve.app.eq.EqFakeRouteRepository
 import com.auracurve.app.eq.EqFakeSessionRepository
 import com.auracurve.app.eq.EqFakeVolumeRepository
 import com.auracurve.app.preset.BuiltInPresets
+import com.auracurve.app.preset.PresetIntensityBoost
 import com.auracurve.app.quick.QuickControls
 import com.auracurve.app.text.FakeTextProvider
 import io.ktor.client.request.get
@@ -120,7 +121,11 @@ class EqFineControlApiTest {
             val response =
                 client.get("/api/v0/eq/options") { header(HttpHeaders.Authorization, "Bearer $token") }
             val options = response.json()
-            assertEquals(eq.allPresets.value.size, options["presets"]!!.jsonArray.size)
+            // The retired intensity steps stay resolvable by id but are no longer offered.
+            assertEquals(
+                eq.allPresets.value.count { !PresetIntensityBoost.isRetiredStep(it.id) },
+                options["presets"]!!.jsonArray.size,
+            )
             assertEquals("true", options["highResolutionAvailable"]!!.jsonPrimitive.content)
             val limits = options["limits"]!!.jsonObject
             assertEquals("-15.0", limits["bandGainDb"]!!.jsonObject["min"]!!.jsonPrimitive.content)

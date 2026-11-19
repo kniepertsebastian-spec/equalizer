@@ -245,6 +245,12 @@ class MainViewModel
         val allPresets: StateFlow<List<Preset>> = controller.allPresets
         val customPresetsOnly: StateFlow<List<Preset>> = controller.customPresetsOnly
         val selectedGenreIntensity: StateFlow<Pair<GenrePreset, PresetIntensity>?> = controller.selectedGenreIntensity
+
+        /** "More intensity": the former Aggressive step on top of the active preset. */
+        val moreIntensity: StateFlow<Boolean> = controller.moreIntensity
+
+        fun setMoreIntensity(enabled: Boolean) = controller.setMoreIntensity(enabled)
+
         val activeCorrectionProfile: StateFlow<CorrectionProfile> = controller.activeCorrectionProfile
         val allCorrectionProfiles: StateFlow<List<CorrectionProfile>> = controller.allCorrectionProfiles
         val processingSettings: StateFlow<ProcessingSettings> = controller.processingSettings

@@ -144,7 +144,8 @@
     <string name="context_subsonic_off">Cuts deep bass that small speakers cannot reproduce</string>
     <string name="context_virtual_bass_desc">Creates bass overtones for small speakers - only in the built-in player, not in Spotify &amp; co.</string>
     <string name="presets_custom">Custom presets</string>
-    <string name="genre_presets_title">Presets by genre</string>
+    <string name="more_intensity_title">More intensity</string>
+    <string name="more_intensity_desc">More bass and punch on top of any preset, with the low end held tighter. Off for Flat.</string>
     <string name="genre_presets_active">active: %1$s</string>
     <string name="genre_presets_expanded">Expanded</string>
     <string name="genre_presets_collapsed">Collapsed</string>
@@ -463,7 +464,6 @@
     <string name="meter_limit_low">low</string>
     <string name="meter_limit_some">some</string>
     <string name="meter_limit_heavy">heavy</string>
-    <string name="intensity_title">Intensity</string>
     <string name="genre_title">Genre</string>
     <string name="info_more">More info</string>
     <string name="info_less">Less info</string>

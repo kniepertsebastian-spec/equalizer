@@ -14,14 +14,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -56,10 +54,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.auracurve.app.R
 import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.theme.PillShape
@@ -289,63 +285,6 @@ internal fun LedMeter(
         }
         Caption(text = label, color = style.mutedText)
         Text(text = value, color = style.text, style = SonicNumerals.value, maxLines = 1)
-    }
-}
-
-/**
- * Segmented control for the intensity levels: one pill track, the chosen level filled with
- * the accent gradient. Each segment is its own selectable target, so TalkBack reads them as
- * radio buttons.
- */
-@Composable
-internal fun IntensityStepper(
-    labels: List<String>,
-    selectedIndex: Int?,
-    enabled: Boolean,
-    onSelect: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    style: EqualizerDesignStyle = SonicStyle,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .clip(PillShape)
-                .background(style.surfaceVariant)
-                .padding(3.dp)
-                .alpha(if (enabled) 1f else 0.45f),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        labels.forEachIndexed { index, label ->
-            val selected = enabled && index == selectedIndex
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(PillShape)
-                        .then(if (selected) Modifier.background(style.accentFill) else Modifier)
-                        .selectable(
-                            selected = index == selectedIndex,
-                            enabled = enabled,
-                            role = Role.RadioButton,
-                            onClick = { onSelect(index) },
-                        ).semantics { contentDescription = label },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = label,
-                    color = if (selected) Color.White else style.mutedText,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    textAlign = TextAlign.Center,
-                    maxLines = 2,
-                    lineHeight = 12.sp,
-                    modifier = Modifier.padding(horizontal = 2.dp),
-                )
-            }
-        }
     }
 }
 

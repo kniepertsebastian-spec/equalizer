@@ -9,7 +9,9 @@ import com.auracurve.app.eq.CompareSide
 import com.auracurve.app.eq.EqController
 import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.GenrePreset
+import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.PresetIntensity
+import com.auracurve.app.preset.PresetIntensityBoost
 import com.auracurve.app.preset.PresetIntensityResolver
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.text.TextProvider
@@ -70,6 +72,26 @@ class EqRemoteApi(
                     }
                 }
             }
+            // Every built-in preset by genre, with when it fits best (the app's genre list).
+            putJsonArray("genreGroups") {
+                GenrePresetGroups.all.forEach { group ->
+                    addJsonObject {
+                        put("id", group.genre.apiId())
+                        put("label", group.genre.displayName)
+                        putJsonArray("presets") {
+                            group.entries.forEach { entry ->
+                                addJsonObject {
+                                    put("id", entry.preset.id)
+                                    put("label", entry.preset.name.substringAfter(" – ", entry.preset.name))
+                                    put("description", entry.description)
+                                    put("useCase", entry.useCase?.name)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            // Older remotes still send genre + intensity; the app maps the steps onto "moreIntensity".
             putJsonArray("intensities") {
                 PresetIntensity.entries.forEach {
                     addJsonObject {
@@ -96,7 +118,7 @@ class EqRemoteApi(
             }
             // 04f: every preset the app offers, built-in and the user's own, in the app's order.
             putJsonArray("presets") {
-                controller.allPresets.value.forEach {
+                controller.allPresets.value.filterNot { PresetIntensityBoost.isRetiredStep(it.id) }.forEach {
                     addJsonObject {
                         put("id", it.id)
                         put("label", it.name)
@@ -141,6 +163,7 @@ class EqRemoteApi(
                 controller.activeContext,
                 controller.contextFollowsRoute,
                 controller.isDirty,
+                controller.moreIntensity,
                 controller.parametricBands,
                 controller.compare,
                 controller.capabilities,
@@ -161,6 +184,12 @@ class EqRemoteApi(
         val intensity =
             PresetIntensity.entries.firstOrNull { it.name == body.string("intensity") } ?: throw unknown("Unbekannte Intensität")
         return change { controller.selectGenreIntensity(genre, intensity) }
+    }
+
+    /** `{"enabled":true}`: "more intensity" on or off (replaces the intensity steps). */
+    suspend fun setMoreIntensity(body: JsonObject): JsonObject {
+        val enabled = body.bool("enabled")
+        return change { controller.setMoreIntensity(enabled) }
     }
 
     suspend fun setGoal(body: JsonObject): JsonObject {
@@ -318,8 +347,10 @@ class EqRemoteApi(
                     put("intensity", pair.second.name)
                 } else {
                     put("presetId", preset.id)
+                    GenrePresetGroups.genreOf(preset.id)?.let { put("genre", it.apiId()) }
                 }
             }
+            put("moreIntensity", controller.moreIntensity.value)
             put("goal", controller.activeGoal.value.name)
             put("context", controller.activeContext.value?.name)
             put("contextAuto", controller.contextFollowsRoute.value)
