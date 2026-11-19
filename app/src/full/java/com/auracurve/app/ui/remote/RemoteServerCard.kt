@@ -1,8 +1,11 @@
 package com.auracurve.app.ui.remote
 
+import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -64,7 +67,10 @@ fun RemoteServerCard() {
     var spotifyAccess by remember { mutableStateOf(false) }
     // The library opens songs in Spotify from the background, which Android only allows with "Display over other apps".
     var mayOpenSpotify by remember { mutableStateOf(true) }
+    val locationPermission =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { viewModel.refreshWifiPermission() }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshWifiPermission()
         spotifyAccess = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
         mayOpenSpotify = Settings.canDrawOverlays(context)
     }
@@ -80,6 +86,9 @@ fun RemoteServerCard() {
         onAllowWifiChange = viewModel::setAllowWifi,
         onStartAtBootChange = viewModel::setStartAtBoot,
         onHostNameChange = viewModel::setHostName,
+        onAddTrustedWifi = viewModel::addTrustedWifi,
+        onRemoveTrustedWifi = viewModel::removeTrustedWifi,
+        onAllowWifiNames = { locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION) },
         onOpenNotificationAccess = {
             runCatching {
                 context.startActivity(
@@ -113,6 +122,9 @@ internal fun RemoteServerCardContent(
     onOpenNotificationAccess: () -> Unit,
     mayOpenSpotify: Boolean = true,
     onAllowOpenSpotify: () -> Unit = {},
+    onAddTrustedWifi: (String) -> Unit = {},
+    onRemoveTrustedWifi: (String) -> Unit = {},
+    onAllowWifiNames: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     var editingName by remember { mutableStateOf(false) }
@@ -233,6 +245,7 @@ internal fun RemoteServerCardContent(
                         modifier = Modifier.testTag("remote_server_wifi_switch").semantics { contentDescription = wifiLabel },
                     )
                 }
+                TrustedWifiSection(state, onAddTrustedWifi, onRemoveTrustedWifi, onAllowWifiNames)
                 Text(
                     stringResource(R.string.remote_server_devices_label, state.devices.size),
                     style = MaterialTheme.typography.labelMedium,
@@ -382,4 +395,48 @@ private fun PairingDialog(
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.remote_server_qr_close)) } },
     )
+}
+
+/**
+ * Trusted Wi-Fi names (19 Nov 2026): in the car the Pixel joins the hotspot of the driver's phone
+ * for internet; the remote control must reach it there like in its own hotspot.
+ */
+@Composable
+private fun TrustedWifiSection(
+    state: RemoteServerUiState,
+    onAdd: (String) -> Unit,
+    onRemove: (String) -> Unit,
+    onAllowNames: () -> Unit,
+) {
+    Text(
+        stringResource(R.string.remote_server_trusted_wifi_label, state.trustedWifi.size),
+        style = MaterialTheme.typography.labelMedium,
+        color = SonicSteel,
+    )
+    Text(stringResource(R.string.remote_server_trusted_wifi_desc), style = MaterialTheme.typography.bodySmall, color = SonicSteel)
+    state.trustedWifi.forEach { name ->
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("remote_server_trusted_wifi_$name")) {
+            Text(name, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            TextButton(onClick = { onRemove(name) }) { Text(stringResource(R.string.remote_server_remove_device)) }
+        }
+    }
+    when {
+        !state.wifiNamePermission ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.remote_server_trusted_wifi_permission),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = SonicSteel,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onAllowNames) { Text(stringResource(R.string.remote_server_trusted_wifi_allow)) }
+            }
+        state.canAddCurrentWifi ->
+            TextButton(
+                onClick = { state.currentWifi?.let(onAdd) },
+                modifier = Modifier.testTag("remote_server_add_current_wifi"),
+            ) { Text(stringResource(R.string.remote_server_trusted_wifi_add, state.currentWifi.orEmpty())) }
+        state.currentWifi == null ->
+            Text(stringResource(R.string.remote_server_trusted_wifi_none), style = MaterialTheme.typography.bodySmall, color = SonicSteel)
+    }
 }

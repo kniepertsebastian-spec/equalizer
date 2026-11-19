@@ -240,4 +240,39 @@ class PairingTest {
         assertTrue(NetworkZone.allows("192.168.178.37", wifi, allowClientNetworks = true))
         assertTrue("hotspot", NetworkZone.allows("10.40.5.90", wifi, allowClientNetworks = false))
     }
+
+    @Test
+    fun `a trusted phone hotspot counts like the own hotspot`() {
+        val ownHotspot = NetworkZone.Network(setOf(InetAddress.getByName("10.40.5.90")), hasInternet = false, localOnly = true)
+        val phoneHotspot =
+            NetworkZone.Network(
+                setOf(InetAddress.getByName("10.71.12.4")),
+                hasInternet = true,
+                localOnly = false,
+                wifiName = "\"Basti Pixel\"",
+            )
+        val homeWifi =
+            NetworkZone.Network(
+                setOf(InetAddress.getByName("192.168.178.37")),
+                hasInternet = true,
+                localOnly = false,
+                wifiName = "FRITZ!Box",
+            )
+        val clients = NetworkZone.clientAddresses(listOf(ownHotspot, phoneHotspot, homeWifi), trustedWifi = setOf("Basti Pixel"))
+        assertTrue(NetworkZone.allows("10.71.12.4", clients, allowClientNetworks = false))
+        assertTrue(NetworkZone.allows("10.40.5.90", clients, allowClientNetworks = false))
+        assertFalse("home wi-fi stays closed", NetworkZone.allows("192.168.178.37", clients, allowClientNetworks = false))
+        // Without the location permission Android reports no name: nothing is trusted then.
+        val unknown = phoneHotspot.copy(wifiName = NetworkZone.UNKNOWN_SSID)
+        assertFalse(NetworkZone.allows("10.71.12.4", NetworkZone.clientAddresses(listOf(unknown), setOf("Basti Pixel")), false))
+    }
+
+    @Test
+    fun `wi-fi names are cleaned`() {
+        assertEquals("Basti Pixel", NetworkZone.cleanWifiName("  \"Basti Pixel\" "))
+        assertNull(NetworkZone.cleanWifiName("<unknown ssid>"))
+        assertNull(NetworkZone.cleanWifiName("\"\""))
+        assertNull(NetworkZone.cleanWifiName(null))
+        assertNull(NetworkZone.cleanWifiName("x".repeat(33)))
+    }
 }
