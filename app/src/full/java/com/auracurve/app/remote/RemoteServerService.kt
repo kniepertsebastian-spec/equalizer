@@ -30,6 +30,9 @@ import com.auracurve.app.discovery.DiscoveryUpdater
 import com.auracurve.app.eq.EqController
 import com.auracurve.app.integration.PlayerController
 import com.auracurve.app.player.spotify.SpotifyApiClient
+import com.auracurve.app.remote.car.CarLocation
+import com.auracurve.app.remote.car.SpeedVolumeController
+import com.auracurve.app.remote.car.SpeedVolumeRemoteApi
 import com.auracurve.app.remote.feed.FeedRemoteApi
 import com.auracurve.app.remote.library.AndroidSpotifyStarter
 import com.auracurve.app.remote.library.ApiClientLibraryReader
@@ -120,6 +123,12 @@ class RemoteServerService : LifecycleService() {
 
     @Inject
     lateinit var protectionMonitor: CarProtectionMonitor
+
+    @Inject
+    lateinit var speedVolume: SpeedVolumeController
+
+    @Inject
+    lateinit var carLocation: CarLocation
 
     @Inject
     lateinit var spectrum: SpectrumHub
@@ -425,6 +434,8 @@ class RemoteServerService : LifecycleService() {
             }
             launch { ignitionMonitor.run() }
             launch { protectionMonitor.run() }
+            // Module 11, F6: louder at speed (off until switched on in the remote).
+            launch { speedVolume.run { playbackApi.nothingPlaying() } }
             launch {
                 // Module 11, F1: tell the remote at once; act on the steps.
                 protectionMonitor.state.drop(1).collect { protection ->
@@ -493,6 +504,7 @@ class RemoteServerService : LifecycleService() {
                     feed = feedApi,
                     library = libraryApi,
                     sync = syncApi,
+                    speedVolume = SpeedVolumeRemoteApi(settings, { speedVolume.live.value }, carLocation::hasPermission),
                     visualizer = { enabled -> spectrum.request(enabled) },
                     // 04f: the last web remote gone ends a comparison it started.
                     onWebSocketClients = { count -> if (count == 0) lifecycleScope.launch { eqApi.onAllClientsGone() } },

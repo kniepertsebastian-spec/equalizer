@@ -99,6 +99,12 @@ class PlaybackRemoteApi(
         }
     }
 
+    /**
+     * Module 11, F6: true only when both sources are reachable and neither plays (the speed
+     * volume holds still then). A source it cannot see never counts as silent.
+     */
+    suspend fun nothingPlaying(): Boolean = onMain { listOf(player, spotify).all { it.unavailableReason() == null && !it.isPlaying() } }
+
     /** Module 11, F1 (very hot): stops whatever plays, on both sources. */
     suspend fun pauseAll() =
         onMain {

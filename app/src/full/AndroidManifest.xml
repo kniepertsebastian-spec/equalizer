@@ -27,6 +27,14 @@
     -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!--
+      Pixel-Car module 11 (F3 parking, F6 louder at speed): GPS while the car is on. The server runs
+      in the background, so "allow all the time" is needed too; it is granted once in the settings.
+      Without it nothing breaks, the car functions just get no position.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!--
       Pixel-Car module 11, Z1: android.media.audiofx.Visualizer (the spectrum of what plays) needs
       it. The microphone is never opened; granted once by adb or in the settings.
     -->

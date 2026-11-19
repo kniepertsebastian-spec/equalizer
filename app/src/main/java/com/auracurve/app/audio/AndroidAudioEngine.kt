@@ -6,6 +6,7 @@ import android.os.Build
 import android.util.Log
 import com.auracurve.app.di.DefaultDispatcher
 import com.auracurve.app.dsp.PreEqLayout
+import com.auracurve.app.eq.MAX_SPEED_GAIN_DB
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -354,7 +355,10 @@ class AndroidAudioEngine
                 dynamicsProcessing?.let { dp ->
                     dp.enabled = shouldEnable
                     if (shouldEnable && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        dp.setInputGainAllChannelsTo(settings.inputGainDb.coerceIn(-15f, 0f))
+                        // Above 0 dB only with the F6 speed gain (EqController.setSpeedGainDb), which forces the limiter on.
+                        dp.setInputGainAllChannelsTo(
+                            settings.inputGainDb.coerceIn(-15f, if (settings.limiterEnabled) MAX_SPEED_GAIN_DB else 0f),
+                        )
 
                         if (usePreEq) {
                             preEqCutoffs.forEachIndexed { i, cutoffHz ->
