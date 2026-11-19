@@ -60,6 +60,30 @@ object PreEqLayout {
     val COARSE_CUTOFFS_HZ: List<Float> =
         listOf(25f, 40f, 55f, 70f, 90f, 115f, 150f, 200f, 280f, 400f, 630f, 1000f, 2000f, 4000f, 8000f, 20000f)
 
+    // --- Roadmap 07, L1 (only on its own branch, nothing in main before a positive L2) ---------
+
+    /**
+     * One narrow measurement gap: the cabin microphone hears the road noise there, not the music.
+     * About 46 Hz wide, two FFT bins of DynamicsProcessing (roadmap 07, finding from the code).
+     */
+    val MEASUREMENT_NOTCH_HZ: Pair<Float, Float> = 1000f to 1046f
+
+    /** How deep the gap is cut; the pre-EQ's limit (L3 checks whether it can go deeper). */
+    const val NOTCH_GAIN_DB = -15f
+
+    /**
+     * [CUTOFFS_HZ] with the gap's two edges: the 920-1120 Hz band becomes 920-1000, 1000-1046 (the
+     * gap) and 1046-1120 Hz, 36 bands in all. Deliberately closer than [MIN_EDGE_RATIO]: the gap is
+     * meant to be this narrow.
+     */
+    val CUTOFFS_WITH_NOTCH_HZ: List<Float> = (CUTOFFS_HZ + MEASUREMENT_NOTCH_HZ.first + MEASUREMENT_NOTCH_HZ.second).sorted()
+
+    /** The index of the gap band in [cutoffs], or -1 when the layout has no gap. */
+    fun notchBandIndex(cutoffs: List<Float>): Int {
+        val i = cutoffs.indexOf(MEASUREMENT_NOTCH_HZ.second)
+        return if (i > 0 && cutoffs[i - 1] == MEASUREMENT_NOTCH_HZ.first) i else -1
+    }
+
     const val LOWEST_HZ = 18f
     const val MAX_GAIN_DB = 15f
 
@@ -95,31 +119,55 @@ object PreEqMapper {
     ): List<Float> {
         val sortedCurve = curve.sortedBy { it.frequencyHz }
         val sortedDeltas = manualDeltas.sortedBy { it.frequencyHz }
-        return cutoffsHz.mapIndexed { i, upperHz ->
-            val lowerHz = if (i == 0) PreEqLayout.LOWEST_HZ else cutoffsHz[i - 1]
-            val midHz = sqrt(lowerHz * upperHz)
+        return cutoffsHz
+            .mapIndexed { i, upperHz ->
+                val lowerHz = if (i == 0) PreEqLayout.LOWEST_HZ else cutoffsHz[i - 1]
+                val midHz = sqrt(lowerHz * upperHz)
 
-            val gain =
-                if (responseMode.useSimpsonIntegration) {
-                    // Simpson integration: smooth, 3-point sampling
-                    val lowGain =
-                        EqualizerInterpolator.resolveGainAtFrequency(lowerHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                            deltaAt(lowerHz, sortedDeltas, responseMode)
-                    val midGain =
+                val gain =
+                    if (responseMode.useSimpsonIntegration) {
+                        // Simpson integration: smooth, 3-point sampling
+                        val lowGain =
+                            EqualizerInterpolator.resolveGainAtFrequency(
+                                lowerHz,
+                                sortedCurve,
+                                macros.bassDb,
+                                macros.punchDb,
+                                macros.haerteDb,
+                            ) +
+                                deltaAt(lowerHz, sortedDeltas, responseMode)
+                        val midGain =
+                            EqualizerInterpolator.resolveGainAtFrequency(
+                                midHz,
+                                sortedCurve,
+                                macros.bassDb,
+                                macros.punchDb,
+                                macros.haerteDb,
+                            ) +
+                                deltaAt(midHz, sortedDeltas, responseMode)
+                        val highGain =
+                            EqualizerInterpolator.resolveGainAtFrequency(
+                                upperHz,
+                                sortedCurve,
+                                macros.bassDb,
+                                macros.punchDb,
+                                macros.haerteDb,
+                            ) +
+                                deltaAt(upperHz, sortedDeltas, responseMode)
+                        (lowGain + 4f * midGain + highGain) / 6f
+                    } else {
+                        // Midpoint sampling: precise, single-point
                         EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
                             deltaAt(midHz, sortedDeltas, responseMode)
-                    val highGain =
-                        EqualizerInterpolator.resolveGainAtFrequency(upperHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                            deltaAt(upperHz, sortedDeltas, responseMode)
-                    (lowGain + 4f * midGain + highGain) / 6f
-                } else {
-                    // Midpoint sampling: precise, single-point
-                    EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                        deltaAt(midHz, sortedDeltas, responseMode)
-                }
+                    }
 
-            gain.coerceIn(-PreEqLayout.MAX_GAIN_DB, PreEqLayout.MAX_GAIN_DB)
-        }
+                gain.coerceIn(-PreEqLayout.MAX_GAIN_DB, PreEqLayout.MAX_GAIN_DB)
+            }.let { gains ->
+                // Roadmap 07, L1: the measurement gap is always cut, whatever the curve; its
+                // neighbours keep following the curve.
+                val notch = PreEqLayout.notchBandIndex(cutoffsHz)
+                if (notch < 0) gains else gains.mapIndexed { i, g -> if (i == notch) PreEqLayout.NOTCH_GAIN_DB else g }
+            }
     }
 
     // Piecewise linear in log frequency between the delta points, falling to zero
