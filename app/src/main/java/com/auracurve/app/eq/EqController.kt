@@ -608,6 +608,7 @@ class EqController
                     DeviceKind.HEADPHONES -> null
                     DeviceKind.CAR -> SoundContext.CAR
                     DeviceKind.SPEAKER -> SoundContext.BLUETOOTH_SPEAKER
+                    DeviceKind.SOUNDBAR -> SoundContext.SOUNDBAR
                 },
             )
         }
@@ -1094,10 +1095,12 @@ class EqController
         // unequal even though == says they're the same.
         // Small speaker drivers distort mechanically before anything clips digitally, and
         // the limiter does not protect the membrane - so the speaker mode pulls the input
-        // gain down much further than the default.
+        // gain down much further than the default. A soundbar has the same small drivers in
+        // a long box (the 40-80 Hz fundament of its mode pushes them hardest), so it gets
+        // the same protection.
         private fun inputGainSafetyRatio(): Float =
             when (_activeContext.value) {
-                SoundContext.BLUETOOTH_SPEAKER -> SPEAKER_INPUT_GAIN_SAFETY_RATIO
+                SoundContext.BLUETOOTH_SPEAKER, SoundContext.SOUNDBAR -> SPEAKER_INPUT_GAIN_SAFETY_RATIO
                 else -> INPUT_GAIN_SAFETY_RATIO
             }
 
