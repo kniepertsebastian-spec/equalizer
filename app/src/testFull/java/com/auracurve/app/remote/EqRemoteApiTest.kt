@@ -13,6 +13,7 @@ import com.auracurve.app.eq.EqFakeRouteRepository
 import com.auracurve.app.eq.EqFakeSessionRepository
 import com.auracurve.app.eq.EqFakeVolumeRepository
 import com.auracurve.app.preset.BuiltInGenrePresets
+import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.PresetIntensityResolver
 import com.auracurve.app.preset.SoundGoal
@@ -158,17 +159,45 @@ class EqRemoteApiTest {
         }
 
     @Test
-    fun `a preset from the api reaches the controller and is saved`() =
+    fun `an old genre and intensity from the api becomes the base with more intensity`() =
         api { eq ->
             val response = postJson("/api/v0/eq/preset", """{"genre":"UPTEMPO","intensity":"VERY_AGGRESSIVE"}""")
             assertEquals(HttpStatusCode.OK, response.status)
-            val preset = response.json()["preset"]!!.jsonObject
+            val state = response.json()
+            val preset = state["preset"]!!.jsonObject
             assertEquals("UPTEMPO", preset["genre"]!!.jsonPrimitive.content)
-            assertEquals("VERY_AGGRESSIVE", preset["intensity"]!!.jsonPrimitive.content)
+            assertEquals("MODERATE", preset["intensity"]!!.jsonPrimitive.content)
+            assertEquals("true", state["moreIntensity"]!!.jsonPrimitive.content)
 
-            val expected = PresetIntensityResolver.resolve(BuiltInGenrePresets.Uptempo, PresetIntensity.VERY_AGGRESSIVE)
+            val expected = PresetIntensityResolver.resolve(BuiltInGenrePresets.Uptempo, PresetIntensity.MODERATE)
             assertEquals(expected.id, eq.activePreset.value.id)
             assertEquals(expected.id, settings.savedSettings.last().activePresetId)
+            assertTrue(settings.savedSettings.last().moreIntensity)
+        }
+
+    @Test
+    fun `genre groups list every preset with its hint, and a variant reports its genre`() =
+        api { eq ->
+            val groups = getJson("/api/v0/eq/options").json()["genreGroups"]!!.jsonArray
+            assertEquals(GenrePresetGroups.all.size, groups.size)
+            val uptempo = groups.first { it.jsonObject["id"]!!.jsonPrimitive.content == "UPTEMPO" }.jsonObject
+            val presets = uptempo["presets"]!!.jsonArray.map { it.jsonObject }
+            val car = presets.first { it["useCase"]!!.jsonPrimitive.content == "CAR" }
+            assertEquals("Car", car["label"]!!.jsonPrimitive.content)
+            assertTrue(car["description"]!!.jsonPrimitive.content.isNotEmpty())
+
+            val state = postJson("/api/v0/eq/preset", """{"presetId":"${car["id"]!!.jsonPrimitive.content}"}""").json()
+            assertEquals("UPTEMPO", state["preset"]!!.jsonObject["genre"]!!.jsonPrimitive.content)
+            assertEquals(car["id"]!!.jsonPrimitive.content, eq.activePreset.value.id)
+        }
+
+    @Test
+    fun `more intensity switches over the api`() =
+        api { eq ->
+            assertEquals("true", postJson("/api/v0/eq/intensity", """{"enabled":true}""").json()["moreIntensity"]!!.jsonPrimitive.content)
+            assertTrue(eq.moreIntensity.value)
+            assertEquals("false", postJson("/api/v0/eq/intensity", """{"enabled":false}""").json()["moreIntensity"]!!.jsonPrimitive.content)
+            assertEquals("BAD_REQUEST", postJson("/api/v0/eq/intensity", """{}""").errorCode())
         }
 
     @Test

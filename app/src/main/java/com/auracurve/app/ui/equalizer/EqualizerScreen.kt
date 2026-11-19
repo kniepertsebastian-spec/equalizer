@@ -87,7 +87,6 @@ import com.auracurve.app.preset.BuiltInContextPresets
 import com.auracurve.app.preset.GenrePreset
 import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.Preset
-import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.eq.EqStatus
@@ -106,8 +105,7 @@ fun EqualizerScreen(
     activePreset: Preset,
     customPresets: List<Preset>,
     genrePresets: List<GenrePreset>,
-    intensities: List<PresetIntensity>,
-    selectedGenreIntensity: Pair<GenrePreset, PresetIntensity>?,
+    moreIntensity: Boolean,
     activeCorrectionProfile: CorrectionProfile,
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
@@ -129,7 +127,7 @@ fun EqualizerScreen(
     onOpenSourcePicker: () -> Unit,
     onBypassToggled: (Boolean) -> Unit,
     onPresetSelected: (Preset) -> Unit,
-    onGenreIntensitySelected: (GenrePreset, PresetIntensity) -> Unit,
+    onMoreIntensityChanged: (Boolean) -> Unit,
     onCorrectionProfileSelected: (CorrectionProfile) -> Unit,
     onImportCorrectionProfileRequested: () -> Unit,
     onExportCorrectionProfile: (CorrectionProfile) -> Unit,
@@ -553,41 +551,14 @@ fun EqualizerScreen(
                     PresetUsageText(preset = activePreset, style = style)
                 }
             }
-            // A genre variant (e.g. "Uptempo – Car") is no genre x intensity combination, but its
-            // genre card still shows as chosen; no intensity step is then highlighted.
-            val selectedGenre =
-                selectedGenreIntensity?.first
-                    ?: GenrePresetGroups.genreOf(activePreset.id)?.let { genre -> genrePresets.firstOrNull { it.id == genre.id } }
-            GenreChoices(
-                genres = genrePresets,
-                selected = selectedGenre,
-                onSelect = { genre ->
-                    // Keep the chosen intensity when the new genre has one, otherwise
-                    // land on MODERATE - picking another genre should not silently
-                    // reset an already chosen "Aggressive".
-                    val intensity =
-                        selectedGenreIntensity?.second?.takeIf { genre.allowsIntensity } ?: PresetIntensity.MODERATE
-                    onGenreIntensitySelected(genre, intensity)
-                },
+            // One switch instead of the five intensity steps: the former "Aggressive" on top of
+            // whatever preset is active (PresetIntensityBoost).
+            SwitchRow(
+                title = stringResource(R.string.more_intensity_title),
+                description = stringResource(R.string.more_intensity_desc),
+                checked = moreIntensity,
+                onCheckedChange = onMoreIntensityChanged,
                 style = style,
-            )
-            val selectedIntensity = selectedGenreIntensity?.second
-            // The segments name every level, so the heading needs no value of its own.
-            Caption(
-                text = stringResource(R.string.intensity_title),
-                color = style.mutedText,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-            IntensityStepper(
-                labels = intensities.map { it.displayName },
-                selectedIndex = selectedIntensity?.let { intensities.indexOf(it) }?.takeIf { it >= 0 },
-                enabled = selectedGenre?.allowsIntensity == true,
-                onSelect = { index -> selectedGenre?.let { onGenreIntensitySelected(it, intensities[index]) } },
-            )
-            Caption(
-                text = stringResource(R.string.genre_presets_title),
-                color = style.mutedText,
-                modifier = Modifier.padding(top = spacing.small),
             )
             GenrePresetList(
                 groups = remember(genrePresets) { GenrePresetGroups.forGenres(genrePresets) },

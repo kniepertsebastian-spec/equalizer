@@ -37,7 +37,6 @@ import com.auracurve.app.preset.BuiltInPresets
 import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.GenreUseCase
 import com.auracurve.app.preset.Preset
-import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.theme.AuraCurveTheme
@@ -92,8 +91,7 @@ class EqualizerScreenUiTest {
                     activePreset = activePreset,
                     customPresets = customPresets,
                     genrePresets = BuiltInGenrePresets.all,
-                    intensities = PresetIntensity.entries,
-                    selectedGenreIntensity = BuiltInGenrePresets.all.first() to PresetIntensity.entries.first(),
+                    moreIntensity = false,
                     activeCorrectionProfile = BuiltInCorrectionProfiles.None,
                     allCorrectionProfiles = listOf(BuiltInCorrectionProfiles.None),
                     suggestedCorrectionProfile = null,
@@ -114,7 +112,7 @@ class EqualizerScreenUiTest {
                     onOpenSourcePicker = {},
                     onBypassToggled = {},
                     onPresetSelected = {},
-                    onGenreIntensitySelected = { _, _ -> },
+                    onMoreIntensityChanged = {},
                     onCorrectionProfileSelected = {},
                     onImportCorrectionProfileRequested = {},
                     onExportCorrectionProfile = {},

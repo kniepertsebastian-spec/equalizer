@@ -52,7 +52,6 @@ import com.auracurve.app.audio.AudioEffectDescriptor
 import com.auracurve.app.integration.PlayerSource
 import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.Preset
-import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.ui.equalizer.CurvePreview
 import com.auracurve.app.ui.equalizer.EqualizerScreen
 import com.auracurve.app.ui.equalizer.appLabelFor
@@ -84,7 +83,7 @@ fun MainScreen(
     val settings by viewModel.processingSettings.collectAsStateWithLifecycle()
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
     val customPresetsOnly by viewModel.customPresetsOnly.collectAsStateWithLifecycle()
-    val selectedGenreIntensity by viewModel.selectedGenreIntensity.collectAsStateWithLifecycle()
+    val moreIntensity by viewModel.moreIntensity.collectAsStateWithLifecycle()
     val activeCorrectionProfile by viewModel.activeCorrectionProfile.collectAsStateWithLifecycle()
     val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
     val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
@@ -278,8 +277,7 @@ fun MainScreen(
                 activePreset = activePreset,
                 customPresets = customPresetsOnly,
                 genrePresets = BuiltInGenrePresets.all,
-                intensities = PresetIntensity.entries,
-                selectedGenreIntensity = selectedGenreIntensity,
+                moreIntensity = moreIntensity,
                 activeCorrectionProfile = activeCorrectionProfile,
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
@@ -326,7 +324,7 @@ fun MainScreen(
                 onOpenSourcePicker = { viewModel.openSourcePicker() },
                 onBypassToggled = { viewModel.setBypass(it) },
                 onPresetSelected = { viewModel.selectPreset(it) },
-                onGenreIntensitySelected = { genre, intensity -> viewModel.selectGenreIntensity(genre, intensity) },
+                onMoreIntensityChanged = viewModel::setMoreIntensity,
                 onCorrectionProfileSelected = { viewModel.selectCorrectionProfile(it) },
                 onAcceptSuggestedCorrectionProfile = { viewModel.acceptSuggestedCorrectionProfile() },
                 onDismissSuggestedCorrectionProfile = { viewModel.dismissSuggestedCorrectionProfile() },

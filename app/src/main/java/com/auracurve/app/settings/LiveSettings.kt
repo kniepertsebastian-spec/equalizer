@@ -37,4 +37,6 @@ data class LiveSettings(
     val activeGoal: String? = null,
     // P5-3: the free bands of the parametric mode. Defaulted for older saved settings.
     val parametricBands: List<ParametricBand> = emptyList(),
+    // "More intensity" switch (replaces the five intensity steps). Defaulted for older saved settings.
+    val moreIntensity: Boolean = false,
 )

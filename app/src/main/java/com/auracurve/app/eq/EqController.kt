@@ -32,6 +32,7 @@ import com.auracurve.app.preset.LimiterConfig
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetCycle
 import com.auracurve.app.preset.PresetIntensity
+import com.auracurve.app.preset.PresetIntensityBoost
 import com.auracurve.app.preset.PresetIntensityResolver
 import com.auracurve.app.preset.PresetMetadata
 import com.auracurve.app.preset.PresetRepository
@@ -183,8 +184,9 @@ class EqController
         private suspend fun applyAppProfile(packageName: String?) {
             if (packageName == null) return
             val profile = appProfileRepository.getProfile(packageName) ?: return
-            val preset = findPresetById(profile.boundPresetId, customPresetsState.value) ?: return
-            if (BuiltInContextPresets.contextOf(preset) != null) return
+            val bound = findPresetById(profile.boundPresetId, customPresetsState.value) ?: return
+            if (BuiltInContextPresets.contextOf(bound) != null) return
+            val preset = withoutRetiredIntensity(bound)
             _activePreset.value = preset
             _activeCorrectionProfile.value =
                 findCorrectionProfileById(profile.boundCorrectionProfileId, customCorrectionProfilesState.value)
@@ -229,6 +231,11 @@ class EqController
         // saving the edit as its own preset.
         private val _isDirty = MutableStateFlow(false)
         val isDirty: StateFlow<Boolean> = _isDirty.asStateFlow()
+
+        // "More intensity": the former Aggressive step on top of whatever preset is active
+        // (PresetIntensityBoost). Replaces the five intensity steps; kept across preset changes.
+        private val _moreIntensity = MutableStateFlow(false)
+        val moreIntensity: StateFlow<Boolean> = _moreIntensity.asStateFlow()
 
         private val customPresetsState = MutableStateFlow<List<Preset>>(emptyList())
 
@@ -477,13 +484,23 @@ class EqController
                     null
                 }
             if (saved != null) {
-                val preset = findPresetById(saved.activePresetId, initialCustomPresets)
-                if (preset != null) {
+                _moreIntensity.value = saved.moreIntensity
+                val savedPreset = findPresetById(saved.activePresetId, initialCustomPresets)
+                if (savedPreset != null) {
+                    val preset = withoutRetiredIntensity(savedPreset)
+                    // An old intensity step becomes the genre's base plus the switch; its saved
+                    // values held that step's macros, so they are derived anew from the base.
+                    val settings =
+                        if (preset.id == savedPreset.id) {
+                            saved.processingSettings
+                        } else {
+                            saved.processingSettings.withPreset(preset)
+                        }
                     _activePreset.value = preset
-                    _isDirty.value = saved.isDirty
-                    _processingSettings.value = saved.processingSettings
-                    audioEngine.apply(saved.processingSettings)
-                    pushVirtualBass(saved.processingSettings)
+                    _isDirty.value = saved.isDirty && preset.id == savedPreset.id
+                    _processingSettings.value = settings
+                    audioEngine.apply(settings)
+                    pushVirtualBass(settings)
                 }
                 _activeCorrectionProfile.value =
                     findCorrectionProfileById(saved.activeCorrectionProfileId, initialCorrectionProfiles)
@@ -576,10 +593,11 @@ class EqController
             if (BuiltInContextPresets.contextOf(preset) != null) return
             val correction = findCorrectionProfileById(binding.boundCorrectionProfileId, customCorrectionProfilesState.value)
 
-            _activePreset.value = preset
+            val target = withoutRetiredIntensity(preset)
+            _activePreset.value = target
             _activeCorrectionProfile.value = correction
             _isDirty.value = false
-            _processingSettings.value = _processingSettings.value.withPreset(preset)
+            _processingSettings.value = _processingSettings.value.withPreset(target)
             recalculateBandGains()
             persistLiveSettings()
         }
@@ -703,18 +721,20 @@ class EqController
                         headphonePower = _headphonePower.value,
                         activeGoal = _activeGoal.value.id.takeIf { _activeGoal.value != SoundGoal.BALANCED },
                         parametricBands = _parametricBands.value,
+                        moreIntensity = _moreIntensity.value,
                     ),
                 )
             }
         }
 
-        fun selectPreset(preset: Preset) {
+        fun selectPreset(picked: Preset) {
             // A context tuning is a mode, not a sound: selecting one (an older
             // shortcut) switches the mode on and leaves the active preset alone.
-            BuiltInContextPresets.contextOf(preset)?.let { context ->
+            BuiltInContextPresets.contextOf(picked)?.let { context ->
                 setContextMode(context)
                 return
             }
+            val preset = withoutRetiredIntensity(picked)
             _activePreset.value = preset
             _isDirty.value = false
             _processingSettings.value = _processingSettings.value.withPreset(preset)
@@ -732,6 +752,40 @@ class EqController
             intensity: PresetIntensity,
         ) {
             selectPreset(PresetIntensityResolver.resolve(genre, intensity))
+        }
+
+        /**
+         * "More intensity" on or off. Without manual edits the preset is simply applied again;
+         * with them only the macros move by the step, so the edits stay.
+         */
+        fun setMoreIntensity(enabled: Boolean) {
+            if (_moreIntensity.value == enabled) return
+            val preset = _activePreset.value
+            val before = intensified(preset)
+            _moreIntensity.value = enabled
+            val after = intensified(preset)
+            _processingSettings.value =
+                if (_isDirty.value) {
+                    _processingSettings.value.copy(
+                        macroBassDb = _processingSettings.value.macroBassDb + after.macroBassDb - before.macroBassDb,
+                        macroPunchDb = _processingSettings.value.macroPunchDb + after.macroPunchDb - before.macroPunchDb,
+                    )
+                } else {
+                    _processingSettings.value.withPreset(preset)
+                }
+            recalculateBandGains()
+            persistLiveSettings()
+        }
+
+        // The preset as it plays: with the "more intensity" step on top while the switch is on.
+        private fun intensified(preset: Preset): Preset = if (_moreIntensity.value) PresetIntensityBoost.apply(preset) else preset
+
+        // An old genre x intensity step (still reachable through a bound profile, a quick tile or
+        // an older remote) becomes the genre's base; Aggressive and up switch "more intensity" on.
+        private fun withoutRetiredIntensity(preset: Preset): Preset {
+            val legacy = PresetIntensityBoost.legacy(preset.id) ?: return preset
+            legacy.moreIntensity?.let { _moreIntensity.value = it }
+            return legacy.base
         }
 
         // M3 "Mein Kopfhörer": switches the active correction curve, independent of
@@ -760,12 +814,15 @@ class EqController
                 } else {
                     _activePreset.value.targetCurve
                 }
+            // A saved preset holds the sound without the "more intensity" step, which the switch
+            // adds again on playback - so it is not counted twice.
+            val boost = _moreIntensity.value && PresetIntensityBoost.appliesTo(_activePreset.value)
             return Preset(
                 id = UUID.randomUUID().toString(),
                 name = name,
                 targetCurve = curve,
-                macroBassDb = settings.macroBassDb,
-                macroPunchDb = settings.macroPunchDb,
+                macroBassDb = settings.macroBassDb - if (boost) PresetIntensityBoost.macroBassDeltaDb else 0f,
+                macroPunchDb = settings.macroPunchDb - if (boost) PresetIntensityBoost.macroPunchDeltaDb else 0f,
                 macroHaerteDb = settings.macroHaerteDb,
                 requestedHeadroomDb = _activePreset.value.requestedHeadroomDb,
                 mbcEnabled = settings.mbcEnabled,
@@ -784,7 +841,7 @@ class EqController
             when (command) {
                 QuickCommand.TOGGLE_MASTER -> setMasterEnabled(!_processingSettings.value.masterEnabled)
                 QuickCommand.NEXT_PRESET -> {
-                    val presets = allPresets.value
+                    val presets = allPresets.value.filterNot { PresetIntensityBoost.isRetiredStep(it.id) }
                     val nextId = PresetCycle.nextId(presets.map { it.id }, _activePreset.value.id) ?: return
                     presets.firstOrNull { it.id == nextId }?.let { selectPreset(it) }
                 }
@@ -1031,7 +1088,7 @@ class EqController
             // effectiveHeadphoneAcoustics change via the init collector - so
             // toggling headphone mode without reselecting a preset still applies/
             // removes the easing, and it never compounds across repeated calls.
-            val preset = _activePreset.value
+            val preset = intensified(_activePreset.value)
             val easeDynamics = effectiveHeadphoneAcoustics.value && _headphonePower.value.easeDynamics
             // An active context mode only ever tightens the genre's dynamics (lower
             // threshold, higher ratio) and switches the compressor on; the headphone
@@ -1063,18 +1120,20 @@ class EqController
             applySettings(newSettings)
         }
 
-        private fun ProcessingSettings.withPreset(preset: Preset): ProcessingSettings =
-            copy(
-                inputGainDb = safetyScaledInputGainDb(preset.requestedHeadroomDb),
-                macroBassDb = preset.macroBassDb,
-                macroPunchDb = preset.macroPunchDb,
-                macroHaerteDb = preset.macroHaerteDb,
-                limiterEnabled = preset.limiter.enabled,
-                limiterThresholdDb = preset.limiter.thresholdDb,
-                mbcEnabled = preset.mbcEnabled,
-                mbcThresholdDb = preset.mbcThresholdDb,
-                mbcRatio = preset.mbcRatio,
+        private fun ProcessingSettings.withPreset(preset: Preset): ProcessingSettings {
+            val played = intensified(preset)
+            return copy(
+                inputGainDb = safetyScaledInputGainDb(played.requestedHeadroomDb),
+                macroBassDb = played.macroBassDb,
+                macroPunchDb = played.macroPunchDb,
+                macroHaerteDb = played.macroHaerteDb,
+                limiterEnabled = played.limiter.enabled,
+                limiterThresholdDb = played.limiter.thresholdDb,
+                mbcEnabled = played.mbcEnabled,
+                mbcThresholdDb = played.mbcThresholdDb,
+                mbcRatio = played.mbcRatio,
             ).withContextFeatures(preset)
+        }
 
         // The preset's own context features, merged with what the active context mode
         // adds (the stronger of the two each, and a limiter at least as tight). With

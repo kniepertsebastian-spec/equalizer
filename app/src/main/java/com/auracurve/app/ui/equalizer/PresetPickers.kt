@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Balance
 import androidx.compose.material.icons.filled.Block
@@ -53,93 +52,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.correction.CorrectionProfile
-import com.auracurve.app.preset.GenrePreset
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetUsageAdvisor
 import com.auracurve.app.preset.PresetUsageHint
 import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.Spacing
 import com.auracurve.app.ui.theme.spacing
-
-// Genre picker: one card per genre with an icon, its name and its own curve, scrolling
-// sideways so every genre is one tap away. The chosen card is filled with the accent gradient.
-@Composable
-internal fun GenreChoices(
-    genres: List<GenrePreset>,
-    selected: GenrePreset?,
-    onSelect: (GenrePreset) -> Unit,
-    style: EqualizerDesignStyle,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        genres.forEach { genre ->
-            val isSelected = genre.id == selected?.id
-            val content = if (isSelected) Color.White else style.text
-            Surface(
-                selected = isSelected,
-                onClick = { onSelect(genre) },
-                modifier =
-                    Modifier
-                        .width(112.dp)
-                        .height(84.dp)
-                        .semantics { contentDescription = genre.displayName },
-                shape = MaterialTheme.shapes.medium,
-                color = style.surfaceVariant,
-            ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .then(if (isSelected) Modifier.background(style.accentFill) else Modifier)
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(if (isSelected) Color.White.copy(alpha = 0.18f) else style.surface),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = genreIcon(genre.id),
-                            contentDescription = null,
-                            tint = if (isSelected) Color.White else style.accent,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                    Text(
-                        text = genre.displayName,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                        color = content,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    MiniCurve(
-                        points = genre.base.targetCurve,
-                        color = if (isSelected) Color.White else style.accent,
-                        modifier = Modifier.fillMaxWidth().height(18.dp),
-                    )
-                }
-            }
-        }
-    }
-}
 
 // One icon per genre, so the cards can be told apart before the name is read.
 internal fun genreIcon(genreId: String): ImageVector =
