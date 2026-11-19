@@ -29,20 +29,22 @@ internal fun DeviceKindCard(
             style = MaterialTheme.typography.titleSmall,
             color = SonicStyle.text,
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            listOf(
-                DeviceKind.HEADPHONES to R.string.device_kind_headphones,
-                DeviceKind.CAR to R.string.device_kind_car,
-                DeviceKind.SPEAKER to R.string.device_kind_speaker,
-            ).forEach { (kind, label) ->
-                OutlinedButton(
-                    onClick = { onAnswer(kind) },
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                ) {
-                    Text(stringResource(label))
+        // Four answers: two rows of two, so the labels stay readable on narrow phones.
+        listOf(
+            listOf(DeviceKind.HEADPHONES to R.string.device_kind_headphones, DeviceKind.CAR to R.string.device_kind_car),
+            listOf(DeviceKind.SPEAKER to R.string.device_kind_speaker, DeviceKind.SOUNDBAR to R.string.device_kind_soundbar),
+        ).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                row.forEach { (kind, label) ->
+                    OutlinedButton(
+                        onClick = { onAnswer(kind) },
+                        modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    ) {
+                        Text(stringResource(label))
+                    }
                 }
             }
         }

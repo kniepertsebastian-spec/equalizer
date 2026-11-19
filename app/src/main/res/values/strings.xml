@@ -469,6 +469,7 @@
     <string name="device_kind_headphones">Headphones</string>
     <string name="device_kind_car">Car</string>
     <string name="device_kind_speaker">Speaker</string>
+    <string name="device_kind_soundbar">Soundbar</string>
     <string name="device_kind_later">Later</string>
     <string name="module_off">off</string>
     <string name="player_open_equalizer">Open equalizer: %1$s</string>
