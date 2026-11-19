@@ -1,5 +1,7 @@
 package com.auracurve.app.player.spotify
 
+import com.auracurve.app.player.auth.KeystoreTokenCrypto
+import com.auracurve.app.player.auth.TokenVault
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -33,6 +35,9 @@ class SpotifyApiClient private constructor(
     context: Context,
 ) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    // Roadmap 03, 2.1: access and refresh token are encrypted with a Keystore key.
+    private val vault = TokenVault(prefs, KeystoreTokenCrypto())
     private val http =
         OkHttpClient
             .Builder()
@@ -47,7 +52,7 @@ class SpotifyApiClient private constructor(
         prefs.edit().putString(KEY_CLIENT_ID, id.trim()).apply()
     }
 
-    fun isSignedIn(): Boolean = !prefs.getString(KEY_REFRESH, null).isNullOrEmpty()
+    fun isSignedIn(): Boolean = !vault.get(KEY_REFRESH).isNullOrEmpty()
 
     // The browser page to sign in; null while no client id is saved. Remembers the PKCE
     // verifier and state for the redirect that comes back to SpotifyLoginActivity.
@@ -185,7 +190,7 @@ class SpotifyApiClient private constructor(
 
     private suspend fun refreshTokens(): String? =
         refreshLock.withLock {
-            val refresh = prefs.getString(KEY_REFRESH, null)?.takeIf { it.isNotEmpty() } ?: return@withLock null
+            val refresh = vault.get(KEY_REFRESH)?.takeIf { it.isNotEmpty() } ?: return@withLock null
             val body =
                 FormBody
                     .Builder()
@@ -205,20 +210,23 @@ class SpotifyApiClient private constructor(
             if (!response.isSuccessful) return null
             val tokens = SpotifyApiJson.parseTokens(response.body?.string().orEmpty(), System.currentTimeMillis()) ?: return null
             // Renewing may not return a new refresh token: the old one keeps working then.
-            val refresh = tokens.refreshToken ?: prefs.getString(KEY_REFRESH, null)
+            val refresh = tokens.refreshToken ?: vault.get(KEY_REFRESH)
             prefs
                 .edit()
-                .putString(KEY_ACCESS, tokens.accessToken)
-                .putString(KEY_REFRESH, refresh)
-                .putLong(KEY_EXPIRES, tokens.expiresAtMs)
+                .apply {
+                    with(vault) {
+                        putSealed(KEY_ACCESS, tokens.accessToken)
+                        putSealed(KEY_REFRESH, refresh)
+                    }
+                }.putLong(KEY_EXPIRES, tokens.expiresAtMs)
                 .apply()
             return tokens
         }
     }
 
     private fun storedTokens(): SpotifyTokens? {
-        val access = prefs.getString(KEY_ACCESS, null)?.takeIf { it.isNotEmpty() } ?: return null
-        return SpotifyTokens(access, prefs.getString(KEY_REFRESH, null), prefs.getLong(KEY_EXPIRES, 0L))
+        val access = vault.get(KEY_ACCESS)?.takeIf { it.isNotEmpty() } ?: return null
+        return SpotifyTokens(access, vault.get(KEY_REFRESH), prefs.getLong(KEY_EXPIRES, 0L))
     }
 
     companion object {
