@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.SecureFlagPolicy
@@ -47,6 +48,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auracurve.app.R
+import com.auracurve.app.remote.DuckDns
 import com.auracurve.app.remote.LocalAddress
 import com.auracurve.app.remote.MdnsName
 import com.auracurve.app.remote.RemoteServerUiState
@@ -55,6 +57,8 @@ import com.auracurve.app.ui.share.QrCode
 import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
+import java.text.DateFormat
+import java.util.Date
 
 // Flavor "full" (Pixel-Car module 04a): the switch for the local remote-control server, with the
 // address and, since module 05, the paired devices and pairing by one-time code. Off by default.
@@ -88,6 +92,8 @@ fun RemoteServerCard() {
         onHostNameChange = viewModel::setHostName,
         onAddTrustedWifi = viewModel::addTrustedWifi,
         onRemoveTrustedWifi = viewModel::removeTrustedWifi,
+        onSaveDynDns = viewModel::setDynDns,
+        onClearDynDns = viewModel::clearDynDns,
         onAllowWifiNames = { locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION) },
         onOpenNotificationAccess = {
             runCatching {
@@ -125,11 +131,22 @@ internal fun RemoteServerCardContent(
     onAddTrustedWifi: (String) -> Unit = {},
     onRemoveTrustedWifi: (String) -> Unit = {},
     onAllowWifiNames: () -> Unit = {},
+    onSaveDynDns: (name: String, token: String, onDone: (Boolean) -> Unit) -> Unit = { _, _, _ -> },
+    onClearDynDns: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     var editingName by remember { mutableStateOf(false) }
     var confirmRemoveAll by remember { mutableStateOf(false) }
     var showAddress by remember { mutableStateOf(false) }
+    var editingDynDns by remember { mutableStateOf(false) }
+    if (editingDynDns) {
+        DynDnsDialog(
+            current = state.dynDnsHost?.removeSuffix(DuckDns.SUFFIX).orEmpty(),
+            hasToken = state.dynDnsHost != null,
+            onSave = onSaveDynDns,
+            onDone = { editingDynDns = false },
+        )
+    }
     // 19 Nov 2026: the address alone for phones already paired; it carries no code and no token.
     if (showAddress && state.running && state.address != null) AddressDialog(state = state, onDismiss = { showAddress = false })
     // Module 05: the code is shown while it is valid; used, expired or the server off closes it.
@@ -216,6 +233,7 @@ internal fun RemoteServerCardContent(
                     )
                     TextButton(onClick = { editingName = true }) { Text(stringResource(R.string.remote_server_change_name)) }
                 }
+                DynDnsSection(state, onEdit = { editingDynDns = true }, onClear = onClearDynDns)
                 val bootLabel = stringResource(R.string.remote_server_start_at_boot)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -457,6 +475,126 @@ private fun AddressDialog(
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.remote_server_qr_close)) } },
     )
 }
+
+/**
+ * Fixed address via DuckDNS (19 Nov 2026): the name stays when the hotspot address changes, so the
+ * browser keeps the pairing. The token is never shown again once saved.
+ */
+@Composable
+private fun DynDnsSection(
+    state: RemoteServerUiState,
+    onEdit: () -> Unit,
+    onClear: () -> Unit,
+) {
+    val host = state.dynDnsHost
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("remote_server_dyndns")) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                if (host != null) {
+                    stringResource(R.string.remote_server_dyndns_label, host)
+                } else {
+                    stringResource(R.string.remote_server_dyndns_off)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = SonicSteel,
+            )
+            if (host != null) {
+                val status = state.dynDnsStatus
+                val ip = status.ip
+                Text(
+                    when {
+                        ip != null && ip == state.address && !status.failed ->
+                            stringResource(
+                                R.string.remote_server_dyndns_ok,
+                                ip,
+                                DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(status.atMs)),
+                            )
+                        status.failed -> stringResource(R.string.remote_server_dyndns_failed)
+                        else -> stringResource(R.string.remote_server_dyndns_pending)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (status.failed) MaterialTheme.colorScheme.error else SonicSteel,
+                    modifier = Modifier.testTag("remote_server_dyndns_status"),
+                )
+            } else {
+                Text(stringResource(R.string.remote_server_dyndns_desc), style = MaterialTheme.typography.bodySmall, color = SonicSteel)
+            }
+        }
+        if (host != null) {
+            TextButton(onClick = onClear) { Text(stringResource(R.string.remote_server_remove_device)) }
+        }
+        TextButton(onClick = onEdit, modifier = Modifier.testTag("remote_server_dyndns_edit")) {
+            Text(stringResource(if (host != null) R.string.remote_server_change_name else R.string.remote_server_dyndns_set_up))
+        }
+    }
+}
+
+@Composable
+private fun DynDnsDialog(
+    current: String,
+    hasToken: Boolean,
+    onSave: (name: String, token: String, onDone: (Boolean) -> Unit) -> Unit,
+    onDone: () -> Unit,
+) {
+    var name by remember { mutableStateOf(current) }
+    var token by remember { mutableStateOf("") }
+    var rejected by remember { mutableStateOf(false) }
+    val validName = DuckDns.normalizeName(name)
+    // Changing only the name keeps the stored token.
+    val validToken = if (token.isBlank()) hasToken else DuckDns.normalizeToken(token) != null
+    AlertDialog(
+        onDismissRequest = onDone,
+        properties = DialogProperties(securePolicy = SecureFlagPolicy.SecureOn),
+        modifier = Modifier.testTag("remote_server_dyndns_dialog"),
+        title = { Text(stringResource(R.string.remote_server_dyndns_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
+                Text(stringResource(R.string.remote_server_dyndns_help), style = MaterialTheme.typography.bodySmall, color = SonicSteel)
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = {
+                        name = it.take(MAX_DYNDNS_INPUT)
+                        rejected = false
+                    },
+                    singleLine = true,
+                    isError = name.isNotEmpty() && validName == null,
+                    label = { Text(stringResource(R.string.remote_server_dyndns_name)) },
+                    suffix = { Text(DuckDns.SUFFIX) },
+                    modifier = Modifier.testTag("remote_server_dyndns_name"),
+                )
+                OutlinedTextField(
+                    value = token,
+                    onValueChange = {
+                        token = it.take(MAX_DYNDNS_INPUT)
+                        rejected = false
+                    },
+                    singleLine = true,
+                    isError = token.isNotEmpty() && !validToken,
+                    label = { Text(stringResource(R.string.remote_server_dyndns_token)) },
+                    placeholder = { if (hasToken) Text(stringResource(R.string.remote_server_dyndns_token_kept)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    modifier = Modifier.testTag("remote_server_dyndns_token"),
+                )
+                if (rejected) {
+                    Text(
+                        stringResource(R.string.remote_server_dyndns_invalid),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(name, token) { ok -> if (ok) onDone() else rejected = true } },
+                enabled = validName != null && validToken,
+            ) { Text(stringResource(R.string.remote_server_name_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDone) { Text(stringResource(R.string.remote_server_name_cancel)) } },
+    )
+}
+
+private const val MAX_DYNDNS_INPUT = 80
 
 /**
  * Trusted Wi-Fi names (19 Nov 2026): in the car the Pixel joins the hotspot of the driver's phone

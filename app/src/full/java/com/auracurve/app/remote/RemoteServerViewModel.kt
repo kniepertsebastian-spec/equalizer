@@ -31,17 +31,23 @@ data class RemoteServerUiState(
     /** The Wi-Fi the phone is in now, if Android tells the name (location permission). */
     val currentWifi: String? = null,
     val wifiNamePermission: Boolean = true,
+    /** Fixed address via DuckDNS, e.g. basti-auto.duckdns.org; null while not set up. */
+    val dynDnsHost: String? = null,
+    val dynDnsStatus: DynDnsStatus = DynDnsStatus(),
 ) {
+    /** The name in links and QR codes: the DuckDNS name if set up, else `<name>.local`. */
+    val fixedHost: String get() = dynDnsHost ?: MdnsName.host(hostName)
+
     /** Offer "Add this Wi-Fi" only for a known name not yet on the list. */
     val canAddCurrentWifi: Boolean get() = currentWifi != null && currentWifi !in trustedWifi
 
     /** 04e (R-19): the fixed name, so the link survives a new hotspot address. */
-    val nameUrl: String get() = LocalAddress.url(MdnsName.host(hostName))
+    val nameUrl: String get() = LocalAddress.url(fixedHost)
 
     /** The plain address by IP, for phones already paired there (address QR, no code). */
     val ipUrl: String? get() = address?.let(LocalAddress::url)
 
-    val pairingLink: String? get() = linkTo(MdnsName.host(hostName))
+    val pairingLink: String? get() = linkTo(fixedHost)
 
     /** The same link with the IP, for networks that do not resolve `.local` (QR dialog). */
     val ipPairingLink: String? get() = address?.let(::linkTo)
@@ -57,6 +63,7 @@ class RemoteServerViewModel
         private val settings: RemoteServerSettings,
         private val registry: RemoteDeviceRegistry,
         private val wifiNames: WifiNames,
+        private val dynDns: DynDnsUpdater,
     ) : ViewModel() {
         private val wifiPermission = MutableStateFlow(wifiNames.hasPermission())
 
@@ -77,6 +84,8 @@ class RemoteServerViewModel
                 .combine(settings.trustedWifi) { state, list -> state.copy(trustedWifi = list.sorted()) }
                 .combine(wifiNames.current) { state, name -> state.copy(currentWifi = name) }
                 .combine(wifiPermission) { state, granted -> state.copy(wifiNamePermission = granted) }
+                .combine(settings.dynDns) { state, config -> state.copy(dynDnsHost = config?.host) }
+                .combine(dynDns.status) { state, status -> state.copy(dynDnsStatus = status) }
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RemoteServerUiState(available = control.isAvailable))
 
         private var expiry: Job? = null
@@ -107,6 +116,19 @@ class RemoteServerViewModel
 
         fun setAllowWifi(enabled: Boolean) {
             viewModelScope.launch { settings.setAllowWifi(enabled) }
+        }
+
+        /** False if name or token are not valid; the dialog then stays open. */
+        fun setDynDns(
+            name: String,
+            token: String,
+            onDone: (Boolean) -> Unit,
+        ) {
+            viewModelScope.launch { onDone(settings.setDynDns(name, token)) }
+        }
+
+        fun clearDynDns() {
+            viewModelScope.launch { settings.clearDynDns() }
         }
 
         fun addTrustedWifi(name: String) {

@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import com.auracurve.app.remote.DynDnsStatus
 import com.auracurve.app.remote.PairingCode
 import com.auracurve.app.remote.RemoteDevice
 import com.auracurve.app.remote.RemoteServerUiState
@@ -110,6 +111,28 @@ class RemoteServerCardQrTest {
         compose.onNodeWithText("Close").performClick()
         dialogs().assertCountEquals(0)
         assertEquals(0, cancelled)
+    }
+
+    @Test
+    fun `a duckdns name replaces the local name in links and shows whether it is up to date`() {
+        val update =
+            show(
+                running.copy(
+                    dynDnsHost = "basti-auto.duckdns.org",
+                    dynDnsStatus = DynDnsStatus("10.40.5.1", 0L, failed = false),
+                ),
+            )
+        compose.onNodeWithText("Address: http://basti-auto.duckdns.org:8080").assertExists()
+        compose.onNodeWithText("Fixed address: basti-auto.duckdns.org").assertExists()
+        compose.onNodeWithText("Points to 10.40.5.1", substring = true).assertExists()
+        compose.onNodeWithTag("remote_server_address_qr").performClick()
+        inDialog("http://basti-auto.duckdns.org:8080").assertExists()
+        compose.onNodeWithText("Close").performClick()
+
+        update(running.copy(dynDnsHost = "basti-auto.duckdns.org", dynDnsStatus = DynDnsStatus(failed = true)))
+        compose.onNodeWithText("Update failed", substring = true).assertExists()
+        update(running.copy(pairing = code, dynDnsHost = "basti-auto.duckdns.org"))
+        inDialog("http://basti-auto.duckdns.org:8080/#pair=ABCDEFGH").assertExists()
     }
 
     @Test

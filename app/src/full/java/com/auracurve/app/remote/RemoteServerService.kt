@@ -117,6 +117,9 @@ class RemoteServerService : LifecycleService() {
     lateinit var registry: RemoteDeviceRegistry
 
     @Inject
+    lateinit var dynDns: DynDnsUpdater
+
+    @Inject
     lateinit var statusSource: SystemStatusSource
 
     @Inject
@@ -383,6 +386,8 @@ class RemoteServerService : LifecycleService() {
             watchInternet()
             startMdns(settings.hostName.first())
             launch { settings.hostName.collect { mdns?.name = it } }
+            // A fixed name by DuckDNS: the browser keeps the pairing although the hotspot address changes.
+            launch { dynDns.keepUpdated(settings.dynDns, control.address) }
             launch {
                 // Every EQ change, also from the app or a tile; number inputs come in quick bursts.
                 eqApi.changes().drop(1).throttleLatest(EQ_EVENT_PERIOD).collect {
