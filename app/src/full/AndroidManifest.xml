@@ -19,6 +19,11 @@
       other apps"; AuraCurve never draws an overlay.
     -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!--
+      Pixel-Car module 11, Z1: android.media.audiofx.Visualizer (the spectrum of what plays) needs
+      it. The microphone is never opened; granted once by adb or in the settings.
+    -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application>
         <activity
