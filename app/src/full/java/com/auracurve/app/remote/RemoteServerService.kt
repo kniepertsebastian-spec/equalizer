@@ -31,6 +31,7 @@ import com.auracurve.app.eq.EqController
 import com.auracurve.app.integration.PlayerController
 import com.auracurve.app.player.spotify.SpotifyApiClient
 import com.auracurve.app.remote.car.CarLocation
+import com.auracurve.app.remote.car.ParkingController
 import com.auracurve.app.remote.car.SpeedVolumeController
 import com.auracurve.app.remote.car.SpeedVolumeRemoteApi
 import com.auracurve.app.remote.feed.FeedRemoteApi
@@ -126,6 +127,9 @@ class RemoteServerService : LifecycleService() {
 
     @Inject
     lateinit var carLocation: CarLocation
+
+    @Inject
+    lateinit var parking: ParkingController
 
     @Inject
     lateinit var diagnostics: DiagnosticsRecorder
@@ -416,6 +420,8 @@ class RemoteServerService : LifecycleService() {
             launch { protectionMonitor.run() }
             // Module 11, F6: louder at speed (off until switched on in the remote).
             launch { speedVolume.run { playbackApi.nothingPlaying() } }
+            // Module 11, F3: where the car was left, sent while the phone is still connected.
+            launch { parking.run { events.tryEmit(it) } }
             launch {
                 // Module 11, F1: tell the remote at once; act on the steps.
                 protectionMonitor.state.drop(1).collect { protection ->
@@ -484,6 +490,7 @@ class RemoteServerService : LifecycleService() {
                     feed = feedApi,
                     library = libraryApi,
                     sync = syncApi,
+                    parking = parking,
                     speedVolume = SpeedVolumeRemoteApi(settings, { speedVolume.live.value }, carLocation::hasPermission),
                     // 04f: the last web remote gone ends a comparison it started.
                     onWebSocketClients = { count -> if (count == 0) lifecycleScope.launch { eqApi.onAllClientsGone() } },
