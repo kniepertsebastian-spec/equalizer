@@ -32,7 +32,10 @@ import com.auracurve.app.audio.ProcessingSettings
 import com.auracurve.app.correction.BuiltInCorrectionProfiles
 import com.auracurve.app.dsp.HeadphonePower
 import com.auracurve.app.preset.BuiltInGenrePresets
+import com.auracurve.app.preset.BuiltInGenreVariants
 import com.auracurve.app.preset.BuiltInPresets
+import com.auracurve.app.preset.GenrePresetGroups
+import com.auracurve.app.preset.GenreUseCase
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.SoundGoal
@@ -310,6 +313,37 @@ class EqualizerScreenUiTest {
         compose.waitForIdle()
         compose.onNodeWithText(text(R.string.preset_usage_sub), substring = true).assertIsDisplayed()
         compose.onNode(isDialog()).saveScreenshot("09-preset-usage-dialog")
+    }
+
+    // The genre list: collapsed rows per genre, opening into every preset with its "best for" text.
+    @Test
+    fun genrePresetListOpensAGenreAndShowsWhenEachPresetFits() {
+        showEqualizer(activePreset = BuiltInPresets.Flat)
+        val uptempo = GenrePresetGroups.all.first { it.genre.id == BuiltInGenrePresets.Uptempo.id }
+        val count = uptempo.entries.size
+
+        compose.onAllNodesWithText(GenreUseCase.CAR.description).assertCountEquals(0)
+        compose
+            .onNodeWithText(RuntimeEnvironment.getApplication().resources.getQuantityString(R.plurals.genre_presets_count, count, count))
+            .performScrollTo()
+            .performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Deep Rumble").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(GenreUseCase.CAR.description).performScrollTo().assertIsDisplayed()
+        compose.onRoot().saveScreenshot("10-genre-preset-list")
+    }
+
+    @Test
+    fun theGenreOfTheActiveVariantStartsOpen() {
+        val car = BuiltInGenreVariants.useCases(BuiltInGenrePresets.Uptempo).first { it.useCase == GenreUseCase.CAR }.preset
+        showEqualizer(activePreset = car)
+
+        compose
+            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.genre_presets_active, "Car"), substring = true)
+            .performScrollTo()
+            .assertIsDisplayed()
+        compose.onNodeWithText(GenreUseCase.QUIET.description).performScrollTo().assertIsDisplayed()
+        compose.onRoot().saveScreenshot("11-genre-preset-active-variant")
     }
 
     private fun SemanticsNodeInteraction.saveScreenshot(name: String) {
