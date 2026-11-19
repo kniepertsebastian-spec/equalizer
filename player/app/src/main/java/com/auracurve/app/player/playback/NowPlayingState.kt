@@ -102,4 +102,9 @@ object QueueRequests {
     }
 
     fun take(): QueueRequest? = pending.poll()
+
+    /** Takes back a request whose intent never reached the service (start refused in the background). */
+    fun withdraw(request: QueueRequest) {
+        pending.remove(request)
+    }
 }

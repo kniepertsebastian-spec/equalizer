@@ -6,10 +6,13 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import io.ktor.websocket.Frame
@@ -43,7 +46,9 @@ class RemoteApiTest {
     private fun config(
         webRoot: File? = null,
         systemStatus: suspend () -> SystemStatus = { status },
+        visualizer: ((Boolean) -> JsonObject)? = null,
     ) = RemoteApiConfig(
+        visualizer = visualizer,
         appVersion = "2.0.0-test",
         token = { token },
         systemStatus = systemStatus,
@@ -84,6 +89,28 @@ class RemoteApiTest {
     }
 
     private suspend fun HttpClient.authed(path: String) = get(path) { header(HttpHeaders.Authorization, "Bearer $token") }
+
+    @Test
+    fun `the visualizer lease is asked for by POST and needs a token`() {
+        val asked = mutableListOf<Boolean>()
+        api(
+            config(visualizer = { on ->
+                asked += on
+                buildJsonObject { put("active", on) }
+            }),
+        ) {
+            client.post("/api/v0/visualizer") { setBody("""{"enabled":true}""") }.assertError(HttpStatusCode.Unauthorized, "UNAUTHORIZED")
+            val response =
+                client.post("/api/v0/visualizer") {
+                    header(HttpHeaders.Authorization, "Bearer $token")
+                    contentType(ContentType.Application.Json)
+                    setBody("""{"enabled":true}""")
+                }
+            assertEquals(HttpStatusCode.OK, response.status)
+            assertEquals("true", response.json()["active"]!!.jsonPrimitive.content)
+            assertEquals(listOf(true), asked)
+        }
+    }
 
     @Test
     fun `version needs no token`() =

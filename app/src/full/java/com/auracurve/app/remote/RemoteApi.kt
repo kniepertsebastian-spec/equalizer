@@ -90,6 +90,8 @@ class RemoteApiConfig(
     val sync: SyncRemoteApi? = null,
     /** Module 11, F6. */
     val speedVolume: com.auracurve.app.remote.car.SpeedVolumeRemoteApi? = null,
+    /** Module 11, Z1: `POST /api/v0/visualizer {"enabled": …}` (lease for the `spectrum` events). */
+    val visualizer: ((Boolean) -> JsonObject)? = null,
     val pingPeriod: Duration = 20.seconds,
     val pingTimeout: Duration = 60.seconds,
     /** Called with the number of open WebSockets whenever it changes (04f: compare safety net). */
@@ -153,6 +155,7 @@ fun Application.remoteApi(config: RemoteApiConfig) {
             get("/api/v0/settings/autoVolume") { respondJson(call, sv.get()) }
             put("/api/v0/settings/autoVolume") { respondJson(call, sv.put(call.jsonBody())) }
         }
+        config.visualizer?.let { viz -> post("/api/v0/visualizer") { respondJson(call, viz(call.jsonBody().bool("enabled"))) } }
         post("/api/v0/ws-ticket") {
             respondJson(
                 call,

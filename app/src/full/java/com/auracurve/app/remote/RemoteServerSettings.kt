@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.auracurve.app.car.SpeedVolumeSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +45,30 @@ class RemoteServerSettings
 
         suspend fun setAllowWifi(enabled: Boolean) {
             store.edit { it[ALLOW_WIFI] = enabled }
+        }
+
+        /**
+         * Wi-Fi names (SSIDs) the server answers in like in its own hotspot, without the switch above:
+         * the hotspots of the drivers' phones, which give the Pixel internet in the car (19 Nov 2026).
+         */
+        val trustedWifi: Flow<Set<String>> = store.data.map { it[TRUSTED_WIFI].orEmpty() }
+
+        /** Adds [name] if it is a usable Wi-Fi name; false otherwise or when the list is full. */
+        suspend fun addTrustedWifi(name: String): Boolean {
+            val clean = NetworkZone.cleanWifiName(name) ?: return false
+            var added = false
+            store.edit {
+                val list = it[TRUSTED_WIFI].orEmpty()
+                if (clean in list || list.size < MAX_TRUSTED_WIFI) {
+                    it[TRUSTED_WIFI] = list + clean
+                    added = true
+                }
+            }
+            return added
+        }
+
+        suspend fun removeTrustedWifi(name: String) {
+            store.edit { it[TRUSTED_WIFI] = it[TRUSTED_WIFI].orEmpty() - name }
         }
 
         /** 04e (U-2): start the server when the phone has booted and was unlocked once. Off by default. */
@@ -86,15 +111,18 @@ class RemoteServerSettings
             return clean
         }
 
-        private companion object {
-            val SPEED_VOLUME_ON = booleanPreferencesKey("speed_volume_on")
-            val SPEED_VOLUME_MAX_DB = floatPreferencesKey("speed_volume_max_db")
-            val SPEED_VOLUME_START_KMH = floatPreferencesKey("speed_volume_start_kmh")
-            val SPEED_VOLUME_FULL_KMH = floatPreferencesKey("speed_volume_full_kmh")
-            const val FILE_NAME = "remote_server.preferences_pb"
-            val TOKEN = stringPreferencesKey("token")
-            val START_AT_BOOT = booleanPreferencesKey("start_at_boot")
-            val HOST_NAME = stringPreferencesKey("host_name")
-            val ALLOW_WIFI = booleanPreferencesKey("allow_wifi")
+        companion object {
+            /** Enough for the phones of everyone who drives the car. */
+            const val MAX_TRUSTED_WIFI = 5
+            private const val FILE_NAME = "remote_server.preferences_pb"
+            private val TOKEN = stringPreferencesKey("token")
+            private val START_AT_BOOT = booleanPreferencesKey("start_at_boot")
+            private val HOST_NAME = stringPreferencesKey("host_name")
+            private val ALLOW_WIFI = booleanPreferencesKey("allow_wifi")
+            private val TRUSTED_WIFI = stringSetPreferencesKey("trusted_wifi")
+            private val SPEED_VOLUME_ON = booleanPreferencesKey("speed_volume_on")
+            private val SPEED_VOLUME_MAX_DB = floatPreferencesKey("speed_volume_max_db")
+            private val SPEED_VOLUME_START_KMH = floatPreferencesKey("speed_volume_start_kmh")
+            private val SPEED_VOLUME_FULL_KMH = floatPreferencesKey("speed_volume_full_kmh")
         }
     }

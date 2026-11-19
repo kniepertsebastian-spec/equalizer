@@ -50,22 +50,7 @@ class QuickWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    override fun onReceive(
-        context: Context,
-        intent: Intent,
-    ) {
-        val command = intent.takeIf { it.action == ACTION_COMMAND }?.getStringExtra(EXTRA_COMMAND)
-        if (command != null) {
-            QuickCommand.entries.firstOrNull { it.name == command }?.let { controls.send(it) }
-            return
-        }
-        super.onReceive(context, intent)
-    }
-
     companion object {
-        private const val ACTION_COMMAND = "com.auracurve.app.action.WIDGET_COMMAND"
-        private const val EXTRA_COMMAND = "command"
-
         /** Redraws every placed widget with [state] (null: ask for the saved state again). */
         fun updateAll(
             context: Context,
@@ -113,9 +98,9 @@ class QuickWidgetProvider : AppWidgetProvider() {
                 PendingIntent.getBroadcast(
                     context,
                     command.ordinal,
-                    Intent(context, QuickWidgetProvider::class.java)
-                        .setAction(ACTION_COMMAND)
-                        .putExtra(EXTRA_COMMAND, command.name),
+                    // Roadmap 03, 2.5: the widget provider must be exported for the launcher, so any
+                    // app could send it a command; the commands go to a receiver only this app reaches.
+                    QuickWidgetCommandReceiver.intent(context, command),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
             } else {
