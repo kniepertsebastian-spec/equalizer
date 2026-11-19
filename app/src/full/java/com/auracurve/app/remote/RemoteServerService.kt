@@ -56,6 +56,7 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -110,6 +111,9 @@ class RemoteServerService : LifecycleService() {
 
     @Inject
     lateinit var statusSource: SystemStatusSource
+
+    @Inject
+    lateinit var ignitionMonitor: IgnitionMonitor
 
     @Inject
     lateinit var spectrum: SpectrumHub
@@ -292,7 +296,8 @@ class RemoteServerService : LifecycleService() {
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
-    private fun systemStatus(): SystemStatus = statusSource.current().copy(activeSource = playbackApi.activeSource.value.name)
+    private fun systemStatus(): SystemStatus =
+        statusSource.current().copy(activeSource = playbackApi.activeSource.value.name, ignition = ignitionMonitor.state.value)
 
     private var server: EmbeddedServer<*, *>? = null
 
@@ -394,7 +399,15 @@ class RemoteServerService : LifecycleService() {
             launch { spectrum.run { events.tryEmit(it) } }
             launch {
                 statusSource.changes().drop(1).throttleLatest(5.seconds).collect {
-                    events.tryEmit(RemoteEvent("system.changed", it.copy(activeSource = playbackApi.activeSource.value.name).toJson()))
+                    val status = it.copy(activeSource = playbackApi.activeSource.value.name, ignition = ignitionMonitor.state.value)
+                    events.tryEmit(RemoteEvent("system.changed", status.toJson()))
+                }
+            }
+            launch { ignitionMonitor.run() }
+            launch {
+                // Module 11, F2: at once (not throttled), only real changes - not the first state.
+                ignitionMonitor.state.filterNotNull().drop(1).collect {
+                    events.tryEmit(RemoteEvent("ignition", SystemStatus.ignitionJson(it)))
                 }
             }
         }
