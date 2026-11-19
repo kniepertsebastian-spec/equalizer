@@ -2,6 +2,7 @@ package com.auracurve.app.integration
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.auracurve.app.player.model.TrackItem
 import com.auracurve.app.player.playback.NowPlaying
 import com.auracurve.app.player.playback.NowPlayingState
@@ -151,7 +152,8 @@ class AndroidPlayerController
         // service to take them out.
         private fun request(request: QueueRequest) {
             QueueRequests.submit(request)
-            send(AudioPlayerService.ACTION_QUEUE_REQUEST)
+            // A request that never reaches the service must not be applied by a later intent.
+            if (!trySend(AudioPlayerService.ACTION_QUEUE_REQUEST)) QueueRequests.withdraw(request)
         }
 
         override fun skipToIndex(index: Int) =
@@ -175,11 +177,49 @@ class AndroidPlayerController
             action: String,
             configure: Intent.() -> Unit = {},
         ) {
+            trySend(action, configure)
+        }
+
+        private fun trySend(
+            action: String,
+            configure: Intent.() -> Unit = {},
+        ): Boolean {
             val intent =
                 Intent(context, AudioPlayerService::class.java).apply {
                     this.action = action
                     configure()
                 }
-            context.startService(intent)
+            return PlayerServiceStart.start(
+                start = { context.startService(intent) },
+                onRefused = { Log.w(TAG, "Player command $action dropped: app in background, service not running") },
+            )
+        }
+
+        private companion object {
+            const val TAG = "PlayerController"
         }
     }
+
+/**
+ * Starting the player service from the background (AuraCurve roadmap 03, 2.4). Android 8+ refuses
+ * startService for an app in the background whose service is not running yet and throws an
+ * IllegalStateException (BackgroundServiceStartNotAllowedException since Android 12). That used
+ * to crash the app, e.g. for a command from a quick tile or a widget a while after the app was
+ * closed. The command is dropped instead; the next one from a screen works again. While the
+ * remote-control server (flavor full) runs as a foreground service, the app counts as in the
+ * foreground and such commands are not refused.
+ */
+internal object PlayerServiceStart {
+    /** True if the service got the command, false if Android refused the start. */
+    fun start(
+        start: () -> Unit,
+        onRefused: (IllegalStateException) -> Unit,
+    ): Boolean =
+        try {
+            start()
+            true
+        } catch (e: IllegalStateException) {
+            onRefused(e)
+            false
+        }
+}
