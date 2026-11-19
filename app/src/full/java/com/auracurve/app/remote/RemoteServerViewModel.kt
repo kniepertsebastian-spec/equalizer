@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -25,7 +26,15 @@ data class RemoteServerUiState(
     val devices: List<RemoteDevice> = emptyList(),
     /** Module 05 (E-016): also answer in the home Wi-Fi. */
     val allowWifi: Boolean = false,
+    /** Trusted Wi-Fi names (the drivers' phone hotspots), reachable like the own hotspot. */
+    val trustedWifi: List<String> = emptyList(),
+    /** The Wi-Fi the phone is in now, if Android tells the name (location permission). */
+    val currentWifi: String? = null,
+    val wifiNamePermission: Boolean = true,
 ) {
+    /** Offer "Add this Wi-Fi" only for a known name not yet on the list. */
+    val canAddCurrentWifi: Boolean get() = currentWifi != null && currentWifi !in trustedWifi
+
     /** 04e (R-19): the fixed name, so the link survives a new hotspot address. */
     val nameUrl: String get() = LocalAddress.url(MdnsName.host(hostName))
 
@@ -44,7 +53,10 @@ class RemoteServerViewModel
         private val control: AndroidRemoteServerControl,
         private val settings: RemoteServerSettings,
         private val registry: RemoteDeviceRegistry,
+        private val wifiNames: WifiNames,
     ) : ViewModel() {
+        private val wifiPermission = MutableStateFlow(wifiNames.hasPermission())
+
         private val devices = registry.devices
 
         val state: StateFlow<RemoteServerUiState> =
@@ -59,6 +71,9 @@ class RemoteServerViewModel
             }.combine(devices.pairing) { state, code -> state.copy(pairing = code) }
                 .combine(devices.devices) { state, list -> state.copy(devices = list) }
                 .combine(settings.allowWifi) { state, wifi -> state.copy(allowWifi = wifi) }
+                .combine(settings.trustedWifi) { state, list -> state.copy(trustedWifi = list.sorted()) }
+                .combine(wifiNames.current) { state, name -> state.copy(currentWifi = name) }
+                .combine(wifiPermission) { state, granted -> state.copy(wifiNamePermission = granted) }
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RemoteServerUiState(available = control.isAvailable))
 
         private var expiry: Job? = null
@@ -89,6 +104,21 @@ class RemoteServerViewModel
 
         fun setAllowWifi(enabled: Boolean) {
             viewModelScope.launch { settings.setAllowWifi(enabled) }
+        }
+
+        fun addTrustedWifi(name: String) {
+            viewModelScope.launch { settings.addTrustedWifi(name) }
+        }
+
+        fun removeTrustedWifi(name: String) {
+            viewModelScope.launch { settings.removeTrustedWifi(name) }
+        }
+
+        /** After the permission dialog or on resume: start reading Wi-Fi names if it was granted. */
+        fun refreshWifiPermission() {
+            val granted = wifiNames.hasPermission()
+            wifiPermission.value = granted
+            if (granted) wifiNames.ensureRegistered()
         }
 
         /** Shows a new code; it disappears when used, after five minutes, or with [cancelPairing]. */
