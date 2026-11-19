@@ -51,11 +51,15 @@ class SystemStatusSource
             val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
             val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
             val plugged = battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0
+            // Tenths of a degree Celsius; Int.MIN_VALUE when the extra is missing.
+            val tenthsC = battery?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE) ?: Int.MIN_VALUE
             val route = routes.activeRoute.value
             return SystemStatus(
                 batteryPercent = if (level >= 0 && scale > 0) level * 100 / scale else null,
                 charging = plugged != 0,
                 thermalStatus = SystemStatus.thermalName(thermal),
+                thermalCode = thermal,
+                batteryTempC = if (tenthsC == Int.MIN_VALUE) null else tenthsC / 10f,
                 audioRouteType = route.type.name,
                 audioRouteName = route.name,
             )

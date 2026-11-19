@@ -99,6 +99,12 @@ class PlaybackRemoteApi(
         }
     }
 
+    /** Module 11, F1 (very hot): stops whatever plays, on both sources. */
+    suspend fun pauseAll() =
+        onMain {
+            listOf(player, spotify).forEach { if (it.unavailableReason() == null && it.isPlaying()) it.pause() }
+        }
+
     /** For the feed's play-all: the built-in player becomes the active source, Spotify is paused. */
     suspend fun usePlayer() =
         onMain {

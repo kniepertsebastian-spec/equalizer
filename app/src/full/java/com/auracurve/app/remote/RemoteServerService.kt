@@ -23,6 +23,7 @@ import androidx.lifecycle.lifecycleScope
 import com.auracurve.app.BuildConfig
 import com.auracurve.app.MainActivity
 import com.auracurve.app.R
+import com.auracurve.app.car.ProtectionLevel
 import com.auracurve.app.diagnostics.DiagnosticsRecorder
 import com.auracurve.app.discovery.DiscoveryRepository
 import com.auracurve.app.discovery.DiscoveryUpdater
@@ -55,9 +56,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -116,6 +119,9 @@ class RemoteServerService : LifecycleService() {
     lateinit var ignitionMonitor: IgnitionMonitor
 
     @Inject
+    lateinit var protectionMonitor: CarProtectionMonitor
+
+    @Inject
     lateinit var spectrum: SpectrumHub
 
     @Inject
@@ -162,6 +168,7 @@ class RemoteServerService : LifecycleService() {
             online = ::hasInternet,
             playQueue = { playerController.playQueue(it, 0) },
             scope = lifecycleScope,
+            paused = { protectionMonitor.state.value.pauseBackground },
         )
     }
 
@@ -279,6 +286,8 @@ class RemoteServerService : LifecycleService() {
     }
 
     private suspend fun catchUp() {
+        // Module 11, F1: too hot; the catch-up runs when the protection ends (see onCreate).
+        if (protectionMonitor.state.value.pauseBackground) return
         Log.i(SYNC_TAG, "Online: catching up library, web remote and feed")
         syncTimes.markOnline()
         runCatching { libraryApi.syncIfDue() }.onFailure { Log.w(SYNC_TAG, "Library: ${it.javaClass.simpleName}") }
@@ -296,8 +305,14 @@ class RemoteServerService : LifecycleService() {
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
-    private fun systemStatus(): SystemStatus =
-        statusSource.current().copy(activeSource = playbackApi.activeSource.value.name, ignition = ignitionMonitor.state.value)
+    private fun systemStatus(): SystemStatus = withLiveState(statusSource.current())
+
+    private fun withLiveState(status: SystemStatus): SystemStatus =
+        status.copy(
+            activeSource = playbackApi.activeSource.value.name,
+            ignition = ignitionMonitor.state.value,
+            protection = protectionMonitor.state.value,
+        )
 
     private var server: EmbeddedServer<*, *>? = null
 
@@ -370,18 +385,24 @@ class RemoteServerService : LifecycleService() {
             launch {
                 // At home in the Wi-Fi the copy renews itself; in the car (no internet) nothing happens.
                 while (true) {
-                    runCatching { libraryApi.syncIfDue() }.onFailure { Log.w(TAG, "Library sync check failed", it) }
+                    if (!protectionMonitor.state.value.pauseBackground) {
+                        runCatching {
+                            libraryApi.syncIfDue()
+                        }.onFailure { Log.w(TAG, "Library sync check failed", it) }
+                    }
                     delay(LIBRARY_CHECK_PERIOD)
                 }
             }
             launch {
                 // Module 10: a newer web remote while online (at most hourly); offline nothing changes.
                 while (true) {
-                    runCatching { webUpdater.updateIfDue() }.onFailure {
-                        Log.w(
-                            WEB_BUNDLE_TAG,
-                            "Web bundle check failed: ${it.javaClass.simpleName}",
-                        )
+                    if (!protectionMonitor.state.value.pauseBackground) {
+                        runCatching { webUpdater.updateIfDue() }.onFailure {
+                            Log.w(
+                                WEB_BUNDLE_TAG,
+                                "Web bundle check failed: ${it.javaClass.simpleName}",
+                            )
+                        }
                     }
                     delay(LIBRARY_CHECK_PERIOD)
                 }
@@ -399,11 +420,26 @@ class RemoteServerService : LifecycleService() {
             launch { spectrum.run { events.tryEmit(it) } }
             launch {
                 statusSource.changes().drop(1).throttleLatest(5.seconds).collect {
-                    val status = it.copy(activeSource = playbackApi.activeSource.value.name, ignition = ignitionMonitor.state.value)
-                    events.tryEmit(RemoteEvent("system.changed", status.toJson()))
+                    events.tryEmit(RemoteEvent("system.changed", withLiveState(it).toJson()))
                 }
             }
             launch { ignitionMonitor.run() }
+            launch { protectionMonitor.run() }
+            launch {
+                // Module 11, F1: tell the remote at once; act on the steps.
+                protectionMonitor.state.drop(1).collect { protection ->
+                    events.tryEmit(RemoteEvent("protection", SystemStatus.protectionJson(protection)))
+                    if (protection.level >= ProtectionLevel.CRITICAL) {
+                        runCatching { playbackApi.pauseAll() }.onFailure { Log.w(TAG, "Heat: pause failed", it) }
+                    }
+                }
+            }
+            launch {
+                // Back from "too hot": what was skipped runs now, without a restart.
+                protectionMonitor.state.map { it.pauseBackground }.distinctUntilChanged().drop(1).collect { paused ->
+                    if (!paused && hasInternet()) catchUp()
+                }
+            }
             launch {
                 // Module 11, F2: at once (not throttled), only real changes - not the first state.
                 ignitionMonitor.state.filterNotNull().drop(1).collect {

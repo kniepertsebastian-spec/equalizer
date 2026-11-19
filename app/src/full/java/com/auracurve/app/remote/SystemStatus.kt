@@ -1,6 +1,7 @@
 package com.auracurve.app.remote
 
 import com.auracurve.app.car.Ignition
+import com.auracurve.app.car.Protection
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -24,12 +25,19 @@ data class SystemStatus(
     val mode: String = "CAR",
     /** Module 11, F2: car on/off; null while not known yet. */
     val ignition: Ignition? = null,
+    /** Battery temperature in °C (module 11, F1); null if unknown. */
+    val batteryTempC: Float? = null,
+    /** PowerManager.THERMAL_STATUS_* as a number, for the F1 rules; [thermalStatus] is its name. */
+    val thermalCode: Int = 0,
+    /** Module 11, F1: heat and battery protection; null while not known yet. */
+    val protection: Protection? = null,
 ) {
     fun toJson(): JsonObject =
         buildJsonObject {
             putJsonObject("battery") {
                 put("percent", batteryPercent)
                 put("charging", charging)
+                put("temperatureC", batteryTempC)
             }
             putJsonObject("thermal") { put("status", thermalStatus) }
             putJsonObject("audioRoute") {
@@ -40,6 +48,7 @@ data class SystemStatus(
             put("activeSource", activeSource)
             put("mode", mode)
             if (ignition == null) put("ignition", null as String?) else put("ignition", ignitionJson(ignition))
+            if (protection == null) put("protection", null as String?) else put("protection", protectionJson(protection))
         }
 
     companion object {
@@ -52,6 +61,14 @@ data class SystemStatus(
                 put("state", ignition.state.name)
                 put("since", ISO.format(Instant.ofEpochMilli(ignition.sinceMs).atZone(zone)))
                 put("source", ignition.source.name)
+            }
+
+        /** `protection` in `system/status` and the payload of the `protection` event. */
+        fun protectionJson(protection: Protection): JsonObject =
+            buildJsonObject {
+                put("level", protection.level.name)
+                put("standby", protection.standby)
+                put("pauseBackground", protection.pauseBackground)
             }
 
         private val ISO: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")
