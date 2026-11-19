@@ -108,6 +108,15 @@ class FeedRemoteApiTest {
         }
 
     @Test
+    fun `the heat protection refuses a pull`() =
+        runTest {
+            assertEquals(
+                "HEAT_PROTECTION",
+                errorCode { FeedRemoteApi(FakeRepository(state), { RefreshResult.Skipped }, { true }, {}, this, paused = { true }).pull() },
+            )
+        }
+
+    @Test
     fun `offline and a running pull are refused, a hanging pull times out`() =
         runTest {
             assertEquals(

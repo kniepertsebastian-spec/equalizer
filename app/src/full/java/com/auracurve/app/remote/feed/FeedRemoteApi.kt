@@ -41,6 +41,8 @@ class FeedRemoteApi(
     private val online: () -> Boolean,
     private val playQueue: (List<TrackItem>) -> Unit,
     private val scope: CoroutineScope,
+    /** Module 11, F1: true while the heat/battery protection pauses background work. */
+    private val paused: () -> Boolean = { false },
     private val timeoutMs: Long = PULL_TIMEOUT_MS,
     private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
@@ -55,6 +57,7 @@ class FeedRemoteApi(
     /** Starts a pull and returns at once (202); the result comes as feed.updated. */
     fun pull() {
         if (!online()) throw ApiError(HttpStatusCode.Conflict, "OFFLINE", "Keine Internetverbindung")
+        if (paused()) throw ApiError(HttpStatusCode.Conflict, "HEAT_PROTECTION", "Das Pixel ist zu heiß, Hintergrundaufgaben pausieren")
         if (!pulling.compareAndSet(false, true)) throw ApiError(HttpStatusCode.Conflict, "BUSY", "Der Feed wird schon abgerufen")
         scope.launch {
             val event =
