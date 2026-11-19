@@ -72,10 +72,18 @@ class WebBundleUpdater(
         if (last != null && clock() - last < gap) return Result.NotDue
         if (!online()) return Result.Offline
         lastCheckMs = clock()
-        return update().also {
-            onChecked()
-            log("Web bundle: $it")
-        }
+        val result =
+            try {
+                update()
+            } catch (e: Exception) {
+                // A failed check (no DNS, timeout) does not count: the next turn tries again
+                // instead of waiting an hour (device test 18 Nov 2026: UnknownHostException).
+                lastCheckMs = last
+                throw e
+            }
+        onChecked()
+        log("Web bundle: $result")
+        return result
     }
 
     private suspend fun update(): Result {
