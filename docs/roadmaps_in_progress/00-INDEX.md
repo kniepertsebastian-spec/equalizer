@@ -24,8 +24,10 @@
 5. [05-phase-3-player-redesign-plan-und-freigabe.md](05-phase-3-player-redesign-plan-und-freigabe.md)
 6. [06-phase-5-und-6-neue-funktionen-wartbarkeit.md](06-phase-5-und-6-neue-funktionen-wartbarkeit.md)
 7. [07-laermabhaengiger-eq-messluecken.md](07-laermabhaengiger-eq-messluecken.md) – Lärm-EQ (PoC), gehört zu EQ-remote Modul 11 F12
-9. [09-player-float-pipeline-und-punch.md](09-player-float-pipeline-und-punch.md) – 32-Bit-Float-Kette, Soft-Clipper, Limiter-Abstimmung (umgesetzt, Gerätetest offen)
 8. [08-player-lautheit-und-eq-paritaet.md](08-player-lautheit-und-eq-paritaet.md) – Player-Lautheit, manuelle Slider und A/B-Vergleich im eigenen Player
+9. [09-player-float-pipeline-und-punch.md](09-player-float-pipeline-und-punch.md) – 32-Bit-Float-Kette, Soft-Clipper, Limiter-Abstimmung (umgesetzt, Gerätetest offen)
+10. [12-release-r8-und-sicherheits-audit.md](12-release-r8-und-sicherheits-audit.md) – R8/Resource-Shrinking, Network-Security-Config, Gradle-/Git-Hygiene, Sicherheits-/a11y-Nach-Audit (umgesetzt, Gerätetest offen)
+11. [13-system-eq-bassqualitaet-mbc-posteq.md](13-system-eq-bassqualitaet-mbc-posteq.md) – 5-Band-MBC, PreEQ/PostEQ-Split, Pre-Ringing-Schutz (umgesetzt, Gerätetest/Hörprobe offen)
 
 Zusätzlich: Roadmap-Reihe **AuraCurve** (Rebranding, SoundCloud-Anfrage, Store-Release) in [`auracurve/`](auracurve/00-uebersicht-und-leitplanken.md).
 

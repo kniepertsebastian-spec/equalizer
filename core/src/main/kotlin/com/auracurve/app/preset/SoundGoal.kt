@@ -56,6 +56,27 @@ enum class SoundGoal(
             TargetPoint(12000f, -1.0f),
         ),
     ),
+
+    // Roadmap 13, P13-4: for very strong bass (+8 to +15 dB) - the vocals stay free. A mud dip at
+    // 200-300 Hz, a little less sibilance around 4.5 kHz and a gentle air lift from 10 kHz up, which
+    // the post-EQ (PostEqSplit) keeps behind the compressor so it is not flattened again.
+    CLEAR_BASS(
+        "goal_clear_bass",
+        listOf(
+            TargetPoint(130f, 0f),
+            TargetPoint(200f, -1.5f),
+            TargetPoint(260f, -3.0f),
+            TargetPoint(330f, -1.5f),
+            TargetPoint(450f, 0f),
+            TargetPoint(3200f, 0f),
+            TargetPoint(4500f, -1.0f),
+            TargetPoint(6500f, 0f),
+            TargetPoint(10000f, 1.0f),
+            TargetPoint(13000f, 2.0f),
+            TargetPoint(16000f, 2.0f),
+        ),
+    ),
+
     LESS_BASS(
         "goal_less_bass",
         listOf(
