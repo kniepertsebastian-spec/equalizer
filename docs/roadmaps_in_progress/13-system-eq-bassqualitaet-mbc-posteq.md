@@ -78,3 +78,55 @@ In `AndroidAudioEngine.kt` (`303-431`) liegen vier konkrete Qualitätsbremsen be
 - [ ] **Gerätetest & Hörprobe (Spotify + Kopfhörer + Auto/BT-Box):**
   - Diagnostik-Screen bestätigt `hasMbc = true`, 5 MBC-Bänder und (sofern vom Gerät unterstützt) aktives `PostEQ`.
   - Basslastiger Track (Hardstyle / DnB / Uptempo) bei `+10 bis +12 dB` Bass: Vocals pumpen bei Kicks nicht mehr weg, Hi-Hats bleiben sauber, kein hohles Pre-Echo vor Kicks.
+
+---
+
+## Umsetzungsstand (23.11.2026)
+
+### P13-1 – 5-Band-MBC
+- `MBC_BAND_COUNT = 5`, Rückfall auf 4. `MbcTuning` (in `AndroidAudioEngine.kt`, testbar ohne Gerät):
+  50 / 135 / 350 / 3000 / 20000 Hz mit den Werten der Roadmap (Sub 28/170 ms, `min(r, 3,5)`, +3 dB,
+  Knie 10 · Kick 20/100 ms, `min(r, 4)`, Knie 8 · Mud 13/100 ms, `1 + (r−1)·0,55`, Makeup ·0,35 ·
+  Vocals `≤ 1,8:1`, +4 dB, Makeup ·0,25 · Air `≤ 1,6:1`, +4 dB, Makeup ·0,2). Nicht vorgegebene Werte:
+  Vocals-Attack 10 ms / Release 110 ms, Knie 8 dB für Vocals und Air.
+- Der 4-Band-Rückfall behält seine Trennfrequenzen (45/130/1500/20000), bekommt aber dieselbe
+  Ratio-Staffelung (Mitten-Band zwischen Mud- und Vocal-Ratio).
+- End-Limiter unverändert (2 ms, Ratio 10, 120 ms Release, Schwelle aus dem Preset).
+
+### P13-2 – PreEQ → MBC → PostEQ
+- `DynamicsAttempts.order()` (getestet): je Pre-EQ-Raster zuerst `PreEQ + 5-Band-MBC + PostEQ`, dann
+  5 Bänder, 4 Bänder, ohne MBC; danach dieselben MBC-Stufen ohne Pre-EQ.
+- **Entscheidung:** Der PostEQ nutzt das Raster des PreEQ (34 bzw. 16 Bänder) statt 10–16 eigener
+  Bänder. Nur so ist `pre + post` pro Band exakt die bisherige Kurve – Frequenzgang und der
+  Headroom, den der Eingangsgain dafür reserviert, bleiben gleich (P13-2, Punkt 3).
+- `PostEqSplit` (in `PreEqMapper.kt`): hinter den MBC wandern ein gedeckelter Anteil (35 %, max.
+  4 dB) von Bass-Anhebungen bis 150 Hz (bis 250 Hz ausgeblendet) und die Air-Anhebung ab 6–10 kHz
+  (max. 6 dB). Absenkungen (Subsonic, Mud-Dip, Korrektur-Dips) und Mitten bleiben vor dem MBC.
+- Die Aufteilung arbeitet auf den fertigen Bandwerten, nicht getrennt nach Kurvenquelle: eine
+  positive AutoEQ-Korrektur im Air-Bereich läuft also ebenfalls hinter dem MBC.
+- `preEqUnavailableReason` meldet nur noch Pre-EQ-Raster, die gar nicht liefen; ein abgelehnter
+  PostEQ oder 5-Band-MBC beim laufenden Raster sperrt den Hochauflösungs-EQ nicht mehr.
+
+### P13-3 – Pre-Ringing-Schutz
+- `PreEqSlopeLimiter`: höchstens 5 dB Sprung zwischen Nachbarbändern unterhalb 250 Hz, symmetrisch
+  (beide Seiten gehen aufeinander zu), in allen Modi. Ein 12-dB/Oktave-Subsonic passiert
+  unverändert; ein +12-dB-Spike in `PRECISE` wird begrenzt. Die bisherigen E-008-Goldens änderten
+  sich dadurch nicht.
+
+### P13-4 – Kontur & Checkliste
+- Neues Klangziel **„Clear bass“** (Mud-Dip −3 dB bei 260 Hz, −1 dB bei 4,5 kHz, +2 dB ab 13 kHz).
+  Die bassstarken Presets hatten Mud-Dips und Subsonic (über Kontext-Modi) bereits.
+- `docs/BASS_QUALITY_CHECKLIST.md`: Spotify, Hersteller-Apps, Bluetooth-Codec, Diagnose-Zeilen.
+- Diagnose-Bericht: `MBC Bands: n`, `Post-EQ: 34-band / not in use`.
+
+### Tests
+- Neu: `DynamicsProtectionTest` (Reihenfolge, Rückfall, Ratios/Attacks/Thresholds, Reason),
+  `PreEqSlopeAndSplitTest`, `SoundGoalTest`, `DiagnosticsReportFormatterTest`.
+- Lokal: `ktlintCheck`, `:core:test`, `testStoreDebugUnitTest`, `testFullDebugUnitTest` grün bis auf
+  Robolectric-Klassen, die hier ihr `android-all`-Artefakt nicht laden können (Netz) – Nachweis
+  über die CI.
+
+### Offen (nur am Gerät)
+1. Diagnose bestätigt `MBC Bands: 5` und (falls unterstützt) `Post-EQ: 34-band`.
+2. Hörprobe Hardstyle/DnB/Uptempo mit +10 bis +12 dB Bass: kein Vocal-Pumpen, saubere Hi-Hats,
+   kein Pre-Echo. Ggf. Bass-Anteil des PostEQ (35 %, 4 dB) nachstimmen.
