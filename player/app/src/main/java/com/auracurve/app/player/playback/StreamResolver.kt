@@ -12,10 +12,11 @@ data class ResolvedStream(
 
 fun interface StreamResolver {
     /**
-     * Looks up the stream of [trackId]. Blocks on the network, so it runs on a thread of its
-     * own. Throws an IOException when there is no stream; a lost connection keeps its cause
+     * Looks up the stream of [trackId]. Suspends while it waits for the network, so a lookup
+     * that is no longer needed (the user skipped on) can be cancelled instead of holding a
+     * thread. Throws an IOException when there is no stream; a lost connection keeps its cause
      * (unknown host, timeout ...), which is how the player tells "offline" from "unplayable".
      */
     @Throws(IOException::class)
-    fun resolve(trackId: Long): ResolvedStream
+    suspend fun resolve(trackId: Long): ResolvedStream
 }

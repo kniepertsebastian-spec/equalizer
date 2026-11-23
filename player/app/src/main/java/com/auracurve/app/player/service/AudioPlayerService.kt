@@ -33,7 +33,9 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.LibraryResult
 import androidx.media3.session.MediaLibraryService
 import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionError
+import androidx.media3.session.SessionResult
 import com.auracurve.app.auto.AutoMediaId
 import com.auracurve.app.playback.SleepTimerSetting
 import com.auracurve.app.player.PlayerLaunch
@@ -226,8 +228,7 @@ class AudioPlayerService : MediaLibraryService() {
 
     override fun onCreate() {
         super.onCreate()
-        PlayerDspState.load(this)
-        PlaybackFadeState.load(this)
+        loadSavedSettings()
         setMediaNotificationProvider(
             DefaultMediaNotificationProvider
                 .Builder(this)
@@ -259,6 +260,20 @@ class AudioPlayerService : MediaLibraryService() {
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = session
+
+    // The saved DSP switches and fade length come from SharedPreferences: read off the main thread
+    // so a cold start does not wait on the disk (StrictMode DiskReadViolation, ANR risk). Until
+    // then the player runs on the safe defaults (mono bass and limiter on, no fade);
+    // PlayerDspAudioProcessor reads PlayerDspState per buffer and follows the loaded values by
+    // itself, the fade ticker is restarted once the saved length is known.
+    private fun loadSavedSettings() {
+        val appContext = applicationContext
+        libraryScope.launch(Dispatchers.IO) {
+            PlayerDspState.load(appContext)
+            PlaybackFadeState.load(appContext)
+            mainHandler.post { startFadeTicker() }
+        }
+    }
 
     private fun buildPlayer(): ExoPlayer {
         val factory =
@@ -839,6 +854,42 @@ class AudioPlayerService : MediaLibraryService() {
     // --- Android Auto: browsing the app's lists and "play this" ------------------------------
 
     private inner class LibraryCallback : MediaLibrarySession.Callback {
+        // This app's own controllers (PlayerSessionCommands: the master bar, widgets, the remote
+        // server) may also stop the player and toggle it the way the screens' intents do. The
+        // service is exported for the car and the system: other apps do not get these commands.
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): MediaSession.ConnectionResult {
+            val result = super.onConnect(session, controller)
+            if (!result.isAccepted || controller.uid != Process.myUid()) return result
+            val commands =
+                result.availableSessionCommands
+                    .buildUpon()
+                    .apply { PlayerSessionCommands.COMMANDS.forEach { add(SessionCommand(it, Bundle.EMPTY)) } }
+                    .build()
+            return MediaSession.ConnectionResult
+                .AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(commands)
+                .setAvailablePlayerCommands(result.availablePlayerCommands)
+                .build()
+        }
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: Bundle,
+        ): ListenableFuture<SessionResult> {
+            val exoPlayer = player
+            val action = customCommand.customAction
+            if (exoPlayer == null || controller.uid != Process.myUid() || action !in PlayerSessionCommands.COMMANDS) {
+                return Futures.immediateFuture(SessionResult(SessionError.ERROR_NOT_SUPPORTED))
+            }
+            handleCommand(exoPlayer, Intent(action))
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
+
         override fun onGetLibraryRoot(
             session: MediaLibrarySession,
             browser: MediaSession.ControllerInfo,
