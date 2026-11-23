@@ -5,7 +5,7 @@ import kotlin.math.pow
 
 // The player's whole audio chain, independent of the sample format, in one floating-point pass:
 // 1. target curve and subsonic high-pass (CurveEqualizer), whose pre-gain makes room
-//    for the strongest boost,
+//    for a share of the strongest boost (all of it while the limiter is off, roadmap 08),
 // 2. virtual bass (BassExciter) - after the pre-gain, so its harmonics fit in,
 // 3. mono bass (stereo only),
 // 4. output drive (0 to +4 dB make-up gain, roadmap 09 P9-3),
@@ -55,6 +55,12 @@ class PlayerDspChain {
     private var exciters: List<BassExciter> = emptyList()
     private var exciterSettings = BassExciterSettings()
 
+    // The curve as last handed in; set again on the equalizer when the limiter is switched,
+    // because the headroom it may leave out depends on it (roadmap 08).
+    private var curve: List<TargetPoint> = emptyList()
+    private var subsonicCutoffHz = 0f
+    private var headroomSafetyRatio = CurveEqualizer.DEFAULT_HEADROOM_SAFETY_RATIO
+
     // Which stages run for the current buffer, decided once per buffer in beginBuffer().
     private var rate = 0f
     private var curveActive = false
@@ -77,7 +83,9 @@ class PlayerDspChain {
     fun updateSettings(newSettings: PlayerDspSettings) {
         // A limiter that was off holds stale samples: start it fresh.
         if (newSettings.limiterEnabled && !settings.limiterEnabled) limiter.reset()
+        val limiterSwitched = newSettings.limiterEnabled != settings.limiterEnabled
         settings = newSettings
+        if (limiterSwitched) applyCurve()
         driveGain =
             dbToGain(newSettings.outputDriveDb.coerceIn(PlayerDspSettings.MIN_OUTPUT_DRIVE_DB, PlayerDspSettings.MAX_OUTPUT_DRIVE_DB))
         monoSummer.updateSettings(
@@ -85,12 +93,26 @@ class PlayerDspChain {
         )
     }
 
-    /** The exact target curve (without the subsonic cut) and the subsonic cutoff; empty and 0 = off. */
+    /**
+     * The exact target curve (without the subsonic cut) and the subsonic cutoff; empty and 0 = off.
+     * [headroomSafetyRatio] is the share of the strongest boost the curve's pre-gain takes back
+     * (see CurveEqualizer); the soft clipper and the safety ceiling catch the rest. With the
+     * limiter off nothing would, so then the whole boost is taken back and the curve can never clip.
+     */
     fun updateCurve(
         curve: List<TargetPoint>,
         subsonicCutoffHz: Float,
+        headroomSafetyRatio: Float = CurveEqualizer.DEFAULT_HEADROOM_SAFETY_RATIO,
     ) {
-        curveEqualizer.setCurve(curve, subsonicCutoffHz)
+        this.curve = curve
+        this.subsonicCutoffHz = subsonicCutoffHz
+        this.headroomSafetyRatio = headroomSafetyRatio
+        applyCurve()
+    }
+
+    private fun applyCurve() {
+        val ratio = if (settings.limiterEnabled) headroomSafetyRatio else 1f
+        curveEqualizer.setCurve(curve, subsonicCutoffHz, ratio)
     }
 
     /** Virtual bass amount, 0 = off, 1 = full. */
