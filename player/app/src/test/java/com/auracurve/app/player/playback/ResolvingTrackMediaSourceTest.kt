@@ -17,6 +17,11 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.auracurve.app.player.model.TrackItem
 import com.auracurve.app.playlist.QueueMediaId
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -27,9 +32,8 @@ import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
 import java.io.IOException
 import java.util.Collections
-import java.util.concurrent.AbstractExecutorService
-import java.util.concurrent.RejectedExecutionException
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 // The play queue with a real ExoPlayer (fake renderers and clock): stream addresses are looked
 // up only when ExoPlayer loads an entry - the playing track and, while it plays, the next one.
@@ -42,6 +46,9 @@ class ResolvingTrackMediaSourceTest {
     private val streams = RecordingStreamFactory()
     private lateinit var player: ExoPlayer
 
+    // What a lookup does once it is counted; a test may make it wait (see waitForRelease).
+    private var lookupBody: suspend (Long) -> ResolvedStream = ::answerAtOnce
+
     @Before
     fun setUp() {
         val factory =
@@ -49,15 +56,14 @@ class ResolvingTrackMediaSourceTest {
                 delegate = streams,
                 resolver = { trackId ->
                     lookups.add(trackId)
-                    if (trackId in failingIds) throw IOException("no stream for $trackId")
-                    ResolvedStream(url = streamUrl(trackId), isHls = trackId in hlsIds, isPreview = false)
+                    lookupBody(trackId)
                 },
                 onResolved = { _, _ -> },
                 // In the service lookups run on their own threads, outside the fake clock: the
                 // clock would move on while one is still running, and how far it got would depend
-                // on the machine. Here a lookup runs at once, and its answer still reaches the
-                // playback thread as a message, as in the app.
-                lookups = ImmediateExecutorService(),
+                // on the machine. Here a lookup runs at once (until it has to wait), and its answer
+                // still reaches the playback thread as a message, as in the app.
+                lookupContext = Dispatchers.Unconfined,
             )
         player =
             TestExoPlayerBuilder(ApplicationProvider.getApplicationContext())
@@ -198,6 +204,121 @@ class ResolvingTrackMediaSourceTest {
         assertEquals("Track 7", current?.mediaMetadata?.title.toString())
     }
 
+    @Test
+    fun skippingQuicklyThroughTheQueue_cancelsTheStaleLookups_andRunsAtMostTwoAtOnce() {
+        // Every lookup hangs (a slow or dead connection) until the test lets it answer.
+        val released = ConcurrentHashMap<Long, CompletableDeferred<Unit>>()
+        val running = AtomicInteger()
+        val mostAtOnce = AtomicInteger()
+        val cancelled: MutableList<Long> = Collections.synchronizedList(mutableListOf())
+        lookupBody = { trackId ->
+            mostAtOnce.accumulateAndGet(running.incrementAndGet(), ::maxOf)
+            try {
+                released.getOrPut(trackId) { CompletableDeferred() }.await()
+                answerAtOnce(trackId)
+            } catch (e: CancellationException) {
+                cancelled.add(trackId)
+                throw e
+            } finally {
+                running.decrementAndGet()
+            }
+        }
+        player.setMediaItems(queue(*(1L..12L).toList().toLongArray()))
+        player.prepare()
+        player.play()
+        run(player).untilPendingCommandsAreFullyHandled()
+
+        repeat(10) {
+            player.seekToNextMediaItem()
+            run(player).untilPendingCommandsAreFullyHandled()
+        }
+
+        // Track 11 is due; every track skipped past had its lookup cancelled, none got a stream.
+        assertEquals(10, player.currentMediaItemIndex)
+        assertEquals((1L..11L).toList(), lookups.toList())
+        assertEquals((1L..10L).toList(), cancelled.toList())
+        assertTrue("at most two lookups at once, was ${mostAtOnce.get()}", mostAtOnce.get() <= 2)
+        assertEquals(1, running.get())
+        assertTrue(streams.created.isEmpty())
+
+        // Its answer arrives: it plays, and the queue runs on from there.
+        lookupBody = ::answerAtOnce
+        released.getValue(11L).complete(Unit)
+        run(player).untilState(Player.STATE_ENDED)
+
+        assertEquals(listOf(streamUrl(11), streamUrl(12)), streams.createdUris())
+        assertTrue(mostAtOnce.get() <= ResolvingTrackMediaSourceFactory.MAX_ACTIVE_LOOKUPS)
+    }
+
+    @Test
+    fun hangingLookupsThatIgnoreCancellation_neverRunMoreThanTwoAtOnce() {
+        // A dead connection inside a blocking call: cancelling does not stop it, it keeps its slot
+        // until the call gives up. Later entries wait for a slot instead of piling up threads.
+        val released = ConcurrentHashMap<Long, CompletableDeferred<Unit>>()
+        val running = AtomicInteger()
+        val mostAtOnce = AtomicInteger()
+        lookupBody = { trackId ->
+            mostAtOnce.accumulateAndGet(running.incrementAndGet(), ::maxOf)
+            try {
+                withContext(NonCancellable) { released.getOrPut(trackId) { CompletableDeferred() }.await() }
+                answerAtOnce(trackId)
+            } finally {
+                running.decrementAndGet()
+            }
+        }
+        player.setMediaItems(queue(*(1L..12L).toList().toLongArray()))
+        player.prepare()
+        player.play()
+        run(player).untilPendingCommandsAreFullyHandled()
+        repeat(10) {
+            player.seekToNextMediaItem()
+            run(player).untilPendingCommandsAreFullyHandled()
+        }
+
+        // Tracks 1 and 2 hold both slots; 3 to 10 were skipped past while still waiting for one
+        // and never reached the network, 11 waits.
+        assertEquals(listOf(1L, 2L), lookups.toList())
+        assertEquals(2, mostAtOnce.get())
+
+        // The dead calls give up: their late answers are dropped, track 11 gets its turn and plays.
+        lookupBody = ::answerAtOnce
+        released.getValue(1L).complete(Unit)
+        released.getValue(2L).complete(Unit)
+        run(player).untilState(Player.STATE_ENDED)
+
+        assertEquals(listOf(1L, 2L, 11L, 12L), lookups.toList())
+        assertEquals(listOf(streamUrl(11), streamUrl(12)), streams.createdUris())
+        assertEquals(2, mostAtOnce.get())
+    }
+
+    @Test
+    fun releasingThePlayer_cancelsARunningLookup() {
+        val released = CompletableDeferred<Unit>()
+        val cancelled = AtomicInteger()
+        lookupBody = { trackId ->
+            try {
+                released.await()
+                answerAtOnce(trackId)
+            } catch (e: CancellationException) {
+                cancelled.incrementAndGet()
+                throw e
+            }
+        }
+        player.setMediaItems(queue(1))
+        player.prepare()
+        run(player).untilPendingCommandsAreFullyHandled()
+
+        player.release()
+
+        assertEquals(1, cancelled.get())
+        assertTrue(streams.created.isEmpty())
+    }
+
+    private fun answerAtOnce(trackId: Long): ResolvedStream {
+        if (trackId in failingIds) throw IOException("no stream for $trackId")
+        return ResolvedStream(url = streamUrl(trackId), isHls = trackId in hlsIds, isPreview = false)
+    }
+
     // Each track once, in queue order, and no further than [atMost] tracks into the queue.
     private fun assertLookedUpInQueueOrder(atMost: Int) {
         val looked = lookups.toList()
@@ -236,34 +357,6 @@ class ResolvingTrackMediaSourceTest {
                     .build()
             return FakeMediaSource(FakeTimeline(window), ExoPlayerTestRunner.AUDIO_FORMAT)
         }
-    }
-
-    // Runs each task on the calling thread, at once.
-    private class ImmediateExecutorService : AbstractExecutorService() {
-        @Volatile private var shutdown = false
-
-        override fun execute(command: Runnable) {
-            if (shutdown) throw RejectedExecutionException("shut down")
-            command.run()
-        }
-
-        override fun shutdown() {
-            shutdown = true
-        }
-
-        override fun shutdownNow(): List<Runnable> {
-            shutdown = true
-            return emptyList()
-        }
-
-        override fun isShutdown(): Boolean = shutdown
-
-        override fun isTerminated(): Boolean = shutdown
-
-        override fun awaitTermination(
-            timeout: Long,
-            unit: TimeUnit,
-        ): Boolean = true
     }
 
     private companion object {
