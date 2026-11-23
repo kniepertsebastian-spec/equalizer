@@ -122,12 +122,15 @@ object PreEqMapper {
         }
     }
 
-    // Piecewise linear in log frequency between the delta points, falling to zero
-    // based on the response mode's reach distance.
-    private fun deltaAt(
+    /**
+     * The manual band deltas at [freqHz]: piecewise linear in log frequency between the delta
+     * points, falling to zero based on the response mode's reach distance. [deltas] sorted by
+     * frequency. Also used for the own player's curve, so manual sliders sound the same there.
+     */
+    fun deltaAt(
         freqHz: Float,
         deltas: List<TargetPoint>,
-        responseMode: PreEqResponseMode,
+        responseMode: PreEqResponseMode = PreEqResponseMode.DEFAULT,
     ): Float {
         if (deltas.isEmpty()) return 0f
         val first = deltas.first()

@@ -31,9 +31,18 @@ interface PlayerBridge {
      * The exact target curve (without the subsonic cut) the player's own equalizer follows, and
      * the subsonic high-pass cutoff. An empty curve and 0 switch it off. Other apps' audio is
      * only reachable through the coarser system equalizer.
+     *
+     * [headroomSafetyRatio] (0..1) is the share of the curve's strongest boost the player takes
+     * back before the curve - the same share the system path's input gain uses, so the own player
+     * plays as loud as Spotify & co. with the same preset.
      */
     fun setPlayerCurve(
         curve: List<TargetPoint>,
         subsonicCutoffHz: Float,
+        headroomSafetyRatio: Float = DEFAULT_HEADROOM_SAFETY_RATIO,
     )
+
+    companion object {
+        const val DEFAULT_HEADROOM_SAFETY_RATIO = 0.5f
+    }
 }

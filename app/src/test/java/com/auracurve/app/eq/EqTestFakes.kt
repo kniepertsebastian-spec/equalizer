@@ -107,6 +107,7 @@ class EqFakePlayerBridge : PlayerBridge {
     var lastVirtualBassMix: Float? = null
     var lastPlayerCurve: List<TargetPoint> = emptyList()
     var lastSubsonicCutoffHz: Float = 0f
+    var lastHeadroomSafetyRatio: Float? = null
     var launchCount = 0
     var stopCount = 0
 
@@ -123,9 +124,11 @@ class EqFakePlayerBridge : PlayerBridge {
     override fun setPlayerCurve(
         curve: List<TargetPoint>,
         subsonicCutoffHz: Float,
+        headroomSafetyRatio: Float,
     ) {
         lastPlayerCurve = curve
         lastSubsonicCutoffHz = subsonicCutoffHz
+        lastHeadroomSafetyRatio = headroomSafetyRatio
     }
 
     override fun setVirtualBassMix(mix: Float) {

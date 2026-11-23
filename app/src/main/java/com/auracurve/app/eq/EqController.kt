@@ -1195,18 +1195,19 @@ class EqController
 
         private fun pushToEngine(settings: ProcessingSettings) {
             val compare = _compare.value
+            // While the Original/EQ comparison runs: the gain that matches the loudness of the
+            // side heard (both <= 0 dB, only the louder side is turned down).
+            val plan = compare?.let { LoudnessMatch.plan(CurveCalculator.eqLevelDeltaDb(settings, capabilities.value.bands)) }
             val forEngine =
-                if (compare == null) {
+                if (compare == null || plan == null) {
                     settings
                 } else {
-                    val bands = capabilities.value.bands
-                    val plan = LoudnessMatch.plan(CurveCalculator.eqLevelDeltaDb(settings, bands))
                     when (compare.side) {
                         CompareSide.EQ -> settings.copy(inputGainDb = settings.inputGainDb + plan.eqExtraGainDb)
                         CompareSide.ORIGINAL ->
                             settings.copy(
                                 bypass = false,
-                                bandGainsDb = bands.associate { it.index to 0f },
+                                bandGainsDb = capabilities.value.bands.associate { it.index to 0f },
                                 preEqGainsDb = settings.preEqGainsDb.map { 0f },
                                 inputGainDb = plan.originalGainDb,
                                 limiterEnabled = false,
@@ -1214,13 +1215,22 @@ class EqController
                             )
                     }
                 }
-            // Only the dynamics (MBC, limiter) stay on the system path for the own player.
+            // Only the dynamics (MBC, limiter) stay on the system path for the own player. Its
+            // headroom pre-gain is applied in the player too (CurveEqualizer, same safety ratio),
+            // so the system input gain only carries the comparison's loudness match: on the EQ
+            // side the extra cut on top of the player's pre-gain, on the original side (player
+            // bypassed) the cut of the original.
             val forSystem =
                 if (pcmEqualizerOwnsTheCurve(settings)) {
                     forEngine.copy(
                         bandGainsDb = forEngine.bandGainsDb.mapValues { 0f },
                         preEqGainsDb = forEngine.preEqGainsDb.map { 0f },
-                        inputGainDb = 0f,
+                        inputGainDb =
+                            when (compare?.side) {
+                                null -> 0f
+                                CompareSide.EQ -> plan?.eqExtraGainDb ?: 0f
+                                CompareSide.ORIGINAL -> plan?.originalGainDb ?: 0f
+                            },
                     )
                 } else {
                     forEngine
@@ -1243,14 +1253,26 @@ class EqController
 
         // The player's own PCM equalizer follows the exact curve; the subsonic cut is a real
         // high-pass there, so it travels separately and the curve must not contain it twice.
-        // The macros are not part of the curve either, so they are sampled into it.
+        // The macros are not part of the curve either, so they are sampled into it, and so are
+        // the manual band slider edits - spread exactly as the pre-EQ spreads them, so a slider
+        // sounds the same in the own player as for other apps. The headroom pre-gain takes back
+        // the same share of the boost as the system path's input gain (inputGainSafetyRatio).
         private fun pushPlayerCurve(settings: ProcessingSettings) {
             val active = settings.masterEnabled && !settings.bypass
             if (!active) {
-                playerBridge.setPlayerCurve(emptyList(), 0f)
+                playerBridge.setPlayerCurve(emptyList(), 0f, inputGainSafetyRatio())
                 return
             }
             val curve = combinedCurve(includeSubsonic = false).sortedBy { it.frequencyHz }
+            // The classic band gains were calculated from the curve with the subsonic part, so
+            // the manual edits are measured against that one.
+            val manualDeltas =
+                CurveCalculator.manualDeltas(
+                    combinedCurve(includeSubsonic = true),
+                    settings,
+                    capabilities.value.bands,
+                    settings.bandGainsDb,
+                )
             val sampled =
                 generateSequence(PLAYER_CURVE_MIN_HZ) { it * PLAYER_CURVE_STEP }
                     .takeWhile { it <= PLAYER_CURVE_MAX_HZ }
@@ -1263,10 +1285,10 @@ class EqController
                                 settings.macroBassDb,
                                 settings.macroPunchDb,
                                 settings.macroHaerteDb,
-                            ),
+                            ) + CurveCalculator.manualDeltaDbAt(hz, manualDeltas, settings),
                         )
                     }.toList()
-            playerBridge.setPlayerCurve(sampled, settings.subsonicCutoffHz)
+            playerBridge.setPlayerCurve(sampled, settings.subsonicCutoffHz, inputGainSafetyRatio())
         }
 
         // True while the EQ is bound to this app's own player: its PCM equalizer already
