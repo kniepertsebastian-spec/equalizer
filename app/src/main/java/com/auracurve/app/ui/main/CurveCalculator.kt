@@ -128,27 +128,52 @@ object CurveCalculator {
         val settings = inputs.settings
         val macros = PreEqMacros(settings.macroBassDb, settings.macroPunchDb, settings.macroHaerteDb)
         val curve = combinedCurve(inputs)
+        val deltas = manualDeltas(curve, settings, capabilities.bands, classicBandGainsDb)
+        return PreEqMapper.map(curve, macros, capabilities.preEqCutoffsHz, deltas, responseMode(settings))
+    }
+
+    /**
+     * How far each classic band slider sits from where the curve puts it (the user's manual edits),
+     * as points at the band centres; bands on the curve are left out. [curve] is the combined curve
+     * the classic band gains were calculated from (subsonic included, see [combinedCurve]).
+     */
+    fun manualDeltas(
+        curve: List<TargetPoint>,
+        settings: ProcessingSettings,
+        bands: List<EqualizerBandCapabilities>,
+        classicBandGainsDb: Map<Int, Float>,
+    ): List<TargetPoint> {
         val fromCurve =
             EqualizerInterpolator.interpolateCurveToBands(
                 curve,
-                capabilities.bands,
+                bands,
                 settings.macroBassDb,
                 settings.macroPunchDb,
                 settings.macroHaerteDb,
             )
-        val deltas =
-            capabilities.bands.mapNotNull { band ->
+        return bands
+            .mapNotNull { band ->
                 val delta = (classicBandGainsDb[band.index] ?: 0f) - (fromCurve[band.index] ?: 0f)
                 if (abs(delta) > MANUAL_DELTA_EPSILON_DB) TargetPoint(band.centerFreqHz.toFloat(), delta) else null
-            }
-        val responseMode =
-            try {
-                PreEqResponseMode.valueOf(settings.preEqResponseMode)
-            } catch (e: IllegalArgumentException) {
-                PreEqResponseMode.DEFAULT
-            }
-        return PreEqMapper.map(curve, macros, capabilities.preEqCutoffsHz, deltas, responseMode)
+            }.sortedBy { it.frequencyHz }
     }
+
+    /**
+     * The manual deltas at [frequencyHz], spread towards the neighbours exactly as the pre-EQ spreads
+     * them (PreEqMapper, [ProcessingSettings.preEqResponseMode]); 0 without manual edits.
+     */
+    fun manualDeltaDbAt(
+        frequencyHz: Float,
+        deltas: List<TargetPoint>,
+        settings: ProcessingSettings,
+    ): Float = PreEqMapper.deltaAt(frequencyHz, deltas, responseMode(settings))
+
+    private fun responseMode(settings: ProcessingSettings): PreEqResponseMode =
+        try {
+            PreEqResponseMode.valueOf(settings.preEqResponseMode)
+        } catch (e: IllegalArgumentException) {
+            PreEqResponseMode.DEFAULT
+        }
 
     /**
      * The Original/EQ comparison: how much louder (+) or quieter (-) the EQ side is estimated to be,

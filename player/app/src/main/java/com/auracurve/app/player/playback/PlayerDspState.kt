@@ -2,6 +2,7 @@ package com.auracurve.app.player.playback
 
 import android.content.Context
 import com.auracurve.app.dsp.BassMonoSummerSettings
+import com.auracurve.app.dsp.CurveEqualizer
 import com.auracurve.app.dsp.PlayerDspSettings
 import com.auracurve.app.preset.TargetPoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,9 +11,12 @@ import kotlinx.coroutines.flow.StateFlow
 // The exact target curve and subsonic cutoff the player's equalizer follows (see
 // CurveEqualizer). Set by HardBass EQ's main screen, read on ExoPlayer's playback
 // thread; a new object per update, so the reader can tell a change by identity.
+// headroomSafetyRatio is the share of the curve's strongest boost the player's pre-gain takes
+// back - the same share the system path uses for other apps, so both play equally loud.
 class PlayerCurve(
     val curve: List<TargetPoint>,
     val subsonicCutoffHz: Float,
+    val headroomSafetyRatio: Float = CurveEqualizer.DEFAULT_HEADROOM_SAFETY_RATIO,
 )
 
 object PlayerCurveState {

@@ -8,6 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.log10
 import kotlin.math.sin
 
 class CurveEqualizerTest {
@@ -16,11 +17,16 @@ class CurveEqualizerTest {
     private fun designed(
         curve: List<TargetPoint>,
         cutoffHz: Float = 0f,
+        headroomSafetyRatio: Float = CurveEqualizer.DEFAULT_HEADROOM_SAFETY_RATIO,
     ) = CurveEqualizer().also {
         it.configure(2)
-        it.setCurve(curve, cutoffHz)
+        it.setCurve(curve, cutoffHz, headroomSafetyRatio)
         assertTrue(it.beginBuffer(rate))
     }
+
+    private fun Float.toDb() = 20f * log10(this)
+
+    private val flat12Db = listOf(TargetPoint(20f, 12f), TargetPoint(20_000f, 12f))
 
     @Test
     fun `the chain follows the car and box curves within 1 dB from 40 to 16000 Hz`() {
@@ -55,10 +61,82 @@ class CurveEqualizerTest {
     }
 
     @Test
-    fun `the pre-gain makes room for the strongest boost`() {
-        val equalizer = designed(listOf(TargetPoint(20f, 6f), TargetPoint(20_000f, 6f)))
+    fun `with a ratio of 1 the pre-gain makes room for the whole boost`() {
+        val equalizer = designed(listOf(TargetPoint(20f, 6f), TargetPoint(20_000f, 6f)), headroomSafetyRatio = 1f)
 
         assertTrue("pre-gain was ${equalizer.preGain}", equalizer.preGain < 0.6f)
+    }
+
+    @Test
+    fun `the pre-gain takes back the safety ratio's share of a 12 dB boost`() {
+        assertEquals(-12f, CurveEqualizer.preGainDb(12f, 1f), 1e-4f)
+        assertEquals(-6f, CurveEqualizer.preGainDb(12f, 0.5f), 1e-4f)
+        assertEquals(-9.6f, CurveEqualizer.preGainDb(12f, 0.8f), 1e-4f)
+        assertEquals(0f, CurveEqualizer.preGainDb(12f, 0f))
+        // Out of range ratios are clamped; a cut needs no headroom.
+        assertEquals(-12f, CurveEqualizer.preGainDb(12f, 2f), 1e-4f)
+        assertEquals(0f, CurveEqualizer.preGainDb(-6f, 0.5f))
+    }
+
+    @Test
+    fun `the designed chain's pre-gain follows the safety ratio`() {
+        val full = designed(flat12Db, headroomSafetyRatio = 1f).preGain.toDb()
+        assertEquals("the whole chain peaks at about +12 dB", -12f, full, 0.5f)
+
+        assertEquals(full * 0.5f, designed(flat12Db, headroomSafetyRatio = 0.5f).preGain.toDb(), 1e-3f)
+        assertEquals(full * 0.8f, designed(flat12Db, headroomSafetyRatio = 0.8f).preGain.toDb(), 1e-3f)
+        assertEquals(1f, designed(flat12Db, headroomSafetyRatio = 0f).preGain, 0f)
+        assertEquals("default", full * 0.5f, designed(flat12Db).preGain.toDb(), 1e-3f)
+    }
+
+    @Test
+    fun `a new safety ratio glides instead of jumping`() {
+        // Headphones (0.5) to a Bluetooth box (0.8): same curve, 3.6 dB more cut.
+        val equalizer = designed(flat12Db, headroomSafetyRatio = 0.5f)
+        val before = equalizer.appliedGain
+        equalizer.setCurve(flat12Db, 0f, 0.8f)
+        assertTrue(equalizer.beginBuffer(rate))
+        equalizer.process(0, 0f)
+        equalizer.endFrame()
+
+        val afterOneFrame = equalizer.appliedGain
+        assertTrue("jumped from $before to $afterOneFrame", before - afterOneFrame < 0.01f)
+        assertTrue("the target is lower", equalizer.preGain < before - 0.1f)
+        repeat(4_800) { equalizer.endFrame() }
+        assertEquals(equalizer.preGain, equalizer.appliedGain, 1e-6f)
+    }
+
+    @Test
+    fun `with the limiter off the player takes back the whole boost so nothing clips`() {
+        fun peakOut(limiterEnabled: Boolean): Int {
+            val dsp = PlayerDspPcm16()
+            dsp.configure(2)
+            dsp.updateSettings(PlayerDspSettings(monoBassEnabled = false, limiterEnabled = limiterEnabled))
+            dsp.updateCurve(listOf(TargetPoint(20f, 6f), TargetPoint(20_000f, 6f)), 0f, headroomSafetyRatio = 0.5f)
+            val samples = ShortArray(32_000) { (sin(2 * PI * 1_000 * (it / 2) / rate) * 30_000).toInt().toShort() }
+            dsp.process(samples, 0, samples.size, rate.toInt())
+            return (16_000 until samples.size).maxOf { abs(samples[it].toInt()) }
+        }
+
+        val unlimited = peakOut(limiterEnabled = false)
+        assertTrue("peak was $unlimited", unlimited <= 30_100)
+    }
+
+    @Test
+    fun `switching the limiter off during playback takes back the whole boost`() {
+        val dsp = PlayerDspPcm16()
+        dsp.configure(2)
+        dsp.updateSettings(PlayerDspSettings(monoBassEnabled = false, limiterEnabled = true))
+        dsp.updateCurve(listOf(TargetPoint(20f, 6f), TargetPoint(20_000f, 6f)), 0f, headroomSafetyRatio = 0.5f)
+        val warmUp = ShortArray(4_000) { (sin(2 * PI * 1_000 * (it / 2) / rate) * 30_000).toInt().toShort() }
+        dsp.process(warmUp, 0, warmUp.size, rate.toInt())
+
+        dsp.updateSettings(PlayerDspSettings(monoBassEnabled = false, limiterEnabled = false))
+        val samples = ShortArray(32_000) { (sin(2 * PI * 1_000 * (it / 2) / rate) * 30_000).toInt().toShort() }
+        dsp.process(samples, 0, samples.size, rate.toInt())
+
+        val peak = (16_000 until samples.size).maxOf { abs(samples[it].toInt()) }
+        assertTrue("peak was $peak", peak <= 30_100)
     }
 
     @Test

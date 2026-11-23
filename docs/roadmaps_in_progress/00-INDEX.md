@@ -25,6 +25,7 @@
 6. [06-phase-5-und-6-neue-funktionen-wartbarkeit.md](06-phase-5-und-6-neue-funktionen-wartbarkeit.md)
 7. [07-laermabhaengiger-eq-messluecken.md](07-laermabhaengiger-eq-messluecken.md) – Lärm-EQ (PoC), gehört zu EQ-remote Modul 11 F12
 9. [09-player-float-pipeline-und-punch.md](09-player-float-pipeline-und-punch.md) – 32-Bit-Float-Kette, Soft-Clipper, Limiter-Abstimmung (umgesetzt, Gerätetest offen)
+8. [08-player-lautheit-und-eq-paritaet.md](08-player-lautheit-und-eq-paritaet.md) – Player-Lautheit, manuelle Slider und A/B-Vergleich im eigenen Player
 
 Zusätzlich: Roadmap-Reihe **AuraCurve** (Rebranding, SoundCloud-Anfrage, Store-Release) in [`auracurve/`](auracurve/00-uebersicht-und-leitplanken.md).
 

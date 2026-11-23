@@ -2342,6 +2342,8 @@ class MainViewModelTest {
             private set
         var lastSubsonicCutoffHz: Float = 0f
             private set
+        var lastHeadroomSafetyRatio: Float? = null
+            private set
         var launchCount = 0
             private set
         var stopCount = 0
@@ -2367,9 +2369,11 @@ class MainViewModelTest {
         override fun setPlayerCurve(
             curve: List<TargetPoint>,
             subsonicCutoffHz: Float,
+            headroomSafetyRatio: Float,
         ) {
             lastPlayerCurve = curve
             lastSubsonicCutoffHz = subsonicCutoffHz
+            lastHeadroomSafetyRatio = headroomSafetyRatio
         }
 
         override fun setVirtualBassMix(mix: Float) {
