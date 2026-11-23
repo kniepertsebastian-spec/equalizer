@@ -17,11 +17,18 @@ import kotlin.math.pow
  * A new curve while music plays (dragging a point) must not click: the filters keep their
  * memory across a redesign, and the headroom pre-gain glides to its new value over
  * [GAIN_RAMP_MS] instead of jumping.
+ *
+ * The pre-gain takes back only a share of the strongest boost (the headroom safety ratio),
+ * the same share the system path gives up for other apps (EqController's input gain): taking
+ * back all of it left the own player 6-9 dB quieter than Spotify with the same bass preset,
+ * and starved the dynamics behind it. What the remaining boost pushes over full scale is
+ * caught by the player's lookahead limiter (PlayerDspPcm16).
  */
 class CurveEqualizer {
     private class Request(
         val curve: List<TargetPoint>,
         val subsonicCutoffHz: Float,
+        val headroomSafetyRatio: Float,
     )
 
     private class Design(
@@ -49,13 +56,23 @@ class CurveEqualizer {
     private var appliedPreGain = Float.NaN
     private var preGainStep = 0f
 
-    /** Empty curve and a cutoff of 0 switch the equalizer off (the audio is left untouched). */
+    /**
+     * Empty curve and a cutoff of 0 switch the equalizer off (the audio is left untouched).
+     * [headroomSafetyRatio] (0..1) is the share of the strongest boost the pre-gain takes back:
+     * 1 = all of it (never louder than the input), 0 = none.
+     */
     fun setCurve(
         curve: List<TargetPoint>,
         subsonicCutoffHz: Float,
+        headroomSafetyRatio: Float = DEFAULT_HEADROOM_SAFETY_RATIO,
     ) {
         val flat = curve.all { it.gainDb == 0f }
-        request = if (flat && subsonicCutoffHz <= 0f) null else Request(curve.sortedBy { it.frequencyHz }, subsonicCutoffHz)
+        request =
+            if (flat && subsonicCutoffHz <= 0f) {
+                null
+            } else {
+                Request(curve.sortedBy { it.frequencyHz }, subsonicCutoffHz, headroomSafetyRatio.coerceIn(0f, 1f))
+            }
     }
 
     /** Call whenever the channel layout changes. */
@@ -233,7 +250,7 @@ class CurveEqualizer {
                     )
                 }
         val maxBoostDb = peakBoostDb(peaks, sampleRateHz)
-        return Design(request, sampleRateHz, highPass, peaks, 10f.pow(-maxBoostDb / 20f))
+        return Design(request, sampleRateHz, highPass, peaks, 10f.pow(preGainDb(maxBoostDb, request.headroomSafetyRatio) / 20f))
     }
 
     // The chain's response is close to, but not exactly, the sum of the gains, so the gains
@@ -289,6 +306,19 @@ class CurveEqualizer {
     private fun qFor(index: Int): Float = if (CENTERS_HZ[index] <= 500f) BASS_Q else UPPER_Q
 
     companion object {
+        /** The system path's share for headphones and most outputs (EqController's INPUT_GAIN_SAFETY_RATIO). */
+        const val DEFAULT_HEADROOM_SAFETY_RATIO = 0.5f
+
+        /** The headroom pre-gain in dB for a chain whose strongest boost is [maxBoostDb]. */
+        fun preGainDb(
+            maxBoostDb: Float,
+            headroomSafetyRatio: Float,
+        ): Float {
+            val db = -(maxBoostDb.coerceAtLeast(0f) * headroomSafetyRatio.coerceIn(0f, 1f))
+            // Never -0.0f: boxed Floats (assertEquals, data classes) tell it apart from 0.0f.
+            return if (db == 0f) 0f else db
+        }
+
         val CENTERS_HZ: List<Float> =
             listOf(31f, 45f, 63f, 90f, 125f, 180f, 250f, 355f, 500f, 1000f, 2000f, 4000f, 8000f, 16000f)
         const val MAX_GAIN_DB = 15f

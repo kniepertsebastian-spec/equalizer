@@ -1,15 +1,20 @@
 package com.auracurve.app.eq
 
+import com.auracurve.app.BuildConfig
 import com.auracurve.app.audio.AudioDeviceType
 import com.auracurve.app.audio.AudioRoute
+import com.auracurve.app.audio.AudioSession
 import com.auracurve.app.audio.FakeAudioEngine
 import com.auracurve.app.audio.ProcessingSettings
+import com.auracurve.app.context.SoundContext
 import com.auracurve.app.data.profile.DeviceProfileEntity
+import com.auracurve.app.dsp.LoudnessMatch
 import com.auracurve.app.preset.BuiltInPresets
 import com.auracurve.app.quick.QuickCommand
 import com.auracurve.app.quick.QuickControls
 import com.auracurve.app.settings.AppSettingsRepository
 import com.auracurve.app.settings.LiveSettings
+import com.auracurve.app.ui.main.CompareSide
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +29,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import kotlin.math.abs
 
 /** E-008 stage 2: the equalizer is steered without any MainViewModel (app closed). */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -34,6 +40,7 @@ class EqControllerTest {
     private val routes = EqFakeRouteRepository()
     private val bridge = EqFakePlayerBridge()
     private val quick = QuickControls()
+    private val sessions = EqFakeSessionRepository()
 
     @After
     fun tearDown() {
@@ -52,7 +59,7 @@ class EqControllerTest {
         appSettingsRepository = settings,
         correctionProfileRepository = EqFakeCorrectionProfileRepository(),
         deviceProfileRepository = devices,
-        sessionRepository = EqFakeSessionRepository(),
+        sessionRepository = sessions,
         carConnectionRepository = EqFakeCarConnectionRepository(),
         quickControls = quick,
         appProfileRepository = EqFakeAppProfileRepository(),
@@ -165,5 +172,121 @@ class EqControllerTest {
 
             assertTrue(eq.isRestored)
             assertEquals(BuiltInPresets.CleanPunch.id, eq.activePreset.value.id)
+        }
+
+    // Roadmap 08, P8-1: the own player took back the whole boost and played 6-9 dB quieter
+    // than Spotify with the same preset; now it takes back the same share as the system path.
+    @Test
+    fun `the player takes back the same share of the boost as the system path`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            eq.selectPreset(BuiltInPresets.DeepRumble)
+            idle()
+            assertEquals(0.5f, bridge.lastHeadroomSafetyRatio)
+
+            eq.setContextMode(SoundContext.BLUETOOTH_SPEAKER)
+            idle()
+            assertEquals("speaker", 0.8f, bridge.lastHeadroomSafetyRatio)
+
+            eq.setContextMode(SoundContext.SOUNDBAR)
+            idle()
+            assertEquals("soundbar", 0.8f, bridge.lastHeadroomSafetyRatio)
+
+            eq.setContextMode(SoundContext.CAR)
+            idle()
+            assertEquals("car", 0.5f, bridge.lastHeadroomSafetyRatio)
+        }
+
+    // Roadmap 08, P8-2: a manual band slider was only heard through the system equalizer.
+    @Test
+    fun `a manual band slider changes the player's curve around that band`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            eq.selectPreset(BuiltInPresets.DeepRumble)
+            idle()
+            val before = bridge.lastPlayerCurve
+            val band =
+                engine.capabilities.value.bands
+                    .first { it.centerFreqHz == 910 }
+            val onCurve =
+                eq.processingSettings.value.bandGainsDb
+                    .getValue(band.index)
+
+            eq.setBandGain(band.index, onCurve + 6f)
+            idle()
+            val after = bridge.lastPlayerCurve
+
+            assertEquals(before.map { it.frequencyHz }, after.map { it.frequencyHz })
+
+            fun change(hz: Float): Float {
+                val i = after.indices.minBy { abs(after[it].frequencyHz - hz) }
+                return after[i].gainDb - before[i].gainDb
+            }
+            assertTrue("at the band: ${change(910f)} dB", change(910f) in 5f..6.01f)
+            assertTrue("an octave away it fades: ${change(1_820f)} dB", abs(change(1_820f)) < 1f)
+            assertEquals("far away untouched", 0f, change(100f), 1e-4f)
+            assertEquals("far away untouched", 0f, change(10_000f), 1e-4f)
+
+            // Back on the curve, the player follows the curve alone again.
+            eq.setBandGain(band.index, onCurve)
+            idle()
+            assertEquals(before.map { it.gainDb }, bridge.lastPlayerCurve.map { it.gainDb })
+        }
+
+    // Roadmap 08, P8-3: with the own player the comparison's loudness match was overwritten by 0 dB.
+    @Test
+    fun `the comparison's loudness match reaches the engine with the own player`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            sessions.setActiveSession(AudioSession(9, BuildConfig.APPLICATION_ID))
+            eq.selectPreset(BuiltInPresets.Flat)
+            idle()
+            // A strong presence boost: the EQ side is clearly louder than the original.
+            val band =
+                engine.capabilities.value.bands
+                    .first { it.centerFreqHz == 3600 }
+            eq.setBandGain(band.index, 12f)
+            idle()
+            assertEquals("the player applies the headroom itself", 0f, engine.currentSettings.value.inputGainDb)
+
+            eq.setCompareSide(CompareSide.EQ)
+            idle()
+            val plan = LoudnessMatch.plan(eq.compare.value!!.eqLevelDeltaDb)
+            assertTrue("the EQ side needs a cut: ${plan.eqExtraGainDb}", plan.eqExtraGainDb < -0.5f)
+            assertEquals(plan.eqExtraGainDb, engine.currentSettings.value.inputGainDb, 1e-4f)
+            assertTrue("the player keeps the curve", bridge.lastPlayerCurve.isNotEmpty())
+
+            eq.setCompareSide(CompareSide.ORIGINAL)
+            idle()
+            assertEquals(plan.originalGainDb, engine.currentSettings.value.inputGainDb, 1e-4f)
+            assertTrue("the player is bypassed", bridge.lastPlayerCurve.isEmpty())
+
+            eq.endCompare()
+            idle()
+            assertEquals(0f, engine.currentSettings.value.inputGainDb)
+        }
+
+    @Test
+    fun `the original side's loudness match reaches the engine with the own player`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            sessions.setActiveSession(AudioSession(9, BuildConfig.APPLICATION_ID))
+            eq.selectPreset(BuiltInPresets.Flat)
+            idle()
+            // Everything cut: the EQ side is quieter, so the original is turned down to match.
+            engine.capabilities.value.bands
+                .forEach { eq.setBandGain(it.index, -6f) }
+            idle()
+
+            eq.setCompareSide(CompareSide.ORIGINAL)
+            idle()
+            val plan = LoudnessMatch.plan(eq.compare.value!!.eqLevelDeltaDb)
+            assertTrue("the original needs a cut: ${plan.originalGainDb}", plan.originalGainDb < -0.5f)
+            assertEquals(plan.originalGainDb, engine.currentSettings.value.inputGainDb, 1e-4f)
+            assertTrue("the player is bypassed", bridge.lastPlayerCurve.isEmpty())
         }
 }

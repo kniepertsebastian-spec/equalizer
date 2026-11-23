@@ -45,7 +45,8 @@ class AndroidPlayerBridge
         override fun setPlayerCurve(
             curve: List<TargetPoint>,
             subsonicCutoffHz: Float,
+            headroomSafetyRatio: Float,
         ) {
-            PlayerCurveState.current = PlayerCurve(curve, subsonicCutoffHz)
+            PlayerCurveState.current = PlayerCurve(curve, subsonicCutoffHz, headroomSafetyRatio.coerceIn(0f, 1f))
         }
     }
