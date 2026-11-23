@@ -1,5 +1,6 @@
 package com.auracurve.app.player.soundcloud
 
+import android.util.Log
 import com.auracurve.app.discovery.IsoTime
 import com.auracurve.app.link.ApiUrl
 import com.auracurve.app.link.ShareLink
@@ -34,6 +35,8 @@ class SoundCloudClient(
         .build()
 ) {
     companion object {
+        private const val STREAM_LOG_TAG = "AuraCurveStream"
+
         // Matches SoundCloudLoginActivity's WebView UA - a generic OkHttp UA is an
         // easy anti-bot tell, this at least looks like the same browser that logged in.
         //
@@ -255,6 +258,11 @@ class SoundCloudClient(
                 }
             }
             val chosen = StreamSelection.pick(options) ?: return@withContext null
+            // Device check of the stream choice (roadmap 10, P10-4): `adb logcat -s AuraCurveStream`.
+            // Never let the log itself stop a track from playing.
+            runCatching {
+                Log.i(STREAM_LOG_TAG, "chose ${StreamSelection.describe(chosen)} of ${options.joinToString { StreamSelection.describe(it) }}")
+            }
             val targetUrl = chosen.url
             val fullReqUrl = if (targetUrl.contains("?")) "$targetUrl&client_id=$clientId" else "$targetUrl?client_id=$clientId"
 

@@ -1,6 +1,6 @@
 # DSP-Konzept: Virtual Bass (Roadmap 03, P4-3)
 
-Stand: 13. November 2026. Gilt für `core/.../dsp/BassExciter.kt` und `HilbertAllpassPair.kt`.
+Stand: 23. November 2026 (Gate nachkalibriert in Roadmap 10). Gilt für `core/.../dsp/BassExciter.kt` und `HilbertAllpassPair.kt`.
 Virtual Bass läuft nur im eigenen Player (`PlayerDspChain`, siehe `docs/DECISIONS.md`, „Virtual Bass
 bleibt Player-Feature"). Für fremde Apps gibt es weiterhin nur die EQ-Annäherung
 `VirtualBassApproxCurve`; sie ist von diesem Umbau nicht betroffen.
@@ -104,15 +104,46 @@ w2 = √(1 − share),  w3 = √share,  share = thirdHarmonicShare ∈ [0, 1]
 
 ### 3.4 Hüllkurvenfolger und Gate
 Ein Hüllkurvenfolger (einpolig, Attack 10 ms, Release 150 ms) glättet A zu Ā und steuert ein
-weiches Gate (Smoothstep): unter −66 dBFS Basspegel keine Obertöne, ab −54 dBFS volle Stärke.
+weiches Gate (Smoothstep über die lineare Hüllkurve): unter −60 dBFS Basspegel keine Obertöne,
+ab −48 dBFS volle Stärke. (Bis Roadmap 10 lag es bei −66/−54 dBFS, siehe 3.4.1.)
 
 Aufgabe: Rauschen, Hallfahnen und ausklingende Töne sollen keinen eigenen Oberton-Teppich bekommen.
 Der Folger entscheidet nur über das Gate, nicht über die Normierung (die macht das analytische
 Signal exakt). Darum darf er träge sein, ohne Obertöne zu verfälschen. Musik mit hörbarem Bass liegt
-im Bassband typischerweise weit über −54 dBFS, dort greift das Gate nicht.
+im Bassband typischerweise weit über −48 dBFS, dort greift das Gate nicht.
 
-Gemessen (2. Harmonische re Eingang, 60 Hz): 0 bis −54 dBFS konstant −10,8 dB, −57 dBFS −14,5 dB,
-−60 dBFS −22,7 dB, −63 dBFS −36,8 dB, ab −66 dBFS aus.
+Gemessen (2. Harmonische re Eingang, 60 Hz), mit den Schwellen −60/−48 dBFS: über −48 dBFS
+konstant −10,8 dB (auch bei +6, +9 und +12 dB über dem Referenzpegel, also über Vollausschlag),
+−51 dBFS −14,5 dB, −54 dBFS −22,7 dB, −57 dBFS −36,8 dB, ab −60 dBFS aus.
+
+#### 3.4.1 Nachkalibrierung nach Roadmap 08 (Roadmap 10, P10-3)
+Seit Roadmap 08 nimmt der Pre-Gain des `CurveEqualizer` vor dem Exciter nur noch einen Teil der
+stärksten Anhebung zurück (`headroomSafetyRatio` 0,5 für Kopfhörer, 0,8 für Box/Soundbar). Bei
++12 dB Bass-Boost kommt der Bass am Exciter also 6 dB heißer an als vorher, bei +15 dB 7,5 dB.
+
+- **Obertöne:** Die Kennlinie skaliert mit der Hüllkurve, der Oberton-Anteil ist pegelunabhängig.
+  Ein heißeres Signal bekommt also genau so viel Oberton-Anteil wie vorher, nur absolut lauter –
+  wie das Original. Keine Sättigung, keine zusätzlichen Harmonischen: auch bei +12 dB über dem
+  Referenzpegel (Amplitude 1,2, über Vollausschlag, die Float-Kette clippt vor dem Limiter nicht)
+  bleiben die 4. bis 6. Harmonische mehr als 50 dB unter der 2. (`hotInput_keepsTheHarmonicBalanceAndPurity`).
+  `OUTPUT_TRIM` bleibt deshalb bei 0,35.
+- **Gate:** Die Schwellen sind absolut. Ohne Anpassung hätte ein leises Intro, das vorher halb im
+  Gate lag, jetzt volle Obertöne bekommen. Das Gate liegt deshalb 6 dB höher (−60/−48 statt
+  −66/−54 dBFS): Für Kopfhörer mit +12 dB Bass-Boost verhält es sich exakt wie vorher
+  (`aQuietIntro_isGatedAsBeforeRoadmap08`). Preis: Bei Kurven ganz ohne Bass-Boost greift es
+  6 dB früher, also bei Basspegeln um −50 dBFS – dort sehr leise und unkritisch.
+- **`thirdHarmonicShare`:** Die Charaktere „Warm" (0,15) und „Punch" (0,45) sind leistungserhaltend
+  und sauber (`warmAndPunchShares_keepThePowerAndThePurity`). Als Einstellung in
+  `PlayerDspSettings` ist er noch nicht verdrahtet: `PlayerDspSettings`/`updateVirtualBass` sind mit
+  Roadmap 09 nach `PlayerDspChain` umgezogen, die parallel lief. Das gehört zusammen mit einem
+  Bedienelement in einen eigenen Schritt.
+- **Hochpass-Kombination für kleine BT-Boxen:** Die gibt es schon – das Preset „Bluetooth-Box" setzt
+  den Subsonic-Hochpass auf 65 Hz (24 dB/Oktave). Befund: Er sitzt im `CurveEqualizer` *vor* dem
+  Exciter. Ein 40-Hz-Kick kommt dort rund 20 dB gedämpft an, seine Obertöne damit ebenso – der
+  Virtual Bass verliert genau den Inhalt, für den er gedacht ist. Deutlicher würde der Effekt, wenn
+  der Exciter seinen Bass *vor* dem Hochpass abgreift (Seitenkette) und nur das Original
+  hochpassgefiltert wird (Prinzip MaxxBass). Das ändert die Reihenfolge in `PlayerDspChain` und ist
+  als eigener Schritt vorgemerkt.
 
 ### 3.5 Bandpass für die Obertöne
 Hochpass 65 Hz (2. Ordnung): entfernt alles unterhalb des Nutzbands (Reste der Normierung bei
@@ -178,7 +209,7 @@ Kopfhörer, jeweils Virtual Bass aus/an (A/B), bei leiser und lauter Wiedergabe:
 | H1 | Sinus-Sweep 30 → 150 Hz, 10 s, −12 dBFS | Tonhöhe wird durchgehend als *ein* tiefer Ton gehört, nicht als zwei Töne; kein Pegelloch |
 | H2 | Kick-Muster 45 Hz, 128 BPM | Kick wirkt tiefer/präsenter; kein Nachziehen, kein „Doppelschlag" (Latenz der Obertöne) |
 | H3 | Zwei Töne 50 + 70 Hz | kein Brummen unterhalb (Differenzton), Rauigkeit vergleichbar mit Original |
-| H4 | 60-Hz-Ton, der über 5 s auf −70 dBFS ausblendet | kein Pumpen oder Abreißen am Gate (−54 … −66 dBFS) |
+| H4 | 60-Hz-Ton, der über 5 s auf −70 dBFS ausblendet | kein Pumpen oder Abreißen am Gate (−48 … −60 dBFS) |
 | H5 | Bass-Gesang / Sprache | keine Verzerrung der Stimme (Isolation 150 Hz) |
 | H6 | Echtes Material: Hardstyle/Uptempo (verzerrte Kicks), Hip-Hop (808), akustischer Kontrabass | Gesamteindruck, Lautheit gegenüber vorher (Presets Car/Box), keine Artefakte bei Seek/Titelwechsel |
 

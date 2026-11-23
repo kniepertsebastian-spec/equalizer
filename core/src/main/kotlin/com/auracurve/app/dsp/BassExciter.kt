@@ -24,8 +24,11 @@ import kotlin.math.sqrt
 //    Weil die Kennlinie mit A skaliert, ist der Oberton-Anteil bei jedem Pegel gleich groß - die
 //    alte tanh-Sättigung machte ihn bei leisen Stellen um bis zu 8 dB stärker.
 // 4. Hüllkurvenfolger (Attack 10 ms, Release 150 ms) auf A steuert ein weiches Gate: unter
-//    -66 dBFS Basspegel keine Obertöne, ab -54 dBFS volle Stärke. So bekommen Rauschen,
-//    Hallfahnen und Ausklänge keinen eigenen Oberton-Teppich.
+//    -60 dBFS Basspegel keine Obertöne, ab -48 dBFS volle Stärke. So bekommen Rauschen,
+//    Hallfahnen und Ausklänge keinen eigenen Oberton-Teppich. (Roadmap 10, P10-3: seit
+//    Roadmap 08 nimmt der Pre-Gain vor dem Exciter nur noch die Hälfte der stärksten Anhebung
+//    zurück, der Bass kommt bei +12 dB Bass-Boost also 6 dB heißer an. Das Gate liegt deshalb
+//    6 dB höher als vorher bei -66/-54 dBFS, damit ein leises Intro wie zuvor behandelt wird.)
 // 5. Bandpass für die Obertöne: Hochpass 65 Hz (2. Ordnung) gegen Reste unterhalb des Nutzbands,
 //    Tiefpass bei 3 · cutoffHz (2. Ordnung), damit die dritte Harmonische des höchsten
 //    isolierten Grundtons gerade noch durchkommt, aber nichts in die Mitten läuft.
@@ -276,9 +279,12 @@ class BassExciter(
         // ... and 3 x cutoff passes the 3rd harmonic of the highest isolated fundamental at -3 dB.
         const val HARMONIC_LOWPASS_RATIO = 3f
 
-        // Gate on the smoothed bass envelope: closed below -66 dBFS, fully open from -54 dBFS.
-        const val GATE_CLOSED_DBFS = -66f
-        const val GATE_OPEN_DBFS = -54f
+        // Gate on the smoothed bass envelope: closed below -60 dBFS, fully open from -48 dBFS.
+        // 6 dB above the first calibration (-66/-54), because since roadmap 08 the pre-gain in
+        // front of the exciter takes back only half the strongest boost: with the typical +12 dB
+        // bass boost the same quiet intro now arrives 6 dB hotter (roadmap 10, P10-3).
+        const val GATE_CLOSED_DBFS = -60f
+        const val GATE_OPEN_DBFS = -48f
         private val GATE_CLOSED = 10.0.pow(GATE_CLOSED_DBFS / 20.0)
         private val GATE_OPEN = 10.0.pow(GATE_OPEN_DBFS / 20.0)
 

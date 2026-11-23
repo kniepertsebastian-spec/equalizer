@@ -217,6 +217,45 @@ class BiquadFilterState {
         y2 = 0.0
     }
 
+    /**
+     * The state a pass-through filter (b0 = 1, everything else 0) would have after [input]:
+     * for a filter that is skipped because it would barely change the audio (a 0 dB peak is
+     * exactly that), without the arithmetic. Once it is needed again it continues from the
+     * audio that actually went past it, as after any other change of coefficients.
+     */
+    fun follow(input: Float) {
+        x2 = x1
+        y2 = y1
+        x1 = input.toDouble()
+        y1 = x1
+    }
+
+    /** A second state with the same memory, to go on from where this one is. */
+    fun copy(): BiquadFilterState =
+        BiquadFilterState().also {
+            it.x1 = x1
+            it.x2 = x2
+            it.y1 = y1
+            it.y2 = y2
+        }
+
+    /** [follow] for the first [count] samples of [samples], which are left untouched. */
+    fun followBlock(
+        samples: DoubleArray,
+        count: Int,
+    ) {
+        if (count <= 0) return
+        if (count == 1) {
+            x2 = x1
+            y2 = y1
+        } else {
+            x2 = samples[count - 2]
+            y2 = x2
+        }
+        x1 = samples[count - 1]
+        y1 = x1
+    }
+
     companion object {
         /**
          * Two channels through the same filter in one pass: [first] filters [firstSamples],
