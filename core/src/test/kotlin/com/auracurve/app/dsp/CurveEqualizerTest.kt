@@ -65,21 +65,23 @@ class CurveEqualizerTest {
     fun `a boosted loud sine stays under the limiter threshold`() {
         val dsp = PlayerDspPcm16()
         dsp.configure(2)
-        dsp.updateSettings(PlayerDspSettings(monoBassEnabled = false, limiterEnabled = true))
+        // Soft clipper off: the limiter alone has to hold the boosted sine.
+        dsp.updateSettings(PlayerDspSettings(monoBassEnabled = false, limiterEnabled = true, softClipEnabled = false))
         dsp.updateCurve(listOf(TargetPoint(20f, 6f), TargetPoint(20_000f, 6f)), 0f)
         val samples = ShortArray(32_000) { (sin(2 * PI * 1_000 * (it / 2) / rate) * 32_000).toInt().toShort() }
 
         dsp.process(samples, 0, samples.size, rate.toInt())
 
         val peak = (16_000 until samples.size).maxOf { abs(samples[it].toInt()) }
-        assertTrue("peak was $peak", peak <= 29_300)
+        // The safety ceiling, -0.2 dBFS (32 022), plus one step of dither.
+        assertTrue("peak was $peak", peak <= 32_023)
     }
 
     @Test
     fun `with every stage off the audio is untouched even if a curve is set`() {
         val dsp = PlayerDspPcm16()
         dsp.configure(2)
-        dsp.updateSettings(PlayerDspSettings(monoBassEnabled = false, limiterEnabled = false))
+        dsp.updateSettings(PlayerDspSettings(monoBassEnabled = false, limiterEnabled = false, softClipEnabled = false))
         dsp.updateCurve(emptyList(), 0f)
         val samples = ShortArray(2_000) { (sin(2 * PI * 200 * (it / 2) / rate) * 20_000).toInt().toShort() }
         val copy = samples.copyOf()

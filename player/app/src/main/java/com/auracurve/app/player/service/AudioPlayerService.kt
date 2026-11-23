@@ -47,6 +47,7 @@ import com.auracurve.app.player.playback.PlaybackFadeController
 import com.auracurve.app.player.playback.PlaybackFadeState
 import com.auracurve.app.player.playback.PlaybackQueueState
 import com.auracurve.app.player.playback.PlayedTracksState
+import com.auracurve.app.player.playback.PlayerAudioProcessorChain
 import com.auracurve.app.player.playback.PlayerDspAudioProcessor
 import com.auracurve.app.player.playback.PlayerDspState
 import com.auracurve.app.player.playback.PlayerNotice
@@ -294,7 +295,15 @@ class AudioPlayerService : MediaLibraryService() {
     }
 
     // Same sink DefaultRenderersFactory would build, plus the player's own audio chain - curve,
-    // virtual bass, mono bass, limiter (see PlayerDspAudioProcessor).
+    // virtual bass, mono bass, drive, soft clipper, safety ceiling (see PlayerDspAudioProcessor) -
+    // which hands 32-bit float to the AudioTrack (roadmap 09, P9-1).
+    //
+    // setEnableFloatOutput stays false on purpose: in Media3 1.11.1 that flag makes
+    // DefaultAudioSink.configure() route high-resolution sources (24-bit, 32-bit, float) through
+    // ToFloatPcmAudioProcessor *only* and leave the whole AudioProcessorChain out - the sound
+    // chain and Sonic would be skipped for exactly those tracks (checked in the bytecode). With
+    // it off, ToInt16PcmAudioProcessor runs first, the sound chain always gets 16-bit and turns
+    // it into float itself; PlayerAudioProcessorChain keeps the processors behind it float-safe.
     private fun buildRenderersFactory() =
         object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -304,9 +313,9 @@ class AudioPlayerService : MediaLibraryService() {
             ): AudioSink =
                 DefaultAudioSink
                     .Builder(context)
-                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableFloatOutput(false)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(PlayerDspAudioProcessor()))
+                    .setAudioProcessorChain(PlayerAudioProcessorChain(PlayerDspAudioProcessor(floatOutput = true)))
                     .build()
         }
 
