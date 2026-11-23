@@ -217,11 +217,67 @@ class BassExciterTest {
     @Test
     fun gate_fadesHarmonicsOutBelowTheThreshold() {
         val open = harmonicDb(60f, 2)
-        val inside = harmonicDb(60f, 2, amplitude = 10.0.pow(-60.0 / 20.0).toFloat())
-        val closed = harmonicDb(60f, 2, amplitude = 10.0.pow(-70.0 / 20.0).toFloat())
+        val inside = harmonicDb(60f, 2, amplitude = 10.0.pow(-54.0 / 20.0).toFloat())
+        val closed = harmonicDb(60f, 2, amplitude = 10.0.pow(-64.0 / 20.0).toFloat())
 
-        assertTrue("-60 dBFS should be partly gated: $inside vs $open", inside < open - 3.0 && inside > open - 30.0)
-        assertTrue("-70 dBFS should be gated: $closed", closed < open - 60.0)
+        assertTrue("-54 dBFS should be partly gated: $inside vs $open", inside < open - 3.0 && inside > open - 30.0)
+        assertTrue("-64 dBFS should be gated: $closed", closed < open - 60.0)
+    }
+
+    // --- After roadmap 08: up to 6-9 dB hotter input (roadmap 10, P10-3) -----------------------
+
+    @Test
+    fun aQuietIntro_isGatedAsBeforeRoadmap08() {
+        // A bass line at -60 dBFS in the source with a +12 dB bass boost. Before roadmap 08 the
+        // pre-gain took back all 12 dB (-60 dBFS at the exciter, half-way into the old -66/-54
+        // gate); now it takes back 6 dB, so -54 dBFS arrive - at the same place in the new -60/-48
+        // gate. The gate is a smoothstep over the linear envelope, so both give the same factor.
+        val atTheExciter = 10.0.pow((-60.0 + 12.0 - 6.0) / 20.0).toFloat()
+        val open = harmonicDb(60f, 2)
+        val intro = harmonicDb(60f, 2, amplitude = atTheExciter)
+
+        fun dbfs(db: Double) = 10.0.pow(db / 20.0)
+        val t = (dbfs(-60.0) - dbfs(-66.0)) / (dbfs(-54.0) - dbfs(-66.0))
+        val oldGateDb = 20.0 * log10(t * t * (3.0 - 2.0 * t))
+        assertEquals(open + oldGateDb, intro, 0.5)
+
+        // Room tone and reverb tails 6 dB further down get no harmonics, as before.
+        val tail = harmonicDb(60f, 2, amplitude = 10.0.pow((-66.0 + 12.0 - 6.0 - 12.0) / 20.0).toFloat())
+        assertTrue("tail at $tail dB", tail < open - 60.0)
+    }
+
+    @Test
+    fun hotInput_keepsTheHarmonicBalanceAndPurity() {
+        // The float chain does not clip before the limiter: up to +9 dB above the old reference
+        // and even past full scale, the generator stays linear in level - no extra harmonics,
+        // no level-dependent "mud" at mix 1.
+        val reference = harmonicDb(60f, 2)
+        for (levelDb in listOf(6.0, 9.0, 12.0)) {
+            val amplitude = (INPUT_AMPLITUDE * 10.0.pow(levelDb / 20.0)).toFloat()
+            val second = harmonicDb(60f, 2, amplitude = amplitude)
+            assertEquals("2nd at +$levelDb dB", reference, second, 0.3)
+            for (n in 4..6) {
+                val level = harmonicDb(60f, n, amplitude = amplitude)
+                assertTrue("harmonic $n at $level dB, 2nd at $second dB, +$levelDb dB input", level < second - 50.0)
+            }
+        }
+    }
+
+    @Test
+    fun warmAndPunchShares_keepThePowerAndThePurity() {
+        // The two characters a later setting would offer: 0.15 warm, 0.45 punch.
+        val default = totalHarmonicDb(80f)
+        for (share in listOf(0.15f, 0.45f)) {
+            assertEquals("total at share $share", default, totalHarmonicDb(80f, share = share), 0.5)
+            val second = harmonicDb(80f, 2, share = share)
+            val third = harmonicDb(80f, 3, share = share)
+            val expected = 10.0 * log10(share / (1.0 - share))
+            assertEquals("3rd re 2nd at share $share", expected, third - second, 1.0)
+            for (n in 4..6) {
+                val level = harmonicDb(80f, n, share = share)
+                assertTrue("harmonic $n at $level dB, 2nd at $second dB, share $share", level < second - 50.0)
+            }
+        }
     }
 
     @Test

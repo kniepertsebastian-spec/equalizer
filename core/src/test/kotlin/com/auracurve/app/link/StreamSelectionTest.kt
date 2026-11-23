@@ -92,4 +92,69 @@ class StreamSelectionTest {
         assertNull(StreamSelection.pick(listOf(option("rtmp", false))))
         assertNull(StreamSelection.pick(emptyList()))
     }
+
+    // --- What SoundCloud sends today (roadmap 10, P10-4) ---------------------------------------
+
+    private val aacHlsMime = "audio/mp4; codecs=\"mp4a.40.2\""
+    private val abr = option("hls", false, "abr_sq", aacHlsMime)
+
+    @Test
+    fun `the current list - aac 160, aac 96 and an adaptive playlist - plays aac 160`() {
+        val offered = listOf(option("hls", false, "aac_160k", aacHlsMime), option("hls", false, "aac_96k", aacHlsMime), abr)
+        assertEquals(aac160.copy(mimeType = aacHlsMime), StreamSelection.pick(offered))
+        assertEquals(aac160.copy(mimeType = aacHlsMime), StreamSelection.pick(offered.reversed()))
+    }
+
+    @Test
+    fun `go plus gets aac 256 over everything else`() {
+        val offered = listOf(abr, aac96, aac160, aac256, mp3Hls)
+        assertEquals(aac256, StreamSelection.pick(offered))
+    }
+
+    @Test
+    fun `without progressive mp3 the old hls mp3 still beats aac 96`() {
+        // Since August 2026 there is no progressive MP3 any more; not yet migrated uploads keep
+        // their MP3 over HLS for a while.
+        assertEquals(mp3Hls, StreamSelection.pick(listOf(aac96, mp3Hls, abr)))
+        assertEquals(aac160, StreamSelection.pick(listOf(mp3Hls, aac160)))
+    }
+
+    @Test
+    fun `the adaptive playlist is only the last resort`() {
+        assertEquals(aac96, StreamSelection.pick(listOf(abr, aac96)))
+        assertEquals(abr, StreamSelection.pick(listOf(abr, opus)))
+        val abrNoMime = option("hls", false, "abr_sq", "audio/mpegurl")
+        assertEquals(abrNoMime, StreamSelection.pick(listOf(abrNoMime)))
+        assertEquals(abrNoMime, StreamSelection.pick(listOf(option("hls", false), abrNoMime)))
+    }
+
+    @Test
+    fun `a playlist mime type is not taken for mp3`() {
+        // "audio/mpegurl" starts with "audio/mpeg" but says nothing about the codec inside.
+        val playlist = option("hls", false, mimeType = "audio/mpegurl")
+        assertEquals(StreamCodec.UNKNOWN, StreamSelection.codec(playlist))
+        assertEquals(StreamCodec.UNKNOWN, StreamSelection.codec(option("hls", false, mimeType = "application/vnd.apple.mpegurl")))
+        assertEquals(StreamCodec.MP3, StreamSelection.codec(option("hls", false, mimeType = "audio/mpeg")))
+        assertEquals(StreamCodec.MP3, StreamSelection.codec(option("hls", false, mimeType = "audio/mpeg; charset=binary")))
+        assertEquals(mp3Hls, StreamSelection.pick(listOf(playlist, mp3Hls)))
+    }
+
+    @Test
+    fun `encrypted streams are never chosen`() {
+        // SoundCloud's DRM variants for some Go+ tracks: ExoPlayer has no key for them.
+        val encrypted =
+            listOf("encrypted-hls", "ctr-encrypted-hls", "cbc-encrypted-hls").map { option(it, false, "aac_256k", aacHlsMime) }
+        assertEquals(aac160, StreamSelection.pick(encrypted + aac160))
+        assertNull(StreamSelection.pick(encrypted))
+    }
+
+    @Test
+    fun `the log line names protocol, preset, codec and bitrate`() {
+        assertEquals("hls aac_160k (AAC ~160 kbit/s)", StreamSelection.describe(aac160))
+        assertEquals("hls aac_256k (AAC ~256 kbit/s)", StreamSelection.describe(aac256))
+        assertEquals("hls mp3_1_0 (MP3 ~128 kbit/s)", StreamSelection.describe(mp3Hls))
+        assertEquals("hls abr_sq (AAC adaptive)", StreamSelection.describe(abr))
+        assertEquals("hls aac_160k (AAC ~160 kbit/s, preview)", StreamSelection.describe(aac160.copy(snipped = true)))
+        assertEquals("hls - (UNKNOWN ?)", StreamSelection.describe(option("hls", false)))
+    }
 }
