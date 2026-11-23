@@ -63,6 +63,11 @@ object DiagnosticsReportFormatter {
             appendLine("Has Input Gain: ${capabilities.hasInputGain}")
             appendLine("Has Limiter: ${capabilities.hasLimiter}")
             appendLine("Has Multiband Compressor: ${capabilities.hasMbc}")
+            // Roadmap 13: 5 bands where the device allows them, and whether the post-EQ runs behind the MBC.
+            appendLine("MBC Bands: ${capabilities.mbcBandCount}")
+            appendLine(
+                "Post-EQ: ${if (capabilities.postEqCutoffsHz.isEmpty()) "not in use" else "${capabilities.postEqCutoffsHz.size}-band"}",
+            )
             appendLine("Band Count: ${capabilities.bands.size}")
             capabilities.bands.forEach { band ->
                 val freqLabel = if (band.centerFreqHz >= 1000) "${band.centerFreqHz / 1000} kHz" else "${band.centerFreqHz} Hz"

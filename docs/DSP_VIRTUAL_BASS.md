@@ -1,7 +1,7 @@
 # DSP-Konzept: Virtual Bass (Roadmap 03, P4-3)
 
 Stand: 23. November 2026 (Gate nachkalibriert in Roadmap 10). Gilt für `core/.../dsp/BassExciter.kt` und `HilbertAllpassPair.kt`.
-Virtual Bass läuft nur im eigenen Player (`PlayerDspPcm16`, siehe `docs/DECISIONS.md`, „Virtual Bass
+Virtual Bass läuft nur im eigenen Player (`PlayerDspChain`, siehe `docs/DECISIONS.md`, „Virtual Bass
 bleibt Player-Feature"). Für fremde Apps gibt es weiterhin nur die EQ-Annäherung
 `VirtualBassApproxCurve`; sie ist von diesem Umbau nicht betroffen.
 
@@ -134,16 +134,16 @@ stärksten Anhebung zurück (`headroomSafetyRatio` 0,5 für Kopfhörer, 0,8 für
   6 dB früher, also bei Basspegeln um −50 dBFS – dort sehr leise und unkritisch.
 - **`thirdHarmonicShare`:** Die Charaktere „Warm" (0,15) und „Punch" (0,45) sind leistungserhaltend
   und sauber (`warmAndPunchShares_keepThePowerAndThePurity`). Als Einstellung in
-  `PlayerDspSettings` ist er noch nicht verdrahtet: `PlayerDspSettings`/`updateVirtualBass` werden
-  in Roadmap 09 (offener PR) nach `PlayerDspChain` verschoben, eine Änderung hier würde kollidieren.
-  Das gehört zusammen mit einem Bedienelement in einen eigenen Schritt nach dem Merge von RM 09.
+  `PlayerDspSettings` ist er noch nicht verdrahtet: `PlayerDspSettings`/`updateVirtualBass` sind mit
+  Roadmap 09 nach `PlayerDspChain` umgezogen, die parallel lief. Das gehört zusammen mit einem
+  Bedienelement in einen eigenen Schritt.
 - **Hochpass-Kombination für kleine BT-Boxen:** Die gibt es schon – das Preset „Bluetooth-Box" setzt
   den Subsonic-Hochpass auf 65 Hz (24 dB/Oktave). Befund: Er sitzt im `CurveEqualizer` *vor* dem
   Exciter. Ein 40-Hz-Kick kommt dort rund 20 dB gedämpft an, seine Obertöne damit ebenso – der
   Virtual Bass verliert genau den Inhalt, für den er gedacht ist. Deutlicher würde der Effekt, wenn
   der Exciter seinen Bass *vor* dem Hochpass abgreift (Seitenkette) und nur das Original
-  hochpassgefiltert wird (Prinzip MaxxBass). Das ändert die Reihenfolge in `PlayerDspPcm16` bzw.
-  `PlayerDspChain` (Roadmap 09) und ist als eigener Schritt nach RM 09 vorgemerkt.
+  hochpassgefiltert wird (Prinzip MaxxBass). Das ändert die Reihenfolge in `PlayerDspChain` und ist
+  als eigener Schritt vorgemerkt.
 
 ### 3.5 Bandpass für die Obertöne
 Hochpass 65 Hz (2. Ordnung): entfernt alles unterhalb des Nutzbands (Reste der Normierung bei
@@ -156,8 +156,8 @@ isolierten Grundtons mit −3 dB durch, aber nichts weiter in die Mitten. Bisher
 `y = x + h · mix · OUTPUT_TRIM`, `OUTPUT_TRIM = 0,35`. Kalibriert so, dass die gesamte
 Oberton-Leistung (2. + 3.) eines 100-Hz-Tons bei mix 1 der 2. Harmonischen der P0-5-Version
 entspricht (−9,7 dB re Eingang). Bestehende Presets (`virtualBassMix` 0,4 bzw. 0,6) werden also
-nicht lauter. Das Original bleibt unverändert, auch der Grundton; Spitzen fängt der Lookahead-
-Limiter hinter der Kette (`PlayerDspPcm16`).
+nicht lauter. Das Original bleibt unverändert, auch der Grundton; Spitzen fangen Soft-Clipper und
+Sicherheits-Ceiling hinter der Kette (`PlayerDspChain`, Roadmap 09).
 
 ## 4. Frequenzgang des Effekts
 
@@ -194,7 +194,7 @@ eingeschwungenen Zustand < 1·10⁻⁶).
 
 - `BassExciterSettings`: `enabled`, `cutoffHz`, `mix`, neu `thirdHarmonicShare`. Der Parameter
   `drive` entfällt: Er steuerte die `tanh`-Sättigung, die es nicht mehr gibt. Er wurde außerhalb von
-  `BassExciter` nirgends gesetzt (`PlayerDspPcm16.updateVirtualBass` übergibt nur `mix`).
+  `BassExciter` nirgends gesetzt (`PlayerDspChain.updateVirtualBass` übergibt nur `mix`).
 - In der App bleibt es beim Virtual-Bass-Schalter mit `virtualBassMix` aus dem Preset. `share` und
   `cutoffHz` laufen mit Standardwerten. Ob sie in der Oberfläche einstellbar werden sollen (z. B.
   „Charakter: weich – hart"), ist eine eigene UI-Entscheidung und gehört nicht zu P4-3.

@@ -21,3 +21,30 @@
 
 # Room entities and the schema JSON are read by generated code; Room's own rules cover the rest.
 -keep class com.auracurve.app.data.** { *; }
+
+# Roadmap 12, P12-1: no verbose/debug/info logging in the release. Log.w and Log.e stay for the
+# diagnostics (they carry exception class names, never tokens - see RemoteToken / TokenVault).
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+    public static int i(...);
+}
+
+# Ktor (flavor "full", the local remote-control server): its IntelliJ debugger detector reaches for
+# java.lang.management, which Android does not have. Only called under a JVM debugger, never here.
+-dontwarn java.lang.management.ManagementFactory
+-dontwarn java.lang.management.RuntimeMXBean
+
+# scripts/check_store_apk.py finds the full flavor's online code partly by class name. R8 would rename
+# those classes, and a store build that wrongly contained one would pass the check. Their names stay
+# (no effect on the store flavor, which does not have these classes at all).
+-keepnames class **.SoundCloudLoginActivity
+-keepnames class **.SpotifyLoginActivity
+-keepnames class **.SpotifyApiClient
+-keepnames class **.ReleaseUpdateClient
+-keepnames class **.SpotifyImportPlan
+-keepnames class **.SoundCloudLinkImport
+-keepnames class **.RemoteServerService
+-keepnames class **.RemoteNotificationListener
+-keepnames class **.MdnsResponder

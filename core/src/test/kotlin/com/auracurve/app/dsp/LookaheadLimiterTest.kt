@@ -190,4 +190,26 @@ class LookaheadLimiterTest {
         // Unlinked, the right channel would stay at 0.2 and the image would swing left.
         assertTrue("right channel never ducked: $minRight", minRight < 0.15f)
     }
+
+    // Roadmap 09, P9-2: the player's safety ceiling - just under full scale, short lookahead.
+    @Test
+    fun `the player's safety ceiling holds -0_2 dBFS with a 2 ms lookahead`() {
+        val ceiling = PlayerDspSettings.SAFETY_CEILING
+        assertEquals(-0.2f, ceiling.thresholdDb, 0f)
+        assertTrue(ceiling.lookaheadMs in 1.5f..2f)
+
+        val limiter = LookaheadLimiter(ceiling)
+        val lookaheadSamples = lookaheadSamplesFor(ceiling.lookaheadMs)
+        val threshold = 10f.pow(ceiling.thresholdDb / 20f)
+        // A 50 Hz kick-like burst, 6 dB over full scale.
+        val outputs =
+            FloatArray(lookaheadSamples + 9_600) { n ->
+                limiter.process((2.0 * kotlin.math.sin(2 * PI * 50.0 * n / sampleRateHz)).toFloat(), sampleRateHz)
+            }
+
+        assertTrue(outputs.all { abs(it) <= threshold + 1e-4f })
+        // The first sample comes out exactly lookaheadSamples late.
+        assertEquals(0f, outputs[lookaheadSamples - 1], 0f)
+        assertTrue(outputs[lookaheadSamples + 1] != 0f)
+    }
 }

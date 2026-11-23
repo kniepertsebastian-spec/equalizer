@@ -65,10 +65,10 @@
 
 ## Umsetzung (Stand: 23. November 2026 – Code und Unit-Tests fertig, Gerätetests offen)
 
-**Basis:** Branch baut auf Roadmap 08 auf (PR #122, noch offen), weil RM 10 dieselbe Datei
-`CurveEqualizer.kt` ändert und auf dem neuen Pre-Gain aufsetzt. Parallel zu RM 09 (PR #123): Dateien
-von RM 09 (`PlayerDspPcm16`, `PlayerDspChain`, `PlayerDspAudioProcessor`, `PlayerDspState`) sind hier
-bewusst **nicht** angefasst. `setCurve(...)` bekommt nur einen neuen Parameter mit Standardwert.
+**Basis:** Roadmap 08 (PR #122, gemergt), weil RM 10 dieselbe Datei `CurveEqualizer.kt` ändert und auf
+dem neuen Pre-Gain aufsetzt. Parallel zu RM 09 (PR #123, inzwischen gemergt) entstanden: Dessen Dateien
+(`PlayerDspPcm16`, `PlayerDspChain`, `PlayerDspAudioProcessor`, `PlayerDspState`) sind hier bewusst
+**nicht** angefasst. `setCurve(...)` bekommt nur einen neuen Parameter mit Standardwert.
 
 ### P10-1 – Terzband-EQ
 - **29 Peaks** auf den ISO-Terzmitten 25 Hz … 16 kHz (die Liste der Roadmap hat 29, nicht 28 Einträge)
@@ -158,5 +158,5 @@ im Test `the chain is cheap enough for the slow cores`; die echte Messung am Ger
 ### Offene Punkte
 - [ ] Gerätetest: CPU-Last bei gesperrtem Bildschirm, AAC-HLS-Streamwahl im Log, Gapless/Seek/URL-Refresh.
 - [ ] Hörprobe Virtual Bass mit RM-08-Pegel (H1–H6).
-- [ ] Nach Merge RM 09: `ParametricBand`-Übergabe an den Player (P10-2), `thirdHarmonicShare` in den
+- [ ] Jetzt möglich (RM 09 ist gemergt): `ParametricBand`-Übergabe an den Player (P10-2), `thirdHarmonicShare` in den
       Player-Settings, Exciter-Seitenkette vor dem Subsonic-Hochpass (P10-3).

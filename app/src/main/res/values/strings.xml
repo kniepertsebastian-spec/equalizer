@@ -83,6 +83,8 @@
     <string name="goal_more_punch_desc">Tighter kick and more click. Drums and bass hit more directly.</string>
     <string name="goal_less_harsh_name">Less harsh</string>
     <string name="goal_less_harsh_desc">Softens piercing highs and hi-hats around 3-8 kHz. Easier on the ears at high volume.</string>
+    <string name="goal_clear_bass_name">Clear bass</string>
+    <string name="goal_clear_bass_desc">For very strong bass: dips the boomy range around 250 Hz so voices stay free, softens sibilance and adds a little air above 10 kHz.</string>
     <string name="goal_less_bass_name">Less bass</string>
     <string name="goal_less_bass_desc">Pulls the low end back, useful for small speakers or boomy rooms.</string>
     <string name="fine_tune_title">Fine-tuning</string>

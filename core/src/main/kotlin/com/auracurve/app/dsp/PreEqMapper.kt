@@ -1,8 +1,10 @@
 package com.auracurve.app.dsp
 
 import com.auracurve.app.preset.TargetPoint
+import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.pow
+import kotlin.math.sign
 import kotlin.math.sqrt
 
 /**
@@ -95,31 +97,27 @@ object PreEqMapper {
     ): List<Float> {
         val sortedCurve = curve.sortedBy { it.frequencyHz }
         val sortedDeltas = manualDeltas.sortedBy { it.frequencyHz }
-        return cutoffsHz.mapIndexed { i, upperHz ->
-            val lowerHz = if (i == 0) PreEqLayout.LOWEST_HZ else cutoffsHz[i - 1]
-            val midHz = sqrt(lowerHz * upperHz)
 
-            val gain =
-                if (responseMode.useSimpsonIntegration) {
-                    // Simpson integration: smooth, 3-point sampling
-                    val lowGain =
-                        EqualizerInterpolator.resolveGainAtFrequency(lowerHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                            deltaAt(lowerHz, sortedDeltas, responseMode)
-                    val midGain =
-                        EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                            deltaAt(midHz, sortedDeltas, responseMode)
-                    val highGain =
-                        EqualizerInterpolator.resolveGainAtFrequency(upperHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                            deltaAt(upperHz, sortedDeltas, responseMode)
-                    (lowGain + 4f * midGain + highGain) / 6f
-                } else {
-                    // Midpoint sampling: precise, single-point
-                    EqualizerInterpolator.resolveGainAtFrequency(midHz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
-                        deltaAt(midHz, sortedDeltas, responseMode)
-                }
-
-            gain.coerceIn(-PreEqLayout.MAX_GAIN_DB, PreEqLayout.MAX_GAIN_DB)
-        }
+        // The curve, the macros and the manual deltas at one frequency.
+        fun gainAt(hz: Float): Float =
+            EqualizerInterpolator.resolveGainAtFrequency(hz, sortedCurve, macros.bassDb, macros.punchDb, macros.haerteDb) +
+                deltaAt(hz, sortedDeltas, responseMode)
+        val gains =
+            cutoffsHz.mapIndexed { i, upperHz ->
+                val lowerHz = if (i == 0) PreEqLayout.LOWEST_HZ else cutoffsHz[i - 1]
+                val midHz = sqrt(lowerHz * upperHz)
+                val gain =
+                    if (responseMode.useSimpsonIntegration) {
+                        // Simpson integration: smooth, 3-point sampling
+                        (gainAt(lowerHz) + 4f * gainAt(midHz) + gainAt(upperHz)) / 6f
+                    } else {
+                        // Midpoint sampling: precise, single-point
+                        gainAt(midHz)
+                    }
+                gain.coerceIn(-PreEqLayout.MAX_GAIN_DB, PreEqLayout.MAX_GAIN_DB)
+            }
+        // Roadmap 13, P13-3: no steep steps between neighbouring bass bands (STFT pre-ringing).
+        return PreEqSlopeLimiter.limit(gains, cutoffsHz)
     }
 
     /**
@@ -155,4 +153,122 @@ object PreEqMapper {
         }
         return 0f
     }
+}
+
+/**
+ * Roadmap 13, P13-3: STFT pre-ringing guard of the pre-EQ's bass.
+ *
+ * DynamicsProcessing applies the pre-EQ per FFT bin of a 20 ms frame. A large gain step between two
+ * neighbouring bass bands is a very steep filter edge in that domain, and its impulse response rings
+ * across the whole frame - before the kick as well as after it, heard as a hollow pre-echo. Limiting
+ * the step between neighbouring bands below [LIMIT_BELOW_HZ] to [MAX_STEP_DB] (a band there is about a
+ * third of an octave) keeps every edge gentle enough: a 2nd-order subsonic high-pass (12 dB/octave,
+ * about 3.5 dB per band) passes untouched, a hard manual spike of +12 dB on one band does not.
+ */
+object PreEqSlopeLimiter {
+    const val MAX_STEP_DB = 5f
+    const val LIMIT_BELOW_HZ = 250f
+    private const val ITERATIONS = 64
+
+    /**
+     * [gainsDb] with no step larger than [maxStepDb] between neighbouring bands whose lower band ends
+     * at or below [limitBelowHz]. Both sides of a too-steep step move towards each other by the same
+     * amount, so a boost is neither only cut down nor only smeared upwards; bands above the limit
+     * that are not next to it keep their gain.
+     */
+    fun limit(
+        gainsDb: List<Float>,
+        cutoffsHz: List<Float>,
+        maxStepDb: Float = MAX_STEP_DB,
+        limitBelowHz: Float = LIMIT_BELOW_HZ,
+    ): List<Float> {
+        require(gainsDb.size == cutoffsHz.size) { "one gain per band" }
+        val g = gainsDb.toFloatArray()
+        // Pair (i, i + 1) is limited when band i ends in the bass.
+        val pairs = (0 until g.size - 1).filter { cutoffsHz[it] <= limitBelowHz }
+        if (pairs.isEmpty()) return gainsDb
+        // Symmetric relaxation: each too-steep pair gives up half of its excess on either side.
+        repeat(ITERATIONS) {
+            var changed = false
+            for (i in pairs) {
+                val excess = abs(g[i + 1] - g[i]) - maxStepDb
+                if (excess > 1e-4f) {
+                    val half = excess / 2f * sign(g[i + 1] - g[i])
+                    g[i] += half
+                    g[i + 1] -= half
+                    changed = true
+                }
+            }
+            if (!changed) return g.toList()
+        }
+        // Not settled within the iterations (only for absurd input): a final pass from the top down
+        // guarantees the limit, each band clamped against the already final one above it.
+        for (i in pairs.reversed()) g[i] = g[i].coerceIn(g[i + 1] - maxStepDb, g[i + 1] + maxStepDb)
+        return g.toList()
+    }
+}
+
+/** The gains of the two EQ stages around the multiband compressor; [post] is empty without a post-EQ. */
+data class EqStageGains(
+    val pre: List<Float>,
+    val post: List<Float>,
+)
+
+/**
+ * Roadmap 13, P13-2: the `PreEQ -> MBC -> PostEQ` mastering split.
+ *
+ * Everything used to run in the pre-EQ, ahead of the multiband compressor: a +12 dB bass boost drove
+ * the compressor straight into heavy gain reduction, and a treble "air" lift was flattened by it
+ * again. The split moves part of the positive tone shaping behind the compressor:
+ *
+ * - air: boosts from [AIR_FADE_FROM_HZ] up, fully from [AIR_FULL_FROM_HZ], at most [MAX_AIR_POST_DB];
+ * - bass: [BASS_SHARE] of a boost up to [BASS_FULL_UP_TO_HZ], fading out by [BASS_FADE_TO_HZ], at most
+ *   [MAX_BASS_POST_DB] - the compressor still sees most of the bass, so it keeps catching the kicks.
+ *
+ * Cuts (subsonic high-pass, mud dip, headphone correction dips) and the midrange stay in the pre-EQ,
+ * where they clean the signal before it is compressed. The post-EQ uses the pre-EQ's own band layout,
+ * so for every band `pre + post` is exactly the gain the single pre-EQ had before: the frequency
+ * response and the headroom the input gain reserves for it are unchanged, only the order around the
+ * compressor differs.
+ */
+object PostEqSplit {
+    const val BASS_SHARE = 0.35f
+    const val BASS_FULL_UP_TO_HZ = 150f
+    const val BASS_FADE_TO_HZ = 250f
+    const val MAX_BASS_POST_DB = 4f
+    const val AIR_FADE_FROM_HZ = 6000f
+    const val AIR_FULL_FROM_HZ = 10000f
+    const val MAX_AIR_POST_DB = 6f
+
+    fun split(
+        gainsDb: List<Float>,
+        cutoffsHz: List<Float>,
+    ): EqStageGains {
+        require(gainsDb.size == cutoffsHz.size) { "one gain per band" }
+        val post =
+            gainsDb.mapIndexed { i, gain ->
+                val lowerHz = if (i == 0) PreEqLayout.LOWEST_HZ else cutoffsHz[i - 1]
+                val centerHz = sqrt(lowerHz * cutoffsHz[i])
+                val boost = gain.coerceAtLeast(0f)
+                val bass = (boost * BASS_SHARE * bassWeight(centerHz)).coerceAtMost(MAX_BASS_POST_DB)
+                val air = (boost * airWeight(centerHz)).coerceAtMost(MAX_AIR_POST_DB)
+                // Never more than the band's own boost (bass and air never overlap anyway).
+                (bass + air).coerceAtMost(boost)
+            }
+        return EqStageGains(pre = gainsDb.zip(post) { gain, p -> gain - p }, post = post)
+    }
+
+    private fun bassWeight(hz: Float): Float =
+        when {
+            hz <= BASS_FULL_UP_TO_HZ -> 1f
+            hz >= BASS_FADE_TO_HZ -> 0f
+            else -> 1f - ln(hz / BASS_FULL_UP_TO_HZ) / ln(BASS_FADE_TO_HZ / BASS_FULL_UP_TO_HZ)
+        }
+
+    private fun airWeight(hz: Float): Float =
+        when {
+            hz <= AIR_FADE_FROM_HZ -> 0f
+            hz >= AIR_FULL_FROM_HZ -> 1f
+            else -> ln(hz / AIR_FADE_FROM_HZ) / ln(AIR_FULL_FROM_HZ / AIR_FADE_FROM_HZ)
+        }
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Roadmap 12, P12-2 (major M7): every outgoing connection of the app is HTTPS - SoundCloud, Spotify,
+  Audius, the radio directory and its streams (CatalogJson keeps https:// stations only), DuckDNS and
+  the GitHub self-update. Plain http:// is refused for both flavors and every host; this file makes
+  that explicit instead of relying on the targetSdk default.
+
+  Not affected: the local remote-control server of the "full" flavor. It answers http:// requests
+  from the phone or laptop in the car's hotspot, but this policy only covers connections the app
+  opens itself, so no exception is needed for it (and the full flavor has no file of its own).
+
+  Only the system's certificate authorities are trusted; user-installed CAs are not.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
