@@ -37,7 +37,6 @@ appcompat = "1.7.0"
 material = "1.12.0"
 constraintlayout = "2.1.4"
 webkit = "1.11.0"
-coreKtxPlayer = "1.13.1"
 coroutinesAndroid = "1.11.0"
 orgJson = "20240303"
 mockito = "5.11.0"
@@ -83,7 +82,6 @@ junit = { module = "junit:junit", version.ref = "junit" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 
-core-ktx-player = { module = "androidx.core:core-ktx", version.ref = "coreKtxPlayer" }
 appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
 material = { module = "com.google.android.material:material", version.ref = "material" }
 constraintlayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "constraintlayout" }

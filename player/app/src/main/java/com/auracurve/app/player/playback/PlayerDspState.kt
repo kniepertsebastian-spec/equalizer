@@ -24,15 +24,18 @@ object PlayerCurveState {
     var current: PlayerCurve = PlayerCurve(emptyList(), 0f)
 }
 
-// The player's output-stage switches (mono bass, limiter), shared between the UI that
-// sets them and ExoPlayer's playback thread that reads them - same-process singleton
-// for the same reason as VirtualBassState. Remembered in SharedPreferences so the
-// choice survives restarts; both parts default to on.
+// The player's output-stage switches (mono bass, soft clipper, safety ceiling) and its output
+// drive, shared between the UI that sets them and ExoPlayer's playback thread that reads them -
+// same-process singleton for the same reason as VirtualBassState. Remembered in
+// SharedPreferences so the choice survives restarts; the switches default to on, the drive to
+// 0 dB (roadmap 09, P9-3: 0 to +4 dB, for phones whose DynamicsProcessing pushes too little).
 object PlayerDspState {
     private const val PREFS = "player_dsp"
     private const val KEY_MONO_BASS = "mono_bass"
     private const val KEY_CUTOFF = "mono_bass_cutoff_hz"
     private const val KEY_LIMITER = "limiter"
+    private const val KEY_SOFT_CLIP = "soft_clip"
+    private const val KEY_DRIVE = "output_drive_db"
 
     private val state = MutableStateFlow(PlayerDspSettings())
     val settings: StateFlow<PlayerDspSettings> = state
@@ -54,6 +57,11 @@ object PlayerDspState {
                         .getFloat(KEY_CUTOFF, defaults.monoBassCutoffHz)
                         .coerceIn(BassMonoSummerSettings.MIN_CUTOFF_HZ, BassMonoSummerSettings.MAX_CUTOFF_HZ),
                 limiterEnabled = prefs.getBoolean(KEY_LIMITER, defaults.limiterEnabled),
+                softClipEnabled = prefs.getBoolean(KEY_SOFT_CLIP, defaults.softClipEnabled),
+                outputDriveDb =
+                    prefs
+                        .getFloat(KEY_DRIVE, defaults.outputDriveDb)
+                        .coerceIn(PlayerDspSettings.MIN_OUTPUT_DRIVE_DB, PlayerDspSettings.MAX_OUTPUT_DRIVE_DB),
             )
     }
 
@@ -62,7 +70,12 @@ object PlayerDspState {
         transform: (PlayerDspSettings) -> PlayerDspSettings,
     ) {
         load(context)
-        val next = transform(state.value)
+        val next =
+            transform(state.value).let {
+                it.copy(
+                    outputDriveDb = it.outputDriveDb.coerceIn(PlayerDspSettings.MIN_OUTPUT_DRIVE_DB, PlayerDspSettings.MAX_OUTPUT_DRIVE_DB),
+                )
+            }
         state.value = next
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -70,6 +83,8 @@ object PlayerDspState {
             .putBoolean(KEY_MONO_BASS, next.monoBassEnabled)
             .putFloat(KEY_CUTOFF, next.monoBassCutoffHz)
             .putBoolean(KEY_LIMITER, next.limiterEnabled)
+            .putBoolean(KEY_SOFT_CLIP, next.softClipEnabled)
+            .putFloat(KEY_DRIVE, next.outputDriveDb)
             .apply()
     }
 }

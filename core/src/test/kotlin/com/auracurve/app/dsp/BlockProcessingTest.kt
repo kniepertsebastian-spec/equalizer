@@ -319,6 +319,7 @@ class BlockProcessingTest {
 
     // The player's chain as it ran before the block rewrite: every frame through all stages, one
     // sample at a time, with the reference limiter and the same dither generator as PlayerDspPcm16.
+    // Since roadmap 09 the output stage is the soft clipper plus the -0.2 dBFS / 2 ms ceiling.
     private class PerSampleChain(
         private val channels: Int,
     ) {
@@ -326,6 +327,7 @@ class BlockProcessingTest {
         val exciterSettings = BassExciterSettings(enabled = true, mix = 0.6f)
         private val exciters = List(channels) { BassExciter(exciterSettings) }
         private val monoSummer = BassMonoSummer(BassMonoSummerSettings(enabled = true, cutoffHz = 120f))
+        private val softClipper = SoftClipper()
         private var limiter: ReferenceLimiter? = null
         private val frame = FloatArray(channels)
         private var ditherState = 0x2545F491
@@ -335,7 +337,9 @@ class BlockProcessingTest {
             sampleRateHz: Int,
         ) {
             val rate = sampleRateHz.toFloat()
-            val limiter = limiter ?: ReferenceLimiter(channels, rate).also { limiter = it }
+            val ceiling = PlayerDspSettings.SAFETY_CEILING
+            val limiter =
+                limiter ?: ReferenceLimiter(channels, rate, ceiling.thresholdDb, ceiling.lookaheadMs).also { limiter = it }
             val curveActive = curveEqualizer.beginBuffer(rate)
             var i = 0
             while (i + channels <= samples.size) {
@@ -351,6 +355,7 @@ class BlockProcessingTest {
                     frame[0] = mixed.left
                     frame[1] = mixed.right
                 }
+                for (c in 0 until channels) frame[c] = softClipper.process(frame[c].toDouble()).toFloat()
                 limiter.processFrame(frame)
                 for (c in 0 until channels) samples[i + c] = toPcm16(frame[c])
                 i += channels

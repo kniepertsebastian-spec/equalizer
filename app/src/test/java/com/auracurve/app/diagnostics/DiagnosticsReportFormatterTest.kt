@@ -40,6 +40,17 @@ class DiagnosticsReportFormatterTest {
     }
 
     @Test
+    fun generateReport_statesMbcBandsAndPostEq() {
+        // Roadmap 13: the diagnostics confirm 5 MBC bands and an active post-EQ.
+        val full = capabilities.copy(mbcBandCount = 5, postEqCutoffsHz = listOf(100f, 1000f, 20000f))
+        val report = DiagnosticsReportFormatter.generateReport(AudioEngineState.Active(1), full, route)
+        assertTrue(report.contains("MBC Bands: 5"))
+        assertTrue(report.contains("Post-EQ: 3-band"))
+        val plain = DiagnosticsReportFormatter.generateReport(AudioEngineState.Active(1), capabilities, route)
+        assertTrue(plain.contains("Post-EQ: not in use"))
+    }
+
+    @Test
     fun generateReport_statesEqStatusSessionPlayerAndLastError() {
         val active =
             DiagnosticsReportFormatter.generateReport(

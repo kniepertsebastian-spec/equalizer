@@ -1,7 +1,7 @@
 # DSP-Konzept: Virtual Bass (Roadmap 03, P4-3)
 
 Stand: 13. November 2026. Gilt für `core/.../dsp/BassExciter.kt` und `HilbertAllpassPair.kt`.
-Virtual Bass läuft nur im eigenen Player (`PlayerDspPcm16`, siehe `docs/DECISIONS.md`, „Virtual Bass
+Virtual Bass läuft nur im eigenen Player (`PlayerDspChain`, siehe `docs/DECISIONS.md`, „Virtual Bass
 bleibt Player-Feature"). Für fremde Apps gibt es weiterhin nur die EQ-Annäherung
 `VirtualBassApproxCurve`; sie ist von diesem Umbau nicht betroffen.
 
@@ -125,8 +125,8 @@ isolierten Grundtons mit −3 dB durch, aber nichts weiter in die Mitten. Bisher
 `y = x + h · mix · OUTPUT_TRIM`, `OUTPUT_TRIM = 0,35`. Kalibriert so, dass die gesamte
 Oberton-Leistung (2. + 3.) eines 100-Hz-Tons bei mix 1 der 2. Harmonischen der P0-5-Version
 entspricht (−9,7 dB re Eingang). Bestehende Presets (`virtualBassMix` 0,4 bzw. 0,6) werden also
-nicht lauter. Das Original bleibt unverändert, auch der Grundton; Spitzen fängt der Lookahead-
-Limiter hinter der Kette (`PlayerDspPcm16`).
+nicht lauter. Das Original bleibt unverändert, auch der Grundton; Spitzen fangen Soft-Clipper und
+Sicherheits-Ceiling hinter der Kette (`PlayerDspChain`, Roadmap 09).
 
 ## 4. Frequenzgang des Effekts
 
@@ -163,7 +163,7 @@ eingeschwungenen Zustand < 1·10⁻⁶).
 
 - `BassExciterSettings`: `enabled`, `cutoffHz`, `mix`, neu `thirdHarmonicShare`. Der Parameter
   `drive` entfällt: Er steuerte die `tanh`-Sättigung, die es nicht mehr gibt. Er wurde außerhalb von
-  `BassExciter` nirgends gesetzt (`PlayerDspPcm16.updateVirtualBass` übergibt nur `mix`).
+  `BassExciter` nirgends gesetzt (`PlayerDspChain.updateVirtualBass` übergibt nur `mix`).
 - In der App bleibt es beim Virtual-Bass-Schalter mit `virtualBassMix` aus dem Preset. `share` und
   `cutoffHz` laufen mit Standardwerten. Ob sie in der Oberfläche einstellbar werden sollen (z. B.
   „Charakter: weich – hart"), ist eine eigene UI-Entscheidung und gehört nicht zu P4-3.

@@ -5,11 +5,13 @@ import com.auracurve.app.audio.EqualizerBandCapabilities
 import com.auracurve.app.audio.ProcessingSettings
 import com.auracurve.app.context.SoundContext
 import com.auracurve.app.dsp.CurveComposer
+import com.auracurve.app.dsp.EqStageGains
 import com.auracurve.app.dsp.EqualizerInterpolator
 import com.auracurve.app.dsp.HeadphoneComfortCurve
 import com.auracurve.app.dsp.HeadphonePower
 import com.auracurve.app.dsp.LoudnessCompensationCurve
 import com.auracurve.app.dsp.LoudnessMatch
+import com.auracurve.app.dsp.PostEqSplit
 import com.auracurve.app.dsp.PreEqMacros
 import com.auracurve.app.dsp.PreEqMapper
 import com.auracurve.app.dsp.PreEqResponseMode
@@ -156,6 +158,22 @@ object CurveCalculator {
                 val delta = (classicBandGainsDb[band.index] ?: 0f) - (fromCurve[band.index] ?: 0f)
                 if (abs(delta) > MANUAL_DELTA_EPSILON_DB) TargetPoint(band.centerFreqHz.toFloat(), delta) else null
             }.sortedBy { it.frequencyHz }
+    }
+
+    /**
+     * Roadmap 13, P13-2: [preEqGains] divided between the pre-EQ ahead of the multiband compressor
+     * and the post-EQ behind it (see PostEqSplit), when the device runs a post-EQ. Without one -
+     * or with the classic equalizer - everything stays in the pre-EQ and [EqStageGains.post] is empty.
+     */
+    fun eqStageGains(
+        inputs: CurveInputs,
+        capabilities: AudioCapabilities,
+        classicBandGainsDb: Map<Int, Float>,
+    ): EqStageGains {
+        val gains = preEqGains(inputs, capabilities, classicBandGainsDb)
+        val post = capabilities.postEqCutoffsHz
+        if (gains.isEmpty() || post.isEmpty() || post != capabilities.preEqCutoffsHz) return EqStageGains(gains, emptyList())
+        return PostEqSplit.split(gains, capabilities.preEqCutoffsHz)
     }
 
     /**

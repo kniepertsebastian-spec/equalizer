@@ -16,6 +16,7 @@ import com.auracurve.app.correction.BuiltInCorrectionProfiles
 import com.auracurve.app.correction.CorrectionProfile
 import com.auracurve.app.correction.CorrectionProfileRepository
 import com.auracurve.app.data.preset.PresetShareCodec
+import com.auracurve.app.dsp.EqStageGains
 import com.auracurve.app.dsp.EqualizerInterpolator
 import com.auracurve.app.dsp.HeadphoneDynamicsEasing
 import com.auracurve.app.dsp.HeadphonePower
@@ -958,11 +959,13 @@ class EqController
         ) {
             val currentGains = _processingSettings.value.bandGainsDb.toMutableMap()
             currentGains[bandIndex] = gainDb
+            val stages = eqStageGainsFor(currentGains)
             val newSettings =
                 _processingSettings.value.copy(
                     bandGainsDb = currentGains,
                     inputGainDb = automaticInputGainDb(currentGains),
-                    preEqGainsDb = preEqGainsFor(currentGains),
+                    preEqGainsDb = stages.pre,
+                    postEqGainsDb = stages.post,
                 )
             _isDirty.value = true
             applySettings(newSettings)
@@ -1035,8 +1038,9 @@ class EqController
         private fun combinedCurve(includeSubsonic: Boolean = true): List<TargetPoint> =
             CurveCalculator.combinedCurve(curveInputs(), includeSubsonic)
 
-        private fun preEqGainsFor(classicBandGainsDb: Map<Int, Float>): List<Float> =
-            CurveCalculator.preEqGains(curveInputs(), capabilities.value, classicBandGainsDb)
+        // Pre-EQ gains, and the post-EQ's share behind the compressor where the device has one (roadmap 13).
+        private fun eqStageGainsFor(classicBandGainsDb: Map<Int, Float>): EqStageGains =
+            CurveCalculator.eqStageGains(curveInputs(), capabilities.value, classicBandGainsDb)
 
         /** Switch between the classic 5-band equalizer and the DynamicsProcessing pre-EQ (experimental). */
         fun setHighResolutionEq(enabled: Boolean) {
@@ -1108,6 +1112,7 @@ class EqController
                 } else {
                     baseMbcRatio
                 }
+            val stages = eqStageGainsFor(calculatedGains)
             val newSettings =
                 _processingSettings.value.copy(
                     bandGainsDb = calculatedGains,
@@ -1115,7 +1120,8 @@ class EqController
                     mbcEnabled = preset.mbcEnabled || context != null,
                     mbcThresholdDb = mbcThresholdDb,
                     mbcRatio = mbcRatio,
-                    preEqGainsDb = preEqGainsFor(calculatedGains),
+                    preEqGainsDb = stages.pre,
+                    postEqGainsDb = stages.post,
                 )
             applySettings(newSettings)
         }
@@ -1209,6 +1215,7 @@ class EqController
                                 bypass = false,
                                 bandGainsDb = capabilities.value.bands.associate { it.index to 0f },
                                 preEqGainsDb = settings.preEqGainsDb.map { 0f },
+                                postEqGainsDb = settings.postEqGainsDb.map { 0f },
                                 inputGainDb = plan.originalGainDb,
                                 limiterEnabled = false,
                                 mbcEnabled = false,
@@ -1225,6 +1232,7 @@ class EqController
                     forEngine.copy(
                         bandGainsDb = forEngine.bandGainsDb.mapValues { 0f },
                         preEqGainsDb = forEngine.preEqGainsDb.map { 0f },
+                        postEqGainsDb = forEngine.postEqGainsDb.map { 0f },
                         inputGainDb =
                             when (compare?.side) {
                                 null -> 0f

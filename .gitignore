@@ -12,3 +12,9 @@ captures/
 
 # Kotlin compiler daemon session files
 .kotlin/
+
+# Signing material and its passwords (roadmap 12, P12-3) - never in the repository.
+*.jks
+*.keystore
+*.p12
+keystore.properties

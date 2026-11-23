@@ -23,7 +23,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "AndroidAudioEngine"
-private const val MBC_BAND_COUNT = 4
+
+// Roadmap 13, P13-1: five compressor bands, so the upper bass/mud (135-350 Hz) no longer shares a
+// band with the vocals' fundamentals. A device that refuses five gets the earlier four.
+internal const val MBC_BAND_COUNT = 5
+internal const val MBC_FALLBACK_BAND_COUNT = 4
 
 // Frame length for the frequency-domain DynamicsProcessing while the pre-EQ runs. The
 // platform default of 10 ms gives an FFT bin spacing of roughly 47 Hz at 48 kHz (AOSP
@@ -36,10 +40,6 @@ private const val PRE_EQ_FRAME_DURATION_MS = 20f
 // Limiter release. 50 ms let the gain recover within a few cycles of 40-60 Hz bass and
 // follow the waveform - heard as distortion on heavily boosted bass.
 private const val LIMITER_RELEASE_MS = 120f
-
-// The sub-bass band compresses this much later than the others: it carries the most
-// energy, so with a shared threshold it is the one that pumps first.
-private const val SUB_BAND_THRESHOLD_OFFSET_DB = 3f
 
 @Singleton
 class AndroidAudioEngine
@@ -178,46 +178,33 @@ class AndroidAudioEngine
                 equalizer = eq
 
                 var dpSupported = false
-                var dpLimiterSupported = false
-                var dpInputGainSupported = false
-                var dpMbcSupported = false
-                var dpPreEqCutoffs: List<Float> = emptyList()
-                val preEqFailures = mutableListOf<String>()
+                var chosen: DynamicsAttempt? = null
+                val failures = mutableListOf<Pair<DynamicsAttempt, String>>()
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    // Most capable configuration first; the first one the device accepts wins.
-                    // Without the experimental switch the order is the long-standing
-                    // MBC + limiter, then limiter only.
-                    val attempts: List<Pair<List<Float>?, Boolean>> =
-                        if (_currentSettings.value.highResolutionEq) {
-                            // Finest layout first, then the coarser one, then no pre-EQ at all.
-                            val layouts = listOf(PreEqLayout.CUTOFFS_HZ, PreEqLayout.COARSE_CUTOFFS_HZ)
-                            layouts.flatMap { listOf(it to true, it to false) } + listOf(null to true, null to false)
-                        } else {
-                            listOf(null to true, null to false)
-                        }
-                    for ((preEqCutoffs, useMbc) in attempts) {
+                    // Most capable configuration first; the first one the device accepts wins
+                    // (roadmap 13: PreEQ + 5-band MBC + PostEQ, then fewer stages and bands).
+                    for (attempt in DynamicsAttempts.order(_currentSettings.value.highResolutionEq)) {
                         try {
-                            dynamicsProcessing =
-                                DynamicsProcessing(0, session.sessionId, createDynamicsConfig(useMbc, preEqCutoffs))
-                            dpPreEqCutoffs = preEqCutoffs.orEmpty()
-                            dpMbcSupported = useMbc
+                            dynamicsProcessing = DynamicsProcessing(0, session.sessionId, createDynamicsConfig(attempt))
+                            chosen = attempt
                             dpSupported = true
-                            dpLimiterSupported = true
-                            dpInputGainSupported = true
                             break
                         } catch (e: Exception) {
-                            Log.w(TAG, "DynamicsProcessing config (preEq=${preEqCutoffs?.size}, mbc=$useMbc) unavailable", e)
-                            if (preEqCutoffs != null) {
-                                val cause = "${e.javaClass.simpleName}: ${e.localizedMessage}"
-                                preEqFailures += "${preEqCutoffs.size} bands, mbc=$useMbc: $cause"
-                            }
+                            Log.w(
+                                TAG,
+                                "DynamicsProcessing config (preEq=${attempt.preEqCutoffsHz?.size}, mbc=${attempt.mbcBandCount}, " +
+                                    "postEq=${attempt.postEq}) unavailable",
+                                e,
+                            )
+                            failures += attempt to "${e.javaClass.simpleName}: ${e.localizedMessage}"
                         }
                     }
                     if (!dpSupported) {
                         Log.w(TAG, "DynamicsProcessing not supported on session ${session.sessionId}")
                     }
                 }
+                val dpPreEqCutoffs = chosen?.preEqCutoffsHz.orEmpty()
 
                 _capabilities.value =
                     AudioCapabilities(
@@ -227,12 +214,14 @@ class AndroidAudioEngine
                         hasLoudnessEnhancer = staticDeviceCapabilities.hasLoudnessEnhancer,
                         totalEffectCount = if (dpSupported) 2 else 1,
                         bands = bandCaps,
-                        hasInputGain = dpInputGainSupported,
-                        hasLimiter = dpLimiterSupported,
-                        hasMbc = dpMbcSupported,
+                        hasInputGain = dpSupported,
+                        hasLimiter = dpSupported,
+                        hasMbc = (chosen?.mbcBandCount ?: 0) > 0,
                         preEqCutoffsHz = dpPreEqCutoffs,
                         // Also reported when a coarser layout worked: the finer one was refused.
-                        preEqUnavailableReason = preEqFailures.takeIf { it.isNotEmpty() }?.joinToString("; "),
+                        preEqUnavailableReason = DynamicsAttempts.preEqUnavailableReason(failures, chosen),
+                        mbcBandCount = chosen?.mbcBandCount ?: 0,
+                        postEqCutoffsHz = if (chosen?.postEq == true) dpPreEqCutoffs else emptyList(),
                     )
 
                 isAttached.set(true)
@@ -300,12 +289,11 @@ class AndroidAudioEngine
                 applyInternal(settings, sessionId)
             }
 
-        private fun createDynamicsConfig(
-            mbcEnabled: Boolean,
-            preEqCutoffs: List<Float>?,
-        ): DynamicsProcessing.Config {
-            val preEqEnabled = preEqCutoffs != null
-            val cutoffs = preEqCutoffs.orEmpty()
+        private fun createDynamicsConfig(attempt: DynamicsAttempt): DynamicsProcessing.Config {
+            val cutoffs = attempt.preEqCutoffsHz.orEmpty()
+            val preEqEnabled = attempt.preEqCutoffsHz != null
+            val postEqEnabled = preEqEnabled && attempt.postEq
+            val mbcEnabled = attempt.mbcBandCount > 0
             val builder =
                 DynamicsProcessing.Config.Builder(
                     DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
@@ -313,20 +301,26 @@ class AndroidAudioEngine
                     preEqEnabled,
                     if (preEqEnabled) cutoffs.size else 0,
                     mbcEnabled,
-                    if (mbcEnabled) MBC_BAND_COUNT else 0,
-                    false,
-                    0,
+                    attempt.mbcBandCount,
+                    postEqEnabled,
+                    if (postEqEnabled) cutoffs.size else 0,
                     true,
                 )
             if (preEqEnabled) {
                 builder.setPreferredFrameDuration(PRE_EQ_FRAME_DURATION_MS)
                 // The band edges are fixed at creation; only the gains change afterwards.
-                val eq = DynamicsProcessing.Eq(true, true, cutoffs.size)
-                cutoffs.forEachIndexed { i, hz -> eq.setBand(i, DynamicsProcessing.EqBand(true, hz, 0f)) }
-                builder.setPreEqAllChannelsTo(eq)
+                builder.setPreEqAllChannelsTo(flatEq(cutoffs))
+                // Roadmap 13, P13-2: the post-EQ has the pre-EQ's layout, so pre + post per band is
+                // exactly the curve (PostEqSplit).
+                if (postEqEnabled) builder.setPostEqAllChannelsTo(flatEq(cutoffs))
             }
             return builder.build()
         }
+
+        private fun flatEq(cutoffs: List<Float>): DynamicsProcessing.Eq =
+            DynamicsProcessing.Eq(true, true, cutoffs.size).apply {
+                cutoffs.forEachIndexed { i, hz -> setBand(i, DynamicsProcessing.EqBand(true, hz, 0f)) }
+            }
 
         private fun applyInternal(
             settings: ProcessingSettings,
@@ -366,52 +360,37 @@ class AndroidAudioEngine
                                 dp.setPreEqBandAllChannelsTo(i, DynamicsProcessing.EqBand(true, cutoffHz, gainDb))
                             }
                         }
+                        // Roadmap 13, P13-2: the share of the tone shaping behind the compressor. Settings
+                        // computed before the post-EQ existed have no post gains: 0 dB, all of it in the pre-EQ.
+                        capabilities.value.postEqCutoffsHz.forEachIndexed { i, cutoffHz ->
+                            val gainDb = if (usePreEq) (settings.postEqGainsDb.getOrNull(i) ?: 0f).coerceIn(-15f, 15f) else 0f
+                            dp.setPostEqBandAllChannelsTo(i, DynamicsProcessing.EqBand(true, cutoffHz, gainDb))
+                        }
 
-                        if (capabilities.value.hasMbc) {
-                            val mbcRatio = if (settings.mbcEnabled) settings.mbcRatio.coerceIn(1f, 6f) else 1f
-                            val mbcThresholdDb =
-                                if (settings.mbcEnabled) settings.mbcThresholdDb.coerceIn(-30f, 0f) else 0f
-                            // Balanced makeup-gain heuristic (reduced from 0.85 / 6 dB cap to
-                            // 0.45 / 3 dB cap): previously, adding up to +6 dB postGain across all
-                            // 4 MBC bands drove the downstream brickwall limiter into constant
-                            // saturation, crushing transients and mid/high clarity even with 34-band
-                            // mode turned off.
-                            val mbcMakeupGainDb =
-                                if (mbcRatio > 1f) {
-                                    ((-mbcThresholdDb) * (1f - 1f / mbcRatio) * 0.45f).coerceIn(0f, 3.0f)
-                                } else {
-                                    0f
-                                }
-                            val mbcBands =
-                                listOf(
-                                    // Sub-bass: slow, and its threshold sits a little higher so the compressor
-                                    // does not hold the kick's fundamental down.
-                                    MbcBandSettings(45f, 20f, 160f, mbcMakeupGainDb, SUB_BAND_THRESHOLD_OFFSET_DB),
-                                    // Kick body: tight enough to catch the hit without pumping the tail.
-                                    MbcBandSettings(130f, 12f, 90f, mbcMakeupGainDb),
-                                    // Midrange & Treble: gentler makeup gain so vocals and highs stay clear
-                                    // and don't slam the final limiter on every kick hit.
-                                    MbcBandSettings(1500f, 10f, 110f, mbcMakeupGainDb * 0.6f),
-                                    MbcBandSettings(20000f, 5f, 80f, mbcMakeupGainDb * 0.5f),
-                                )
-                            mbcBands.forEachIndexed { bandIndex, band ->
-                                dp.setMbcBandAllChannelsTo(
-                                    bandIndex,
-                                    DynamicsProcessing.MbcBand(
-                                        true,
-                                        band.cutoffFrequencyHz,
-                                        band.attackMs,
-                                        band.releaseMs,
-                                        mbcRatio,
-                                        (mbcThresholdDb + band.thresholdOffsetDb).coerceAtMost(0f),
-                                        6f, // soft knee
-                                        -80f, // effectively disable the noise gate
-                                        1f, // no expansion
-                                        0f, // preGain
-                                        band.postGainDb, // band-appropriate postGain
-                                    ),
-                                )
-                            }
+                        val mbcBands =
+                            MbcTuning.bands(
+                                bandCount = capabilities.value.mbcBandCount,
+                                enabled = settings.mbcEnabled,
+                                ratio = settings.mbcRatio,
+                                thresholdDb = settings.mbcThresholdDb,
+                            )
+                        mbcBands.forEachIndexed { bandIndex, band ->
+                            dp.setMbcBandAllChannelsTo(
+                                bandIndex,
+                                DynamicsProcessing.MbcBand(
+                                    true,
+                                    band.cutoffFrequencyHz,
+                                    band.attackMs,
+                                    band.releaseMs,
+                                    band.ratio,
+                                    band.thresholdDb,
+                                    band.kneeWidthDb,
+                                    -80f, // effectively disable the noise gate
+                                    1f, // no expansion
+                                    0f, // preGain
+                                    band.postGainDb,
+                                ),
+                            )
                         }
 
                         val safeThresholdDb = settings.limiterThresholdDb.coerceAtMost(0f)
@@ -469,10 +448,124 @@ class AndroidAudioEngine
         }
     }
 
-private data class MbcBandSettings(
+/** One DynamicsProcessing layout to try (roadmap 13); the engine takes the first the device accepts. */
+internal data class DynamicsAttempt(
+    // Upper band edges of the pre-EQ; null = no pre-EQ (the classic equalizer shapes the curve).
+    val preEqCutoffsHz: List<Float>?,
+    // 0 = no multiband compressor.
+    val mbcBandCount: Int,
+    // A post-EQ behind the compressor, with the pre-EQ's layout. Only together with a pre-EQ.
+    val postEq: Boolean = false,
+)
+
+internal object DynamicsAttempts {
+    /**
+     * Most capable first. With the high-resolution EQ, per pre-EQ layout (fine, then coarse):
+     * PreEQ + 5-band MBC + PostEQ, then PreEQ + 5-band MBC, + 4-band MBC, without MBC; then the same
+     * MBC steps without a pre-EQ. Without it only those last three.
+     */
+    fun order(highResolutionEq: Boolean): List<DynamicsAttempt> {
+        val withoutPreEq = mbcSteps(null)
+        if (!highResolutionEq) return withoutPreEq
+        val layouts = listOf(PreEqLayout.CUTOFFS_HZ, PreEqLayout.COARSE_CUTOFFS_HZ)
+        return layouts.flatMap { layout -> listOf(DynamicsAttempt(layout, MBC_BAND_COUNT, postEq = true)) + mbcSteps(layout) } +
+            withoutPreEq
+    }
+
+    private fun mbcSteps(layout: List<Float>?) = listOf(MBC_BAND_COUNT, MBC_FALLBACK_BAND_COUNT, 0).map { DynamicsAttempt(layout, it) }
+
+    /**
+     * Why the high-resolution EQ is not (fully) in use: the refusals of every pre-EQ layout other
+     * than the one in use - a finer one when the coarse layout runs, all of them when none does.
+     * A refused post-EQ or 5-band MBC with the layout that does run is no reason: the EQ is there.
+     */
+    fun preEqUnavailableReason(
+        failures: List<Pair<DynamicsAttempt, String>>,
+        chosen: DynamicsAttempt?,
+    ): String? =
+        failures
+            .filter { (attempt, _) -> attempt.preEqCutoffsHz != null && attempt.preEqCutoffsHz != chosen?.preEqCutoffsHz }
+            .map { (attempt, cause) -> "${attempt.preEqCutoffsHz?.size} bands, mbc=${attempt.mbcBandCount}: $cause" }
+            .distinct()
+            .takeIf { it.isNotEmpty() }
+            ?.joinToString("; ")
+}
+
+internal data class MbcBandSettings(
     val cutoffFrequencyHz: Float,
     val attackMs: Float,
     val releaseMs: Float,
+    val ratio: Float,
+    val thresholdDb: Float,
+    val kneeWidthDb: Float,
     val postGainDb: Float,
-    val thresholdOffsetDb: Float = 0f,
 )
+
+/**
+ * The multiband compressor's bands (roadmap 13, P13-1). The preset gives one ratio and threshold;
+ * each band takes what suits its range instead of all of them the same: sub and kick get the full
+ * (capped) ratio with attacks slow enough to let the kick's transient through, the mud band a
+ * moderate one, vocals and treble only a gentle one with a higher threshold and little makeup gain -
+ * so a hard-compressed bass no longer drags the voices and hi-hats down with it.
+ */
+internal object MbcTuning {
+    // Balanced makeup-gain heuristic (0.45 / 3 dB cap): more drove the final limiter into constant
+    // saturation, crushing transients and mid/high clarity.
+    private const val MAKEUP_SHARE = 0.45f
+    private const val MAX_MAKEUP_DB = 3f
+
+    fun bands(
+        bandCount: Int,
+        enabled: Boolean,
+        ratio: Float,
+        thresholdDb: Float,
+    ): List<MbcBandSettings> {
+        if (bandCount <= 0) return emptyList()
+        val r = if (enabled) ratio.coerceIn(1f, 6f) else 1f
+        val threshold = if (enabled) thresholdDb.coerceIn(-30f, 0f) else 0f
+        val makeup = if (r > 1f) ((-threshold) * (1f - 1f / r) * MAKEUP_SHARE).coerceIn(0f, MAX_MAKEUP_DB) else 0f
+
+        fun scaled(share: Float) = 1f + (r - 1f) * share
+
+        fun band(
+            cutoffHz: Float,
+            attackMs: Float,
+            releaseMs: Float,
+            ratio: Float,
+            thresholdOffsetDb: Float,
+            kneeDb: Float,
+            makeupShare: Float,
+        ) = MbcBandSettings(
+            cutoffFrequencyHz = cutoffHz,
+            attackMs = attackMs,
+            releaseMs = releaseMs,
+            ratio = ratio,
+            thresholdDb = (threshold + thresholdOffsetDb).coerceAtMost(0f),
+            kneeWidthDb = kneeDb,
+            postGainDb = makeup * makeupShare,
+        )
+        return if (bandCount >= MBC_BAND_COUNT) {
+            listOf(
+                // Sub-bass: slow, and a little later, so it does not hold the kick's fundamental down.
+                band(50f, 28f, 170f, minOf(r, 3.5f), 3f, 10f, 1f),
+                // Kick punch: the attack lets the transient through, the release follows the tail.
+                band(135f, 20f, 100f, minOf(r, 4f), 0f, 8f, 1f),
+                // Low mids / mud: its own band now, decoupled from the vocals.
+                band(350f, 13f, 100f, scaled(0.55f), 0f, 8f, 0.35f),
+                // Vocals and mids: gentle, so voices stay steady when the bass is compressed.
+                band(3000f, 10f, 110f, minOf(scaled(0.25f), 1.8f), 4f, 8f, 0.25f),
+                // Presence and air: gentle, no hissing hi-hats.
+                band(20000f, 5f, 80f, minOf(scaled(0.2f), 1.6f), 4f, 8f, 0.2f),
+            )
+        } else {
+            // Four bands: the earlier crossovers, with the same per-range ratios.
+            listOf(
+                band(45f, 25f, 160f, minOf(r, 3.5f), 3f, 10f, 1f),
+                band(130f, 18f, 100f, minOf(r, 4f), 0f, 8f, 1f),
+                // Mud and vocals still share this band: between the mud and the vocal ratio.
+                band(1500f, 12f, 110f, scaled(0.4f), 2f, 8f, 0.35f),
+                band(20000f, 5f, 80f, minOf(scaled(0.2f), 1.6f), 4f, 8f, 0.2f),
+            )
+        }
+    }
+}
