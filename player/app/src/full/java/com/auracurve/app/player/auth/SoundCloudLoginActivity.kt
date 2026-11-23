@@ -3,6 +3,7 @@ package com.auracurve.app.player.auth
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -81,6 +82,29 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                 WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())
             }
         }
+
+        // Roadmap 12, P12-4: the sign-in pages are web pages, nothing on the phone is theirs to read.
+        // File access is on by default below Android 11 (minSdk is 28), content:// access always.
+        private fun lockDown(webView: WebView) {
+            webView.settings.allowFileAccess = false
+            webView.settings.allowContentAccess = false
+        }
+
+        /** Whether [url] is an https page of soundcloud.com itself (not a URL that merely mentions it). */
+        internal fun isSoundCloudPage(url: String?): Boolean {
+            val uri = url?.let { runCatching { Uri.parse(it) }.getOrNull() } ?: return false
+            val host = uri.host?.lowercase() ?: return false
+            return uri.scheme.equals("https", ignoreCase = true) && (host == "soundcloud.com" || host.endsWith(".soundcloud.com"))
+        }
+
+        /**
+         * Sign-in pages only ever move between https pages (and the about:blank a popup starts on);
+         * anything else - intent:, file:, content:, plain http: - is refused.
+         */
+        internal fun isAllowedNavigation(url: String?): Boolean {
+            val scheme = url?.let { runCatching { Uri.parse(it).scheme }.getOrNull() }?.lowercase()
+            return scheme == "https" || url == "about:blank"
+        }
     }
 
     private lateinit var webView: WebView
@@ -122,6 +146,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
             }
         setContentView(root)
 
+        lockDown(webView)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.userAgentString = CHROME_USER_AGENT
@@ -144,7 +169,8 @@ class SoundCloudLoginActivity : AppCompatActivity() {
 
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                 checkCookies()
-                return false
+                // true = the WebView does not load it.
+                return !isAllowedNavigation(request?.url?.toString())
             }
         }
 
@@ -164,6 +190,7 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                 popupDialog?.dismiss()
 
                 val popup = WebView(this@SoundCloudLoginActivity)
+                lockDown(popup)
                 popup.settings.javaScriptEnabled = true
                 popup.settings.domStorageEnabled = true
                 popup.settings.userAgentString = CHROME_USER_AGENT
@@ -180,6 +207,9 @@ class SoundCloudLoginActivity : AppCompatActivity() {
 
                 popup.webViewClient =
                     object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(popupView: WebView?, request: WebResourceRequest?): Boolean =
+                            !isAllowedNavigation(request?.url?.toString())
+
                         override fun onPageFinished(popupView: WebView?, url: String?) {
                             super.onPageFinished(popupView, url)
                             checkCookies()
@@ -187,9 +217,9 @@ class SoundCloudLoginActivity : AppCompatActivity() {
                             // page (OAuth flow completed/redirected), surface that
                             // in the main WebView so the user sees the result and
                             // any further first-party redirects keep working.
-                            if (url != null && url.contains("soundcloud.com") && !url.contains("accounts.google") &&
-                                !url.contains("facebook.com") && !url.contains("appleid.apple.com")
-                            ) {
+                            // The host itself is checked (roadmap 12, P12-4): a provider URL that only
+                            // carries "soundcloud.com" in its redirect parameter must not count.
+                            if (url != null && isSoundCloudPage(url)) {
                                 webView.loadUrl(url)
                                 dialog.dismiss()
                             }

@@ -15,11 +15,9 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <!--
       Trusted Wi-Fi names (19 Nov 2026): Android only tells an app the name of the Wi-Fi it is in
-      with the location permission. Asked for only when the user taps "Allow" in the remote card;
-      the server does not read the location itself.
+      with the location permission. Asked for only when the user taps "Allow" in the remote card.
+      ACCESS_FINE/COARSE_LOCATION are declared once, below with module 11 (roadmap 12, P12-2).
     -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!--
       Remote library: the server opens a song in the Spotify app while AuraCurve is in the
       background. Android blocks such activity starts unless the user allowed "Display over

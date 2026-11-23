@@ -21,6 +21,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
@@ -148,6 +149,8 @@ internal fun RoundControlButton(
     Box(
         modifier =
             modifier
+                // Roadmap 12, P12-4: at least 48 dp to touch, also for the smaller 44 dp keys.
+                .minimumInteractiveComponentSize()
                 .size(size)
                 .clip(CircleShape)
                 .background(style.surfaceVariant)

@@ -67,13 +67,14 @@ android {
 
     buildTypes {
         release {
-            // Roadmap 06, P6-6: R8 (isMinifyEnabled + isShrinkResources) was tried and switched off again:
-            // the signed release APK (about 7 MB) did not start on a device. Most likely that was not
-            // R8 at all: 1.1.2-beta.7 and beta.8 were built without it and did not start either. The
-            // cause was a NullPointerException in MainViewModel's init (state declared below the init
-            // block), fixed since. proguard-rules.pro is kept for the next attempt; turn minification
-            // back on only together with a device test.
-            isMinifyEnabled = false
+            // Roadmap 12, P12-1 (blocker B4): R8 and resource shrinking are on again. They were switched
+            // off in roadmap 06 (P6-6) because the signed release APK did not start; the cause was a
+            // NullPointerException in MainViewModel's init (state declared below the init block), not
+            // R8 - 1.1.2-beta.7/8 failed without it too. proguard-rules.pro holds the keep rules for
+            // what is reached by name and strips Log.v/d/i from the release. Every release still
+            // needs the device test of docs/roadmap 12 (start, presets, playback, remote, sign-in).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (hasReleaseSigning) signingConfig = signingConfigs.getByName("hardbassRelease")
         }
