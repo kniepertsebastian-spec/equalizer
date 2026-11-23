@@ -173,7 +173,7 @@ umgesetzt, mit unterschiedlicher Reichweite:
 | Automatische Umschaltung | `AudioDeviceType.CAR`/`BLUETOOTH_SPEAKER`, Erkennung über Produktnamen (`SoundContextClassifier`) bzw. `TYPE_BUS`; Default nur für Routen ohne gespeichertes Profil | alle Apps |
 | Lautstärke-Loudness | `VolumeLevelMapper` + vorhandene `LoudnessCompensationCurve`, folgt der System-Medienlautstärke (`SystemVolumeRepository`) | alle Apps |
 | Subsonic-Filter | `SubsonicFilterCurve` (Butterworth-Highpass als `TargetPoint`-Kurve) | alle Apps, aber nur so steil wie das unterste Band des Systemequalizers es zulässt |
-| Virtual Bass | vorhandener `BassExciter` in der Float-Kette von `PlayerDspPcm16` (ein Media3-`AudioProcessor`) | **nur eingebauter Player** |
+| Virtual Bass | vorhandener `BassExciter` in der Float-Kette von `PlayerDspChain` (seit Roadmap 09; ein Media3-`AudioProcessor`) | **nur eingebauter Player** |
 
 Entscheidungen und Grenzen:
 
@@ -813,3 +813,33 @@ Plan: `docs/PLAYER_REDESIGN.md`, freigegeben mit E1–E5 wie empfohlen.
 - **Compose-UI-Tests mit Robolectric** in `:app` (`robolectric` 4.16, `compose-ui-test-junit4`;
   Android-Ressourcen in Unit-Tests eingeschaltet). Sie laufen mit einer schlichten `Application`,
   damit der Hilt-Graph nicht mitgebaut wird.
+
+## 32-Bit-Float-Kette, Soft-Clipper und Sicherheits-Ceiling im eigenen Player (Roadmap 09, November 2026)
+
+- **Float bis zum AudioTrack, aber ohne `setEnableFloatOutput(true)`.** Im Bytecode von Media3
+  1.11.1 geprüft: Mit dem Schalter baut `DefaultAudioSink.configure()` für hochauflösende Quellen
+  (24/32 Bit, Float) die Kette nur aus `ToFloatPcmAudioProcessor` – die `AudioProcessorChain`
+  (unser Prozessor und Sonic) fällt dann ganz weg. Genau das wäre der in der Roadmap befürchtete
+  stille DSP-Ausfall gewesen. Der Schalter bleibt deshalb explizit aus; `ToInt16PcmAudioProcessor`
+  läuft vorn, `PlayerDspAudioProcessor` macht aus PCM16 selbst Float und gibt
+  `ENCODING_PCM_FLOAT` weiter (kein Dither, kein 16-Bit-Clipping vor `DynamicsProcessing`).
+- **Eigene Prozessorkette `PlayerAudioProcessorChain`:** Media3s `DefaultAudioProcessorChain`
+  setzt eigene Prozessoren *vor* `SilenceSkippingAudioProcessor`, der alles außer PCM16 mit einer
+  Exception ablehnt (auch wenn Stille-Überspringen aus ist). Reihenfolge jetzt: Silence-Skipping
+  (PCM16) → Klangkette (PCM16 rein, Float raus) → Sonic (nimmt PCM16 und Float).
+- **Prozessor nie still inaktiv:** PCM 16/24/32 Bit und Float werden gelesen. Andere Formate
+  kommen hinter der konfigurierten Senke nicht an; falls doch: Warnung im Log statt Abbruch.
+- **Limiter-Zuständigkeit (Weg A):** Die Lautheitsarbeit macht das System-`DynamicsProcessing`
+  (MBC + 2-ms-Limiter mit `limiterThresholdDb` des Presets), unverändert in `AndroidAudioEngine`.
+  Im Player bleibt der `LookaheadLimiter` nur als schaltbares Sicherheits-Ceiling bei −0,2 dBFS
+  mit 2 ms Lookahead (vorher −1 dB / 5 ms, also ein zweiter Brickwall vor dem System-Limiter).
+- **Soft-Clipper (`SoftClipper`)** vor dem Ceiling: bis 0,75 (−2,5 dBFS) linear, darüber
+  `tanh` in Richtung 0,98, Wert und Steigung am Knie stetig. Standard an.
+- **Output-Drive 0 bis +4 dB** (`PlayerDspSettings.outputDriveDb`, Standard 0 dB) vor dem
+  Soft-Clipper; gespeichert in `PlayerDspState`. **Noch kein Regler in der Oberfläche** – das
+  Sound-Sheet ist nicht Teil von Roadmap 09 und braucht eine eigene UI-Entscheidung.
+- **Grenze:** 24-Bit-Quellen werden weiter vor der Kette auf 16 Bit gekürzt (Media3 1.11.1
+  bietet Float-Eingang *und* Prozessorkette nicht gleichzeitig). Die Verarbeitung danach ist
+  durchgehend Float.
+- **Nicht verifiziert:** Wiedergabe mit Float-AudioTrack auf echten Geräten (inkl. 10 Minuten
+  bei gesperrtem Bildschirm) und der A/B-Hörtest gegen Spotify.

@@ -59,6 +59,17 @@ class SoundGoalTest {
     }
 
     @Test
+    fun clearBassDipsTheMudTamesSibilanceAndAddsAir() {
+        // Roadmap 13, P13-4: mud dip -2 to -3.5 dB at 200-300 Hz, air +1.5 to +2.5 dB from 10-14 kHz.
+        assertTrue(SoundGoal.CLEAR_BASS.gainAt(260f) in -3.5f..-2f)
+        assertTrue(SoundGoal.CLEAR_BASS.gainAt(60f) == 0f)
+        assertTrue(SoundGoal.CLEAR_BASS.gainAt(4500f) < 0f)
+        assertTrue(SoundGoal.CLEAR_BASS.gainAt(14000f) in 1.5f..2.5f)
+        // The vocal range itself stays untouched.
+        assertTrue(SoundGoal.CLEAR_BASS.gainAt(1500f) == 0f)
+    }
+
+    @Test
     fun lessHarshCutsTheHarshRegion() {
         assertTrue(SoundGoal.LESS_HARSH.gainAt(5000f) < -2f)
     }

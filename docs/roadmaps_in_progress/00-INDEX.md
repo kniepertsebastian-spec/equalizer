@@ -25,7 +25,10 @@
 6. [06-phase-5-und-6-neue-funktionen-wartbarkeit.md](06-phase-5-und-6-neue-funktionen-wartbarkeit.md)
 7. [07-laermabhaengiger-eq-messluecken.md](07-laermabhaengiger-eq-messluecken.md) – Lärm-EQ (PoC), gehört zu EQ-remote Modul 11 F12
 8. [08-player-lautheit-und-eq-paritaet.md](08-player-lautheit-und-eq-paritaet.md) – Player-Lautheit, manuelle Slider und A/B-Vergleich im eigenen Player
-9. [11-player-stabilitaet-und-lifecycle.md](11-player-stabilitaet-und-lifecycle.md) – Android-12+-sichere Player-Steuerung, begrenzter Stream-Lookup, kein Disk-I/O im Service-Start, `PlayerDspStore`
+9. [09-player-float-pipeline-und-punch.md](09-player-float-pipeline-und-punch.md) – 32-Bit-Float-Kette, Soft-Clipper, Limiter-Abstimmung (umgesetzt, Gerätetest offen)
+10. [11-player-stabilitaet-und-lifecycle.md](11-player-stabilitaet-und-lifecycle.md) – Android-12+-sichere Player-Steuerung, begrenzter Stream-Lookup, kein Disk-I/O im Service-Start, `PlayerDspStore`
+11. [12-release-r8-und-sicherheits-audit.md](12-release-r8-und-sicherheits-audit.md) – R8/Resource-Shrinking, Network-Security-Config, Gradle-/Git-Hygiene, Sicherheits-/a11y-Nach-Audit (umgesetzt, Gerätetest offen)
+12. [13-system-eq-bassqualitaet-mbc-posteq.md](13-system-eq-bassqualitaet-mbc-posteq.md) – 5-Band-MBC, PreEQ/PostEQ-Split, Pre-Ringing-Schutz (umgesetzt, Gerätetest/Hörprobe offen)
 
 Zusätzlich: Roadmap-Reihe **AuraCurve** (Rebranding, SoundCloud-Anfrage, Store-Release) in [`auracurve/`](auracurve/00-uebersicht-und-leitplanken.md).
 
@@ -37,7 +40,7 @@ Diese Punkte wurden nicht stillschweigend gelöscht, sind aber nicht Teil der se
 - **P1-3:** Manuelle Token-Eingabe als Rückfallweg beibehalten; Einfügen aus Zwischenablage und Prüfung gegen `/me`.
 - **P1-4:** Sackgassen nicht weiterverfolgen: Custom-Tab-Cookies auslesen, natives Google Sign-In als SoundCloud-Token-Ersatz sowie weitere User-Agent-/Header-Tricks oder eigene Browser-Engine. 
 - **P4-2:** Lautheit pro Titel messen und angleichen (ITU-R BS.1770 / LUFS).
-- **P4-7:** Float-Verarbeitung bis zum Ausgang prüfen.
+- **P4-7:** Float-Verarbeitung bis zum Ausgang prüfen. → in Roadmap 09 (P9-1) umgesetzt, Gerätetest offen.
 - **P4-9:** Persönliche Abstimmung mit Hörtest und vollständiger AutoEQ-Datenbank.
 
 Diese Restpunkte sollten nach Abschluss der sechs Pakete neu priorisiert und bei Bedarf in weitere kleine Roadmaps überführt werden.

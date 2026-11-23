@@ -55,7 +55,7 @@ class PlayerDspStoreTest {
     @Test
     fun theAudioProcessor_followsTheStoreItWasGiven() {
         val reads = CountingSource(InMemoryPlayerDspStore())
-        val processor = PlayerDspAudioProcessor(reads)
+        val processor = PlayerDspAudioProcessor(source = reads)
         processor.configure(AudioProcessor.AudioFormat(44_100, 2, C.ENCODING_PCM_16BIT))
         processor.flush()
 

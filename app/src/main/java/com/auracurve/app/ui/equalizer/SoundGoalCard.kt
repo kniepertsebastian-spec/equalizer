@@ -22,6 +22,7 @@ internal fun SoundGoal.nameRes(): Int =
         SoundGoal.MORE_POWER -> R.string.goal_more_power_name
         SoundGoal.MORE_PUNCH -> R.string.goal_more_punch_name
         SoundGoal.LESS_HARSH -> R.string.goal_less_harsh_name
+        SoundGoal.CLEAR_BASS -> R.string.goal_clear_bass_name
         SoundGoal.LESS_BASS -> R.string.goal_less_bass_name
     }
 
@@ -33,6 +34,7 @@ internal fun SoundGoal.descriptionRes(): Int =
         SoundGoal.MORE_POWER -> R.string.goal_more_power_desc
         SoundGoal.MORE_PUNCH -> R.string.goal_more_punch_desc
         SoundGoal.LESS_HARSH -> R.string.goal_less_harsh_desc
+        SoundGoal.CLEAR_BASS -> R.string.goal_clear_bass_desc
         SoundGoal.LESS_BASS -> R.string.goal_less_bass_desc
     }
 

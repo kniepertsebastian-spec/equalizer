@@ -12,13 +12,16 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        minSdk = 24
+        // Roadmap 12, P12-3: the same floor as :app (the only app it is merged into).
+        minSdk = 28
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
+            // A library is not shrunk on its own: :app's R8 run (roadmap 12, P12-1) shrinks it
+            // together with the app; app/proguard-rules.pro covers com.auracurve.app.** incl. :player.
             isMinifyEnabled = false
         }
     }
@@ -55,7 +58,7 @@ dependencies {
     // Pure-Kotlin DSP (BassExciterPcm16) used by the virtual-bass audio processor.
     implementation(project(":core"))
 
-    implementation(libs.core.ktx.player)
+    implementation(libs.core.ktx)
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.constraintlayout)

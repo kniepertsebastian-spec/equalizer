@@ -27,6 +27,9 @@ data class ProcessingSettings(
     val highResolutionEq: Boolean = true,
     // One gain per band of PreEqLayout.CUTOFFS_HZ; empty = not in use.
     val preEqGainsDb: List<Float> = emptyList(),
+    // Roadmap 13, P13-2: one gain per post-EQ band (behind the multiband compressor), the part of the
+    // tone shaping PostEqSplit moves there; empty = no post-EQ, everything runs in the pre-EQ.
+    val postEqGainsDb: List<Float> = emptyList(),
     // How the high-resolution EQ responds: SMOOTH (default, gentle), BALANCED, or PRECISE (aggressive).
     // Controls Simpson integration vs midpoint sampling and manual delta spread.
     // Serialized as string for forward compatibility.
