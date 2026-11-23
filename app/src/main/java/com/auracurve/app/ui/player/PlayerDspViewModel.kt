@@ -1,13 +1,13 @@
 package com.auracurve.app.ui.player
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.auracurve.app.dsp.BassMonoSummerSettings
 import com.auracurve.app.dsp.PlayerDspSettings
-import com.auracurve.app.player.playback.PlayerDspState
+import com.auracurve.app.player.playback.PlayerDspStore
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 // Mono bass and limiter of the built-in player: both on by default, each switchable.
@@ -15,22 +15,23 @@ import javax.inject.Inject
 class PlayerDspViewModel
     @Inject
     constructor(
-        @param:ApplicationContext private val context: Context,
+        private val store: PlayerDspStore,
     ) : ViewModel() {
         init {
-            PlayerDspState.load(context)
+            // Off the main thread (SharedPreferences); the defaults show until it is read.
+            viewModelScope.launch { store.load() }
         }
 
-        val settings: StateFlow<PlayerDspSettings> = PlayerDspState.settings
+        val settings: StateFlow<PlayerDspSettings> = store.settings
 
-        fun setMonoBass(enabled: Boolean) = PlayerDspState.update(context) { it.copy(monoBassEnabled = enabled) }
+        fun setMonoBass(enabled: Boolean) = store.updateSettings { it.copy(monoBassEnabled = enabled) }
 
         fun setMonoBassCutoff(hz: Float) =
-            PlayerDspState.update(context) {
+            store.updateSettings {
                 it.copy(
                     monoBassCutoffHz = hz.coerceIn(BassMonoSummerSettings.MIN_CUTOFF_HZ, BassMonoSummerSettings.MAX_CUTOFF_HZ),
                 )
             }
 
-        fun setLimiter(enabled: Boolean) = PlayerDspState.update(context) { it.copy(limiterEnabled = enabled) }
+        fun setLimiter(enabled: Boolean) = store.updateSettings { it.copy(limiterEnabled = enabled) }
     }

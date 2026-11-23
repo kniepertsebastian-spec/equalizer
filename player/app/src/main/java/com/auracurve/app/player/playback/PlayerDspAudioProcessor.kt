@@ -11,10 +11,10 @@ import com.auracurve.app.dsp.TpdfDither
 import java.nio.ByteBuffer
 
 // The player's whole audio chain: the exact target curve, virtual bass, mono bass, output
-// drive, soft clipper and the safety ceiling (see PlayerDspChain), each switchable through
-// PlayerCurveState, VirtualBassState and PlayerDspState without a player rebuild. One
-// processor, so the stages hand floats to each other and nothing clips in between. The
-// ceiling delays the audio by 2 ms.
+// drive, soft clipper and the safety ceiling (see PlayerDspChain), each switchable through its
+// [source] (by default the process-wide PlayerCurveState, VirtualBassState and PlayerDspState)
+// without a player rebuild. One processor, so the stages hand floats to each other and nothing
+// clips in between. The ceiling delays the audio by 2 ms.
 //
 // 32-bit float (roadmap 09, P9-1): whatever linear PCM comes in (16, 24 or 32 bit integer, or
 // float) is processed as float and, with [floatOutput] (the default), leaves as
@@ -31,6 +31,7 @@ import java.nio.ByteBuffer
 @OptIn(UnstableApi::class)
 class PlayerDspAudioProcessor(
     private val floatOutput: Boolean = true,
+    private val source: PlayerDspSource = PlayerDspSource.ProcessWide,
 ) : BaseAudioProcessor() {
     private val dsp = PlayerDspChain()
     private val dither = TpdfDither()
@@ -55,7 +56,7 @@ class PlayerDspAudioProcessor(
         inputEncoding = encoding
         outputEncoding = if (floatOutput) C.ENCODING_PCM_FLOAT else C.ENCODING_PCM_16BIT
         dsp.configure(inputAudioFormat.channelCount)
-        dsp.updateSettings(PlayerDspState.settings.value)
+        dsp.updateSettings(source.currentSettings)
         appliedCurve = null
         return AudioProcessor.AudioFormat(inputAudioFormat.sampleRate, inputAudioFormat.channelCount, outputEncoding)
     }
@@ -64,9 +65,9 @@ class PlayerDspAudioProcessor(
         val size = inputBuffer.remaining()
         if (size == 0) return
 
-        dsp.updateSettings(PlayerDspState.settings.value)
-        dsp.updateVirtualBass(VirtualBassState.mix)
-        val curve = PlayerCurveState.current
+        dsp.updateSettings(source.currentSettings)
+        dsp.updateVirtualBass(source.virtualBassMix)
+        val curve = source.curve
         if (curve !== appliedCurve) {
             dsp.updateCurve(curve.curve, curve.subsonicCutoffHz, curve.headroomSafetyRatio)
             appliedCurve = curve

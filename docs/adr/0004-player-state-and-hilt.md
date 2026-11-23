@@ -39,3 +39,30 @@ Hilt in `:player` und das Auflösen der Objekte wäre ein eigenes Refactoring mi
 
 Neue Zustände im Player (Sleep-Timer, Fade) folgen bis dahin dem bestehenden Muster (Singleton-Objekt,
 nur der Dienst schreibt), damit der spätere Umbau mechanisch bleibt.
+
+## Nachtrag (Roadmap 11, P11-4, 23. November 2026): Etappe 1–2 begonnen
+
+Umgesetzt, ohne Verhaltenswechsel:
+
+- `PlayerDspSource` (nur lesen, für den Audio-Thread) und `PlayerDspStore` (lesen, schreiben, `suspend load()`)
+  kapseln DSP-Schalter, Kurve und Virtual Bass. `SharedPlayerDspStore` ist die App-Implementierung und
+  liegt weiter auf `PlayerDspState`, `PlayerCurveState` und `VirtualBassState`; `InMemoryPlayerDspStore`
+  hält alles für sich (Tests ohne globalen Restzustand).
+- `PlayerDspAudioProcessor` bekommt seine Quelle per Konstruktor (Standard: `PlayerDspSource.ProcessWide`).
+- `:app` bekommt `PlayerDspStore` per Hilt (`IntegrationModule`, `@Singleton`); `PlayerDspViewModel` nutzt
+  nur noch den Store und lädt die gespeicherten Werte abseits des Main Threads.
+- Stopp und Play/Pause aus `AndroidPlayerBridge` laufen als Media3-`SessionCommand` über die
+  `MediaLibrarySession` (`PlayerSessionCommands`), nur für Controller mit der eigenen UID.
+
+Als Nächstes, in dieser Reihenfolge:
+
+1. `AndroidPlayerBridge.setPlayerCurve` / `setVirtualBassMix` schreiben über den injizierten `PlayerDspStore`
+   (war in Roadmap 11 wegen Roadmap 08 ausgenommen).
+2. `AudioPlayerService` reicht seinen Store an `PlayerDspAudioProcessor` weiter (`buildRenderersFactory()`,
+   Roadmap 09) – danach liest der Audio-Thread keine globalen Objekte mehr.
+3. Die übrigen Intent-Befehle aus `AndroidPlayerController` (`ACTION_QUEUE_REQUEST`, `ACTION_NEXT`, …) werden
+   `SessionCommand`s; `QueueRequests` entfällt, die Tracks reisen im `Bundle` bzw. als `MediaItem`s.
+4. `NowPlayingState` / `PlaybackQueueState` werden durch einen `MediaController`-Listener in `:app` ersetzt
+   (Player-Zustand per Session-IPC statt Singleton).
+5. Hilt in `:player`, `AudioPlayerService` als `@AndroidEntryPoint`; `SleepTimerState`, `PlaybackFadeState`
+   und der verbleibende Store werden `@Singleton`-Klassen. Jede Etappe einzeln mit Gerätetest und Hörprobe.
