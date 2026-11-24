@@ -113,6 +113,10 @@ class EqFakePlayerBridge : PlayerBridge {
     var launchCount = 0
     var stopCount = 0
 
+    // Roadmap 16: whether the built-in player plays (or loads) a track.
+    val playing = MutableStateFlow(false)
+    override val ownPlayerPlaying: Flow<Boolean> = playing
+
     override fun launchPlayer(source: PlayerSource) {
         launchCount++
     }

@@ -3,6 +3,7 @@ package com.auracurve.app.integration
 import android.content.Context
 import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.player.PlayerLaunch
+import com.auracurve.app.player.playback.NowPlayingState
 import com.auracurve.app.player.playback.PlayerCurve
 import com.auracurve.app.player.playback.PlayerDspStore
 import com.auracurve.app.player.playback.SharedPlayerDspStore
@@ -10,6 +11,9 @@ import com.auracurve.app.player.service.PlayerCommandSender
 import com.auracurve.app.player.service.PlayerSessionCommands
 import com.auracurve.app.preset.TargetPoint
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class AndroidPlayerBridge
@@ -42,6 +46,10 @@ class AndroidPlayerBridge
         override fun togglePlayback() {
             if (playerCommands.hasLoadedTrack) playerCommands.send(PlayerSessionCommands.TOGGLE_PLAYBACK)
         }
+
+        // NowPlaying.isPlaying is already true while the chosen track is still loading.
+        override val ownPlayerPlaying: Flow<Boolean> =
+            NowPlayingState.current.map { it?.isPlaying == true }.distinctUntilChanged()
 
         override fun setVirtualBassMix(mix: Float) = dspStore.setVirtualBassMix(mix)
 

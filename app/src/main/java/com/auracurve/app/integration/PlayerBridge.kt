@@ -2,6 +2,8 @@ package com.auracurve.app.integration
 
 import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.preset.TargetPoint
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 
 /**
  * Binds HardBass EQ's master on/off bar to the SC Equalizer Player screen (see
@@ -20,6 +22,13 @@ interface PlayerBridge {
 
     /** Play/pause the currently loaded track without bringing the player screen forward. */
     fun togglePlayback()
+
+    /**
+     * Roadmap 16: true while the built-in player plays (or is loading a track to play). The EQ
+     * takes this as "the own player is the source", even before its audio session reached the
+     * session list or while another app's session is still the attached one.
+     */
+    val ownPlayerPlaying: Flow<Boolean> get() = flowOf(false)
 
     /**
      * Amount (0..1, 0 = off) of synthesized bass harmonics the player's own audio

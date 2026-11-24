@@ -39,4 +39,9 @@ data class LiveSettings(
     val parametricBands: List<ParametricBand> = emptyList(),
     // "More intensity" switch (replaces the five intensity steps). Defaulted for older saved settings.
     val moreIntensity: Boolean = false,
+    // Roadmap 16: the preset last played from the own player and from other apps (Spotify & co.),
+    // the fallback when the source changes and the other side has no counterpart. Defaulted for
+    // older saved settings.
+    val lastOwnPlayerPresetId: String? = null,
+    val lastExternalAppsPresetId: String? = null,
 )
