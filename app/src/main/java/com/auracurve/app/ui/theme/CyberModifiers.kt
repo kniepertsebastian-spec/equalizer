@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativePaint
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Dp
 import kotlin.math.max
@@ -95,7 +96,7 @@ fun Modifier.cyberGlow(
         val outline = Path().apply { addOutline(shape.createOutline(size, layoutDirection, this@drawWithCache)) }
         val paint =
             Paint().apply {
-                asFrameworkPaint().apply {
+                nativePaint.apply {
                     isAntiAlias = true
                     this.color = color.toArgb()
                     if (radiusPx > 0f) maskFilter = BlurMaskFilter(radiusPx, BlurMaskFilter.Blur.NORMAL)
