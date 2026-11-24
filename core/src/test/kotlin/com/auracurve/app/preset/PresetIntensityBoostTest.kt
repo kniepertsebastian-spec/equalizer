@@ -22,6 +22,32 @@ class PresetIntensityBoostTest {
     }
 
     @Test
+    fun `built-in player presets get half the step`() {
+        val step = PresetIntensity.AGGRESSIVE
+        val players =
+            BuiltInPlayerPresets.genres.flatMap { genre ->
+                listOf(genre.base) +
+                    BuiltInPlayerPresets.useCases(genre).map { it.preset }
+            }
+        players.forEach { player ->
+            val boosted = PresetIntensityBoost.apply(player)
+            assertEquals(player.id, 0.5f, PresetIntensityBoost.shareFor(player))
+            assertEquals(player.id, player.macroBassDb + step.macroBassDeltaDb / 2f, boosted.macroBassDb, 1e-4f)
+            assertEquals(player.id, player.macroPunchDb + step.macroPunchDeltaDb / 2f, boosted.macroPunchDb, 1e-4f)
+            assertEquals(player.id, player.mbcThresholdDb + step.mbcThresholdDeltaDb / 2f, boosted.mbcThresholdDb, 1e-4f)
+            assertEquals(player.id, player.mbcRatio + step.mbcRatioDelta / 2f, boosted.mbcRatio, 1e-4f)
+            assertEquals(player.id, boosted.macroBassDb - player.macroBassDb, PresetIntensityBoost.macroBassDeltaDb(player), 1e-4f)
+            assertEquals(player.id, boosted.macroPunchDb - player.macroPunchDb, PresetIntensityBoost.macroPunchDeltaDb(player), 1e-4f)
+        }
+        // Presets for other apps keep the full step, neutral ones none.
+        val system = PresetIntensityResolver.resolve(uptempo, PresetIntensity.MODERATE)
+        assertEquals(1f, PresetIntensityBoost.shareFor(system))
+        assertEquals(PresetIntensityBoost.macroBassDeltaDb, PresetIntensityBoost.macroBassDeltaDb(system))
+        assertEquals(0f, PresetIntensityBoost.shareFor(BuiltInPresets.Flat))
+        assertEquals(0f, PresetIntensityBoost.macroPunchDeltaDb(BuiltInPresets.Flat))
+    }
+
+    @Test
     fun `neutral presets stay untouched`() {
         assertEquals(BuiltInPresets.Flat, PresetIntensityBoost.apply(BuiltInPresets.Flat))
         val flatCar = BuiltInGenreVariants.useCases(BuiltInGenrePresets.Flat).first().preset

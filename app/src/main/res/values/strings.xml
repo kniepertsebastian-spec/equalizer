@@ -148,6 +148,8 @@
     <string name="presets_custom">Custom presets</string>
     <string name="more_intensity_title">More intensity</string>
     <string name="more_intensity_desc">More bass and punch on top of any preset, with the low end held tighter. Off for Flat.</string>
+    <string name="loud_extra_kick_title">Extra kick at Loud</string>
+    <string name="loud_extra_kick_desc">The built-in player\'s Loud preset lifts the kick at 95 Hz by 0.5 dB and Punch a little. Off: the kick stays as in the genre\'s player preset.</string>
     <string name="genre_presets_active">active: %1$s</string>
     <string name="genre_presets_expanded">Expanded</string>
     <string name="genre_presets_collapsed">Collapsed</string>

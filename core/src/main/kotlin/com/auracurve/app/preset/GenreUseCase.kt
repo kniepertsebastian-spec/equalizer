@@ -90,6 +90,12 @@ object GenreUseCaseTuning {
     // Curve points closer than this (ratio) to an existing one are not added twice.
     private const val MERGE_RATIO = 1.06f
 
+    /** The player LOUD variant's extra kick at 95 Hz (roadmap 15), switchable since roadmap 18. */
+    const val PLAYER_LOUD_EXTRA_KICK_DB = 0.5f
+
+    /** The player LOUD variant's extra Punch macro, switched together with [PLAYER_LOUD_EXTRA_KICK_DB]. */
+    const val PLAYER_LOUD_EXTRA_PUNCH = 0.2f
+
     fun presetId(
         genre: GenrePreset,
         useCase: GenreUseCase,
@@ -175,10 +181,11 @@ object GenreUseCaseTuning {
     fun applyForPlayer(
         genre: GenrePreset,
         useCase: GenreUseCase,
+        loudExtraKick: Boolean = true,
     ): Preset {
         val base = genre.base
         val reshaped =
-            reshape(base.targetCurve, playerAdjustment(useCase)).let { curve ->
+            reshape(base.targetCurve, playerAdjustment(useCase, loudExtraKick)).let { curve ->
                 when (useCase) {
                     GenreUseCase.CAR -> curve.capBelow(PLAYER_CAR_SUB_LIMIT_HZ, 0f)
                     GenreUseCase.BLUETOOTH_SPEAKER -> curve.capBelow(SPEAKER_LOW_LIMIT_HZ, 0f)
@@ -195,11 +202,12 @@ object GenreUseCaseTuning {
         return when (useCase) {
             // Kräftiger Bass bei lauter Musik: the kick (95 Hz) carries the bass, the deep sub and
             // the harsh 3-5 kHz come down, and the subsonic filter sits high enough that the cone
-            // does not run out of travel at party level.
+            // does not run out of travel at party level. The extra kick (+0.5 dB at 95 Hz, Punch
+            // +0.2) can be switched off (roadmap 18); then the kick stays where the base has it.
             GenreUseCase.LOUD ->
                 tuned.copy(
                     macroBassDb = base.macroBassDb - 0.3f,
-                    macroPunchDb = base.macroPunchDb + 0.2f,
+                    macroPunchDb = base.macroPunchDb + if (loudExtraKick) PLAYER_LOUD_EXTRA_PUNCH else 0f,
                     macroHaerteDb = base.macroHaerteDb - 0.6f,
                     mbcEnabled = true,
                     mbcThresholdDb = (base.mbcThresholdDb - 2f).coerceIn(-30f, 0f),
@@ -261,13 +269,16 @@ object GenreUseCaseTuning {
 
     // Player delta curves (roadmap 15, table B). Neutral anchors (1 kHz, 12 kHz) keep a change in
     // one range from spreading over the whole band, as in the system-EQ deltas below.
-    private fun playerAdjustment(useCase: GenreUseCase): List<TargetPoint> =
+    private fun playerAdjustment(
+        useCase: GenreUseCase,
+        loudExtraKick: Boolean = true,
+    ): List<TargetPoint> =
         when (useCase) {
             GenreUseCase.LOUD ->
                 listOf(
                     TargetPoint(35f, -1.5f),
                     TargetPoint(55f, -0.5f),
-                    TargetPoint(95f, 0.5f),
+                    TargetPoint(95f, if (loudExtraKick) PLAYER_LOUD_EXTRA_KICK_DB else 0f),
                     TargetPoint(260f, -1.0f),
                     TargetPoint(1000f, 0f),
                     TargetPoint(3000f, -1.2f),
