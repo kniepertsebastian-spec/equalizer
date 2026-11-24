@@ -256,6 +256,11 @@ class MainViewModel
 
         fun setMoreIntensity(enabled: Boolean) = controller.setMoreIntensity(enabled)
 
+        // Roadmap 18: the extra kick of the built-in player's "Loud" variants.
+        val loudExtraKick: StateFlow<Boolean> = controller.loudExtraKick
+
+        fun setLoudExtraKick(enabled: Boolean) = controller.setLoudExtraKick(enabled)
+
         val activeCorrectionProfile: StateFlow<CorrectionProfile> = controller.activeCorrectionProfile
         val allCorrectionProfiles: StateFlow<List<CorrectionProfile>> = controller.allCorrectionProfiles
         val processingSettings: StateFlow<ProcessingSettings> = controller.processingSettings

@@ -40,6 +40,8 @@
 
 ### A. Boxensichere Player-Basis-Presets (`OWN_PLAYER`, alle `virtualBassMix = 0.0f`)
 
+> **Roadmap 18:** Kick-Punkte (80–170 Hz) −25 % und Punch −35 % gegenüber dieser Tabelle, „Mehr Intensität“ für Player-Presets halbiert, Laut-Extra-Kick abschaltbar – siehe [18-player-knall-entschaerfen.md](18-player-knall-entschaerfen.md).
+
 | Genre (Player) | Zielkurve (`Hz: dB`) | Bass / Punch / Härte | Headroom | MBC Thresh / Ratio | Limiter | Subsonic |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Uptempo** | `55: +1.2`, `105: +1.5`, `280: -2.0`, `3500: +0.8`, `8500: -1.0` | `0.3` / `1.0` / `0.3` | `4.0 dB` | `-9.0 dB` / `2.6:1` | `-1.0 dB` | `38 Hz` |

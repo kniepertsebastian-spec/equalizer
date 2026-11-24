@@ -29,6 +29,7 @@ import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.integration.PlayerBridge
 import com.auracurve.app.preset.BuiltInContextPresets
 import com.auracurve.app.preset.BuiltInGenrePresets
+import com.auracurve.app.preset.BuiltInPlayerPresets
 import com.auracurve.app.preset.BuiltInPresets
 import com.auracurve.app.preset.GenrePreset
 import com.auracurve.app.preset.GenrePresetGroups
@@ -309,6 +310,11 @@ class EqController
         private val _moreIntensity = MutableStateFlow(false)
         val moreIntensity: StateFlow<Boolean> = _moreIntensity.asStateFlow()
 
+        // Roadmap 18: whether the built-in player's "Loud" variants add their extra kick (+0.5 dB at
+        // 95 Hz, Punch +0.2). On by default; off, the kick stays where the genre's player base has it.
+        private val _loudExtraKick = MutableStateFlow(true)
+        val loudExtraKick: StateFlow<Boolean> = _loudExtraKick.asStateFlow()
+
         private val customPresetsState = MutableStateFlow<List<Preset>>(emptyList())
 
         // Listening-context mode ("Auto" / "Bluetooth-Box"): an overlay on whatever
@@ -556,6 +562,7 @@ class EqController
                 }
             if (saved != null) {
                 _moreIntensity.value = saved.moreIntensity
+                _loudExtraKick.value = saved.loudExtraKick
                 saved.lastOwnPlayerPresetId?.let { lastPresetIdBySource[PresetSourceScope.OWN_PLAYER] = it }
                 saved.lastExternalAppsPresetId?.let { lastPresetIdBySource[PresetSourceScope.EXTERNAL_APPS] = it }
                 val savedPreset = findPresetById(saved.activePresetId, initialCustomPresets)
@@ -563,11 +570,21 @@ class EqController
                     val preset = withoutRetiredIntensity(savedPreset)
                     // An old intensity step becomes the genre's base plus the switch; its saved
                     // values held that step's macros, so they are derived anew from the base.
+                    // Roadmap 18: the built-in player presets were retuned (less kick and Punch, half
+                    // the "more intensity" step); unedited, one of them plays with its current macros
+                    // right after the update instead of the ones saved by an older version.
                     val settings =
-                        if (preset.id == savedPreset.id) {
-                            saved.processingSettings
-                        } else {
-                            saved.processingSettings.withPreset(preset)
+                        when {
+                            preset.id != savedPreset.id -> saved.processingSettings.withPreset(preset)
+                            !saved.isDirty && preset.metadata.builtIn && preset.metadata.sourceScope == PresetSourceScope.OWN_PLAYER ->
+                                intensified(preset).let { played ->
+                                    saved.processingSettings.copy(
+                                        macroBassDb = played.macroBassDb,
+                                        macroPunchDb = played.macroPunchDb,
+                                        macroHaerteDb = played.macroHaerteDb,
+                                    )
+                                }
+                            else -> saved.processingSettings
                         }
                     _activePreset.value = preset
                     _isDirty.value = saved.isDirty && preset.id == savedPreset.id
@@ -850,6 +867,7 @@ class EqController
                         activeGoal = _activeGoal.value.id.takeIf { _activeGoal.value != SoundGoal.BALANCED },
                         parametricBands = _parametricBands.value,
                         moreIntensity = _moreIntensity.value,
+                        loudExtraKick = _loudExtraKick.value,
                         lastOwnPlayerPresetId = lastPresetIdBySource[PresetSourceScope.OWN_PLAYER],
                         lastExternalAppsPresetId = lastPresetIdBySource[PresetSourceScope.EXTERNAL_APPS],
                     ),
@@ -907,8 +925,41 @@ class EqController
             persistLiveSettings()
         }
 
-        // The preset as it plays: with the "more intensity" step on top while the switch is on.
-        private fun intensified(preset: Preset): Preset = if (_moreIntensity.value) PresetIntensityBoost.apply(preset) else preset
+        /**
+         * Roadmap 18: the "Loud" extra kick of the built-in player on or off. Without manual edits the
+         * preset is simply applied again; with them only the Punch macro moves, so the edits stay.
+         * Changes nothing audible unless a player "Loud" variant is active.
+         */
+        fun setLoudExtraKick(enabled: Boolean) {
+            if (_loudExtraKick.value == enabled) return
+            val preset = _activePreset.value
+            val before = intensified(preset)
+            _loudExtraKick.value = enabled
+            val after = intensified(preset)
+            if (before != after) {
+                _processingSettings.value =
+                    if (_isDirty.value) {
+                        _processingSettings.value.copy(
+                            macroPunchDb = _processingSettings.value.macroPunchDb + after.macroPunchDb - before.macroPunchDb,
+                        )
+                    } else {
+                        _processingSettings.value.withPreset(preset)
+                    }
+                recalculateBandGains()
+            }
+            persistLiveSettings()
+        }
+
+        // The preset's curve and macros as they play: a player "Loud" variant without its extra kick
+        // while that switch is off (roadmap 18).
+        private fun kickAdjusted(preset: Preset): Preset =
+            if (_loudExtraKick.value) preset else BuiltInPlayerPresets.withoutLoudExtraKick(preset) ?: preset
+
+        // The preset as it plays: kick-adjusted, with the "more intensity" step on top while that switch is on.
+        private fun intensified(preset: Preset): Preset {
+            val played = kickAdjusted(preset)
+            return if (_moreIntensity.value) PresetIntensityBoost.apply(played) else played
+        }
 
         // An old genre x intensity step (still reachable through a bound profile, a quick tile or
         // an older remote) becomes the genre's base; Aggressive and up switch "more intensity" on.
@@ -945,17 +996,18 @@ class EqController
                         TargetPoint(frequencyHz = band.centerFreqHz.toFloat(), gainDb = settings.bandGainsDb[band.index] ?: 0f)
                     }
                 } else {
-                    _activePreset.value.targetCurve
+                    kickAdjusted(_activePreset.value).targetCurve
                 }
             // A saved preset holds the sound without the "more intensity" step, which the switch
-            // adds again on playback - so it is not counted twice.
-            val boost = _moreIntensity.value && PresetIntensityBoost.appliesTo(_activePreset.value)
+            // adds again on playback - so it is not counted twice. Taken off as far as the active
+            // preset got it (half for a built-in player preset, roadmap 18).
+            val boosted = _moreIntensity.value
             return Preset(
                 id = UUID.randomUUID().toString(),
                 name = name,
                 targetCurve = curve,
-                macroBassDb = settings.macroBassDb - if (boost) PresetIntensityBoost.macroBassDeltaDb else 0f,
-                macroPunchDb = settings.macroPunchDb - if (boost) PresetIntensityBoost.macroPunchDeltaDb else 0f,
+                macroBassDb = settings.macroBassDb - if (boosted) PresetIntensityBoost.macroBassDeltaDb(_activePreset.value) else 0f,
+                macroPunchDb = settings.macroPunchDb - if (boosted) PresetIntensityBoost.macroPunchDeltaDb(_activePreset.value) else 0f,
                 macroHaerteDb = settings.macroHaerteDb,
                 requestedHeadroomDb = _activePreset.value.requestedHeadroomDb,
                 mbcEnabled = settings.mbcEnabled,
@@ -1171,7 +1223,7 @@ class EqController
         private fun curveInputs(): CurveInputs =
             CurveInputs(
                 correctionCurve = _activeCorrectionProfile.value.curve,
-                presetCurve = _activePreset.value.targetCurve,
+                presetCurve = kickAdjusted(_activePreset.value).targetCurve,
                 headphoneAcoustics = effectiveHeadphoneAcoustics.value,
                 headphonePower = _headphonePower.value,
                 currentLevelDb = volumeRepository.currentLevelDb.value,

@@ -143,6 +143,7 @@ class BuiltInPlayerPresetsTest {
 
     @Test
     fun `player bases follow the roadmap tuning table`() {
+        // Roadmap 15 table A with the roadmap 18 kick and Punch values.
         data class Row(
             val curve: List<Pair<Float, Float>>,
             val macros: Triple<Float, Float, Float>,
@@ -155,8 +156,8 @@ class BuiltInPlayerPresetsTest {
             mapOf(
                 BuiltInPlayerPresets.Uptempo to
                     Row(
-                        listOf(55f to 1.2f, 105f to 1.5f, 280f to -2.0f, 3500f to 0.8f, 8500f to -1.0f),
-                        Triple(0.3f, 1.0f, 0.3f),
+                        listOf(55f to 1.2f, 105f to 1.1f, 280f to -2.0f, 3500f to 0.8f, 8500f to -1.0f),
+                        Triple(0.3f, 0.7f, 0.3f),
                         4.0f,
                         -9.0f to 2.6f,
                         -1.0f,
@@ -164,8 +165,8 @@ class BuiltInPlayerPresetsTest {
                     ),
                 BuiltInPlayerPresets.Terror to
                     Row(
-                        listOf(50f to 1.5f, 90f to 1.0f, 300f to -3.5f, 2500f to -1.2f, 6000f to -2.0f, 12000f to -1.0f),
-                        Triple(0.3f, 0.5f, -1.0f),
+                        listOf(50f to 1.5f, 90f to 0.8f, 300f to -3.5f, 2500f to -1.2f, 6000f to -2.0f, 12000f to -1.0f),
+                        Triple(0.3f, 0.3f, -1.0f),
                         5.0f,
                         -11.0f to 3.2f,
                         -1.2f,
@@ -173,8 +174,8 @@ class BuiltInPlayerPresetsTest {
                     ),
                 BuiltInPlayerPresets.Pop to
                     Row(
-                        listOf(60f to 0.8f, 150f to 0.3f, 1000f to 0.0f, 3000f to 0.2f, 10000f to 0.8f),
-                        Triple(0.0f, 0.2f, 0.1f),
+                        listOf(60f to 0.8f, 150f to 0.2f, 1000f to 0.0f, 3000f to 0.2f, 10000f to 0.8f),
+                        Triple(0.0f, 0.1f, 0.1f),
                         2.0f,
                         -9.0f to 1.8f,
                         -1.0f,
@@ -184,15 +185,15 @@ class BuiltInPlayerPresetsTest {
                     Row(
                         listOf(
                             50f to 0.8f,
-                            105f to 1.8f,
-                            160f to 0.8f,
+                            105f to 1.4f,
+                            160f to 0.6f,
                             300f to -3.5f,
                             2000f to 0.4f,
                             4000f to -1.8f,
                             7000f to -1.5f,
                             12000f to -0.5f,
                         ),
-                        Triple(0.2f, 1.2f, -0.5f),
+                        Triple(0.2f, 0.8f, -0.5f),
                         4.5f,
                         -11.0f to 3.4f,
                         -1.2f,
@@ -273,6 +274,37 @@ class BuiltInPlayerPresetsTest {
             }
             assertTrue(genre.id, player.limiter.thresholdDb < genre.base.limiter.thresholdDb)
             assertTrue(genre.id, player.subsonicCutoffHz > genre.base.subsonicCutoffHz)
+        }
+    }
+
+    @Test
+    fun `player bases knock less in the kick range than in roadmap 15`() {
+        // Roadmap 18: kick points (80-170 Hz) -25 %, Punch -35 %, the 250-300 Hz cut kept.
+        val roadmap15 =
+            mapOf(
+                "uptempo" to (1.5f to 1.0f),
+                "gabber" to (2.0f to 1.2f),
+                "frenchcore" to (1.8f to 1.5f),
+                "early" to (1.2f to 1.0f),
+                "terror" to (1.0f to 0.5f),
+                "dance" to (0.8f to 0.4f),
+                "rap" to (1.0f to 0.3f),
+                "pop" to (0.3f to 0.2f),
+                "hardtekk" to (2.0f to 1.2f),
+                "techno" to (1.2f to 0.6f),
+                "hard_techno" to (1.6f to 1.0f),
+                "industrial_techno" to (1.2f to 0.8f),
+                "schranz" to (1.8f to 1.2f),
+            )
+        BuiltInPlayerPresets.genres.forEach { genre ->
+            val base = genre.base
+            val (oldKick, oldPunch) = roadmap15.getValue(genre.id.removePrefix("player_genre_"))
+            val kick = base.targetCurve.filter { it.frequencyHz in 80f..170f && it.gainDb > 0f }.maxOf { it.gainDb }
+            assertEquals(genre.id, oldKick * 0.75f, kick, 0.051f)
+            assertEquals(genre.id, oldPunch * 0.65f, base.macroPunchDb, 0.051f)
+            // Kick over 1 kHz: up to 4.2 dB in roadmap 15 (Schranz, Hardtekk, Terror), now below 3.8 dB.
+            val kickOverMids = grid.filter { it in 80f..170f }.maxOf { gainAt(base, it) } - gainAt(base, 1000f)
+            assertTrue("${genre.id}: ${"%.1f".format(kickOverMids)} dB", kickOverMids < 3.8f)
         }
     }
 
@@ -362,6 +394,40 @@ class BuiltInPlayerPresetsTest {
             val box = EqualizerInterpolator.interpolateFrequency(400f, speaker.targetCurve)
             assertTrue(genre.id, box < EqualizerInterpolator.interpolateFrequency(400f, base.targetCurve))
         }
+    }
+
+    @Test
+    fun `the LOUD extra kick can be taken away, and only from player LOUD variants`() {
+        // Roadmap 18: the switch takes the +0.5 dB at 95 Hz and the +0.2 Punch away, nothing else.
+        val playerOnlyLoud = BuiltInGenreVariants.useCases(BuiltInGenrePresets.Hardtekk).map { it.preset }
+        val louds =
+            BuiltInPlayerPresets.genres.map { genre ->
+                BuiltInPlayerPresets.useCases(genre).first { it.useCase == GenreUseCase.LOUD }.preset
+            } + playerOnlyLoud.filter { useCaseOf(it) == GenreUseCase.LOUD }
+        assertEquals(14, louds.size)
+        louds.forEach { loud ->
+            assertTrue(loud.id, BuiltInPlayerPresets.hasLoudExtraKick(loud))
+            val calm = requireNotNull(BuiltInPlayerPresets.withoutLoudExtraKick(loud)) { loud.id }
+            assertEquals(loud.id, calm.id)
+            assertEquals(loud.name, calm.name)
+            assertEquals(loud.metadata, calm.metadata)
+            assertEquals(loud.id, loud.macroPunchDb - GenreUseCaseTuning.PLAYER_LOUD_EXTRA_PUNCH, calm.macroPunchDb, 1e-4f)
+            // A genre point near 95 Hz (Terror's 90 Hz) takes the delta where it sits, so a little less.
+            val kickDelta = gainAt(loud, 95f) - gainAt(calm, 95f)
+            val punch = GenreUseCaseTuning.PLAYER_LOUD_EXTRA_PUNCH
+            assertTrue(
+                "${loud.id}: $kickDelta",
+                kickDelta in (punch + 0.3f)..(punch + GenreUseCaseTuning.PLAYER_LOUD_EXTRA_KICK_DB + 0.11f),
+            )
+            listOf(35f, 4500f, 10000f).forEach { hz -> assertEquals("${loud.id} at $hz Hz", gainAt(loud, hz), gainAt(calm, hz), 0.051f) }
+            assertEquals(loud.copy(targetCurve = calm.targetCurve, macroPunchDb = calm.macroPunchDb), calm)
+        }
+        // Nothing else has an extra kick to take away.
+        val others =
+            ownPlayerPresets.filter { useCaseOf(it) != GenreUseCase.LOUD } +
+                BuiltInGenreVariants.useCases(BuiltInGenrePresets.Uptempo).map { it.preset } +
+                listOf(BuiltInPresets.Flat, louds.first().copy(metadata = louds.first().metadata.copy(builtIn = false)))
+        others.forEach { assertNull(it.id, BuiltInPlayerPresets.withoutLoudExtraKick(it)) }
     }
 
     @Test

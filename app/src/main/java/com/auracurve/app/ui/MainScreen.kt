@@ -86,6 +86,7 @@ fun MainScreen(
     val activePreset by viewModel.activePreset.collectAsStateWithLifecycle()
     val customPresetsOnly by viewModel.customPresetsOnly.collectAsStateWithLifecycle()
     val moreIntensity by viewModel.moreIntensity.collectAsStateWithLifecycle()
+    val loudExtraKick by viewModel.loudExtraKick.collectAsStateWithLifecycle()
     val activeCorrectionProfile by viewModel.activeCorrectionProfile.collectAsStateWithLifecycle()
     val allCorrectionProfiles by viewModel.allCorrectionProfiles.collectAsStateWithLifecycle()
     val suggestedCorrectionProfile by viewModel.suggestedCorrectionProfile.collectAsStateWithLifecycle()
@@ -280,6 +281,7 @@ fun MainScreen(
                 customPresets = customPresetsOnly,
                 genrePresets = BuiltInGenrePresets.all,
                 moreIntensity = moreIntensity,
+                loudExtraKick = loudExtraKick,
                 activeCorrectionProfile = activeCorrectionProfile,
                 allCorrectionProfiles = allCorrectionProfiles,
                 suggestedCorrectionProfile = suggestedCorrectionProfile,
@@ -328,6 +330,7 @@ fun MainScreen(
                 onBypassToggled = { viewModel.setBypass(it) },
                 onPresetSelected = { viewModel.selectPreset(it) },
                 onMoreIntensityChanged = viewModel::setMoreIntensity,
+                onLoudExtraKickChanged = viewModel::setLoudExtraKick,
                 onCorrectionProfileSelected = { viewModel.selectCorrectionProfile(it) },
                 onAcceptSuggestedCorrectionProfile = { viewModel.acceptSuggestedCorrectionProfile() },
                 onDismissSuggestedCorrectionProfile = { viewModel.dismissSuggestedCorrectionProfile() },

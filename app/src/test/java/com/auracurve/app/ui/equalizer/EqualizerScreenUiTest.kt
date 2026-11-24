@@ -195,6 +195,27 @@ class EqualizerScreenUiTest {
         compose.onRoot().saveScreenshot("04-signal-chain-sheet")
     }
 
+    // Roadmap 18: the "Loud" extra kick switch sits under More intensity, for a player Loud variant only.
+    @Test
+    fun theLoudExtraKickSwitchShowsForAPlayerLoudPreset() {
+        val loud =
+            BuiltInPlayerPresets
+                .useCases(BuiltInPlayerPresets.Uptempo)
+                .first { it.useCase == GenreUseCase.LOUD }
+                .preset
+        showEqualizer(activePreset = loud, playbackSource = ActivePlaybackSource.OwnPlayer)
+
+        compose.onNodeWithText(text(R.string.loud_extra_kick_title)).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun theLoudExtraKickSwitchIsHiddenForOtherPresets() {
+        showEqualizer(activePreset = BuiltInPlayerPresets.Uptempo.base, playbackSource = ActivePlaybackSource.OwnPlayer)
+
+        compose.onNodeWithText(text(R.string.more_intensity_title)).performScrollTo().assertIsDisplayed()
+        compose.onAllNodesWithText(text(R.string.loud_extra_kick_title)).assertCountEquals(0)
+    }
+
     @Test
     fun scrollingATabKeepsTheCurve() {
         showEqualizer()
