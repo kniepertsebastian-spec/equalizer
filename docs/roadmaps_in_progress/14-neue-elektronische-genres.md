@@ -131,5 +131,13 @@
 ### Offen
 - Hörprobe der zehn Character-Varianten am Gerät (Kopfhörer, BT-Box, Auto).
 - RM 15 baut darauf auf (Player-Presets / Use-Case-Äquivalente).
+- **Sichtbarkeit (Vorgabe des Nutzers):** Die fünf neuen Genres sind **nur für den eigenen Player**
+  gedacht; für Spotify/System-EQ bleiben die bisherigen Presets unverändert maßgeblich. Bis RM 15/16
+  erscheinen die neuen Genres noch in allen Listen, weil es noch keine Quellenunterscheidung gibt.
+  - **RM 15:** `genre_hardtekk`, `genre_techno`, `genre_hard_techno`, `genre_industrial_techno`,
+    `genre_schranz` (inkl. aller Intensitäten, Character- und Use-Case-Varianten) per
+    `PresetSourceScope` als player-only markieren.
+  - **RM 16:** Diese Genres bei aktiver Spotify-/Fremdquelle nicht anbieten bzw. ausgrauen.
+  - Die bestehenden Genres und ihre Tunings wurden in RM 14 nicht verändert.
 
 **Commit:** `557947b`
