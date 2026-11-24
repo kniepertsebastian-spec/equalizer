@@ -21,19 +21,24 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
+import com.auracurve.app.dsp.BassExciterSettings
 import com.auracurve.app.dsp.BassMonoSummerSettings
 import com.auracurve.app.dsp.PlayerDspSettings
+import com.auracurve.app.ui.equalizer.ChoiceChip
 import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.spacing
+import kotlin.math.abs
 
 // "Klang-Feinschliff" of the built-in player: mono bass (recommended, on by default)
-// with its crossover frequency, and the limiter that keeps the bass boost from clipping.
+// with its crossover frequency, the limiter that keeps the bass boost from clipping, and the
+// character of the virtual bass (roadmap 10, P10-3).
 @Composable
 fun PlayerDspCard(
     settings: PlayerDspSettings,
     onMonoBass: (Boolean) -> Unit,
     onCutoff: (Float) -> Unit,
     onLimiter: (Boolean) -> Unit,
+    onVirtualBassCharacter: (Float) -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     Card(
@@ -70,6 +75,46 @@ fun PlayerDspCard(
                 checked = settings.limiterEnabled,
                 onCheckedChange = onLimiter,
             )
+            VirtualBassCharacterRow(
+                share = settings.virtualBassThirdHarmonicShare,
+                onSelect = onVirtualBassCharacter,
+            )
+        }
+    }
+}
+
+// The three characters as pills; the one nearest the saved share is selected.
+@Composable
+private fun VirtualBassCharacterRow(
+    share: Float,
+    onSelect: (Float) -> Unit,
+) {
+    val characters =
+        listOf(
+            BassExciterSettings.WARM_THIRD_HARMONIC_SHARE to R.string.dsp_virtual_bass_warm,
+            BassExciterSettings.DEFAULT_THIRD_HARMONIC_SHARE to R.string.dsp_virtual_bass_balanced,
+            BassExciterSettings.PUNCH_THIRD_HARMONIC_SHARE to R.string.dsp_virtual_bass_punch,
+        )
+    val selected = characters.minBy { abs(it.first - share) }.first
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Text(text = stringResource(R.string.dsp_virtual_bass_character_title), style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = stringResource(R.string.dsp_virtual_bass_character_desc),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            characters.forEach { (value, label) ->
+                ChoiceChip(
+                    text = stringResource(label),
+                    selected = value == selected,
+                    onClick = { onSelect(value) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
     }
 }

@@ -37,35 +37,35 @@
 ## Arbeitspakete
 
 ### P12-1 – R8 & Resource-Shrinking im Release reaktivieren (Blocker B4)
-- [ ] In `app/build.gradle.kts` (`buildTypes.release`):
+- [x] In `app/build.gradle.kts` (`buildTypes.release`):
   ```kotlin
   isMinifyEnabled = true
   isShrinkResources = true
   ```
-- [ ] In `app/proguard-rules.pro`:
+- [x] In `app/proguard-rules.pro`:
   - `-assumenosideeffects`-Regel zum Entfernen von `android.util.Log.v`, `Log.d`, `Log.i` im Release ergänzen (`Log.w`/`Log.e` ohne sensible Daten für Diagnostik prüfen).
   - Prüfen, ob Ktor (`full`-Flavor), `kotlinx.serialization`, Hilt, Room und Media3 fehlende Keep-Regeln unter R8 brauchen.
-- [ ] `storeRelease` und `fullRelease` bauen und `python3 scripts/check_store_apk.py` ausführen.
+- [x] `storeRelease` und `fullRelease` bauen und `python3 scripts/check_store_apk.py` ausführen.
 
 ### P12-2 – `network_security_config.xml` & Manifest-Audit (Major M7)
-- [ ] `app/src/main/res/xml/network_security_config.xml` anlegen mit `<base-config cleartextTrafficPermitted="false" />` und im `main`-Manifest über `android:networkSecurityConfig="@xml/network_security_config"` einbinden.
-- [ ] Falls der `full`-Flavor unverschlüsselte Radio-Streams oder LAN-Traffic braucht, dies ausschließlich in `app/src/full/res/xml/network_security_config.xml` dokumentiert und so eng wie möglich fassen.
-- [ ] Alle 4 Manifest-Dateien (`app` + `player`, `main` + `full`) systematisch prüfen auf:
+- [x] `app/src/main/res/xml/network_security_config.xml` anlegen mit `<base-config cleartextTrafficPermitted="false" />` und im `main`-Manifest über `android:networkSecurityConfig="@xml/network_security_config"` einbinden.
+- [x] Falls der `full`-Flavor unverschlüsselte Radio-Streams oder LAN-Traffic braucht, dies ausschließlich in `app/src/full/res/xml/network_security_config.xml` dokumentiert und so eng wie möglich fassen.
+- [x] Alle 4 Manifest-Dateien (`app` + `player`, `main` + `full`) systematisch prüfen auf:
   - Prinzip minimaler Permissions (keine unnötigen Rechte im `store`-Flavor)
   - explizites `android:exported` an jeder Activity, jedem Service und jedem Receiver
   - `android:allowBackup` i. V. m. `backup_rules.xml` und `data_extraction_rules.xml` (keine Tokens im Cloud-Backup!)
   - korrekte `android:foregroundServiceType`-Deklarationen (`mediaPlayback`, ggf. `connectedDevice`/`location` im `full`-Flavor)
 
 ### P12-3 – Gradle- & Git-Hygiene bereinigen (Minor m2, Minor m3)
-- [ ] `.gitignore` um `*.jks`, `*.keystore`, `*.p12`, `keystore.properties` ergänzen.
-- [ ] `core-ktx-player` in `gradle/libs.versions.toml` und `player/app/build.gradle.kts` auf das zentrale `libs.core.ktx` vereinheitlichen.
-- [ ] `minSdk = 28` in `player/app/build.gradle.kts` an `:app` angleichen.
+- [x] `.gitignore` um `*.jks`, `*.keystore`, `*.p12`, `keystore.properties` ergänzen.
+- [x] `core-ktx-player` in `gradle/libs.versions.toml` und `player/app/build.gradle.kts` auf das zentrale `libs.core.ktx` vereinheitlichen.
+- [x] `minSdk = 28` in `player/app/build.gradle.kts` an `:app` angleichen.
 
 ### P12-4 – Sicherheits- & Barrierefreiheits-Nach-Audit
-- [ ] **`TokenVault.kt`:** Prüfen, ob OAuth-Tokens per Android Keystore (AES-GCM) verschlüsselt gespeichert werden und nicht im Klartext in SharedPreferences oder Backups landen.
-- [ ] **`SoundCloudLoginActivity.kt`:** WebView prüfen (`allowFileAccess = false`, `allowContentAccess = false`, kein unsicheres `addJavascriptInterface`, strenge Host-/Redirect-Prüfung, Cookie-Aufräumen beim Logout).
-- [ ] **`RemoteServerService.kt`:** Prüfen auf sichere Token-Prüfung (Constant-Time-Vergleich), Rate-Limiting, Bind-Interface (LAN vs. `0.0.0.0`) und kein Logging von Auth-Tokens.
-- [ ] **Compose-UI-Stichprobe (`EqualizerScreen`, `PlayerScreen`, `NowPlayingScreen`):**
+- [x] **`TokenVault.kt`:** Prüfen, ob OAuth-Tokens per Android Keystore (AES-GCM) verschlüsselt gespeichert werden und nicht im Klartext in SharedPreferences oder Backups landen.
+- [x] **`SoundCloudLoginActivity.kt`:** WebView prüfen (`allowFileAccess = false`, `allowContentAccess = false`, kein unsicheres `addJavascriptInterface`, strenge Host-/Redirect-Prüfung, Cookie-Aufräumen beim Logout).
+- [x] **`RemoteServerService.kt`:** Prüfen auf sichere Token-Prüfung (Constant-Time-Vergleich), Rate-Limiting, Bind-Interface (LAN vs. `0.0.0.0`) und kein Logging von Auth-Tokens.
+- [x] **Compose-UI-Stichprobe (`EqualizerScreen`, `PlayerScreen`, `NowPlayingScreen`):**
   - `contentDescription` an allen interaktiven Icons/Covern
   - Touch-Targets `>= 48.dp`
   - `key = { ... }` in allen `LazyColumn`/`LazyRow`-Listen
@@ -76,7 +76,7 @@
 
 ## Abnahmekriterien & Verifikation
 
-- [ ] **Release-Build & Store-Check:**
+- [x] **Release-Build & Store-Check:**
   ```bash
   ./gradlew :app:assembleStoreRelease :app:assembleFullRelease :app:ktlintCheck
   python3 scripts/check_store_apk.py

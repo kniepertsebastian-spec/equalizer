@@ -13,6 +13,7 @@ import com.auracurve.app.correction.CorrectionProfile
 import com.auracurve.app.correction.CorrectionProfileRepository
 import com.auracurve.app.data.profile.AppProfileEntity
 import com.auracurve.app.data.profile.DeviceProfileEntity
+import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.integration.PlayerBridge
 import com.auracurve.app.integration.PlayerSource
 import com.auracurve.app.preset.Preset
@@ -108,6 +109,7 @@ class EqFakePlayerBridge : PlayerBridge {
     var lastPlayerCurve: List<TargetPoint> = emptyList()
     var lastSubsonicCutoffHz: Float = 0f
     var lastHeadroomSafetyRatio: Float? = null
+    var lastParametricFilters: List<ParametricFilter> = emptyList()
     var launchCount = 0
     var stopCount = 0
 
@@ -125,10 +127,12 @@ class EqFakePlayerBridge : PlayerBridge {
         curve: List<TargetPoint>,
         subsonicCutoffHz: Float,
         headroomSafetyRatio: Float,
+        parametricFilters: List<ParametricFilter>,
     ) {
         lastPlayerCurve = curve
         lastSubsonicCutoffHz = subsonicCutoffHz
         lastHeadroomSafetyRatio = headroomSafetyRatio
+        lastParametricFilters = parametricFilters
     }
 
     override fun setVirtualBassMix(mix: Float) {

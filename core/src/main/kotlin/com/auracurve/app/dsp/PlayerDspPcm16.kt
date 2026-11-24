@@ -22,7 +22,8 @@ class PlayerDspPcm16(
         curve: List<TargetPoint>,
         subsonicCutoffHz: Float,
         headroomSafetyRatio: Float = CurveEqualizer.DEFAULT_HEADROOM_SAFETY_RATIO,
-    ) = chain.updateCurve(curve, subsonicCutoffHz, headroomSafetyRatio)
+        parametricFilters: List<ParametricFilter> = emptyList(),
+    ) = chain.updateCurve(curve, subsonicCutoffHz, headroomSafetyRatio, parametricFilters)
 
     /** Virtual bass amount, 0 = off, 1 = full. */
     fun updateVirtualBass(mix: Float) = chain.updateVirtualBass(mix)

@@ -58,6 +58,11 @@ data class BassExciterSettings(
         const val MIN_CUTOFF_HZ = 60f
         const val MAX_CUTOFF_HZ = 300f
         const val DEFAULT_THIRD_HARMONIC_SHARE = 0.25f
+
+        // The two other characters the player offers (roadmap 10, P10-3): more octave = rounder,
+        // deeper; more twelfth = harder, more punch. Same harmonic power as the default.
+        const val WARM_THIRD_HARMONIC_SHARE = 0.15f
+        const val PUNCH_THIRD_HARMONIC_SHARE = 0.45f
     }
 }
 
@@ -109,17 +114,19 @@ class BassExciter(
     ): Float = processUnclamped(inputSample, sampleRateHz).coerceIn(-1f, 1f)
 
     // Same as process(), but may go past full scale: for a float chain with a limiter behind it,
-    // where clipping here would only add distortion the limiter cannot undo.
+    // where clipping here would only add distortion the limiter cannot undo. [sourceSample] is
+    // where the bass for the harmonics comes from, as in processBlock().
     fun processUnclamped(
         inputSample: Float,
         sampleRateHz: Float,
+        sourceSample: Float = inputSample,
     ): Float {
         val currentSettings = settings
         if (!currentSettings.enabled || currentSettings.mix <= 0f) return inputSample
 
         ensureCoefficients(currentSettings.cutoffHz, sampleRateHz)
 
-        var bass = isolationHighpassState.process(inputSample, isolationHighpass)
+        var bass = isolationHighpassState.process(sourceSample, isolationHighpass)
         bass = isolationLowpassStateA.process(bass, isolationLowpassA)
         bass = isolationLowpassStateB.process(bass, isolationLowpassB)
 
@@ -137,11 +144,18 @@ class BassExciter(
      * The first [count] samples of [samples] at once, in place: the block form of
      * [processUnclamped], with the same result and the same state. What the player's audio thread
      * uses - stage by stage over the block instead of sample by sample through every stage.
+     *
+     * [source] is where the bass for the harmonics is taken from; by default [samples] itself.
+     * The player hands in its audio from before the subsonic high-pass (roadmap 10, P10-3): a
+     * 65 Hz cut for a small speaker would otherwise take a 40 Hz kick away from the generator by
+     * some 20 dB - exactly the bass the speaker cannot play and the harmonics are meant to stand
+     * in for. The harmonics are still added to [samples].
      */
     fun processBlock(
         samples: DoubleArray,
         count: Int,
         sampleRateHz: Float,
+        source: DoubleArray = samples,
     ) {
         val currentSettings = settings
         if (!currentSettings.enabled || currentSettings.mix <= 0f || count <= 0) return
@@ -156,7 +170,7 @@ class BassExciter(
         val inPhase = blockInPhase
         val quadrature = blockQuadrature
 
-        System.arraycopy(samples, 0, bass, 0, count)
+        System.arraycopy(source, 0, bass, 0, count)
         isolationHighpassState.processBlock(bass, count, isolationHighpass)
         isolationLowpassStateA.processBlock(bass, count, isolationLowpassA)
         isolationLowpassStateB.processBlock(bass, count, isolationLowpassB)

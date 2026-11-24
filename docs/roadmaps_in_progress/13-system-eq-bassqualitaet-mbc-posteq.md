@@ -35,31 +35,31 @@ In `AndroidAudioEngine.kt` (`303-431`) liegen vier konkrete Qualitätsbremsen be
 ## Arbeitspakete
 
 ### P13-1 – Upgrade auf 5-Band-MBC mit frequenzspezifischen Ratios & Transienten-Attack
-- [ ] `MBC_BAND_COUNT` von `4` auf `5` erhöhen (mit automatischem Fallback auf `4` Bänder in der `attempts`-Schleife von `AndroidAudioEngine.attachLocked()`, falls ein OEM-Gerät 5 Bänder ablehnt):
+- [x] `MBC_BAND_COUNT` von `4` auf `5` erhöhen (mit automatischem Fallback auf `4` Bänder in der `attempts`-Schleife von `AndroidAudioEngine.attachLocked()`, falls ein OEM-Gerät 5 Bänder ablehnt):
   - **Band 0 (`<= 50 Hz`, Sub-Bass):** langsame Attack (`25–30 ms`), Release `160–180 ms`, Threshold-Offset `+3 dB`, Ratio `min(mbcRatio, 3.5f)`, weiches Knie `10 dB`.
   - **Band 1 (`50–135 Hz`, Kick-Punch):** Attack `18–25 ms` (lässt Kick-Transienten durch!), Release `90–110 ms`, Ratio `min(mbcRatio, 4.0f)`, Knie `8 dB`.
   - **Band 2 (`135–350 Hz`, Low-Mid / Mulm-Trennung):** Attack `12–15 ms`, Release `100 ms`, moderate Ratio (`1f + (mbcRatio - 1f) * 0.55f`), Knie `8 dB`, reduzierter Makeup-Gain (`* 0.35f`) — entkoppelt Bass-Mulm sauber von Vocals!
   - **Band 3 (`350–3000 Hz`, Vocals / Mitten):** sanfte Ratio (`1f + (mbcRatio - 1f) * 0.25f`, max. `1.8:1`), Threshold-Offset `+4 dB`, minimaler Makeup-Gain (`* 0.25f`) — Stimmen bleiben stabil und klar.
   - **Band 4 (`3000–20000 Hz`, Präsenz & Höhen/Air):** sanfte Ratio (`1f + (mbcRatio - 1f) * 0.2f`, max. `1.6:1`), Threshold-Offset `+4 dB`, minimaler Makeup-Gain (`* 0.2f`) — keine zischeligen Hi-Hats.
-- [ ] Sicherstellen, dass Sub- und Kick-Peaks primär im MBC abgefangen werden, damit der breitbandige End-Limiter (`-1.0` bis `-1.5 dB` Threshold) nur noch sanft Spitzen abfängt und nicht mehr hörbar pumpt.
+- [x] Sicherstellen, dass Sub- und Kick-Peaks primär im MBC abgefangen werden, damit der breitbandige End-Limiter (`-1.0` bis `-1.5 dB` Threshold) nur noch sanft Spitzen abfängt und nicht mehr hörbar pumpt.
 
 ### P13-2 – `PreEQ → MBC → PostEQ` Mastering-Split aktivieren (mit Fallback)
-- [ ] In `AndroidAudioEngine.createDynamicsConfig()` eine Variante mit `postEqEnabled = true` (z. B. 10–16 Bänder für glattes Voicing) vor die bisherigen Versuche in `attempts` setzen — bei Geräten, die `PreEQ + MBC + PostEQ` ablehnen, greift automatisch der bisherige `PreEQ + MBC`-Pfad.
-- [ ] Signalaufteilung in `CurveCalculator` / `EqController`:
+- [x] In `AndroidAudioEngine.createDynamicsConfig()` eine Variante mit `postEqEnabled = true` (z. B. 10–16 Bänder für glattes Voicing) vor die bisherigen Versuche in `attempts` setzen — bei Geräten, die `PreEQ + MBC + PostEQ` ablehnen, greift automatisch der bisherige `PreEQ + MBC`-Pfad.
+- [x] Signalaufteilung in `CurveCalculator` / `EqController`:
   - **`PreEQ` (vor MBC):** Aufräumen & Korrigieren — AutoEQ-Kopfhörerkorrektur, Subsonic-High-Pass (`SubsonicFilterCurve`), Mud-Dip (`180–320 Hz`), schmale parametrische Korrekturen.
   - **`PostEQ` (hinter MBC):** Klangfarbe & Glanz — optionaler Anteil des Bass-Shelves / Sound-Goals sowie Hochton-„Air“ (`10–16 kHz`), damit der MBC diese Anhebungen nicht wieder flachbügelt.
-- [ ] Headroom-Berechnung so absichern, dass `PreEQ + PostEQ` den End-Limiter nicht überfahren.
+- [x] Headroom-Berechnung so absichern, dass `PreEQ + PostEQ` den End-Limiter nicht überfahren.
 
 ### P13-3 – STFT-Pre-Ringing-Schutz im 34-Band-Pre-EQ
-- [ ] In `PreEqMapper.kt` prüfen, wie groß maximale Pegelsprünge zwischen direkt benachbarten Bass-Bändern (`<= 250 Hz`) im Modus `PRECISE` werden können.
-- [ ] Optionale maximale Band-zu-Band-Steilheit (Slope-Limiter, z. B. max. `4–5 dB` Sprung pro Terzband unterhalb `250 Hz`) als Schutz gegen hörbares STFT-Pre-Echo vor Kicks evaluieren und per Unit-Test absichern.
+- [x] In `PreEqMapper.kt` prüfen, wie groß maximale Pegelsprünge zwischen direkt benachbarten Bass-Bändern (`<= 250 Hz`) im Modus `PRECISE` werden können.
+- [x] Optionale maximale Band-zu-Band-Steilheit (Slope-Limiter, z. B. max. `4–5 dB` Sprung pro Terzband unterhalb `250 Hz`) als Schutz gegen hörbares STFT-Pre-Echo vor Kicks evaluieren und per Unit-Test absichern.
 
 ### P13-4 – Bass-Klarheits-Kontur (Subsonic, Mud-Dip & Air) & Quellen-/Hardware-Checkliste
-- [ ] In den bassstarken Presets / Sound-Goals prüfen und ggf. nachschärfen:
+- [x] In den bassstarken Presets / Sound-Goals prüfen und ggf. nachschärfen:
   - **Subsonic-Cut:** Standardmäßig aktivierbar bzw. sauber abgestimmt (`25–30 Hz` Kopfhörer, `35–45 Hz` Auto/BT-Speaker) gegen Treiber-Hub & IMD.
   - **Mud-Dip (`200–300 Hz`, `-2` bis `-3,5 dB`):** Optionales Sound-Goal oder Bestandteil der „Knall“-/Bass-Presets für freie Vocals trotz massivem Tiefbass.
   - **Hochton-Gegenkontur:** Sanfter Air-Boost (`+1,5` bis `+2,5 dB` ab `10–14 kHz`) bei gleichzeitiger Zügelung der Zischlaute um `4,5 kHz` (`HeadphoneComfortCurve`).
-- [ ] Kurzen Hinweis / Diagnose-Check in der App (oder Doku) ergänzen für externe Qualitätskiller:
+- [x] Kurzen Hinweis / Diagnose-Check in der App (oder Doku) ergänzen für externe Qualitätskiller:
   - Spotify-Normalisierung auf **Aus** (nicht „Laut“), Audioqualität **Sehr hoch (320 kbps)**, Spotify-EQ **Aus**
   - Kopfhörer-Hersteller-App (Sony/Samsung/Nothing/JBL/Bose): EQ **Flat**, **Clear Bass / Dolby Atmos Aus**
   - Bluetooth-Codec prüfen (**LDAC / aptX Adaptive** statt **SBC**)
@@ -68,10 +68,10 @@ In `AndroidAudioEngine.kt` (`303-431`) liegen vier konkrete Qualitätsbremsen be
 
 ## Abnahmekriterien & Verifikation
 
-- [ ] **Unit-Tests:**
+- [x] **Unit-Tests:**
   - `DynamicsProtectionTest` / `AndroidAudioEngine`-Tests: 5-Band-MBC-Fallback-Reihenfolge und `PostEQ`-Fallback funktionieren deterministisch; Mitten-/Höhen-Ratios bleiben gedämpft gegenüber Sub/Kick.
   - `PreEqMapperTest`: Slope-Check verhindert extreme Nachbarband-Sprünge im Bass.
-- [ ] **Build & Lint:**
+- [x] **Build & Lint:**
   ```bash
   ./gradlew :core:test :app:testFullDebugUnitTest :core:ktlintCheck :app:ktlintCheck
   ```

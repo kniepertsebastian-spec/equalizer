@@ -24,6 +24,7 @@ import com.auracurve.app.dsp.HeadroomCalculator
 import com.auracurve.app.dsp.LoudnessMatch
 import com.auracurve.app.dsp.ParametricBand
 import com.auracurve.app.dsp.ParametricCurve
+import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.integration.PlayerBridge
 import com.auracurve.app.preset.BuiltInContextPresets
 import com.auracurve.app.preset.BuiltInGenrePresets
@@ -1265,13 +1266,18 @@ class EqController
         // the manual band slider edits - spread exactly as the pre-EQ spreads them, so a slider
         // sounds the same in the own player as for other apps. The headroom pre-gain takes back
         // the same share of the boost as the system path's input gain (inputGainSafetyRatio).
+        // The free parametric bands are not sampled into the curve: the player runs them exactly
+        // as set (roadmap 10, P10-2), where the system path only gets them as part of the curve.
         private fun pushPlayerCurve(settings: ProcessingSettings) {
             val active = settings.masterEnabled && !settings.bypass
             if (!active) {
                 playerBridge.setPlayerCurve(emptyList(), 0f, inputGainSafetyRatio())
                 return
             }
-            val curve = combinedCurve(includeSubsonic = false).sortedBy { it.frequencyHz }
+            val curve =
+                CurveCalculator
+                    .combinedCurve(curveInputs().copy(parametricCurve = emptyList()), includeSubsonic = false)
+                    .sortedBy { it.frequencyHz }
             // The classic band gains were calculated from the curve with the subsonic part, so
             // the manual edits are measured against that one.
             val manualDeltas =
@@ -1296,8 +1302,15 @@ class EqController
                             ) + CurveCalculator.manualDeltaDbAt(hz, manualDeltas, settings),
                         )
                     }.toList()
-            playerBridge.setPlayerCurve(sampled, settings.subsonicCutoffHz, inputGainSafetyRatio())
+            playerBridge.setPlayerCurve(sampled, settings.subsonicCutoffHz, inputGainSafetyRatio(), playerParametricFilters())
         }
+
+        // The parametric bands as the player runs them; switched-off ones are left out.
+        private fun playerParametricFilters(): List<ParametricFilter> =
+            _parametricBands.value
+                .take(ParametricCurve.MAX_BANDS)
+                .filter { it.enabled }
+                .map { ParametricFilter(type = it.type, frequencyHz = it.frequencyHz, gainDb = it.gainDb, q = it.q) }
 
         // True while the EQ is bound to this app's own player: its PCM equalizer already
         // applies the curve, so the system equalizer must not apply it a second time.

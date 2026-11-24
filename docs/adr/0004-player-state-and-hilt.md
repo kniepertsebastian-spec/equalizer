@@ -66,3 +66,20 @@ Als Nächstes, in dieser Reihenfolge:
    (Player-Zustand per Session-IPC statt Singleton).
 5. Hilt in `:player`, `AudioPlayerService` als `@AndroidEntryPoint`; `SleepTimerState`, `PlaybackFadeState`
    und der verbleibende Store werden `@Singleton`-Klassen. Jede Etappe einzeln mit Gerätetest und Hörprobe.
+
+## Nachtrag (24. November 2026): Schritte 1–2 erledigt, Schritt 3 begonnen
+
+- **Schritt 1:** `AndroidPlayerBridge.setPlayerCurve` / `setVirtualBassMix` schreiben über den injizierten
+  `PlayerDspStore` (Standard für Tests ohne Hilt: `SharedPlayerDspStore`).
+- **Schritt 2:** `AudioPlayerService` hält einen `SharedPlayerDspStore`, lädt ihn auf `Dispatchers.IO` und gibt ihn
+  an `PlayerDspAudioProcessor` weiter (`buildRenderersFactory()`). Der Audio-Thread liest keine globalen Objekte
+  mehr direkt; dahinter liegen sie weiter, bis Schritt 5 den Store zum `@Singleton` macht.
+- **Schritt 3, erster Teil:** `AndroidPlayerController.togglePlayback/next/previous` gehen als `SessionCommand`
+  (`PlayerSessionCommands.TOGGLE_PLAYBACK/NEXT/PREVIOUS`), solange ein Track geladen ist – das betrifft vor allem
+  den Fernbedienungs-Server, der aus dem Hintergrund ruft. Ohne geladenen Track (dann ruft eine Oberfläche im
+  Vordergrund) bleibt es beim Intent. Die Warteschlangen-Befehle (`ACTION_QUEUE_REQUEST`, Verschieben,
+  Entfernen, Springen, Seek, Shuffle/Repeat) bleiben vorerst Intents: Sie kommen nur aus der Oberfläche im
+  Vordergrund und brauchen eine feste Reihenfolge, die kurzlebige Controller je Befehl nicht garantieren. Für sie
+  braucht es einen dauerhaft verbundenen Controller mit Befehlswarteschlange – der nächste Teil von Schritt 3.
+- `AndroidPlaybackTimers` liest die gespeicherte Fade-Länge nicht mehr auf dem Main Thread (`Dispatchers.IO`).
+

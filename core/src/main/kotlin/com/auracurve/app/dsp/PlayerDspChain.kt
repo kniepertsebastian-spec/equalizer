@@ -6,7 +6,9 @@ import kotlin.math.pow
 // The player's whole audio chain, independent of the sample format, in one floating-point pass:
 // 1. target curve and subsonic high-pass (CurveEqualizer), whose pre-gain makes room
 //    for a share of the strongest boost (all of it while the limiter is off, roadmap 08),
-// 2. virtual bass (BassExciter) - after the pre-gain, so its harmonics fit in,
+// 2. virtual bass (BassExciter) - after the pre-gain, so its harmonics fit in; it takes its
+//    bass from before the subsonic high-pass, so a steep cut for a small speaker does not take
+//    away the very bass it stands in for (roadmap 10, P10-3),
 // 3. mono bass (stereo only),
 // 4. output drive (0 to +4 dB make-up gain, roadmap 09 P9-3),
 // 5. soft clipper (SoftClipper): linear below -2.5 dBFS, a tanh bend toward 0.98 above,
@@ -33,6 +35,9 @@ data class PlayerDspSettings(
     val limiterEnabled: Boolean = true,
     val softClipEnabled: Boolean = true,
     val outputDriveDb: Float = 0f,
+    // The virtual bass's character (roadmap 10, P10-3): the 3rd harmonic's share of the harmonic
+    // power, 0.15 warm, 0.25 balanced, 0.45 punchy. Same total level for each.
+    val virtualBassThirdHarmonicShare: Float = BassExciterSettings.DEFAULT_THIRD_HARMONIC_SHARE,
 ) {
     companion object {
         const val DEFAULT_MONO_BASS_CUTOFF_HZ = 120f
@@ -60,6 +65,11 @@ class PlayerDspChain {
     private var curve: List<TargetPoint> = emptyList()
     private var subsonicCutoffHz = 0f
     private var headroomSafetyRatio = CurveEqualizer.DEFAULT_HEADROOM_SAFETY_RATIO
+    private var parametricFilters: List<ParametricFilter> = emptyList()
+    private var virtualBassMix = 0f
+
+    // The audio from before the subsonic high-pass, for the virtual bass; one array per channel.
+    private var beforeHighPass: Array<DoubleArray> = emptyArray()
 
     // Which stages run for the current buffer, decided once per buffer in beginBuffer().
     private var rate = 0f
@@ -84,8 +94,10 @@ class PlayerDspChain {
         // A limiter that was off holds stale samples: start it fresh.
         if (newSettings.limiterEnabled && !settings.limiterEnabled) limiter.reset()
         val limiterSwitched = newSettings.limiterEnabled != settings.limiterEnabled
+        val characterChanged = newSettings.virtualBassThirdHarmonicShare != settings.virtualBassThirdHarmonicShare
         settings = newSettings
         if (limiterSwitched) applyCurve()
+        if (characterChanged) applyVirtualBass()
         driveGain =
             dbToGain(newSettings.outputDriveDb.coerceIn(PlayerDspSettings.MIN_OUTPUT_DRIVE_DB, PlayerDspSettings.MAX_OUTPUT_DRIVE_DB))
         monoSummer.updateSettings(
@@ -103,21 +115,33 @@ class PlayerDspChain {
         curve: List<TargetPoint>,
         subsonicCutoffHz: Float,
         headroomSafetyRatio: Float = CurveEqualizer.DEFAULT_HEADROOM_SAFETY_RATIO,
+        parametricFilters: List<ParametricFilter> = emptyList(),
     ) {
         this.curve = curve
         this.subsonicCutoffHz = subsonicCutoffHz
         this.headroomSafetyRatio = headroomSafetyRatio
+        this.parametricFilters = parametricFilters
         applyCurve()
     }
 
     private fun applyCurve() {
         val ratio = if (settings.limiterEnabled) headroomSafetyRatio else 1f
-        curveEqualizer.setCurve(curve, subsonicCutoffHz, ratio)
+        curveEqualizer.setCurve(curve, subsonicCutoffHz, ratio, parametricFilters)
     }
 
     /** Virtual bass amount, 0 = off, 1 = full. */
     fun updateVirtualBass(mix: Float) {
-        val next = BassExciterSettings(enabled = mix > 0f, mix = mix)
+        virtualBassMix = mix
+        applyVirtualBass()
+    }
+
+    private fun applyVirtualBass() {
+        val next =
+            BassExciterSettings(
+                enabled = virtualBassMix > 0f,
+                mix = virtualBassMix,
+                thirdHarmonicShare = settings.virtualBassThirdHarmonicShare,
+            ).clamped()
         if (next == exciterSettings) return
         exciterSettings = next
         exciters.forEach { it.updateSettings(next) }
@@ -129,6 +153,7 @@ class PlayerDspChain {
         limiter = LookaheadLimiter(PlayerDspSettings.SAFETY_CEILING, channelCount = channels)
         exciters = List(channels) { BassExciter(exciterSettings) }
         block = Array(channels) { DoubleArray(BLOCK_FRAMES) }
+        beforeHighPass = Array(channels) { DoubleArray(BLOCK_FRAMES) }
         monoSummer.reset()
         curveEqualizer.configure(channels)
     }
@@ -166,9 +191,11 @@ class PlayerDspChain {
         // instead cost several times as much processor time and created garbage for every
         // frame - enough to make the music stutter once the screen was locked and the phone
         // had moved the player to its slow cores.
-        if (curveActive) curveEqualizer.processBlock(block, frames)
+        val sidechain = curveActive && curveEqualizer.processBlock(block, frames, if (exciterActive) beforeHighPass else null)
         if (exciterActive) {
-            for (c in 0 until channels) exciters[c].processBlock(block[c], frames, rate)
+            for (c in 0 until channels) {
+                exciters[c].processBlock(block[c], frames, rate, if (sidechain) beforeHighPass[c] else block[c])
+            }
         }
         if (monoActive) monoSummer.processBlock(block[0], block[1], frames, rate)
         if (driveActive) {

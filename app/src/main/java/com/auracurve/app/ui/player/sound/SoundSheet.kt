@@ -127,6 +127,7 @@ fun SoundSheet(
                 onMonoBass = dspViewModel::setMonoBass,
                 onCutoff = dspViewModel::setMonoBassCutoff,
                 onLimiter = dspViewModel::setLimiter,
+                onVirtualBassCharacter = dspViewModel::setVirtualBassCharacter,
             )
             PlaybackTimersCard(
                 sleepTimer = sleepTimer,

@@ -34,8 +34,12 @@ object PlayerSessionCommands {
     const val STOP = AudioPlayerService.ACTION_STOP
     const val TOGGLE_PLAYBACK = AudioPlayerService.ACTION_TOGGLE_PLAYBACK
 
+    // Skipping from the remote-control server (roadmap 11, step 3 of the ADR 0004 addendum).
+    const val NEXT = AudioPlayerService.ACTION_NEXT
+    const val PREVIOUS = AudioPlayerService.ACTION_PREVIOUS
+
     /** What AudioPlayerService grants this app's own controllers (and nobody else) as custom commands. */
-    val COMMANDS: Set<String> = setOf(STOP, TOGGLE_PLAYBACK)
+    val COMMANDS: Set<String> = setOf(STOP, TOGGLE_PLAYBACK, NEXT, PREVIOUS)
 
     private const val TAG = "PlayerSessionCommands"
 

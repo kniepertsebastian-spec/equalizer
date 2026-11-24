@@ -9,6 +9,9 @@ import com.auracurve.app.audio.ProcessingSettings
 import com.auracurve.app.context.SoundContext
 import com.auracurve.app.data.profile.DeviceProfileEntity
 import com.auracurve.app.dsp.LoudnessMatch
+import com.auracurve.app.dsp.ParametricBand
+import com.auracurve.app.dsp.ParametricFilter
+import com.auracurve.app.dsp.ParametricFilterType
 import com.auracurve.app.preset.BuiltInPresets
 import com.auracurve.app.quick.QuickCommand
 import com.auracurve.app.quick.QuickControls
@@ -233,6 +236,36 @@ class EqControllerTest {
             eq.setBandGain(band.index, onCurve)
             idle()
             assertEquals(before.map { it.gainDb }, bridge.lastPlayerCurve.map { it.gainDb })
+        }
+
+    // Roadmap 10, P10-2: the player runs the parametric bands exactly, so they travel as filters
+    // and are not sampled into its curve a second time.
+    @Test
+    fun `parametric bands reach the player as exact filters, not in its curve`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            eq.selectPreset(BuiltInPresets.DeepRumble)
+            idle()
+            val before = bridge.lastPlayerCurve
+            assertTrue(bridge.lastParametricFilters.isEmpty())
+
+            eq.addParametricBand()
+            eq.updateParametricBand(0, ParametricBand(frequencyHz = 3_150f, gainDb = 6f, q = 6f))
+            eq.addParametricBand()
+            eq.updateParametricBand(1, ParametricBand(frequencyHz = 500f, gainDb = -4f, q = 2f, enabled = false))
+            idle()
+
+            assertEquals(
+                listOf(ParametricFilter(ParametricFilterType.PEAK, 3_150f, 6f, 6f)),
+                bridge.lastParametricFilters,
+            )
+            assertEquals("the curve stays without them", before.map { it.gainDb }, bridge.lastPlayerCurve.map { it.gainDb })
+
+            eq.removeParametricBand(0)
+            eq.removeParametricBand(0)
+            idle()
+            assertTrue(bridge.lastParametricFilters.isEmpty())
         }
 
     // Roadmap 08, P8-3: with the own player the comparison's loudness match was overwritten by 0 dB.

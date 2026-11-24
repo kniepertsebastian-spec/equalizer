@@ -3,6 +3,7 @@ package com.auracurve.app.player.playback
 import android.content.Context
 import com.auracurve.app.dsp.BassMonoSummerSettings
 import com.auracurve.app.dsp.CurveEqualizer
+import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.dsp.PlayerDspSettings
 import com.auracurve.app.preset.TargetPoint
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,10 +14,13 @@ import kotlinx.coroutines.flow.StateFlow
 // thread; a new object per update, so the reader can tell a change by identity.
 // headroomSafetyRatio is the share of the curve's strongest boost the player's pre-gain takes
 // back - the same share the system path uses for other apps, so both play equally loud.
+// parametricFilters are the user's free parametric bands, run exactly as set instead of being
+// sampled into the curve (roadmap 10, P10-2); the curve then does not contain them.
 class PlayerCurve(
     val curve: List<TargetPoint>,
     val subsonicCutoffHz: Float,
     val headroomSafetyRatio: Float = CurveEqualizer.DEFAULT_HEADROOM_SAFETY_RATIO,
+    val parametricFilters: List<ParametricFilter> = emptyList(),
 )
 
 object PlayerCurveState {
@@ -36,6 +40,7 @@ object PlayerDspState {
     private const val KEY_LIMITER = "limiter"
     private const val KEY_SOFT_CLIP = "soft_clip"
     private const val KEY_DRIVE = "output_drive_db"
+    private const val KEY_VIRTUAL_BASS_SHARE = "virtual_bass_third_harmonic_share"
 
     private val state = MutableStateFlow(PlayerDspSettings())
     val settings: StateFlow<PlayerDspSettings> = state
@@ -62,6 +67,8 @@ object PlayerDspState {
                     prefs
                         .getFloat(KEY_DRIVE, defaults.outputDriveDb)
                         .coerceIn(PlayerDspSettings.MIN_OUTPUT_DRIVE_DB, PlayerDspSettings.MAX_OUTPUT_DRIVE_DB),
+                virtualBassThirdHarmonicShare =
+                    prefs.getFloat(KEY_VIRTUAL_BASS_SHARE, defaults.virtualBassThirdHarmonicShare).coerceIn(0f, 1f),
             )
     }
 
@@ -74,6 +81,7 @@ object PlayerDspState {
             transform(state.value).let {
                 it.copy(
                     outputDriveDb = it.outputDriveDb.coerceIn(PlayerDspSettings.MIN_OUTPUT_DRIVE_DB, PlayerDspSettings.MAX_OUTPUT_DRIVE_DB),
+                    virtualBassThirdHarmonicShare = it.virtualBassThirdHarmonicShare.coerceIn(0f, 1f),
                 )
             }
         state.value = next
@@ -85,6 +93,7 @@ object PlayerDspState {
             .putBoolean(KEY_LIMITER, next.limiterEnabled)
             .putBoolean(KEY_SOFT_CLIP, next.softClipEnabled)
             .putFloat(KEY_DRIVE, next.outputDriveDb)
+            .putFloat(KEY_VIRTUAL_BASS_SHARE, next.virtualBassThirdHarmonicShare)
             .apply()
     }
 }

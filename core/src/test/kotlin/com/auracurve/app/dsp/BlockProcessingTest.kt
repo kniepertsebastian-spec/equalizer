@@ -345,8 +345,13 @@ class BlockProcessingTest {
             while (i + channels <= samples.size) {
                 for (c in 0 until channels) {
                     var sample = samples[i + c] / 32768f
-                    if (curveActive) sample = curveEqualizer.process(c, sample)
-                    sample = exciters[c].processUnclamped(sample, rate)
+                    var beforeHighPass = sample
+                    if (curveActive) {
+                        sample = curveEqualizer.process(c, sample)
+                        beforeHighPass = curveEqualizer.lastBeforeHighPass
+                    }
+                    // The virtual bass takes its bass from before the subsonic high-pass (roadmap 10).
+                    sample = exciters[c].processUnclamped(sample, rate, beforeHighPass)
                     frame[c] = sample
                 }
                 if (curveActive) curveEqualizer.endFrame()

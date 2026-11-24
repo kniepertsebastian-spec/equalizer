@@ -203,4 +203,97 @@ class PlayerDspChainTest {
         val arrival = (0 until 1_000).first { samples[2 * it] != 0f }
         assertEquals(Math.round(0.002 * rate).toInt(), arrival)
     }
+
+    // --- Roadmap 10 ----------------------------------------------------------------------------
+
+    // Level of one frequency in the left channel of interleaved stereo, by direct correlation over
+    // whole periods (frequencies that divide the sample rate's second), in dB re full scale.
+    private fun levelDb(
+        samples: FloatArray,
+        freqHz: Double,
+        fromFrame: Int,
+        frames: Int,
+    ): Double {
+        var real = 0.0
+        var imag = 0.0
+        for (n in fromFrame until fromFrame + frames) {
+            val phase = 2 * PI * freqHz * n / rate
+            real += samples[2 * n] * kotlin.math.cos(phase)
+            imag += samples[2 * n] * sin(phase)
+        }
+        return 20 * log10(2 * sqrt(real * real + imag * imag) / frames + 1e-12)
+    }
+
+    private fun tone(
+        freqHz: Double,
+        level: Double,
+        frames: Int,
+    ) = FloatArray(frames * 2) { (level * sin(2 * PI * freqHz * (it / 2) / rate)).toFloat() }
+
+    // Only the stages under test: no mono bass, no soft clipper, no ceiling.
+    private val bare = PlayerDspSettings(monoBassEnabled = false, limiterEnabled = false, softClipEnabled = false)
+
+    @Test
+    fun `the virtual bass takes its bass from before the subsonic high-pass`() {
+        // A 45 Hz kick tone on a small speaker preset: the 65 Hz cut takes the tone itself away,
+        // but its harmonics (90 and 135 Hz) are generated from the uncut bass.
+        val frames = rate * 2
+        val input = tone(45.0, 0.25, frames)
+
+        fun harmonicsAndFundamental(cutoffHz: Float): Pair<Double, Double> {
+            val dsp = chain(bare)
+            dsp.updateCurve(listOf(TargetPoint(20f, 0f), TargetPoint(20_000f, 0f)), cutoffHz, 1f)
+            dsp.updateVirtualBass(1f)
+            val out = input.copyOf()
+            dsp.processFloat(out, 0, out.size, rate)
+            return levelDb(out, 90.0, rate, rate) to levelDb(out, 45.0, rate, rate)
+        }
+        val (octaveUncut, fundamentalUncut) = harmonicsAndFundamental(0f)
+        val (octaveCut, fundamentalCut) = harmonicsAndFundamental(65f)
+
+        assertTrue("the high-pass still cuts the tone: $fundamentalCut vs $fundamentalUncut dB", fundamentalCut < fundamentalUncut - 12.0)
+        // Before, the generator only got what the high-pass let through: ~20 dB less octave.
+        assertEquals("octave with vs without the cut", octaveUncut, octaveCut, 1.5)
+    }
+
+    @Test
+    fun `the virtual bass character changes the 3rd harmonic's share`() {
+        val frames = rate * 2
+        val input = tone(60.0, 0.25, frames)
+
+        fun thirdReSecond(share: Float): Double {
+            val dsp = chain(bare.copy(virtualBassThirdHarmonicShare = share))
+            dsp.updateVirtualBass(1f)
+            val out = input.copyOf()
+            dsp.processFloat(out, 0, out.size, rate)
+            return levelDb(out, 180.0, rate, rate) - levelDb(out, 120.0, rate, rate)
+        }
+        val warm = thirdReSecond(BassExciterSettings.WARM_THIRD_HARMONIC_SHARE)
+        val balanced = thirdReSecond(BassExciterSettings.DEFAULT_THIRD_HARMONIC_SHARE)
+        val punch = thirdReSecond(BassExciterSettings.PUNCH_THIRD_HARMONIC_SHARE)
+        assertEquals("warm", 10 * log10(0.15 / 0.85), warm, 1.0)
+        assertEquals("balanced", 10 * log10(0.25 / 0.75), balanced, 1.0)
+        assertEquals("punch", 10 * log10(0.45 / 0.55), punch, 1.0)
+
+        // Switching while playing takes effect without rebuilding the chain.
+        val dsp = chain(bare)
+        dsp.updateVirtualBass(1f)
+        dsp.updateSettings(bare.copy(virtualBassThirdHarmonicShare = BassExciterSettings.PUNCH_THIRD_HARMONIC_SHARE))
+        val out = input.copyOf()
+        dsp.processFloat(out, 0, out.size, rate)
+        assertEquals(punch, levelDb(out, 180.0, rate, rate) - levelDb(out, 120.0, rate, rate), 0.1)
+    }
+
+    @Test
+    fun `parametric filters reach the player's equalizer`() {
+        val frames = rate
+        val input = tone(1_000.0, 0.1, frames)
+        val dsp = chain(bare)
+        // Ratio 1: the whole boost is taken back by the pre-gain, so the tone at the peak stays put
+        // and one an octave away drops by the same amount.
+        dsp.updateCurve(emptyList(), 0f, 1f, listOf(ParametricFilter(ParametricFilterType.PEAK, 1_000f, 6f, 4f)))
+        val out = input.copyOf()
+        dsp.processFloat(out, 0, out.size, rate)
+        assertEquals(20 * log10(0.1), levelDb(out, 1_000.0, rate / 2, rate / 2), 0.1)
+    }
 }

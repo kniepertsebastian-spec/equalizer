@@ -11,6 +11,8 @@ import com.auracurve.app.player.playback.QueueRequest
 import com.auracurve.app.player.playback.QueueRequests
 import com.auracurve.app.player.playback.RepeatSetting
 import com.auracurve.app.player.service.AudioPlayerService
+import com.auracurve.app.player.service.PlayerCommandSender
+import com.auracurve.app.player.service.PlayerSessionCommands
 import com.auracurve.app.playlist.QueuePositions
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
@@ -99,6 +101,12 @@ class AndroidPlayerController
         override val nowPlaying: StateFlow<NowPlaying?> = NowPlayingState.current
         override val queue: StateFlow<List<TrackItem>> = PlaybackQueueState.queue
 
+        // Play/pause and skipping also come from the remote-control server, possibly with the app
+        // in the background: while a track is loaded (the service runs) they go over the player's
+        // media session, never with startService() (roadmap 11, step 3 of the ADR 0004 addendum).
+        // Replaced in tests.
+        internal var playerCommands: PlayerCommandSender = PlayerSessionCommands.sender(context)
+
         override fun playQueue(
             tracks: List<TrackItem>,
             startIndex: Int,
@@ -162,16 +170,22 @@ class AndroidPlayerController
                 putExtra(AudioPlayerService.EXTRA_TRACK_ID, trackIdAt(index))
             }
 
-        override fun next() = send(AudioPlayerService.ACTION_NEXT)
+        override fun next() = transport(PlayerSessionCommands.NEXT)
 
-        override fun previous() = send(AudioPlayerService.ACTION_PREVIOUS)
+        override fun previous() = transport(PlayerSessionCommands.PREVIOUS)
 
         override fun seekTo(positionMs: Long) =
             send(AudioPlayerService.ACTION_SEEK_TO) {
                 putExtra(AudioPlayerService.EXTRA_POSITION_MS, positionMs)
             }
 
-        override fun togglePlayback() = send(AudioPlayerService.ACTION_TOGGLE_PLAYBACK)
+        override fun togglePlayback() = transport(PlayerSessionCommands.TOGGLE_PLAYBACK)
+
+        // Over the session while the player runs; otherwise (nothing loaded, the command comes from
+        // a screen in the foreground) as the intent it always was.
+        private fun transport(command: String) {
+            if (playerCommands.hasLoadedTrack) playerCommands.send(command) else send(command)
+        }
 
         private fun send(
             action: String,
