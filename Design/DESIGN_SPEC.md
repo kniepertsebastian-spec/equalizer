@@ -114,7 +114,7 @@ Alle Verläufe liegen in `CyberTheme.brushes`. Sie werden nie pro Frame neu erze
 | Brush | Definition | Verwendung |
 |---|---|---|
 | `borderBrush` | linear 135°: `#FF00AA` → `#8A2BE2` → `#00F5FF`, je α 0,70 | 1-dp-Rand von Karten und HUD-Rahmen |
-| `pillBrush` | horizontal: `#A52CF2` → `#5A5FE0` → `#149FD0` | Füllung aktiver Pills, Segmente und Chips. Weißer Text liegt über der Mitte; Kontrast ≥ 4,5:1 (Mockup-Ton `#6F83F4` nachgedunkelt) |
+| `pillBrush` | horizontal: `#A52CF2` → `#5A5FE0` → `#1E86C8` | Füllung aktiver Pills, Segmente und Chips. Weißer Text liegt über der Mitte; Kontrast ≥ 4,5:1 (Mockup-Ton `#6F83F4` nachgedunkelt, das Ende gegenüber dem Mockup-`#149FD0` ebenfalls, damit auch ein Label bis zum Rand lesbar bleibt) |
 | `pillBorderBrush` | horizontal: `#FF00AA` → `#00F5FF` | 1,5-dp-Rand aktiver Pills. Dazu Glow in `CyberCyan` |
 | `curveBrush` | nach Frequenz: `#F64BF0` (20 Hz) → `#A98BFF` (≈ 1 kHz) → `#3DF0FF` (20 kHz) | Antwortkurve, Mini-Kurven, Wellenform |
 | `curveFill` | vertikal: Kurvenfarbe α 0,28 → α 0 | Fläche unter der Kurve |
@@ -423,7 +423,7 @@ Jeder Meilenstein läuft so ab:
    - `./gradlew ktlintCheck`
    - `./gradlew assembleDebug` (beide Flavors)
    - `./gradlew testStoreDebugUnitTest testFullDebugUnitTest`
-4. Screenshots aus `app/build/equalizer-screenshots/` mit den Mockups vergleichen.
+4. `MockupScreensTest` laufen lassen und `app/build/mockup-screenshots/` mit den Mockups vergleichen (§10).
 5. Commit und Push nach `feat/cyber-ui-design`.
 
 | # | Commit | Dateien |

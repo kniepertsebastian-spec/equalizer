@@ -1,6 +1,5 @@
 package com.auracurve.app.ui.navigation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -24,6 +23,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,6 +45,7 @@ import com.auracurve.app.ui.player.shell.NowPlayingLayer
 import com.auracurve.app.ui.player.shell.ShellMiniPlayer
 import com.auracurve.app.ui.player.shell.ShellSound
 import com.auracurve.app.ui.player.shell.rememberPlayerSheetState
+import com.auracurve.app.ui.theme.cyberBackdrop
 
 const val ROUTE_HOME = "home"
 const val ROUTE_DIAGNOSTICS = "diagnostics"
@@ -89,12 +90,13 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
     val eqStatus = EqStatus.kind(engineState, processingSettings)
     val tabsShown = currentRoute == ROUTE_HOME || currentRoute == ROUTE_PLAYER
     // Above the shell: "Now playing" covers tabs and navigation bar while it is pulled up.
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    // The Cyber backdrop is drawn once here, below everything; the screens on it stay transparent.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().cyberBackdrop()) {
         val dragRangePx = constraints.maxHeight.toFloat().coerceAtLeast(1f)
         Scaffold(
             // The screens inside handle the status bar themselves; only the bar below needs the navigation bar inset.
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
             bottomBar = {
                 if (tabsShown) {
                     Column {
@@ -122,7 +124,7 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
                 }
                 composable(ROUTE_PLAYER) {
                     val discoveryViewModel: DiscoveryViewModel = hiltViewModel()
-                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    Box(modifier = Modifier.fillMaxSize()) {
                         PlayerScreen(
                             viewModel = playerViewModel,
                             discovery = discoveryViewModel,

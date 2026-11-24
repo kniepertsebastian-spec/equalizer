@@ -71,6 +71,7 @@ import com.auracurve.app.ui.player.nowplaying.NowPlayingUi
 import com.auracurve.app.ui.player.searchItems
 import com.auracurve.app.ui.theme.AuraCurveTheme
 import com.auracurve.app.ui.theme.SonicPaper
+import com.auracurve.app.ui.theme.cyberBackdrop
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Rule
@@ -397,7 +398,8 @@ class MockupScreensTest {
     ) {
         AuraCurveTheme {
             Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                Column(modifier = Modifier.fillMaxSize()) {
+                // As in AppNavHost: the backdrop below the screen and the navigation bar.
+                Column(modifier = Modifier.fillMaxSize().cyberBackdrop()) {
                     Box(modifier = Modifier.weight(1f)) { content() }
                     AppBottomBar(currentRoute = currentRoute, onNavigate = {})
                 }

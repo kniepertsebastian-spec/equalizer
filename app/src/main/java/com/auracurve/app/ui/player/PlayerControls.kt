@@ -48,7 +48,6 @@ import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.equalizer.EqualizerDesignStyle
 import com.auracurve.app.ui.equalizer.MiniCurve
 import com.auracurve.app.ui.equalizer.SonicStyle
-import com.auracurve.app.ui.equalizer.accentFill
 import com.auracurve.app.ui.equalizer.lineBrush
 
 // Player transport pieces. Nothing here moves on its own: the app has no level or spectrum

@@ -6,9 +6,14 @@ import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 // Dark only: the app is used in dark rooms and cars, and the palette is built for it.
+// Cyber-Audio (Design/DESIGN_SPEC.md §3.1): surfaces stay opaque here, because rows that cover
+// something (a swiped row over its delete background, a dragged queue entry) draw with them. The
+// translucent glass is CyberSurface, used by the Cyber components on purpose. Sheets, menus and
+// dialogs are one step above the background so they stand out from it.
 private val SonicColorScheme =
     darkColorScheme(
         primary = SonicViolet,
@@ -30,16 +35,17 @@ private val SonicColorScheme =
         surfaceVariant = SonicGraphiteControl,
         onSurfaceVariant = SonicSteel,
         surfaceContainerLowest = SonicGraphite,
-        surfaceContainerLow = SonicGraphiteRaised,
+        surfaceContainerLow = CyberVoidRaised,
         surfaceContainer = SonicGraphiteRaised,
-        surfaceContainerHigh = SonicGraphiteControl,
+        surfaceContainerHigh = Color(0xFF1A1433),
         surfaceContainerHighest = SonicGraphiteControl,
-        outline = SonicRule,
+        outline = CyberOutline,
         outlineVariant = SonicRule,
         error = SonicClip,
         onError = SonicGraphite,
         errorContainer = SonicClipContainer,
         onErrorContainer = SonicPaper,
+        scrim = Color(0xFF03020A),
     )
 
 // Radii follow hierarchy: tags and wells are slightly rounded, cards and tiles soft,
