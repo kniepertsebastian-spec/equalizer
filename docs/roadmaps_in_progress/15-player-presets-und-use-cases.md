@@ -111,6 +111,8 @@
 
 ## Umsetzungsstand
 
+**Commit:** `7f513d0`
+
 **Status:** umgesetzt, Hörprobe am Gerät offen. Baut auf dem Stand von Roadmap 14
 (Branch `ccr-c4753f2c-j0bzgb`, noch nicht in `main`) auf, der dafür in diesen Branch gemergt wurde.
 
