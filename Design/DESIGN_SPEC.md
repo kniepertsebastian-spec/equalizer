@@ -1,7 +1,7 @@
 # Cyber-Audio „Neon Dark“ – Design-Spezifikation und Umsetzungsplan
 
 Stand: 24. November 2026, Branch `feat/cyber-ui-design` (Basis `11a7528`).
-**Status:** Entwurf. Produktionscode wird erst nach Freigabe geändert (`CLAUDE.md` §1). Offene Entscheidungen stehen in §9.
+**Status:** Freigegeben. Die Entscheidungen E1–E5 stehen in §9.
 
 Diese Datei ist die verbindliche Referenz für das Redesign. Vor jeder Screen-Gruppe werden diese Datei und die passenden Mockups erneut gelesen.
 UI-Texte bleiben englisch und unverändert (`docs/DECISIONS.md`). Die Erklärungen hier sind deutsch.
@@ -428,7 +428,7 @@ Jeder Meilenstein läuft so ab:
 
 | # | Commit | Dateien |
 |---|---|---|
-| 1 | **Spec + CyberTheme + Basis-Modifier/Brushes** | `Design/DESIGN_SPEC.md`; neu `ui/theme/CyberColor.kt` (Tokens §3.1), `ui/theme/CyberTheme.kt` (`CyberTheme.colors/brushes/glow/dims`), `ui/theme/CyberModifiers.kt` (`cyberBackdrop`, `cyberGlow`, `cyberBorder`, `glassSurface`, `hudCorners`); `Theme.kt` (`darkColorScheme` auf Cyber-Tokens, sodass Dialoge, Menüs und Sheets mitziehen); `EqualizerDesignStyle.kt` (`SonicStyle` auf Cyber-Werte); `AppNavHost.kt` (Backdrop an der Wurzel, Container transparent); `CLAUDE.md` §2–3 (falls E1 = ja) |
+| 1 | **Spec + CyberTheme + Basis-Modifier/Brushes** | `Design/DESIGN_SPEC.md`; neu `ui/theme/CyberColor.kt` (Tokens §3.1), `ui/theme/CyberTheme.kt` (`CyberTheme.colors/brushes/glow/dims`), `ui/theme/CyberModifiers.kt` (`cyberBackdrop`, `cyberGlow`, `cyberBorder`, `glassSurface`, `hudCorners`); `Theme.kt` (`darkColorScheme` auf Cyber-Tokens, sodass Dialoge, Menüs und Sheets mitziehen); `EqualizerDesignStyle.kt` (`SonicStyle` auf Cyber-Werte); `AppNavHost.kt` (Backdrop an der Wurzel, Container transparent) |
 | 2 | **Komponenten** | neu unter `ui/components/cyber/`: `CyberCard`, `CyberPill`, `CyberToggle`, `RotaryKnob`, `SpectrumEqGraph` (+ reine Logik `SyntheticSpectrum`), `LimiterLedMeter`, `CyberButtons` (Power, Play, Round, Outline), `RadialVisualizer`, `WaveformSeekbar` (+ reine Logik `WaveformShape`), `CyberBottomBar`, `CyberTextField`, `GlowIconBadge`; JVM-Unit-Tests für `SyntheticSpectrum`, `WaveformShape` und die Knopf-Mathematik (Winkel ↔ Wert, Rasten) |
 | 3 | **EQ-Screens** (Sound, Fine-tune, Device) + Bottom-Bar | `EqualizerScreen.kt`, `EqualizerLayout.kt`, `ControlComponents.kt`, `EqualizerControls.kt`, `ResponseGraph.kt` (Delegation an `SpectrumEqGraph`), `GenrePresetList.kt`, `PresetPickers.kt`, `ParametricBandsSection.kt`, `HighResolutionEqRow.kt`, `ContextModeChips.kt`, `SoundGoalCard.kt`, `AudioSourceList.kt`, `DeviceKindCard.kt`, `ui/eq/EqStatus.kt`, `MainScreen.kt` (nur ein zusätzlicher Parameter `playerPlaying` mit Default), `AppNavHost.kt` (`CyberBottomBar`, Wert `playerPlaying`) |
 | 4 | **Now Playing** (+ Mini-Player) | `nowplaying/NowPlayingScreen.kt`, `SeekBar.kt`, `PlayerControls.kt`, `PlayerQueueUi.kt`, `mini/MiniPlayer.kt`, `shell/PlayerShell.kt` (nur Backdrop) |
@@ -441,12 +441,22 @@ Jeder Meilenstein läuft so ab:
 
 ---
 
-## 9. Entscheidungen vor dem Start
+## 9. Entscheidungen (vom Nutzer bestätigt)
 
-| # | Frage | Empfehlung |
+| # | Frage | Entscheidung |
 |---|---|---|
-| **E1** | `CLAUDE.md` §2–3 („Sonic Control“) verbietet Glassmorphism, Neon-Ränder und Hintergrundverläufe und erlaubt Glow nur auf Power-Key und Slider-Daumen. Das neue Design braucht genau das. | `CLAUDE.md` §2–3 in Commit 1 auf „Cyber-Audio / Neon Dark“ umschreiben, mit Verweis auf diese Spec. Die Grundsätze bleiben: Kurve ist Mittelpunkt, Grün nur für Signal, Zustände nicht nur über Farbe. |
-| **E2** | Die Spektrum-Balken sind ohne `RECORD_AUDIO` nicht messbar. | Synthetisch nach Kurvenform; Bewegung nur bei bestätigter Verarbeitung + Wiedergabe; nie als Messung bezeichnet. Alternative: Balken ganz weglassen. |
-| **E3** | Für die Wellenform im Seekbar gibt es keine Daten. | Stilisierte, pro Track feste Form (Seed aus der Track-ID). Alternative: glatte Neon-Linie ohne Wellenform. |
+| **E1** | `CLAUDE.md` §2–3 („Sonic Control“) verbietet Glassmorphism, Neon-Ränder und Hintergrundverläufe und erlaubt Glow nur auf Power-Key und Slider-Daumen. Das neue Design braucht genau das. | **Ausnahme für dieses Redesign.** Die Abweichungen von `CLAUDE.md` §2–3 sind dieses Mal erlaubt; danach wird das Ergebnis gemeinsam bewertet. `CLAUDE.md` wird **nicht** umgeschrieben. Die Grundsätze gelten weiter: Kurve ist Mittelpunkt, Grün nur für Signal, Zustände nicht nur über Farbe. |
+| **E2** | Die Spektrum-Balken sind ohne `RECORD_AUDIO` nicht messbar. | Synthetisch nach Kurvenform; Bewegung nur bei bestätigter Verarbeitung (`EqStatusKind.ACTIVE`) + Wiedergabe; nie als Messung bezeichnet. |
+| **E3** | Für die Wellenform im Seekbar gibt es keine Daten. | Stilisierte, pro Track feste Form (Seed aus der Track-ID). |
 | **E4** | Mini-Fader und LEDs neben „Graphic EQ“ und „Parametric bands“ sind im Mockup Deko. | Graphic EQ: Mini-Fader mit echten Band-Gains. Parametric: keine Fake-LEDs. |
-| **E5** | Wertebereiche der Drehknöpfe | Bestehende Bereiche behalten (Bass ±6, Punch ±6, Harshness ±2 dB). Das „+6,5 dB“ im Mockup ist Beispieltext. |
+| **E5** | Wertebereiche der Drehknöpfe | Bestehende Bereiche bleiben (Bass ±6, Punch ±6, Harshness ±2 dB). Das „+6,5 dB“ im Mockup ist Beispieltext. |
+
+## 10. Vergleichs-Screenshots
+
+`app/src/testFull/java/com/auracurve/app/ui/MockupScreensTest.kt` zeichnet die sieben Screens mit Beispieldaten nahe an den Mockups (393 × 873 dp, Robolectric) nach `app/build/mockup-screenshots/`:
+
+```
+./gradlew :app:testFullDebugUnitTest --tests '*MockupScreensTest*'
+```
+
+Die Bilder werden nicht verglichen und nicht eingecheckt; sie dienen dem Vorher/Nachher nach jedem Meilenstein.

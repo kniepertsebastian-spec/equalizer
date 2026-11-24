@@ -90,7 +90,7 @@ fun rememberCatalogTabs(
     }
 }
 
-private fun LazyListScope.radioItems(
+internal fun LazyListScope.radioItems(
     genre: RadioGenre,
     state: CatalogUiState<RadioStation>,
     onShown: () -> Unit,

@@ -80,16 +80,6 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
             playerViewModel.consumeShowPlayerRequest()
         }
     }
-    // Selected: amber icon on a dark key and a paper label; the shape of the indicator,
-    // not only its color, marks where the user is.
-    val navItemColors =
-        NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-            indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     val sheet = rememberPlayerSheetState()
     val engineState by viewModel.engineState.collectAsStateWithLifecycle()
     val processingSettings by viewModel.processingSettings.collectAsStateWithLifecycle()
@@ -112,25 +102,7 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
                         if (!WindowInsets.isImeVisible) {
                             ShellMiniPlayer(viewModel = playerViewModel, sheet = sheet, eqStatus = eqStatus, dragRangePx = dragRangePx)
                         }
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ) {
-                            NavigationBarItem(
-                                selected = currentRoute == ROUTE_PLAYER,
-                                onClick = { navigateTo(ROUTE_PLAYER) },
-                                icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
-                                label = { Text(stringResource(R.string.nav_player)) },
-                                colors = navItemColors,
-                            )
-                            NavigationBarItem(
-                                selected = currentRoute == ROUTE_HOME,
-                                onClick = { navigateTo(ROUTE_HOME) },
-                                icon = { Icon(Icons.Default.GraphicEq, contentDescription = null) },
-                                label = { Text(stringResource(R.string.nav_equalizer)) },
-                                colors = navItemColors,
-                            )
-                        }
+                        AppBottomBar(currentRoute = currentRoute, onNavigate = navigateTo)
                     }
                 }
             },
@@ -212,6 +184,43 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
             onOpenEqualizer = { navigateTo(ROUTE_HOME) },
             onGoToSearch = { navigateTo(ROUTE_PLAYER) },
             onContextModeChanged = { viewModel.setContextMode(it) },
+        )
+    }
+}
+
+// The two main tabs. Its own composable so the screenshot tests can draw it below a screen.
+@Composable
+internal fun AppBottomBar(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit,
+) {
+    // Selected: amber icon on a dark key and a paper label; the shape of the indicator,
+    // not only its color, marks where the user is.
+    val navItemColors =
+        NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.onSurface,
+            indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
+            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    NavigationBar(
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        NavigationBarItem(
+            selected = currentRoute == ROUTE_PLAYER,
+            onClick = { onNavigate(ROUTE_PLAYER) },
+            icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
+            label = { Text(stringResource(R.string.nav_player)) },
+            colors = navItemColors,
+        )
+        NavigationBarItem(
+            selected = currentRoute == ROUTE_HOME,
+            onClick = { onNavigate(ROUTE_HOME) },
+            icon = { Icon(Icons.Default.GraphicEq, contentDescription = null) },
+            label = { Text(stringResource(R.string.nav_equalizer)) },
+            colors = navItemColors,
         )
     }
 }
