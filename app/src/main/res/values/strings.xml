@@ -590,4 +590,19 @@
     <string name="preset_save_scope_desc">Presets for one source are greyed out while the other one plays.</string>
     <string name="feedback_source_preset_switched">%2$s: switched to \"%1$s\"</string>
     <string name="sound_sheet_presets_title">Preset</string>
+
+    <!-- Roadmap 17: playlist detail view in the own player (saved playlists, SoundCloud playlists
+         and likes). Playlist detail strings only. -->
+    <string name="playlist_detail_subtitle_device">On this device · %1$s tracks</string>
+    <string name="playlist_detail_subtitle_imported">Imported · %1$s tracks</string>
+    <string name="playlist_detail_subtitle_soundcloud">SoundCloud · %1$s tracks</string>
+    <string name="playlist_detail_subtitle_likes">SoundCloud likes · %1$s tracks</string>
+    <string name="playlist_detail_source_likes">SoundCloud likes</string>
+    <string name="playlist_detail_back">Back to the playlists</string>
+    <string name="playlist_detail_open">Open %1$s</string>
+    <string name="playlist_detail_play_all">Play all</string>
+    <string name="playlist_detail_shuffle">Shuffle</string>
+    <string name="playlist_detail_loading">Loading tracks…</string>
+    <string name="playlist_detail_empty_remote">This playlist has no playable tracks.</string>
+    <string name="playlist_detail_error">The tracks could not be loaded: %1$s</string>
 </resources>

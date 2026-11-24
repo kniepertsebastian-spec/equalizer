@@ -20,6 +20,7 @@ import com.auracurve.app.playlist.SavedPlaylist
 import com.auracurve.app.playlist.SavedTrack
 import com.auracurve.app.text.TextProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,8 +28,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.random.Random
 
 // Feedback line under the link field: what the last import did (or why it could not).
 data class ImportUiState(
@@ -76,6 +79,37 @@ data class LibraryUiState(
     val library: LibraryOverview? = null,
     val message: String? = null,
     val isError: Boolean = false,
+)
+
+// Roadmap 17: which playlist the detail view shows. Saved playlists are followed by id so that
+// edits (a removed track, a re-import) show up right away; SoundCloud lists are loaded once.
+sealed interface OpenedPlaylistSource {
+    data class Saved(
+        val playlistId: String,
+    ) : OpenedPlaylistSource
+
+    data class Library(
+        val playlist: PlaylistItem,
+    ) : OpenedPlaylistSource
+
+    data object Likes : OpenedPlaylistSource
+}
+
+// The opened playlist as the detail view shows it. Opening one only reads its tracks: the queue
+// and what plays now stay untouched until "Play all", "Shuffle" or a track is tapped.
+data class OpenedPlaylistUiState(
+    val source: OpenedPlaylistSource,
+    val title: String,
+    // Where the list comes from and how many tracks it has, e.g. "SoundCloud · 12 tracks".
+    val subtitle: String,
+    val artworkUrl: String?,
+    val tracks: List<TrackItem> = emptyList(),
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    // True for playlists made on the device (no source link): only those can lose tracks here.
+    val canRemoveTracks: Boolean = false,
+    // The saved playlist behind a Saved source (for delete / send to SoundCloud), else null.
+    val savedPlaylist: SavedPlaylist? = null,
 )
 
 @HiltViewModel
@@ -169,6 +203,137 @@ class PlayerViewModel
                     }
             }
         }
+
+        private val _openedPlaylist = MutableStateFlow<OpenedPlaylistUiState?>(null)
+        val openedPlaylist: StateFlow<OpenedPlaylistUiState?> = _openedPlaylist.asStateFlow()
+
+        // The load (SoundCloud) or the watch (saved playlist) behind the opened playlist; replaced
+        // whenever another one is opened, cancelled when it is closed, so a late answer for a list
+        // that is no longer shown can never overwrite the current one.
+        private var openedJob: Job? = null
+
+        /** Opens a playlist saved on the device; it follows later edits and closes when it is deleted. */
+        fun openSavedPlaylist(playlistId: String) {
+            openedJob?.cancel()
+            // Shown at once from what the list already holds; the watch below keeps it current.
+            _openedPlaylist.value = playlists.value.firstOrNull { it.id == playlistId }?.let(::savedPlaylistState)
+            openedJob =
+                viewModelScope.launch {
+                    playlistRepository.playlists
+                        .map { all -> all.firstOrNull { it.id == playlistId } }
+                        .takeWhile { it != null }
+                        .collect { playlist -> _openedPlaylist.value = savedPlaylistState(playlist!!) }
+                    // Deleted (here or elsewhere): back to the overview.
+                    _openedPlaylist.value = null
+                }
+        }
+
+        /** Opens a SoundCloud playlist of the library: its tracks are loaded, nothing is played. */
+        fun openLibraryPlaylist(playlist: PlaylistItem) =
+            openRemote(
+                OpenedPlaylistUiState(
+                    source = OpenedPlaylistSource.Library(playlist),
+                    title = playlist.title,
+                    subtitle = remoteSubtitle(playlist.trackCount),
+                    artworkUrl = playlist.artworkUrl,
+                ),
+            )
+
+        /** Opens the liked tracks of the SoundCloud account: loaded, nothing is played. */
+        fun openLikedTracks() =
+            openRemote(
+                OpenedPlaylistUiState(
+                    source = OpenedPlaylistSource.Likes,
+                    title = texts.get(R.string.library_likes_title),
+                    subtitle = texts.get(R.string.playlist_detail_source_likes),
+                    artworkUrl = null,
+                ),
+            )
+
+        fun closeOpenedPlaylist() {
+            openedJob?.cancel()
+            openedJob = null
+            _openedPlaylist.value = null
+        }
+
+        /** Loads the opened SoundCloud list again after a failed load (offline, timeout). */
+        fun retryOpenedPlaylist() {
+            val opened = _openedPlaylist.value ?: return
+            if (opened.source is OpenedPlaylistSource.Saved || opened.isLoading) return
+            openRemote(opened.copy(tracks = emptyList(), errorMessage = null))
+        }
+
+        /**
+         * Plays the opened playlist as the queue from [startIndex] (its place in the whole list, not
+         * in a search result). [shuffle] turns shuffle on and starts at a random track.
+         */
+        fun playOpenedPlaylist(
+            startIndex: Int = 0,
+            shuffle: Boolean = false,
+        ) {
+            val tracks = _openedPlaylist.value?.tracks.orEmpty()
+            if (tracks.isEmpty()) return
+            if (shuffle) {
+                controller.setShuffle(true)
+                controller.playQueue(tracks, Random.nextInt(tracks.size))
+            } else {
+                controller.playQueue(tracks, startIndex.coerceIn(0, tracks.lastIndex))
+            }
+        }
+
+        private fun openRemote(initial: OpenedPlaylistUiState) {
+            openedJob?.cancel()
+            _openedPlaylist.value = initial.copy(isLoading = true, errorMessage = null)
+            openedJob =
+                viewModelScope.launch {
+                    val result =
+                        when (val source = initial.source) {
+                            is OpenedPlaylistSource.Library -> controller.loadPlaylistTracks(source.playlist.id)
+                            OpenedPlaylistSource.Likes -> controller.loadLikedTracks()
+                            is OpenedPlaylistSource.Saved -> return@launch
+                        }
+                    _openedPlaylist.value =
+                        when (result) {
+                            is LoadResult.Ok ->
+                                initial.copy(
+                                    tracks = result.value,
+                                    isLoading = false,
+                                    errorMessage = null,
+                                    subtitle =
+                                        if (initial.source is OpenedPlaylistSource.Likes) {
+                                            texts.get(R.string.playlist_detail_subtitle_likes, result.value.size)
+                                        } else {
+                                            remoteSubtitle(result.value.size)
+                                        },
+                                )
+
+                            is LoadResult.Error -> initial.copy(isLoading = false, errorMessage = result.message)
+                        }
+                }
+        }
+
+        private fun remoteSubtitle(count: Int) = texts.get(R.string.playlist_detail_subtitle_soundcloud, count)
+
+        private fun savedPlaylistState(playlist: SavedPlaylist) =
+            OpenedPlaylistUiState(
+                source = OpenedPlaylistSource.Saved(playlist.id),
+                title = playlist.title,
+                subtitle =
+                    texts.get(
+                        if (playlist.sourceUrl ==
+                            null
+                        ) {
+                            R.string.playlist_detail_subtitle_device
+                        } else {
+                            R.string.playlist_detail_subtitle_imported
+                        },
+                        playlist.tracks.size,
+                    ),
+                artworkUrl = playlist.tracks.firstOrNull()?.artworkUrl,
+                tracks = playlist.tracks.map { it.toTrackItem() },
+                canRemoveTracks = PlaylistEditing.isLocal(playlist),
+                savedPlaylist = playlist,
+            )
 
         fun playLikedTracks() = playLoaded(texts.get(R.string.library_likes_title)) { controller.loadLikedTracks() }
 

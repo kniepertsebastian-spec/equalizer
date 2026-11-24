@@ -23,6 +23,7 @@ import com.auracurve.app.playlist.PlaylistRepository
 import com.auracurve.app.playlist.SavedPlaylist
 import com.auracurve.app.playlist.SpotifyImportRepository
 import com.auracurve.app.text.FakeTextProvider
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -1206,6 +1207,214 @@ class PlayerViewModelTest {
             assertEquals(listOf(9L, 8L), tracks.map { it.id })
         }
 
+    // Roadmap 17: the playlist detail view.
+
+    @Test
+    fun `opening a library playlist loads its tracks without touching the queue or playback`() =
+        runTest {
+            controller.signedIn = true
+            controller.playlistTracksResult = LoadResult.Ok(listOf(track(1), track(2), track(3)))
+            val vm = viewModel()
+
+            vm.openLibraryPlaylist(playlistItem(42, "Hardcore"))
+            assertTrue(vm.openedPlaylist.value!!.isLoading)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val opened = vm.openedPlaylist.value!!
+            assertEquals(OpenedPlaylistSource.Library(playlistItem(42, "Hardcore")), opened.source)
+            assertEquals("Hardcore", opened.title)
+            assertEquals(listOf(1L, 2L, 3L), opened.tracks.map { it.id })
+            assertEquals(t(R.string.playlist_detail_subtitle_soundcloud, 3), opened.subtitle)
+            assertFalse(opened.isLoading)
+            assertFalse(opened.canRemoveTracks)
+            assertEquals(listOf(42L), controller.loadedPlaylistIds)
+            assertTrue(controller.playedQueues.isEmpty())
+            assertTrue(controller.commands.isEmpty())
+        }
+
+    @Test
+    fun `opening the likes loads them without playing`() =
+        runTest {
+            controller.signedIn = true
+            controller.likesResult = LoadResult.Ok(listOf(track(9), track(8)))
+            val vm = viewModel()
+
+            vm.openLikedTracks()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val opened = vm.openedPlaylist.value!!
+            assertEquals(OpenedPlaylistSource.Likes, opened.source)
+            assertEquals(listOf(9L, 8L), opened.tracks.map { it.id })
+            assertEquals(t(R.string.playlist_detail_subtitle_likes, 2), opened.subtitle)
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `a failed load shows an error and retry loads the playlist again`() =
+        runTest {
+            controller.signedIn = true
+            controller.playlistTracksResult = LoadResult.Error("Zeitüberschreitung")
+            val vm = viewModel()
+
+            vm.openLibraryPlaylist(playlistItem(7))
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("Zeitüberschreitung", vm.openedPlaylist.value!!.errorMessage)
+            assertFalse(vm.openedPlaylist.value!!.isLoading)
+            assertTrue(
+                vm.openedPlaylist.value!!
+                    .tracks
+                    .isEmpty(),
+            )
+
+            controller.playlistTracksResult = LoadResult.Ok(listOf(track(1), track(2)))
+            vm.retryOpenedPlaylist()
+            assertTrue(vm.openedPlaylist.value!!.isLoading)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val opened = vm.openedPlaylist.value!!
+            assertNull(opened.errorMessage)
+            assertEquals(listOf(1L, 2L), opened.tracks.map { it.id })
+            assertEquals(listOf(7L, 7L), controller.loadedPlaylistIds)
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `playing the opened playlist from track 12 starts exactly there`() =
+        runTest {
+            controller.signedIn = true
+            controller.playlistTracksResult = LoadResult.Ok((1L..20L).map { track(it) })
+            val vm = viewModel()
+            vm.openLibraryPlaylist(playlistItem(3))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.playOpenedPlaylist(startIndex = 12)
+
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals((1L..20L).toList(), tracks.map { it.id })
+            assertEquals(12, start)
+            assertEquals(13L, tracks[start].id)
+            assertTrue(controller.commands.none { it.startsWith("shuffle") })
+        }
+
+    @Test
+    fun `shuffle turns shuffle on and plays the whole opened playlist`() =
+        runTest {
+            controller.signedIn = true
+            controller.playlistTracksResult = LoadResult.Ok((1L..8L).map { track(it) })
+            val vm = viewModel()
+            vm.openLibraryPlaylist(playlistItem(3))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.playOpenedPlaylist(shuffle = true)
+
+            assertEquals(listOf("shuffle:true"), controller.commands)
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals(8, tracks.size)
+            assertTrue(start in tracks.indices)
+        }
+
+    @Test
+    fun `nothing is played while the opened playlist is still loading`() =
+        runTest {
+            controller.signedIn = true
+            controller.playlistGate = CompletableDeferred()
+            controller.playlistTracksResult = LoadResult.Ok(listOf(track(1)))
+            val vm = viewModel()
+            vm.openLibraryPlaylist(playlistItem(3))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.playOpenedPlaylist()
+
+            assertTrue(controller.playedQueues.isEmpty())
+        }
+
+    @Test
+    fun `closing or switching while loading drops the late answer`() =
+        runTest {
+            controller.signedIn = true
+            val gate = CompletableDeferred<Unit>()
+            controller.playlistGate = gate
+            controller.playlistTracksResult = LoadResult.Ok(listOf(track(1)))
+            val vm = viewModel()
+
+            vm.openLibraryPlaylist(playlistItem(1))
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.closeOpenedPlaylist()
+            gate.complete(Unit)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNull(vm.openedPlaylist.value)
+
+            // Switching: the first load is still running when the likes are opened.
+            val slow = CompletableDeferred<Unit>()
+            controller.playlistGate = slow
+            controller.likesResult = LoadResult.Ok(listOf(track(9)))
+            vm.openLibraryPlaylist(playlistItem(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            vm.openLikedTracks()
+            dispatcher.scheduler.advanceUntilIdle()
+            slow.complete(Unit)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            val opened = vm.openedPlaylist.value!!
+            assertEquals(OpenedPlaylistSource.Likes, opened.source)
+            assertEquals(listOf(9L), opened.tracks.map { it.id })
+        }
+
+    @Test
+    fun `removing a track from an opened local playlist updates the shown list at once`() =
+        runTest {
+            val vm = viewModel()
+            vm.createPlaylist("Auto", track(1))
+            dispatcher.scheduler.advanceUntilIdle()
+            val created = vm.playlists.value.single()
+            vm.addToPlaylist(created, track(2))
+            dispatcher.scheduler.advanceUntilIdle()
+            val local = vm.playlists.value.single()
+
+            vm.openSavedPlaylist(local.id)
+            dispatcher.scheduler.advanceUntilIdle()
+            val opened = vm.openedPlaylist.value!!
+            assertEquals(listOf(1L, 2L), opened.tracks.map { it.id })
+            assertTrue(opened.canRemoveTracks)
+            assertEquals(t(R.string.playlist_detail_subtitle_device, 2), opened.subtitle)
+
+            vm.removeFromPlaylist(local, 1L)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(
+                listOf(2L),
+                vm.openedPlaylist.value!!
+                    .tracks
+                    .map { it.id },
+            )
+            assertEquals(t(R.string.playlist_detail_subtitle_device, 1), vm.openedPlaylist.value!!.subtitle)
+
+            vm.playOpenedPlaylist()
+            val (tracks, start) = controller.playedQueues.single()
+            assertEquals(listOf(2L), tracks.map { it.id })
+            assertEquals(0, start)
+        }
+
+    @Test
+    fun `an opened imported playlist cannot lose tracks and deleting it closes the view`() =
+        runTest {
+            controller.nextResult = LinkImportResult.Playlist("Mix", "https://soundcloud.com/a/sets/mix", listOf(track(5), track(6)))
+            val vm = viewModel()
+            vm.importFromText("https://soundcloud.com/a/sets/mix")
+            dispatcher.scheduler.advanceUntilIdle()
+            val imported = vm.playlists.value.single()
+
+            vm.openSavedPlaylist(imported.id)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertFalse(vm.openedPlaylist.value!!.canRemoveTracks)
+            assertEquals(imported, vm.openedPlaylist.value!!.savedPlaylist)
+
+            vm.deletePlaylist(imported)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(vm.openedPlaylist.value)
+        }
+
     @Test
     fun `now playing is passed through from the player`() =
         runTest {
@@ -1517,8 +1726,12 @@ class PlayerViewModelTest {
 
         override suspend fun loadLikedTracks(): LoadResult<List<TrackItem>> = likesResult
 
+        // When set, a playlist load waits for it (to close or switch the view while loading).
+        var playlistGate: CompletableDeferred<Unit>? = null
+
         override suspend fun loadPlaylistTracks(playlistId: Long): LoadResult<List<TrackItem>> {
             loadedPlaylistIds.add(playlistId)
+            playlistGate?.await()
             return playlistTracksResult
         }
 

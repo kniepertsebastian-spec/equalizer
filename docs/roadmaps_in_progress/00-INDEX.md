@@ -33,6 +33,7 @@
 14. [14-neue-elektronische-genres.md](14-neue-elektronische-genres.md) – Fünf neue elektronische Genres (Hardtekk, Techno, Hard Techno, Industrial Techno, Schranz) inkl. Character-Varianten & Design-Zuordnung (umgesetzt, Hörprobe offen)
 15. [15-player-presets-und-use-cases.md](15-player-presets-und-use-cases.md) – `PresetSourceScope`, boxensichere Player-Presets für alle Genres sowie Player-Use-Case-Äquivalente (Loud, Quiet, In-Ear, Car, BT-Speaker) (umgesetzt, Hörprobe offen)
 16. [16-quellenerkennung-und-preset-ui.md](16-quellenerkennung-und-preset-ui.md) – `ActivePlaybackSource` in `EqController`, Session-Fix, automatischer Quellen-Switch und Ausgrauen nicht passender Presets in der UI (umgesetzt, Gerätetest offen)
+17. [17-playlist-detailansicht-und-scrollen.md](17-playlist-detailansicht-und-scrollen.md) – Playlist-Detailansicht (lokal, SoundCloud-Playlisten, Likes) mit eigener `LazyColumn`, Öffnen ohne Queue-Abbruch, System-Back (umgesetzt, Gerätetest offen)
 
 Gerätetests der Roadmaps 08–13 gesammelt in einer Sitzung: [geraetetest-sitzung-rm08-13.md](geraetetest-sitzung-rm08-13.md).
 

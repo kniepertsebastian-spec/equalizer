@@ -53,6 +53,8 @@ import com.auracurve.app.ui.theme.spacing
 
 // The "Playlists" tab of the player screen: importing from a link, the playlists saved on the
 // device, matches for a shared YouTube/Spotify link and the signed-in user's SoundCloud library.
+// Roadmap 17: a tap on a playlist opens it (PlaylistDetailScreen); its round play button still
+// plays it right away.
 fun LazyListScope.playlistsTabItems(
     viewModel: PlayerViewModel,
     playlists: List<SavedPlaylist>,
@@ -61,8 +63,6 @@ fun LazyListScope.playlistsTabItems(
     bridgeState: BridgeUiState?,
     signedIn: Boolean,
     libraryState: LibraryUiState,
-    currentTrackId: Long?,
-    playedIds: Set<Long>,
     onNewPlaylist: () -> Unit,
     onMerge: () -> Unit,
     // False in the "store" flavor (AuraCurve roadmap 02, 1.3): no link import, no SoundCloud.
@@ -185,15 +185,10 @@ fun LazyListScope.playlistsTabItems(
                     playlists.forEach { playlist ->
                         PlaylistRow(
                             playlist = playlist,
+                            onOpen = { viewModel.openSavedPlaylist(playlist.id) },
                             onPlay = { viewModel.playPlaylist(playlist) },
-                            onPlayTrack = { viewModel.playPlaylist(playlist, it) },
                             onDelete = { viewModel.deletePlaylist(playlist) },
                             onSendToSoundCloud = if (onlineSources) ({ viewModel.syncToSoundCloud(listOf(playlist)) }) else null,
-                            onRemoveTrack = { viewModel.removeFromPlaylist(playlist, it) },
-                            onPlayNext = viewModel::playNextFromPlaylist,
-                            onAddToQueue = viewModel::addToQueueFromPlaylist,
-                            currentTrackId = currentTrackId,
-                            playedIds = playedIds,
                         )
                     }
                 }
@@ -292,6 +287,7 @@ fun LazyListScope.playlistsTabItems(
                         title = stringResource(R.string.library_likes_title),
                         subtitle = stringResource(R.string.library_likes_desc),
                         onPlay = viewModel::playLikedTracks,
+                        onOpen = viewModel::openLikedTracks,
                     )
                 }
             }
@@ -313,6 +309,7 @@ fun LazyListScope.playlistsTabItems(
                         onPlay = { viewModel.playLibraryPlaylist(playlist) },
                         showCover = true,
                         artworkUrl = playlist.artworkUrl,
+                        onOpen = { viewModel.openLibraryPlaylist(playlist) },
                     )
                 }
             }
@@ -332,6 +329,7 @@ fun LazyListScope.playlistsTabItems(
                         onPlay = { viewModel.playLibraryPlaylist(playlist) },
                         showCover = true,
                         artworkUrl = playlist.artworkUrl,
+                        onOpen = { viewModel.openLibraryPlaylist(playlist) },
                     )
                 }
             }
