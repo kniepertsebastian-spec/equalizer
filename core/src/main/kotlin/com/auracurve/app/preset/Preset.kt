@@ -20,10 +20,33 @@ data class LimiterConfig(
     val thresholdDb: Float = -0.3f,
 )
 
+/**
+ * Which playback source a preset is tuned for (roadmap 15).
+ *
+ * The built-in player runs its own DSP chain (pre-EQ, bass mono, soft clipper, MBC and limiter) with
+ * no loudness normalization in front of it, so a curve tuned for Spotify through the system EQ can
+ * move a speaker cone much further there. Presets are therefore tuned per source:
+ * - [ALL]: fits every source (Flat, listening modes, and every custom or imported preset).
+ * - [OWN_PLAYER]: tuned for the built-in player (speaker-safe: subsonic filter, defensive limiter).
+ * - [EXTERNAL_APPS]: tuned for Spotify and other apps through the system EQ.
+ */
+@Serializable
+enum class PresetSourceScope {
+    ALL,
+    OWN_PLAYER,
+    EXTERNAL_APPS,
+    ;
+
+    /** True when a preset with this scope fits playback from [source]; [ALL] on either side always fits. */
+    fun fits(source: PresetSourceScope): Boolean = this == ALL || source == ALL || this == source
+}
+
 @Serializable
 data class PresetMetadata(
     val genre: String = "uptempo-hardcore",
     val builtIn: Boolean = false,
+    // Defaults to ALL, so every preset saved, exported or shared before roadmap 15 decodes unchanged.
+    val sourceScope: PresetSourceScope = PresetSourceScope.ALL,
 )
 
 @Serializable

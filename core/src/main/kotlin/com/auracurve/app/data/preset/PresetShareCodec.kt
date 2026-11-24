@@ -33,6 +33,9 @@ object PresetShareCodec {
     private val json =
         Json {
             ignoreUnknownKeys = true
+            // Defaults stay out of the link to keep it short: a preset that fits every source
+            // (sourceScope ALL) shares exactly as before roadmap 15, a player or system-EQ tuning
+            // carries its scope along, and links without one decode as ALL.
             encodeDefaults = false
         }
 
@@ -42,7 +45,8 @@ object PresetShareCodec {
     }
 
     fun encode(preset: Preset): String {
-        // Built-in status and identity are the receiver's business, not part of what is shared.
+        // Built-in status and identity are the receiver's business, not part of what is shared. The
+        // source scope is part of the tuning (a speaker-safe player curve stays one), so it is kept.
         val shared = preset.copy(id = "", metadata = preset.metadata.copy(builtIn = false))
         val raw = json.encodeToString(Preset.serializer(), shared).toByteArray(Charsets.UTF_8)
         val payload = Base64.getUrlEncoder().withoutPadding().encodeToString(deflate(raw))

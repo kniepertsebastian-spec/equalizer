@@ -105,6 +105,8 @@ class ElectronicGenrePresetsTest {
         }
     }
 
+    // Curve, macros, headroom and MBC from the roadmap 14 table; limiter and subsonic corner from the
+    // speaker-safe player values of roadmap 15, since these genres are for the built-in player only.
     @Test
     fun `bases follow the roadmap tuning table`() {
         data class Row(
@@ -116,11 +118,11 @@ class ElectronicGenrePresetsTest {
         )
         val table =
             mapOf(
-                BuiltInGenrePresets.Hardtekk to Row(Triple(0.8f, 2.5f, 0.8f), 4.5f, -7.0f to 3.0f, -0.3f, 30f),
-                BuiltInGenrePresets.Techno to Row(Triple(1.2f, 1.2f, 0.2f), 3.5f, -8.0f to 2.2f, -0.3f, 25f),
-                BuiltInGenrePresets.HardTechno to Row(Triple(1.5f, 2.0f, 0.5f), 4.5f, -7.5f to 2.8f, -0.3f, 28f),
-                BuiltInGenrePresets.IndustrialTechno to Row(Triple(1.5f, 1.5f, -0.5f), 5.0f, -9.0f to 3.2f, -0.5f, 28f),
-                BuiltInGenrePresets.Schranz to Row(Triple(0.8f, 2.5f, -0.5f), 4.5f, -9.5f to 3.4f, -0.5f, 32f),
+                BuiltInGenrePresets.Hardtekk to Row(Triple(0.8f, 2.5f, 0.8f), 4.5f, -7.0f to 3.0f, -1.0f, 40f),
+                BuiltInGenrePresets.Techno to Row(Triple(1.2f, 1.2f, 0.2f), 3.5f, -8.0f to 2.2f, -1.0f, 35f),
+                BuiltInGenrePresets.HardTechno to Row(Triple(1.5f, 2.0f, 0.5f), 4.5f, -7.5f to 2.8f, -1.0f, 38f),
+                BuiltInGenrePresets.IndustrialTechno to Row(Triple(1.5f, 1.5f, -0.5f), 5.0f, -9.0f to 3.2f, -1.0f, 38f),
+                BuiltInGenrePresets.Schranz to Row(Triple(0.8f, 2.5f, -0.5f), 4.5f, -9.5f to 3.4f, -1.2f, 42f),
             )
         table.forEach { (genre, row) ->
             val base = genre.base

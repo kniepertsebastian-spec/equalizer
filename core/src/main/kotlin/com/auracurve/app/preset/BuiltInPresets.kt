@@ -19,7 +19,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 4.0f,
             mbcThresholdDb = -7.0f,
             mbcRatio = 2.5f,
-            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
+            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
         )
 
     val DeepRumble =
@@ -39,7 +39,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 5.0f,
             mbcThresholdDb = -9.0f,
             mbcRatio = 2.8f,
-            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
+            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
         )
 
     val KickAttack =
@@ -61,7 +61,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 4.5f,
             mbcThresholdDb = -6.0f,
             mbcRatio = 3.0f,
-            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
+            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
         )
 
     val Balanced =
@@ -81,7 +81,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 3.0f,
             mbcThresholdDb = -6.0f,
             mbcRatio = 2.0f,
-            metadata = PresetMetadata(genre = "hard-dance", builtIn = true),
+            metadata = PresetMetadata(genre = "hard-dance", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
         )
 
     val Flat =
@@ -99,7 +99,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 0.0f,
             mbcEnabled = false,
             limiter = LimiterConfig(enabled = false, thresholdDb = 0f),
-            metadata = PresetMetadata(genre = "neutral", builtIn = true),
+            metadata = PresetMetadata(genre = "neutral", builtIn = true, sourceScope = PresetSourceScope.ALL),
         )
 
     val RawPower =
@@ -120,7 +120,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 4.5f,
             mbcThresholdDb = -7.0f,
             mbcRatio = 2.8f,
-            metadata = PresetMetadata(genre = "hardcore", builtIn = true),
+            metadata = PresetMetadata(genre = "hardcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
         )
 
     val FastAttack =
@@ -142,7 +142,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 5.0f,
             mbcThresholdDb = -6.0f,
             mbcRatio = 3.2f,
-            metadata = PresetMetadata(genre = "frenchcore", builtIn = true),
+            metadata = PresetMetadata(genre = "frenchcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
         )
 
     // Terrorcore source material is already pushed into heavy distortion, so
@@ -167,7 +167,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 5.5f,
             mbcThresholdDb = -10.0f,
             mbcRatio = 3.5f,
-            metadata = PresetMetadata(genre = "terrorcore", builtIn = true),
+            metadata = PresetMetadata(genre = "terrorcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
         )
 
     val FinalSmash =
@@ -189,7 +189,7 @@ object BuiltInPresets {
             requestedHeadroomDb = 5.5f,
             mbcThresholdDb = -6.0f,
             mbcRatio = 3.0f,
-            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true),
+            metadata = PresetMetadata(genre = "uptempo-hardcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
         )
 
     // Chat feature: genre x intensity redesign (BuiltInGenrePresets) is the new
@@ -209,5 +209,7 @@ object BuiltInPresets {
             FastAttack,
             MaximumDistortion,
             FinalSmash,
-        ) + BuiltInGenrePresets.allResolvedPresets + BuiltInContextPresets.all + BuiltInGenreVariants.allPresets
+        ) + BuiltInGenrePresets.allResolvedPresets + BuiltInContextPresets.all + BuiltInGenreVariants.allPresets +
+            // Roadmap 15: the speaker-safe player presets (OWN_PLAYER), resolvable by id like the rest.
+            BuiltInPlayerPresets.allPresets
 }

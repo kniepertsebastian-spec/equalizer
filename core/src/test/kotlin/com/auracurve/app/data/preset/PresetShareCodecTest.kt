@@ -1,7 +1,10 @@
 package com.auracurve.app.data.preset
 
+import com.auracurve.app.preset.BuiltInGenreVariants
+import com.auracurve.app.preset.BuiltInPlayerPresets
 import com.auracurve.app.preset.BuiltInPresets
 import com.auracurve.app.preset.Preset
+import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.preset.TargetPoint
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -106,5 +109,80 @@ class PresetShareCodecTest {
         val legacy = link.replaceFirst("auracurve://", "hardbasseq://")
         assertTrue(PresetShareCodec.isShareLink(legacy))
         assertEquals(custom.name, PresetShareCodec.decode(legacy).getOrThrow().name)
+    }
+
+    // Roadmap 15: PresetSourceScope.
+
+    private fun linkFor(json: String): String {
+        val bytes = json.toByteArray(Charsets.UTF_8)
+        val deflated =
+            java.util.zip.Deflater(9, true).run {
+                setInput(bytes)
+                finish()
+                val out = ByteArray(64 * 1024)
+                val n = deflate(out)
+                end()
+                out.copyOf(n)
+            }
+        val payload =
+            java.util.Base64
+                .getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(deflated)
+        return "auracurve://preset?v=1&d=$payload"
+    }
+
+    @Test
+    fun linkFromBeforeSourceScope_decodesAsAll() {
+        val old =
+            """
+            {"id":"","name":"Alter Link","targetCurve":[{"frequencyHz":55.0,"gainDb":3.0}],
+             "metadata":{"genre":"uptempo-hardcore"}}
+            """.trimIndent()
+
+        val decoded = PresetShareCodec.decode(linkFor(old)).getOrThrow()
+
+        assertEquals("Alter Link", decoded.name)
+        assertEquals(PresetSourceScope.ALL, decoded.metadata.sourceScope)
+    }
+
+    @Test
+    fun roundTrip_keepsPlayerAndExternalScopes() {
+        val player = BuiltInPlayerPresets.Schranz.base
+        val playerUseCase = BuiltInPlayerPresets.useCases(BuiltInPlayerPresets.Techno).last().preset
+        val external =
+            BuiltInGenreVariants.styles.values
+                .first()
+                .first()
+                .preset
+
+        listOf(player, playerUseCase, external).forEach { preset ->
+            val decoded = PresetShareCodec.decode(PresetShareCodec.encode(preset)).getOrThrow()
+            assertEquals(preset.id, preset.metadata.sourceScope, decoded.metadata.sourceScope)
+            assertEquals(preset.id, preset.copy(id = decoded.id, metadata = decoded.metadata), decoded)
+            assertFalse(decoded.metadata.builtIn)
+        }
+        assertEquals(PresetSourceScope.OWN_PLAYER, player.metadata.sourceScope)
+        assertEquals(PresetSourceScope.EXTERNAL_APPS, external.metadata.sourceScope)
+    }
+
+    @Test
+    fun scopeAllLink_staysAsShortAsBefore() {
+        val link = PresetShareCodec.encode(custom)
+        val payload = link.substringAfter("d=")
+        val json =
+            java.util.zip.Inflater(true).run {
+                setInput(
+                    java.util.Base64
+                        .getUrlDecoder()
+                        .decode(payload),
+                )
+                val out = ByteArray(64 * 1024)
+                val n = inflate(out)
+                end()
+                String(out, 0, n, Charsets.UTF_8)
+            }
+
+        assertFalse(json, json.contains("sourceScope"))
     }
 }
