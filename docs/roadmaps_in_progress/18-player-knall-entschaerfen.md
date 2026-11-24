@@ -123,4 +123,6 @@ Noch nicht umgesetzt; Vorschlag zur Freigabe siehe „Offen“.
   Streams gibt; Nebenwirkung: bei heißen Titeln sinkt der Pegel in den ersten Sekunden um bis zu 3 dB.
 
 ## Umsetzungsstand
+**Commit:** `651972d`
+
 **Status:** P18-1 bis P18-3 umgesetzt, P18-4 wartet auf Freigabe, Hörprobe offen.
