@@ -102,6 +102,10 @@
   die des Genres).
 - `core/.../preset/GenrePresetGroups.kt` – `baseDescriptions` für die fünf Genres.
 - `core/.../preset/PresetDesign.kt` – Zuordnung der neuen Genres.
+- **Abweichung vom Dateiumfang:** `app/src/testFull/.../remote/EqRemoteApiTest.kt` – die
+  Remote-API listet `BuiltInGenrePresets.all`, der Test hatte die alte Liste mit 9 Genres fest
+  eingetragen (CI-Fehler); erwartete IDs um `HARDTEKK`, `TECHNO`, `HARD_TECHNO`,
+  `INDUSTRIAL_TECHNO`, `SCHRANZ` ergänzt.
 - Tests: `ElectronicGenrePresetsTest.kt` (neu), `BuiltInGenrePresetsTest.kt` (14 Genres, 13 mit
   Intensitätsachse), `PresetDesignTest.kt` (Erwartungen für die fünf Genre-IDs).
 
