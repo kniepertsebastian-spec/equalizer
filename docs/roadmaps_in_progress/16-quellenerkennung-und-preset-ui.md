@@ -92,7 +92,7 @@
 
 ## Umsetzungsstand
 
-**Commit:** wird nach dem Commit eingetragen (siehe Folge-Commit „Roadmap 16: record commit id“).
+**Commit:** `e85dc2a`
 
 **Status:** umgesetzt, Gerätetest offen. Baut auf RM 14/15 in `main` auf.
 
