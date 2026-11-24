@@ -169,7 +169,7 @@
   - Loading / Error (+ Retry) / Empty.
   - Zurück-Pfeil und System-Back (`onBackPressedDispatcher`, `BackHandler` wie in `PlayerScreen`) zeigen wieder die
     Übersicht.
-- `./gradlew :app:testFullDebugUnitTest :app:testStoreDebugUnitTest :app:ktlintCheck` – RESULT_LINE
+- `./gradlew :app:testFullDebugUnitTest :app:testStoreDebugUnitTest :app:ktlintCheck` – grün (lokal, Exit 0): Full 577 Tests, Store 345 Tests, 0 Fehler, ktlint sauber.
 
 ### Offene Punkte
 - **Gerätetest** (Nutzer): lokale und SoundCloud-Playlist mit 50+ Tracks öffnen, bis ganz unten scrollen (MiniPlayer
