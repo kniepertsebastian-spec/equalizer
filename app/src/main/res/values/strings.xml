@@ -571,4 +571,23 @@
     <string name="headroom_badge_ok">Headroom OK</string>
     <string name="signal_chain_short">Signal chain</string>
     <string name="signal_chain_open">Open the signal chain: %1$s</string>
+
+    <!-- Roadmap 16: presets per playback source (own player vs. Spotify & other apps). Preset/source
+         strings only; the playlist detail strings of roadmap 17 live in their own block. -->
+    <string name="preset_source_own_player">Own player</string>
+    <string name="preset_source_external">Spotify &amp; other apps</string>
+    <string name="preset_source_both">Both</string>
+    <string name="preset_source_tabs">Presets for</string>
+    <string name="preset_source_detected_own">Playing now: own player</string>
+    <string name="preset_source_detected_external">Playing now: %1$s</string>
+    <string name="preset_source_detected_external_unknown">Playing now: another app</string>
+    <string name="preset_source_detected_none">No playback detected: both lists can be chosen</string>
+    <string name="preset_source_only_external">Only active with Spotify &amp; other apps</string>
+    <string name="preset_source_only_own">Only active in the own player</string>
+    <string name="preset_source_inactive_note_external">The own player is playing: these presets only take effect with Spotify &amp; other apps. They are greyed out so the own player keeps its speaker-safe tuning.</string>
+    <string name="preset_source_inactive_note_own">Another app is playing: these presets only take effect in the own player.</string>
+    <string name="preset_save_scope_title">Plays from</string>
+    <string name="preset_save_scope_desc">Presets for one source are greyed out while the other one plays.</string>
+    <string name="feedback_source_preset_switched">%2$s: switched to \"%1$s\"</string>
+    <string name="sound_sheet_presets_title">Preset</string>
 </resources>

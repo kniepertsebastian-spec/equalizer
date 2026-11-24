@@ -54,6 +54,7 @@ import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.ui.equalizer.CurvePreview
 import com.auracurve.app.ui.equalizer.EqualizerScreen
+import com.auracurve.app.ui.equalizer.SavePresetDialog
 import com.auracurve.app.ui.equalizer.appLabelFor
 import com.auracurve.app.ui.equalizer.localizedSourceLabel
 import com.auracurve.app.ui.main.MainViewModel
@@ -77,6 +78,7 @@ fun MainScreen(
     val appProfileBound by viewModel.appProfileBound.collectAsStateWithLifecycle()
     val parametricBands by viewModel.parametricBands.collectAsStateWithLifecycle()
     val isOwnPlayerSession by viewModel.isOwnPlayerSession.collectAsStateWithLifecycle()
+    val playbackSource by viewModel.activePlaybackSource.collectAsStateWithLifecycle()
     val deviceKindPrompt by viewModel.deviceKindPrompt.collectAsStateWithLifecycle()
     val capabilities by viewModel.capabilities.collectAsStateWithLifecycle()
     val route by viewModel.displayRoute.collectAsStateWithLifecycle()
@@ -142,11 +144,11 @@ fun MainScreen(
     }
 
     if (showSaveAsNewDialog) {
-        PresetNameDialog(
-            title = stringResource(R.string.preset_save_as_new),
-            initialName = "",
-            onConfirm = { name ->
-                viewModel.saveAsNewPreset(name)
+        // Roadmap 16: the new preset is saved for a source (own player, other apps or both).
+        SavePresetDialog(
+            initialScope = remember { viewModel.defaultScopeForNewPreset() },
+            onConfirm = { name, scope ->
+                viewModel.saveAsNewPreset(name, scope)
                 showSaveAsNewDialog = false
             },
             onDismiss = { showSaveAsNewDialog = false },
@@ -296,6 +298,7 @@ fun MainScreen(
                 appProfileBound = appProfileBound,
                 onAppProfileBoundChanged = { viewModel.setAppProfileBound(it) },
                 isOwnPlayerSession = isOwnPlayerSession,
+                playbackSource = playbackSource,
                 preEqActive = capabilities.preEqCutoffsHz.isNotEmpty(),
                 onHighResolutionEqChanged = { viewModel.setHighResolutionEq(it) },
                 preEqResponseMode =

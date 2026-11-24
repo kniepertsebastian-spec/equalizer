@@ -34,17 +34,20 @@ import com.auracurve.app.dsp.ParametricCurve
 import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.dsp.ParametricFilterBounds
 import com.auracurve.app.dsp.PreEqLayout
+import com.auracurve.app.eq.ActivePlaybackSource
 import com.auracurve.app.integration.PlayerBridge
 import com.auracurve.app.integration.PlayerSource
 import com.auracurve.app.preset.BuiltInContextPresets
 import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.BuiltInGenreVariants
+import com.auracurve.app.preset.BuiltInPlayerPresets
 import com.auracurve.app.preset.BuiltInPresets
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.PresetIntensityBoost
 import com.auracurve.app.preset.PresetIntensityResolver
 import com.auracurve.app.preset.PresetRepository
+import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.profile.AppProfileRepository
@@ -2164,6 +2167,37 @@ class MainViewModelTest {
 
             assertEquals(texts.get(R.string.feedback_saved, "Mine"), messages.first())
             assertEquals(texts.get(R.string.feedback_reset, "Mine"), messages.last())
+        }
+
+    // Roadmap 16: the screen sees the detected source and is told when a source change replaced the preset.
+    @Test
+    fun `a source change that replaces the preset says so`() =
+        runTest {
+            val texts = FakeTextProvider()
+            val sessions = FakeAudioSessionRepository()
+            val viewModel = createViewModel(emptyList(), sessionRepository = sessions)
+            dispatcher.scheduler.advanceUntilIdle()
+            val messages = mutableListOf<String>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.feedback.toList(messages) }
+            assertEquals(ActivePlaybackSource.None, viewModel.activePlaybackSource.value)
+
+            sessions.setActiveSession(AudioSession(sessionId = 1, packageName = "com.spotify.music"))
+            dispatcher.scheduler.advanceUntilIdle()
+            viewModel.selectPreset(BuiltInPresets.DeepRumble)
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(PresetSourceScope.EXTERNAL_APPS, viewModel.defaultScopeForNewPreset())
+            assertTrue(messages.isEmpty())
+
+            sessions.setActiveSession(AudioSession(sessionId = 2, packageName = BuildConfig.APPLICATION_ID))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(ActivePlaybackSource.OwnPlayer, viewModel.activePlaybackSource.value)
+            val player = BuiltInPlayerPresets.Uptempo.base
+            assertEquals(player.id, viewModel.activePreset.value.id)
+            assertEquals(
+                texts.get(R.string.feedback_source_preset_switched, player.name, texts.get(R.string.preset_source_own_player)),
+                messages.single(),
+            )
         }
 
     @Test

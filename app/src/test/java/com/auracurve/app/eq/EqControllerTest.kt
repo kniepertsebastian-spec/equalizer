@@ -12,7 +12,14 @@ import com.auracurve.app.dsp.LoudnessMatch
 import com.auracurve.app.dsp.ParametricBand
 import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.dsp.ParametricFilterType
+import com.auracurve.app.preset.BuiltInGenrePresets
+import com.auracurve.app.preset.BuiltInPlayerPresets
 import com.auracurve.app.preset.BuiltInPresets
+import com.auracurve.app.preset.GenreUseCase
+import com.auracurve.app.preset.GenreUseCaseTuning
+import com.auracurve.app.preset.PresetIntensity
+import com.auracurve.app.preset.PresetIntensityResolver
+import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.quick.QuickCommand
 import com.auracurve.app.quick.QuickControls
 import com.auracurve.app.settings.AppSettingsRepository
@@ -29,6 +36,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
@@ -53,12 +61,13 @@ class EqControllerTest {
     private fun controller(
         settings: AppSettingsRepository = EqFakeAppSettingsRepository(),
         devices: EqFakeDeviceProfileRepository = EqFakeDeviceProfileRepository(),
+        presets: EqFakePresetRepository = EqFakePresetRepository(),
     ) = EqController(
         audioEngine = engine,
         routeRepository = routes,
         volumeRepository = EqFakeVolumeRepository(),
         playerBridge = bridge,
-        presetRepository = EqFakePresetRepository(),
+        presetRepository = presets,
         appSettingsRepository = settings,
         correctionProfileRepository = EqFakeCorrectionProfileRepository(),
         deviceProfileRepository = devices,
@@ -321,5 +330,293 @@ class EqControllerTest {
             assertTrue("the original needs a cut: ${plan.originalGainDb}", plan.originalGainDb < -0.5f)
             assertEquals(plan.originalGainDb, engine.currentSettings.value.inputGainDb, 1e-4f)
             assertTrue("the player is bypassed", bridge.lastPlayerCurve.isEmpty())
+        }
+
+    // --- Roadmap 16: playback source, speaker protection on a source change ------------------
+
+    private val spotify = AudioSession(7, "com.spotify.music")
+    private val ownPlayer = AudioSession(9, BuildConfig.APPLICATION_ID)
+    private val uptempo = PresetIntensityResolver.resolve(BuiltInGenrePresets.Uptempo, PresetIntensity.MODERATE)
+
+    @Test
+    fun `no session means no detected source, not the own player`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            idle()
+            assertEquals(ActivePlaybackSource.None, eq.activePlaybackSource.value)
+
+            sessions.setActiveSession(spotify)
+            idle()
+            assertEquals(ActivePlaybackSource.ExternalApp("com.spotify.music"), eq.activePlaybackSource.value)
+
+            sessions.setActiveSession(ownPlayer)
+            idle()
+            assertEquals(ActivePlaybackSource.OwnPlayer, eq.activePlaybackSource.value)
+
+            sessions.setActiveSession(null)
+            idle()
+            assertEquals(ActivePlaybackSource.None, eq.activePlaybackSource.value)
+        }
+
+    @Test
+    fun `the playing own player is the source even while another app's session is attached`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            sessions.setActiveSession(spotify)
+            idle()
+
+            bridge.playing.value = true
+            idle()
+            assertEquals(ActivePlaybackSource.OwnPlayer, eq.activePlaybackSource.value)
+
+            bridge.playing.value = false
+            idle()
+            assertEquals(ActivePlaybackSource.ExternalApp("com.spotify.music"), eq.activePlaybackSource.value)
+        }
+
+    // P16-1: the system equalizer and the player's PCM equalizer never carry the curve together.
+    @Test
+    fun `the curve goes either to the system equalizer or to the player, never both`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            sessions.setActiveSession(spotify)
+            eq.selectPreset(BuiltInPresets.DeepRumble)
+            idle()
+            assertTrue(
+                "the system path has the curve",
+                engine.currentSettings.value.bandGainsDb.values
+                    .any { it != 0f },
+            )
+            assertTrue("the player has none", bridge.lastPlayerCurve.isEmpty())
+            assertEquals(0f, bridge.lastVirtualBassMix)
+
+            sessions.setActiveSession(ownPlayer)
+            idle()
+            assertTrue(
+                "the system path is flat",
+                engine.currentSettings.value.bandGainsDb.values
+                    .all { it == 0f },
+            )
+            assertTrue("the player has the curve", bridge.lastPlayerCurve.isNotEmpty())
+
+            sessions.setActiveSession(null)
+            idle()
+            assertTrue("nothing detected: the player is primed", bridge.lastPlayerCurve.isNotEmpty())
+        }
+
+    @Test
+    fun `switching from Spotify to the own player replaces a Spotify preset by its player counterpart`() =
+        runTest(dispatcher) {
+            val settings = EqFakeAppSettingsRepository()
+            val eq = controller(settings)
+            eq.awaitRestored()
+            sessions.setActiveSession(spotify)
+            idle()
+            eq.selectPreset(uptempo)
+            idle()
+            assertEquals(PresetSourceScope.EXTERNAL_APPS, eq.activePreset.value.metadata.sourceScope)
+
+            sessions.setActiveSession(ownPlayer)
+            idle()
+
+            val active = eq.activePreset.value
+            assertEquals(BuiltInPlayerPresets.Uptempo.base.id, active.id)
+            assertEquals(PresetSourceScope.OWN_PLAYER, active.metadata.sourceScope)
+            assertEquals(
+                "the player preset's limiter is applied",
+                active.limiter.thresholdDb,
+                eq.processingSettings.value.limiterThresholdDb,
+            )
+            assertEquals(active.subsonicCutoffHz, eq.processingSettings.value.subsonicCutoffHz)
+            assertEquals(active.id, settings.savedSettings.last().activePresetId)
+
+            // ... and back: the Spotify side gets the genre's Spotify base again.
+            sessions.setActiveSession(spotify)
+            idle()
+            assertEquals(uptempo.id, eq.activePreset.value.id)
+        }
+
+    @Test
+    fun `a use case keeps its use case on the other side`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            sessions.setActiveSession(spotify)
+            idle()
+            val loud = GenreUseCaseTuning.apply(BuiltInGenrePresets.Gabber, GenreUseCase.LOUD)
+            eq.selectPreset(loud)
+            idle()
+
+            bridge.playing.value = true
+            idle()
+
+            assertEquals(GenreUseCaseTuning.presetId(BuiltInPlayerPresets.Gabber, GenreUseCase.LOUD), eq.activePreset.value.id)
+        }
+
+    @Test
+    fun `Flat fits every source and stays on a source change`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            sessions.setActiveSession(spotify)
+            eq.selectPreset(BuiltInPresets.Flat)
+            idle()
+
+            sessions.setActiveSession(ownPlayer)
+            idle()
+            assertEquals(BuiltInPresets.Flat.id, eq.activePreset.value.id)
+
+            sessions.setActiveSession(spotify)
+            idle()
+            assertEquals(BuiltInPresets.Flat.id, eq.activePreset.value.id)
+        }
+
+    @Test
+    fun `with no source detected any preset can be chosen and stays`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            eq.selectPreset(BuiltInPlayerPresets.Hardtekk.base)
+            idle()
+            assertEquals(BuiltInPlayerPresets.Hardtekk.base.id, eq.activePreset.value.id)
+            eq.selectPreset(uptempo)
+            idle()
+            assertEquals(uptempo.id, eq.activePreset.value.id)
+        }
+
+    // A player-only genre has no Spotify version: the preset last played from Spotify comes back.
+    @Test
+    fun `without a counterpart the preset last played from that source comes back`() =
+        runTest(dispatcher) {
+            val settings = EqFakeAppSettingsRepository()
+            val eq = controller(settings)
+            eq.awaitRestored()
+            sessions.setActiveSession(spotify)
+            eq.selectPreset(BuiltInPresets.DeepRumble)
+            idle()
+            assertEquals(BuiltInPresets.DeepRumble.id, settings.savedSettings.last().lastExternalAppsPresetId)
+
+            sessions.setActiveSession(ownPlayer)
+            idle()
+            eq.selectPreset(BuiltInPlayerPresets.Hardtekk.base)
+            idle()
+            assertEquals(BuiltInPlayerPresets.Hardtekk.base.id, settings.savedSettings.last().lastOwnPlayerPresetId)
+
+            sessions.setActiveSession(spotify)
+            idle()
+            assertEquals(BuiltInPresets.DeepRumble.id, eq.activePreset.value.id)
+        }
+
+    @Test
+    fun `without a counterpart or a remembered preset Flat is the safe fallback`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            eq.selectPreset(BuiltInPlayerPresets.Schranz.base)
+            idle()
+
+            sessions.setActiveSession(spotify)
+            idle()
+
+            assertEquals(BuiltInPresets.Flat.id, eq.activePreset.value.id)
+        }
+
+    @Test
+    fun `the remembered presets survive a restart`() =
+        runTest(dispatcher) {
+            val saved =
+                LiveSettings(
+                    activePresetId = BuiltInPlayerPresets.Techno.base.id,
+                    isDirty = false,
+                    processingSettings = ProcessingSettings(),
+                    lastExternalAppsPresetId = BuiltInPresets.KickAttack.id,
+                )
+            val eq = controller(EqFakeAppSettingsRepository(saved))
+            eq.awaitRestored()
+            idle()
+
+            sessions.setActiveSession(spotify)
+            idle()
+
+            assertEquals(BuiltInPresets.KickAttack.id, eq.activePreset.value.id)
+        }
+
+    // A route bound to a Spotify preset must not put it on the own player's speakers.
+    @Test
+    fun `a route binding is fitted to the source playing now`() =
+        runTest(dispatcher) {
+            val speaker = AudioRoute(type = AudioDeviceType.BLUETOOTH, name = "JBL Charge", id = "bt_jbl")
+            val devices =
+                EqFakeDeviceProfileRepository(
+                    mapOf(
+                        "bt_jbl" to
+                            DeviceProfileEntity(
+                                routeId = "bt_jbl",
+                                routeType = "BLUETOOTH",
+                                displayName = "JBL",
+                                boundPresetId = uptempo.id,
+                            ),
+                    ),
+                )
+            val eq = controller(devices = devices)
+            eq.awaitRestored()
+            sessions.setActiveSession(ownPlayer)
+            idle()
+
+            routes.setRoute(speaker)
+            idle()
+
+            assertEquals(BuiltInPlayerPresets.Uptempo.base.id, eq.activePreset.value.id)
+        }
+
+    @Test
+    fun `a quick tile only steps through presets for the source playing now`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            sessions.setActiveSession(ownPlayer)
+            idle()
+
+            repeat(5) {
+                quick.send(QuickCommand.NEXT_PRESET)
+                idle()
+                assertTrue(
+                    eq.activePreset.value.id,
+                    eq.activePreset.value.metadata.sourceScope
+                        .fits(PresetSourceScope.OWN_PLAYER),
+                )
+            }
+        }
+
+    @Test
+    fun `a new preset is saved for the source chosen in the dialog`() =
+        runTest(dispatcher) {
+            val presets = EqFakePresetRepository()
+            val eq = controller(presets = presets)
+            eq.awaitRestored()
+            sessions.setActiveSession(ownPlayer)
+            idle()
+            assertEquals(PresetSourceScope.OWN_PLAYER, eq.defaultScopeForNewPreset())
+
+            val saved = eq.saveAsNewPreset("Mine", PresetSourceScope.ALL)
+            idle()
+            assertEquals(PresetSourceScope.ALL, saved.metadata.sourceScope)
+            assertEquals(
+                PresetSourceScope.ALL,
+                presets.savedPresets
+                    .last()
+                    .metadata.sourceScope,
+            )
+
+            // Saved for the player only: replaced when Spotify plays (by Flat, it has no counterpart).
+            val playerOnly = eq.saveAsNewPreset("Speakers", PresetSourceScope.OWN_PLAYER)
+            idle()
+            assertEquals(playerOnly.id, eq.activePreset.value.id)
+            sessions.setActiveSession(spotify)
+            idle()
+            assertNotEquals(playerOnly.id, eq.activePreset.value.id)
         }
 }

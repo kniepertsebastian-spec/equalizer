@@ -83,7 +83,9 @@ import com.auracurve.app.dsp.ParametricBand
 import com.auracurve.app.dsp.SubsonicFilterCurve
 import com.auracurve.app.dsp.VirtualBassApproxCurve
 import com.auracurve.app.dsp.VolumeLevelMapper
+import com.auracurve.app.eq.ActivePlaybackSource
 import com.auracurve.app.preset.BuiltInContextPresets
+import com.auracurve.app.preset.BuiltInPlayerPresets
 import com.auracurve.app.preset.GenrePreset
 import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.Preset
@@ -160,6 +162,8 @@ fun EqualizerScreen(
     appProfileBound: Boolean = false,
     onAppProfileBoundChanged: ((Boolean) -> Unit)? = null,
     isOwnPlayerSession: Boolean = true,
+    // Roadmap 16: the detected source; the preset list is split by it and greys the other side out.
+    playbackSource: ActivePlaybackSource = ActivePlaybackSource.None,
     deviceKindPrompt: AudioRoute? = null,
     onAnswerDeviceKind: (DeviceKind) -> Unit = {},
     onDismissDeviceKindPrompt: () -> Unit = {},
@@ -560,22 +564,40 @@ fun EqualizerScreen(
                 onCheckedChange = onMoreIntensityChanged,
                 style = style,
             )
-            GenrePresetList(
-                groups = remember(genrePresets) { GenrePresetGroups.forGenres(genrePresets) },
-                activePresetId = activePreset.id,
-                onPresetSelected = onPresetSelected,
-                onDuplicatePreset = onDuplicatePreset,
-                onSharePreset = onSharePreset,
+            // Roadmap 16, P16-3: one list per source; it follows the detected source when that changes.
+            var sourceTab by rememberSaveable(playbackSource) { mutableStateOf(initialPresetSourceTab(playbackSource, activePreset)) }
+            PresetSourceTabs(
+                selected = sourceTab,
+                detected = playbackSource,
+                externalAppLabel = pathLabel,
+                onSelect = { sourceTab = it },
                 style = style,
+                modifier = Modifier.padding(bottom = 2.dp),
             )
-            if (customPresets.isNotEmpty()) {
+            key(sourceTab) {
+                GenrePresetList(
+                    groups =
+                        remember(genrePresets, sourceTab) {
+                            val ids = genrePresets.flatMap { listOf(it.id, BuiltInPlayerPresets.idFor(it.id)) }.toSet()
+                            GenrePresetGroups.forSource(sourceTab).filter { it.genre.id in ids }
+                        },
+                    activePresetId = activePreset.id,
+                    onPresetSelected = onPresetSelected,
+                    onDuplicatePreset = onDuplicatePreset,
+                    onSharePreset = onSharePreset,
+                    style = style,
+                    detectedSource = playbackSource,
+                )
+            }
+            val sourceCustomPresets = customPresets.filter { it.metadata.sourceScope.fits(sourceTab) }
+            if (sourceCustomPresets.isNotEmpty()) {
                 var customOpen by rememberSaveable { mutableStateOf(true) }
-                val activeCustom = customPresets.firstOrNull { it.id == activePreset.id }
+                val activeCustom = sourceCustomPresets.firstOrNull { it.id == activePreset.id }
                 Spacer(modifier = Modifier.height(2.dp))
                 ExpandableGroupHeader(
                     title = stringResource(R.string.presets_custom),
                     subtitle =
-                        pluralStringResource(R.plurals.genre_presets_count, customPresets.size, customPresets.size) +
+                        pluralStringResource(R.plurals.genre_presets_count, sourceCustomPresets.size, sourceCustomPresets.size) +
                             (activeCustom?.let { " · " + stringResource(R.string.genre_presets_active, it.name) } ?: ""),
                     icon = Icons.Outlined.Tune,
                     expanded = customOpen,
@@ -585,7 +607,7 @@ fun EqualizerScreen(
                 )
                 AnimatedVisibility(visible = customOpen) {
                     PresetGrid(
-                        presets = customPresets,
+                        presets = sourceCustomPresets,
                         activePresetId = activePreset.id,
                         onPresetSelected = onPresetSelected,
                         onDuplicatePreset = onDuplicatePreset,
@@ -594,6 +616,7 @@ fun EqualizerScreen(
                         onSharePreset = onSharePreset,
                         spacing = spacing,
                         style = style,
+                        detectedSource = playbackSource,
                     )
                 }
             }

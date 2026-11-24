@@ -41,6 +41,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -56,12 +57,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.correction.CorrectionProfile
+import com.auracurve.app.eq.ActivePlaybackSource
 import com.auracurve.app.preset.Preset
+import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.preset.PresetUsageAdvisor
 import com.auracurve.app.preset.PresetUsageHint
 import com.auracurve.app.ui.theme.PillShape
@@ -96,6 +101,8 @@ internal fun PresetGrid(
     onSharePreset: (Preset) -> Unit,
     spacing: Spacing,
     style: EqualizerDesignStyle,
+    // Roadmap 16: own presets saved for the other source are greyed out like the built-ins.
+    detectedSource: ActivePlaybackSource = ActivePlaybackSource.None,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
         presets.chunked(3).forEach { row ->
@@ -107,6 +114,7 @@ internal fun PresetGrid(
                     PresetCard(
                         preset = preset,
                         selected = preset.id == activePresetId,
+                        inactiveReason = detectedSource.inactiveReason(preset),
                         onClick = { onPresetSelected(preset) },
                         onDuplicate = { onDuplicatePreset(preset) },
                         onRenameRequest = { onRenamePresetRequest(preset) },
@@ -203,15 +211,23 @@ internal fun PresetCard(
     onShare: () -> Unit,
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle,
+    // Roadmap 16: why the preset does not take effect with what plays now (greyed out, not tappable).
+    inactiveReason: String? = null,
 ) {
     val contentColor = if (selected) Color.White else style.text
     var showMenu by remember { mutableStateOf(false) }
     var showUsage by remember { mutableStateOf(false) }
+    val enabled = inactiveReason == null
 
     Surface(
         selected = selected,
         onClick = onClick,
-        modifier = modifier.height(56.dp),
+        enabled = enabled,
+        modifier =
+            modifier
+                .height(56.dp)
+                .alpha(if (enabled) 1f else INACTIVE_PRESET_ALPHA)
+                .semantics { inactiveReason?.let { stateDescription = it } },
         shape = PillShape,
         color = style.surfaceVariant,
     ) {
@@ -308,6 +324,64 @@ internal fun PresetCard(
             },
         )
     }
+}
+
+/**
+ * Roadmap 16, P16-3: "Save as new preset" with the source the preset is for - own player,
+ * Spotify & other apps, or both. Starts on [initialScope] (the detected source).
+ */
+@Composable
+internal fun SavePresetDialog(
+    initialScope: PresetSourceScope,
+    onConfirm: (name: String, scope: PresetSourceScope) -> Unit,
+    onDismiss: () -> Unit,
+    style: EqualizerDesignStyle = SonicStyle,
+) {
+    var name by remember { mutableStateOf("") }
+    var scope by remember { mutableStateOf(initialScope) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.preset_save_as_new)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.field_name)) },
+                )
+                Text(
+                    text = stringResource(R.string.preset_save_scope_title),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = style.text,
+                )
+                listOf(PresetSourceScope.OWN_PLAYER, PresetSourceScope.EXTERNAL_APPS, PresetSourceScope.ALL).forEach { option ->
+                    ChoiceChip(
+                        text = option.label(),
+                        selected = option == scope,
+                        onClick = { scope = option },
+                        modifier = Modifier.fillMaxWidth(),
+                        style = style,
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.preset_save_scope_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = style.mutedText,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name.trim(), scope) }, enabled = name.isNotBlank()) {
+                Text(stringResource(R.string.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.action_cancel))
+            }
+        },
+    )
 }
 
 /**

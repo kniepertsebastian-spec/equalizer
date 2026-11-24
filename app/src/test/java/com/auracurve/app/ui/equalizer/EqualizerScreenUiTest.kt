@@ -9,10 +9,13 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -31,12 +34,15 @@ import com.auracurve.app.audio.EqualizerBandCapabilities
 import com.auracurve.app.audio.ProcessingSettings
 import com.auracurve.app.correction.BuiltInCorrectionProfiles
 import com.auracurve.app.dsp.HeadphonePower
+import com.auracurve.app.eq.ActivePlaybackSource
 import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.BuiltInGenreVariants
+import com.auracurve.app.preset.BuiltInPlayerPresets
 import com.auracurve.app.preset.BuiltInPresets
 import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.GenreUseCase
 import com.auracurve.app.preset.Preset
+import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.theme.AuraCurveTheme
@@ -80,6 +86,8 @@ class EqualizerScreenUiTest {
         activePreset: Preset = BuiltInPresets.all.first(),
         customPresets: List<Preset> = emptyList(),
         deviceTabFooter: (@Composable ColumnScope.() -> Unit)? = null,
+        playbackSource: ActivePlaybackSource = ActivePlaybackSource.None,
+        onPresetSelected: (Preset) -> Unit = {},
     ) {
         compose.setContent {
             AuraCurveTheme {
@@ -111,7 +119,7 @@ class EqualizerScreenUiTest {
                     onMasterToggled = {},
                     onOpenSourcePicker = {},
                     onBypassToggled = {},
-                    onPresetSelected = {},
+                    onPresetSelected = onPresetSelected,
                     onMoreIntensityChanged = {},
                     onCorrectionProfileSelected = {},
                     onImportCorrectionProfileRequested = {},
@@ -137,6 +145,7 @@ class EqualizerScreenUiTest {
                     onBandGainChanged = { _, _ -> },
                     onRetryAttach = {},
                     deviceTabFooter = deviceTabFooter,
+                    playbackSource = playbackSource,
                 )
             }
         }
@@ -342,6 +351,117 @@ class EqualizerScreenUiTest {
             .assertIsDisplayed()
         compose.onNodeWithText(GenreUseCase.QUIET.description).performScrollTo().assertIsDisplayed()
         compose.onRoot().saveScreenshot("11-genre-preset-active-variant")
+    }
+
+    // --- Roadmap 16: presets split by source, the other source's greyed out -------------------
+
+    private val spotifyPlaying = ActivePlaybackSource.ExternalApp("com.spotify.music")
+
+    private fun presetRow(preset: Preset) = compose.onNodeWithContentDescription(preset.name)
+
+    @Test
+    fun withTheOwnPlayerPlayingSpotifyPresetsAreGreyedOutAndCannotBeChosen() {
+        val picked = mutableListOf<Preset>()
+        // A Spotify preset still active (the screen does not switch it), so its genre opens in that list.
+        showEqualizer(activePreset = BuiltInPresets.DeepRumble, playbackSource = ActivePlaybackSource.OwnPlayer, onPresetSelected = {
+            picked +=
+                it
+        })
+
+        compose.onNodeWithText(text(R.string.preset_source_detected_own)).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.preset_source_external)).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        compose.onNodeWithText(text(R.string.preset_source_inactive_note_external)).performScrollTo().assertIsDisplayed()
+        presetRow(BuiltInPresets.KickAttack).performScrollTo().assertIsNotEnabled().performClick()
+        compose.waitForIdle()
+        assertTrue("a greyed-out preset must not be chosen: $picked", picked.isEmpty())
+        compose.onAllNodesWithText(text(R.string.preset_source_only_external)).onFirst().assertExists()
+        compose.onRoot().saveScreenshot("12-own-player-spotify-presets-greyed")
+    }
+
+    @Test
+    fun withTheOwnPlayerPlayingItsOwnPresetsCanBeChosen() {
+        val picked = mutableListOf<Preset>()
+        val player = BuiltInPlayerPresets.Uptempo.base
+        showEqualizer(activePreset = player, playbackSource = ActivePlaybackSource.OwnPlayer, onPresetSelected = { picked += it })
+
+        val loud = BuiltInPlayerPresets.useCases(BuiltInPlayerPresets.Uptempo).first { it.useCase == GenreUseCase.LOUD }.preset
+        presetRow(loud).performScrollTo().assertIsEnabled().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(loud.id), picked.map { it.id })
+        compose.onRoot().saveScreenshot("13-own-player-presets")
+    }
+
+    @Test
+    fun withSpotifyPlayingPlayerPresetsAreGreyedOut() {
+        val picked = mutableListOf<Preset>()
+        showEqualizer(
+            activePreset = BuiltInPlayerPresets.Uptempo.base,
+            playbackSource = spotifyPlaying,
+            onPresetSelected = { picked += it },
+        )
+
+        compose
+            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.preset_source_detected_external, "Spotify"))
+            .performScrollTo()
+            .assertIsDisplayed()
+        compose.onNodeWithText(text(R.string.preset_source_own_player)).performScrollTo().performClick()
+        compose.waitForIdle()
+
+        presetRow(BuiltInPlayerPresets.Uptempo.base).performScrollTo().assertIsNotEnabled().performClick()
+        compose.waitForIdle()
+        assertTrue(picked.isEmpty())
+        compose.onAllNodesWithText(text(R.string.preset_source_only_own)).onFirst().assertExists()
+    }
+
+    @Test
+    fun withNothingDetectedBothListsCanBeChosen() {
+        val picked = mutableListOf<Preset>()
+        showEqualizer(activePreset = BuiltInPresets.DeepRumble, onPresetSelected = { picked += it })
+
+        compose.onNodeWithText(text(R.string.preset_source_detected_none)).performScrollTo().assertIsDisplayed()
+        presetRow(BuiltInPresets.KickAttack).performScrollTo().assertIsEnabled().performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithText(text(R.string.preset_source_inactive_note_external)).assertCountEquals(0)
+
+        compose.onNodeWithText(text(R.string.preset_source_own_player)).performScrollTo().performClick()
+        compose.waitForIdle()
+        compose.onAllNodesWithText(text(R.string.preset_source_inactive_note_own)).assertCountEquals(0)
+        compose
+            .onAllNodesWithText("Uptempo")
+            .onFirst()
+            .performScrollTo()
+            .performClick()
+        compose.waitForIdle()
+        presetRow(BuiltInPlayerPresets.Uptempo.base).performScrollTo().assertIsEnabled().performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(BuiltInPresets.KickAttack.id, BuiltInPlayerPresets.Uptempo.base.id), picked.map { it.id })
+    }
+
+    // Flat fits every source: never greyed out.
+    @Test
+    fun flatIsNeverGreyedOut() {
+        showEqualizer(activePreset = BuiltInPresets.Flat, playbackSource = ActivePlaybackSource.OwnPlayer)
+
+        compose
+            .onAllNodesWithText("Flat")
+            .onFirst()
+            .performScrollTo()
+            .performClick()
+        compose.waitForIdle()
+        val flat =
+            GenrePresetGroups
+                .forSource(PresetSourceScope.OWN_PLAYER)
+                .first { it.genre.id == BuiltInGenrePresets.Flat.id }
+                .entries
+                .first()
+                .preset
+        compose
+            .onAllNodesWithContentDescription(flat.name)
+            .onFirst()
+            .performScrollTo()
+            .assertIsEnabled()
     }
 
     private fun SemanticsNodeInteraction.saveScreenshot(name: String) {

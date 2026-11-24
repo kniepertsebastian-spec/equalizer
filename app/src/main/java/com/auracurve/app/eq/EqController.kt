@@ -4,6 +4,7 @@ import com.auracurve.app.BuildConfig
 import com.auracurve.app.audio.AudioEngine
 import com.auracurve.app.audio.AudioRoute
 import com.auracurve.app.audio.AudioRouteRepository
+import com.auracurve.app.audio.AudioSession
 import com.auracurve.app.audio.AudioSessionRepository
 import com.auracurve.app.audio.DeviceKind
 import com.auracurve.app.audio.EqualizerBandCapabilities
@@ -30,6 +31,7 @@ import com.auracurve.app.preset.BuiltInContextPresets
 import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.BuiltInPresets
 import com.auracurve.app.preset.GenrePreset
+import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.LimiterConfig
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetCycle
@@ -38,6 +40,7 @@ import com.auracurve.app.preset.PresetIntensityBoost
 import com.auracurve.app.preset.PresetIntensityResolver
 import com.auracurve.app.preset.PresetMetadata
 import com.auracurve.app.preset.PresetRepository
+import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.profile.AppProfileRepository
@@ -54,9 +57,12 @@ import com.auracurve.app.ui.main.RouteContextResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -121,6 +127,51 @@ data class CompareState(
 )
 
 /**
+ * Roadmap 16: where the sound the EQ shapes comes from - the one truth both the curve's path
+ * (player PCM equalizer or system equalizer, never both) and the preset list read.
+ */
+sealed interface ActivePlaybackSource {
+    /** The preset scope that fits this source; [PresetSourceScope.ALL] while nothing is detected. */
+    val scope: PresetSourceScope
+
+    /** No session attached and the built-in player is not playing: nothing to shape yet. */
+    data object None : ActivePlaybackSource {
+        override val scope = PresetSourceScope.ALL
+    }
+
+    /** The built-in player: its own PCM equalizer carries the curve, the system equalizer stays flat. */
+    data object OwnPlayer : ActivePlaybackSource {
+        override val scope = PresetSourceScope.OWN_PLAYER
+    }
+
+    /** Another app's session (Spotify & co.): only the system equalizer reaches it. */
+    data class ExternalApp(
+        val packageName: String,
+    ) : ActivePlaybackSource {
+        override val scope = PresetSourceScope.EXTERNAL_APPS
+    }
+
+    companion object {
+        /**
+         * The source for the attached [session] while the built-in player [ownPlayerPlaying] or not.
+         * The playing player wins: its session may not have reached the list yet, or another app's
+         * session (paused, but still open) may still be the attached one.
+         */
+        fun of(
+            session: AudioSession?,
+            ownPlayerPlaying: Boolean,
+            ownPackageName: String = BuildConfig.APPLICATION_ID,
+        ): ActivePlaybackSource =
+            when {
+                ownPlayerPlaying -> OwnPlayer
+                session == null -> None
+                session.packageName == ownPackageName -> OwnPlayer
+                else -> ExternalApp(session.packageName)
+            }
+    }
+}
+
+/**
  * E-008 stage 2: the equalizer's control logic, process-wide. It used to live only in
  * MainViewModel, so without an open activity nobody switched presets (quick tile, later the
  * remote server), followed route changes or saved anything. Now MainViewModel is a thin layer on
@@ -155,12 +206,29 @@ class EqController
         val currentRoute: StateFlow<AudioRoute> = routeRepository.activeRoute
         val currentLevelDb: StateFlow<Float> = volumeRepository.currentLevelDb
 
-        // False only while the EQ is bound to another app's session: Virtual Bass runs in
-        // this app's own player only, so for a foreign session it has no effect there.
+        // Roadmap 16: the one place that decides where the sound comes from. Everything else - the
+        // curve's path, the Virtual Bass approximation, the preset that fits - reads this.
+        val activePlaybackSource: StateFlow<ActivePlaybackSource> =
+            combine(sessionRepository.activeSession, playerBridge.ownPlayerPlaying) { session, playing ->
+                ActivePlaybackSource.of(session, playing)
+            }.stateIn(scope, SharingStarted.Eagerly, ActivePlaybackSource.of(sessionRepository.activeSession.value, false))
+
+        // False only while another app is the source: Virtual Bass runs in this app's own player
+        // only, so for a foreign session it has no effect there. With nothing detected
+        // (ActivePlaybackSource.None) no system equalizer is attached either, so there is nothing to
+        // approximate it for.
         val isOwnPlayerSession: StateFlow<Boolean> =
-            sessionRepository.activeSession
-                .map { it == null || it.packageName == BuildConfig.APPLICATION_ID }
-                .stateIn(scope, SharingStarted.Eagerly, true)
+            activePlaybackSource
+                .map { it !is ActivePlaybackSource.ExternalApp }
+                .stateIn(scope, SharingStarted.Eagerly, activePlaybackSource.value !is ActivePlaybackSource.ExternalApp)
+
+        // Roadmap 16, P16-2: the preset last played per source (OWN_PLAYER / EXTERNAL_APPS), the
+        // fallback when a source change needs a preset and the other source has no counterpart.
+        private val lastPresetIdBySource = mutableMapOf<PresetSourceScope, String>()
+
+        // A preset switched automatically because the source changed (for the screen's notice).
+        private val _sourcePresetSwitches = MutableSharedFlow<Preset>(extraBufferCapacity = 1)
+        val sourcePresetSwitches: SharedFlow<Preset> = _sourcePresetSwitches.asSharedFlow()
 
         // P5-5: true while the app the EQ is attached to has its own remembered sound.
         val appProfileBound: StateFlow<Boolean> =
@@ -196,6 +264,8 @@ class EqController
             _processingSettings.value = _processingSettings.value.withPreset(preset)
             recalculateBandGains()
             persistLiveSettings()
+            // A sound remembered for the own player before roadmap 16 may be a Spotify preset.
+            fitPresetToSource()
         }
 
         private fun rememberForActiveAppIfBound() {
@@ -420,19 +490,18 @@ class EqController
                         applyAppProfile(packageName)
                     }
             }
-            // The Virtual Bass approximation exists only for foreign sessions.
+            // Roadmap 16: a new source moves the curve between the player's PCM equalizer and the
+            // system equalizer (and switches the Virtual Bass approximation for foreign sessions),
+            // and a preset tuned for the other source is replaced by one for this source.
             scope.launch {
-                isOwnPlayerSession
+                activePlaybackSource
                     .drop(1)
-                    .collect { if (hasRestoredState) recalculateBandGains() }
-            }
-            // Binding to this app's own player (or away from it) moves the curve between the
-            // player's PCM equalizer and the system equalizer.
-            scope.launch {
-                sessionRepository.activeSession
-                    .map { it?.packageName == BuildConfig.APPLICATION_ID }
-                    .drop(1)
-                    .collect { if (hasRestoredState) pushToEngine(_processingSettings.value) }
+                    .collect {
+                        if (hasRestoredState) {
+                            recalculateBandGains()
+                            fitPresetToSource()
+                        }
+                    }
             }
             // Android Auto connecting or disconnecting changes what "detected" means for the
             // current route: re-decide the mode (a saved choice for the route still wins).
@@ -487,6 +556,8 @@ class EqController
                 }
             if (saved != null) {
                 _moreIntensity.value = saved.moreIntensity
+                saved.lastOwnPlayerPresetId?.let { lastPresetIdBySource[PresetSourceScope.OWN_PLAYER] = it }
+                saved.lastExternalAppsPresetId?.let { lastPresetIdBySource[PresetSourceScope.EXTERNAL_APPS] = it }
                 val savedPreset = findPresetById(saved.activePresetId, initialCustomPresets)
                 if (savedPreset != null) {
                     val preset = withoutRetiredIntensity(savedPreset)
@@ -531,6 +602,9 @@ class EqController
             // actual point of M3 (same taste, different headphones).
             applyDeviceProfileForRoute(routeRepository.activeRoute.value)
             applyAppProfile(sessionRepository.activeSession.value?.packageName)
+            // The source may already be known at the start (the player kept playing, a session is
+            // attached): the restored preset has to fit it as well.
+            fitPresetToSource()
 
             // Keep collecting custom-preset/-correction-profile changes after this
             // point (deletions, saves) - the one-shot .first() calls above were
@@ -602,6 +676,49 @@ class EqController
             _processingSettings.value = _processingSettings.value.withPreset(target)
             recalculateBandGains()
             persistLiveSettings()
+            // The route's sound was saved for whatever played then; the source playing now decides.
+            fitPresetToSource()
+        }
+
+        /**
+         * Roadmap 16, P16-2 (speaker protection): when the active preset is tuned for the other
+         * source, it is replaced by the preset for this one - the deterministic counterpart
+         * (`genre_uptempo__moderate` -> `player_genre_uptempo`, same use case on the other side),
+         * else the preset last played from this source, else Flat. Presets that fit every source
+         * (Flat, custom presets saved for both) stay; nothing changes while no source is detected.
+         * Not saved into the route or app binding: it is the source's choice, not the user's.
+         */
+        private fun fitPresetToSource() {
+            if (!hasRestoredState) return
+            val target = activePlaybackSource.value.scope
+            val current = _activePreset.value
+            if (current.metadata.sourceScope.fits(target)) return
+            val replacement = presetForSource(current, target)
+            if (replacement.id == current.id) return
+            _activePreset.value = replacement
+            _isDirty.value = false
+            _processingSettings.value = _processingSettings.value.withPreset(replacement)
+            recalculateBandGains()
+            persistLiveSettings()
+            _sourcePresetSwitches.tryEmit(replacement)
+        }
+
+        private fun presetForSource(
+            current: Preset,
+            target: PresetSourceScope,
+        ): Preset {
+            val custom = customPresetsState.value
+            val fits = { preset: Preset -> preset.metadata.sourceScope.fits(target) && BuiltInContextPresets.contextOf(preset) == null }
+            val counterpart =
+                GenrePresetGroups
+                    .counterpartPresetId(current.id, target, current.metadata.sourceScope)
+                    ?.let { findPresetById(it, custom) }
+                    ?.takeIf(fits)
+            val remembered =
+                lastPresetIdBySource[target]
+                    ?.let { findPresetById(it, custom) }
+                    ?.takeIf(fits)
+            return (counterpart ?: remembered)?.let(::withoutRetiredIntensity) ?: BuiltInPresets.Flat
         }
 
         // Car / Bluetooth-speaker mode is decided per route, from the route's saved choice
@@ -711,6 +828,15 @@ class EqController
 
         private fun persistLiveSettings() {
             if (!hasRestoredState) return
+            // Remembers the preset for the source it plays from now (P16-2); nothing while none is detected.
+            val sourceScope = activePlaybackSource.value.scope
+            val preset = _activePreset.value
+            if (sourceScope != PresetSourceScope.ALL &&
+                preset.metadata.sourceScope.fits(sourceScope) &&
+                BuiltInContextPresets.contextOf(preset) == null
+            ) {
+                lastPresetIdBySource[sourceScope] = preset.id
+            }
             scope.launch {
                 appSettingsRepository.save(
                     LiveSettings(
@@ -724,6 +850,8 @@ class EqController
                         activeGoal = _activeGoal.value.id.takeIf { _activeGoal.value != SoundGoal.BALANCED },
                         parametricBands = _parametricBands.value,
                         moreIntensity = _moreIntensity.value,
+                        lastOwnPlayerPresetId = lastPresetIdBySource[PresetSourceScope.OWN_PLAYER],
+                        lastExternalAppsPresetId = lastPresetIdBySource[PresetSourceScope.EXTERNAL_APPS],
                     ),
                 )
             }
@@ -799,7 +927,10 @@ class EqController
             saveDeviceProfileBinding()
         }
 
-        private fun buildPresetFromCurrentState(name: String): Preset {
+        private fun buildPresetFromCurrentState(
+            name: String,
+            sourceScope: PresetSourceScope,
+        ): Preset {
             val settings = _processingSettings.value
             val bands = capabilities.value.bands
             // PresetJsonSerializer.importFromJson rejects an empty targetCurve (and a
@@ -831,7 +962,7 @@ class EqController
                 mbcThresholdDb = settings.mbcThresholdDb,
                 mbcRatio = settings.mbcRatio,
                 limiter = LimiterConfig(enabled = settings.limiterEnabled, thresholdDb = settings.limiterThresholdDb),
-                metadata = PresetMetadata(genre = _activePreset.value.metadata.genre, builtIn = false),
+                metadata = PresetMetadata(genre = _activePreset.value.metadata.genre, builtIn = false, sourceScope = sourceScope),
                 loudnessMaxBoostDb = settings.loudnessMaxBoostDb,
                 subsonicCutoffHz = settings.subsonicCutoffHz,
                 virtualBassMix = settings.virtualBassMix,
@@ -843,7 +974,11 @@ class EqController
             when (command) {
                 QuickCommand.TOGGLE_MASTER -> setMasterEnabled(!_processingSettings.value.masterEnabled)
                 QuickCommand.NEXT_PRESET -> {
-                    val presets = allPresets.value.filterNot { PresetIntensityBoost.isRetiredStep(it.id) }
+                    // Only presets for the source playing now (roadmap 16): a tile press never puts a
+                    // Spotify preset on the own player's speakers.
+                    val source = activePlaybackSource.value.scope
+                    val presets =
+                        allPresets.value.filter { !PresetIntensityBoost.isRetiredStep(it.id) && it.metadata.sourceScope.fits(source) }
                     val nextId = PresetCycle.nextId(presets.map { it.id }, _activePreset.value.id) ?: return
                     presets.firstOrNull { it.id == nextId }?.let { selectPreset(it) }
                 }
@@ -867,9 +1002,22 @@ class EqController
 
         // Preset management. The screen adds its own confirmations (MainViewModel.feedback).
 
-        /** Saves the current sound as a new user preset and makes it the active one. */
-        suspend fun saveAsNewPreset(name: String): Preset {
-            val newPreset = buildPresetFromCurrentState(name)
+        /**
+         * The scope a new user preset is offered with (roadmap 16, P16-3): the detected source, or
+         * with none detected the active preset's own scope.
+         */
+        fun defaultScopeForNewPreset(): PresetSourceScope =
+            activePlaybackSource.value.scope.takeIf { it != PresetSourceScope.ALL } ?: _activePreset.value.metadata.sourceScope
+
+        /**
+         * Saves the current sound as a new user preset for [sourceScope] (which source it may play
+         * from) and makes it the active one.
+         */
+        suspend fun saveAsNewPreset(
+            name: String,
+            sourceScope: PresetSourceScope = defaultScopeForNewPreset(),
+        ): Preset {
+            val newPreset = buildPresetFromCurrentState(name, sourceScope)
             presetRepository.save(newPreset)
             _activePreset.value = newPreset
             _isDirty.value = false
@@ -1029,7 +1177,7 @@ class EqController
                 currentLevelDb = volumeRepository.currentLevelDb.value,
                 goalCurve = _activeGoal.value.curve,
                 context = _activeContext.value,
-                ownPlayerSession = isOwnPlayerSession.value,
+                ownPlayerSession = activePlaybackSource.value !is ActivePlaybackSource.ExternalApp,
                 preEqAvailable = capabilities.value.preEqCutoffsHz.isNotEmpty(),
                 settings = _processingSettings.value,
                 parametricCurve = parametricCurve,
@@ -1269,7 +1417,9 @@ class EqController
         // The free parametric bands are not sampled into the curve: the player runs them exactly
         // as set (roadmap 10, P10-2), where the system path only gets them as part of the curve.
         private fun pushPlayerCurve(settings: ProcessingSettings) {
-            val active = settings.masterEnabled && !settings.bypass
+            // While another app is the source the player gets no curve (roadmap 16): it is not what
+            // plays, and a preset tuned for Spotify must not reach the speakers through it.
+            val active = settings.masterEnabled && !settings.bypass && playerTakesTheCurve()
             if (!active) {
                 playerBridge.setPlayerCurve(emptyList(), 0f, inputGainSafetyRatio())
                 return
@@ -1312,10 +1462,17 @@ class EqController
                 .filter { it.enabled }
                 .map { ParametricFilter(type = it.type, frequencyHz = it.frequencyHz, gainDb = it.gainDb, q = it.q) }
 
-        // True while the EQ is bound to this app's own player: its PCM equalizer already
-        // applies the curve, so the system equalizer must not apply it a second time.
+        // True while the own player is the source: its PCM equalizer already applies the curve,
+        // so the system equalizer must not apply it a second time. Read from the same
+        // activePlaybackSource as the player side (playerTakesTheCurve), so the two can never both
+        // carry it for the own player's audio.
         private fun pcmEqualizerOwnsTheCurve(settings: ProcessingSettings): Boolean =
-            settings.masterEnabled && !settings.bypass && sessionRepository.activeSession.value?.packageName == BuildConfig.APPLICATION_ID
+            settings.masterEnabled && !settings.bypass && activePlaybackSource.value is ActivePlaybackSource.OwnPlayer
+
+        // The player's chain gets the curve unless another app is the source. With nothing detected
+        // it is primed, so a track started from the player plays with it from the first buffer;
+        // no system equalizer is attached then.
+        private fun playerTakesTheCurve(): Boolean = activePlaybackSource.value !is ActivePlaybackSource.ExternalApp
 
         fun startCompare() = setCompareSide(CompareSide.EQ)
 
@@ -1336,7 +1493,9 @@ class EqController
         // in the built-in player's own audio pipeline, so it goes through the player
         // bridge instead. Follows master/bypass like the rest of the processing.
         private fun pushVirtualBass(settings: ProcessingSettings) {
-            playerBridge.setVirtualBassMix(if (settings.masterEnabled && !settings.bypass) settings.virtualBassMix else 0f)
+            playerBridge.setVirtualBassMix(
+                if (settings.masterEnabled && !settings.bypass && playerTakesTheCurve()) settings.virtualBassMix else 0f,
+            )
         }
 
         // Individual switches for the three context features, for A/B listening

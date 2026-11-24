@@ -17,7 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Tune
@@ -40,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -52,22 +55,140 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
+import com.auracurve.app.eq.ActivePlaybackSource
 import com.auracurve.app.preset.GenrePresetGroup
 import com.auracurve.app.preset.GenreUseCase
 import com.auracurve.app.preset.GenreVariant
 import com.auracurve.app.preset.Preset
+import com.auracurve.app.preset.PresetSourceScope
+
+// Roadmap 16: how strongly a preset for the other source is greyed out (Material's disabled alpha).
+internal const val INACTIVE_PRESET_ALPHA = 0.38f
+
+/** True when [preset] takes effect with what plays now; with nothing detected every preset does. */
+internal fun ActivePlaybackSource.allows(preset: Preset): Boolean = preset.metadata.sourceScope.fits(scope)
+
+/**
+ * The source list the preset picker starts on: the detected source, or with none detected the
+ * active preset's own (the classic Spotify list for Flat and presets saved for both).
+ */
+internal fun initialPresetSourceTab(
+    source: ActivePlaybackSource,
+    activePreset: Preset,
+): PresetSourceScope =
+    source.scope.takeIf { it != PresetSourceScope.ALL }
+        ?: activePreset.metadata.sourceScope.takeIf { it != PresetSourceScope.ALL }
+        ?: PresetSourceScope.EXTERNAL_APPS
+
+/** Why a preset is greyed out while [this] plays, or null when it is not. */
+@Composable
+internal fun ActivePlaybackSource.inactiveReason(preset: Preset): String? =
+    when {
+        allows(preset) -> null
+        preset.metadata.sourceScope == PresetSourceScope.EXTERNAL_APPS -> stringResource(R.string.preset_source_only_external)
+        else -> stringResource(R.string.preset_source_only_own)
+    }
+
+@Composable
+internal fun PresetSourceScope.label(): String =
+    stringResource(
+        when (this) {
+            PresetSourceScope.OWN_PLAYER -> R.string.preset_source_own_player
+            PresetSourceScope.EXTERNAL_APPS -> R.string.preset_source_external
+            PresetSourceScope.ALL -> R.string.preset_source_both
+        },
+    )
+
+/**
+ * Roadmap 16, P16-3: the switch between the two preset lists - own player and Spotify & other apps -
+ * with the source detected right now above it. The status says it in words (the dot is only a
+ * second cue), and a list for the other source says why its presets are greyed out.
+ */
+@Composable
+internal fun PresetSourceTabs(
+    selected: PresetSourceScope,
+    detected: ActivePlaybackSource,
+    externalAppLabel: String?,
+    onSelect: (PresetSourceScope) -> Unit,
+    style: EqualizerDesignStyle,
+    modifier: Modifier = Modifier,
+) {
+    val status =
+        when (detected) {
+            ActivePlaybackSource.OwnPlayer -> stringResource(R.string.preset_source_detected_own)
+            is ActivePlaybackSource.ExternalApp ->
+                externalAppLabel?.let { stringResource(R.string.preset_source_detected_external, it) }
+                    ?: stringResource(R.string.preset_source_detected_external_unknown)
+            ActivePlaybackSource.None -> stringResource(R.string.preset_source_detected_none)
+        }
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Filled.FiberManualRecord,
+                contentDescription = null,
+                tint = if (detected == ActivePlaybackSource.None) style.mutedText else style.signal,
+                modifier = Modifier.size(10.dp),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(text = status, style = MaterialTheme.typography.bodySmall, color = style.mutedText)
+        }
+        val tabsLabel = stringResource(R.string.preset_source_tabs)
+        Row(
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = tabsLabel },
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(PresetSourceScope.OWN_PLAYER, PresetSourceScope.EXTERNAL_APPS).forEach { scope ->
+                ChoiceChip(
+                    text = scope.label(),
+                    selected = scope == selected,
+                    onClick = { onSelect(scope) },
+                    modifier = Modifier.weight(1f),
+                    style = style,
+                )
+            }
+        }
+        if (!selected.fits(detected.scope)) {
+            Surface(shape = MaterialTheme.shapes.medium, color = style.surfaceVariant) {
+                Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.Top) {
+                    Icon(
+                        imageVector = Icons.Filled.Info,
+                        contentDescription = null,
+                        tint = style.caution,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text =
+                            stringResource(
+                                if (selected == PresetSourceScope.EXTERNAL_APPS) {
+                                    R.string.preset_source_inactive_note_external
+                                } else {
+                                    R.string.preset_source_inactive_note_own
+                                },
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = style.text,
+                    )
+                }
+            }
+        }
+    }
+}
 
 // Every built-in preset, grouped by genre: one collapsed row per genre, opening into its
 // presets (base, character variants, use cases), each with the text saying when it fits best.
 // Several genres can be open at once; the genre holding the active preset starts open.
+// Roadmap 16: presets that do not fit the detected source are greyed out and cannot be tapped
+// (their menu with "when is this the best choice?" stays usable).
 @Composable
 internal fun GenrePresetList(
     groups: List<GenrePresetGroup>,
     activePresetId: String,
     onPresetSelected: (Preset) -> Unit,
-    onDuplicatePreset: (Preset) -> Unit,
-    onSharePreset: (Preset) -> Unit,
+    onDuplicatePreset: ((Preset) -> Unit)?,
+    onSharePreset: ((Preset) -> Unit)?,
     style: EqualizerDesignStyle,
+    detectedSource: ActivePlaybackSource = ActivePlaybackSource.None,
 ) {
     // Saved as one string: rememberSaveable cannot put a Set into the saved state bundle.
     var expanded by rememberSaveable {
@@ -107,9 +228,10 @@ internal fun GenrePresetList(
                         GenrePresetRow(
                             entry = entry,
                             selected = entry.preset.id == activePresetId,
+                            inactiveReason = detectedSource.inactiveReason(entry.preset),
                             onClick = { onPresetSelected(entry.preset) },
-                            onDuplicate = { onDuplicatePreset(entry.preset) },
-                            onShare = { onSharePreset(entry.preset) },
+                            onDuplicate = onDuplicatePreset?.let { { it(entry.preset) } },
+                            onShare = onSharePreset?.let { { it(entry.preset) } },
                             style = style,
                         )
                     }
@@ -181,9 +303,10 @@ internal fun ExpandableGroupHeader(
 private fun GenrePresetRow(
     entry: GenreVariant,
     selected: Boolean,
+    inactiveReason: String?,
     onClick: () -> Unit,
-    onDuplicate: () -> Unit,
-    onShare: () -> Unit,
+    onDuplicate: (() -> Unit)?,
+    onShare: (() -> Unit)?,
     style: EqualizerDesignStyle,
 ) {
     val preset = entry.preset
@@ -191,11 +314,20 @@ private fun GenrePresetRow(
     val secondary = if (selected) Color.White.copy(alpha = 0.85f) else style.mutedText
     var showMenu by remember { mutableStateOf(false) }
     var showUsage by remember { mutableStateOf(false) }
+    val enabled = inactiveReason == null
 
     Surface(
         selected = selected,
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().semantics { contentDescription = preset.name },
+        enabled = enabled,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .alpha(if (enabled) 1f else INACTIVE_PRESET_ALPHA)
+                .semantics {
+                    contentDescription = preset.name
+                    inactiveReason?.let { stateDescription = it }
+                },
         shape = MaterialTheme.shapes.medium,
         color = style.surfaceVariant,
     ) {
@@ -221,6 +353,14 @@ private fun GenrePresetRow(
                     color = content,
                 )
                 Text(text = entry.description, style = MaterialTheme.typography.bodySmall, color = secondary)
+                inactiveReason?.let { reason ->
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = style.caution,
+                    )
+                }
             }
             Box {
                 IconButton(onClick = { showMenu = true }) {
@@ -240,20 +380,24 @@ private fun GenrePresetRow(
                             showUsage = true
                         },
                     )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.preset_duplicate)) },
-                        onClick = {
-                            showMenu = false
-                            onDuplicate()
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.preset_share)) },
-                        onClick = {
-                            showMenu = false
-                            onShare()
-                        },
-                    )
+                    onDuplicate?.let { duplicate ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.preset_duplicate)) },
+                            onClick = {
+                                showMenu = false
+                                duplicate()
+                            },
+                        )
+                    }
+                    onShare?.let { share ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.preset_share)) },
+                            onClick = {
+                                showMenu = false
+                                share()
+                            },
+                        )
+                    }
                 }
             }
         }

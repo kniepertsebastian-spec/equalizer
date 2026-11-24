@@ -34,6 +34,7 @@ import com.auracurve.app.diagnostics.SystemDiagnosticsSource
 import com.auracurve.app.dsp.HeadphonePower
 import com.auracurve.app.dsp.HeadroomCalculator
 import com.auracurve.app.dsp.ParametricBand
+import com.auracurve.app.eq.ActivePlaybackSource
 import com.auracurve.app.eq.EqController
 import com.auracurve.app.integration.PlayerBridge
 import com.auracurve.app.integration.PlayerSource
@@ -41,6 +42,7 @@ import com.auracurve.app.preset.GenrePreset
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.PresetRepository
+import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.profile.AppProfileRepository
 import com.auracurve.app.profile.DeviceAliasStore
@@ -198,6 +200,9 @@ class MainViewModel
 
         val isOwnPlayerSession: StateFlow<Boolean> = controller.isOwnPlayerSession
 
+        // Roadmap 16: the detected source (own player, another app, none) the preset list greys by.
+        val activePlaybackSource: StateFlow<ActivePlaybackSource> = controller.activePlaybackSource
+
         // Android Auto / Automotive OS is running - a safe "car" signal that does not depend on
         // the Bluetooth device name (and also holds when the audio goes over USB).
         val androidAutoConnected: StateFlow<Boolean> = carConnectionRepository.carConnected
@@ -300,6 +305,20 @@ class MainViewModel
             viewModelScope.launch {
                 routeRepository.activeRoute.collect { route ->
                     updateSuggestedCorrectionProfile(route)
+                }
+            }
+            // Roadmap 16: say so when a source change replaced the preset (speaker protection).
+            viewModelScope.launch {
+                controller.sourcePresetSwitches.collect { preset ->
+                    val source =
+                        texts.get(
+                            if (controller.activePlaybackSource.value is ActivePlaybackSource.OwnPlayer) {
+                                R.string.preset_source_own_player
+                            } else {
+                                R.string.preset_source_external
+                            },
+                        )
+                    feedback(R.string.feedback_source_preset_switched, preset.name, source)
                 }
             }
         }
@@ -444,9 +463,15 @@ class MainViewModel
             _feedback.tryEmit(texts.get(id, *args))
         }
 
-        fun saveAsNewPreset(name: String) {
+        /** Which source a new preset is offered for in the save dialog (the detected one). */
+        fun defaultScopeForNewPreset(): PresetSourceScope = controller.defaultScopeForNewPreset()
+
+        fun saveAsNewPreset(
+            name: String,
+            sourceScope: PresetSourceScope = controller.defaultScopeForNewPreset(),
+        ) {
             viewModelScope.launch {
-                val newPreset = controller.saveAsNewPreset(name)
+                val newPreset = controller.saveAsNewPreset(name, sourceScope)
                 feedback(R.string.feedback_saved, newPreset.name)
             }
         }
