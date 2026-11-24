@@ -6,6 +6,9 @@ package com.auracurve.app.preset
 // CleanPunch/RawPower/FastAttack/Balanced respectively (kept there unchanged
 // too, for backward compatibility with anything already bound to those ids);
 // Gabber and Pop are new.
+// Roadmap 15: the older genres are tuned for Spotify and other apps through the
+// system EQ (sourceScope EXTERNAL_APPS); BuiltInPlayerPresets holds their
+// speaker-safe counterparts for the built-in player. Flat fits every source.
 object BuiltInGenrePresets {
     val Terror =
         GenrePreset(
@@ -30,7 +33,7 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 5.5f,
                     mbcThresholdDb = -10.0f,
                     mbcRatio = 3.5f,
-                    metadata = PresetMetadata(genre = "terror", builtIn = true),
+                    metadata = PresetMetadata(genre = "terror", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
                 ),
         )
 
@@ -56,7 +59,7 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 4.0f,
                     mbcThresholdDb = -7.0f,
                     mbcRatio = 2.5f,
-                    metadata = PresetMetadata(genre = "uptempo", builtIn = true),
+                    metadata = PresetMetadata(genre = "uptempo", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
                 ),
         )
 
@@ -85,7 +88,7 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 4.5f,
                     mbcThresholdDb = -7.0f,
                     mbcRatio = 2.8f,
-                    metadata = PresetMetadata(genre = "gabber", builtIn = true),
+                    metadata = PresetMetadata(genre = "gabber", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
                 ),
         )
 
@@ -111,7 +114,7 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 4.5f,
                     mbcThresholdDb = -7.0f,
                     mbcRatio = 2.8f,
-                    metadata = PresetMetadata(genre = "early-hardcore", builtIn = true),
+                    metadata = PresetMetadata(genre = "early-hardcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
                 ),
         )
 
@@ -138,7 +141,7 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 5.0f,
                     mbcThresholdDb = -6.0f,
                     mbcRatio = 3.2f,
-                    metadata = PresetMetadata(genre = "frenchcore", builtIn = true),
+                    metadata = PresetMetadata(genre = "frenchcore", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
                 ),
         )
 
@@ -166,7 +169,7 @@ object BuiltInGenrePresets {
                     // "hard-dance", not "dance": matches PresetDesign.forPreset's existing
                     // HARD_DANCE bucket (same one BuiltInPresets.Balanced, whose tuning this
                     // reuses, already resolves to).
-                    metadata = PresetMetadata(genre = "hard-dance", builtIn = true),
+                    metadata = PresetMetadata(genre = "hard-dance", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
                 ),
         )
 
@@ -175,7 +178,11 @@ object BuiltInGenrePresets {
     // the sub instead. Industrial Techno and Schranz are mastered dirty, so their
     // 3.5-7 kHz range is tamed rather than lifted, with a slightly lower limiter
     // ceiling. Every base carries a subsonic filter: these genres live on sub
-    // pressure, but nothing below ~25-32 Hz is musical there, only cone travel.
+    // pressure, but nothing below ~35-42 Hz is musical there, only cone travel.
+    // Roadmap 15: these five are for the built-in player only (sourceScope
+    // OWN_PLAYER), so subsonic corner and limiter ceiling follow the
+    // speaker-safe player values (BuiltInPlayerPresets); curve and macros are
+    // roadmap 14's. Spotify and the system EQ keep the eight older genres.
     val Hardtekk =
         GenrePreset(
             id = "genre_hardtekk",
@@ -200,9 +207,9 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 4.5f,
                     mbcThresholdDb = -7.0f,
                     mbcRatio = 3.0f,
-                    limiter = LimiterConfig(enabled = true, thresholdDb = -0.3f),
-                    subsonicCutoffHz = 30f,
-                    metadata = PresetMetadata(genre = "hardtekk", builtIn = true),
+                    limiter = LimiterConfig(enabled = true, thresholdDb = -1.0f),
+                    subsonicCutoffHz = 40f,
+                    metadata = PresetMetadata(genre = "hardtekk", builtIn = true, sourceScope = PresetSourceScope.OWN_PLAYER),
                 ),
         )
 
@@ -230,9 +237,9 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 3.5f,
                     mbcThresholdDb = -8.0f,
                     mbcRatio = 2.2f,
-                    limiter = LimiterConfig(enabled = true, thresholdDb = -0.3f),
-                    subsonicCutoffHz = 25f,
-                    metadata = PresetMetadata(genre = "techno", builtIn = true),
+                    limiter = LimiterConfig(enabled = true, thresholdDb = -1.0f),
+                    subsonicCutoffHz = 35f,
+                    metadata = PresetMetadata(genre = "techno", builtIn = true, sourceScope = PresetSourceScope.OWN_PLAYER),
                 ),
         )
 
@@ -260,9 +267,9 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 4.5f,
                     mbcThresholdDb = -7.5f,
                     mbcRatio = 2.8f,
-                    limiter = LimiterConfig(enabled = true, thresholdDb = -0.3f),
-                    subsonicCutoffHz = 28f,
-                    metadata = PresetMetadata(genre = "hard-techno", builtIn = true),
+                    limiter = LimiterConfig(enabled = true, thresholdDb = -1.0f),
+                    subsonicCutoffHz = 38f,
+                    metadata = PresetMetadata(genre = "hard-techno", builtIn = true, sourceScope = PresetSourceScope.OWN_PLAYER),
                 ),
         )
 
@@ -290,9 +297,9 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 5.0f,
                     mbcThresholdDb = -9.0f,
                     mbcRatio = 3.2f,
-                    limiter = LimiterConfig(enabled = true, thresholdDb = -0.5f),
-                    subsonicCutoffHz = 28f,
-                    metadata = PresetMetadata(genre = "industrial-techno", builtIn = true),
+                    limiter = LimiterConfig(enabled = true, thresholdDb = -1.0f),
+                    subsonicCutoffHz = 38f,
+                    metadata = PresetMetadata(genre = "industrial-techno", builtIn = true, sourceScope = PresetSourceScope.OWN_PLAYER),
                 ),
         )
 
@@ -321,9 +328,9 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 4.5f,
                     mbcThresholdDb = -9.5f,
                     mbcRatio = 3.4f,
-                    limiter = LimiterConfig(enabled = true, thresholdDb = -0.5f),
-                    subsonicCutoffHz = 32f,
-                    metadata = PresetMetadata(genre = "schranz", builtIn = true),
+                    limiter = LimiterConfig(enabled = true, thresholdDb = -1.2f),
+                    subsonicCutoffHz = 42f,
+                    metadata = PresetMetadata(genre = "schranz", builtIn = true, sourceScope = PresetSourceScope.OWN_PLAYER),
                 ),
         )
 
@@ -352,7 +359,7 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 2.0f,
                     mbcThresholdDb = -8.0f,
                     mbcRatio = 1.8f,
-                    metadata = PresetMetadata(genre = "pop", builtIn = true),
+                    metadata = PresetMetadata(genre = "pop", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
                 ),
         )
 
@@ -379,7 +386,7 @@ object BuiltInGenrePresets {
                     requestedHeadroomDb = 3.5f,
                     mbcThresholdDb = -8.0f,
                     mbcRatio = 2.0f,
-                    metadata = PresetMetadata(genre = "rap", builtIn = true),
+                    metadata = PresetMetadata(genre = "rap", builtIn = true, sourceScope = PresetSourceScope.EXTERNAL_APPS),
                 ),
         )
 

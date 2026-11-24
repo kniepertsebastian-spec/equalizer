@@ -8,6 +8,10 @@ object PresetJsonSerializer {
         Json {
             ignoreUnknownKeys = true
             prettyPrint = true
+            // An enum value this version does not know (e.g. a PresetSourceScope added later) falls
+            // back to the field's default instead of failing the whole import. A missing
+            // metadata.sourceScope (every file from before roadmap 15) decodes as ALL anyway.
+            coerceInputValues = true
         }
 
     private const val MAX_JSON_SIZE_BYTES = 100 * 1024 // 100 KB limit
