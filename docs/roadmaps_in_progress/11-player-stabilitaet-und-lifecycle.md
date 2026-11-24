@@ -136,3 +136,11 @@ Widget, Bluetooth-Taste bei geschlossener App; StrictMode-Lauf beim Service-Star
   wird im Hintergrund verworfen statt zu crashen) und `AndroidPlaybackTimers` lädt `PlaybackFadeState`
   synchron. Siehe ADR-0004-Nachtrag, Etappe 3.
 
+### Nachtrag (24.11.2026)
+Die „nicht im Umfang“-Punkte sind teilweise erledigt (Details im Nachtrag von ADR 0004):
+- `AndroidPlayerController.togglePlayback/next/previous` laufen bei geladenem Track über die Media-Session
+  (Fernbedienungs-Server aus dem Hintergrund). Warteschlangen-Befehle bleiben Intents aus der Vordergrund-UI.
+- `AndroidPlaybackTimers` lädt `PlaybackFadeState` auf `Dispatchers.IO`.
+- ADR-0004-Schritte 1 und 2: Bridge schreibt über den `PlayerDspStore`, der Dienst reicht ihn an den Prozessor.
+- Test: `PlayerServiceStartTest` (Session statt `startService` bei geladenem Track, Intent ohne Track).
+

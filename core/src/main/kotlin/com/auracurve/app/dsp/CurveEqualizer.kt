@@ -190,7 +190,6 @@ class CurveEqualizer {
         val current = design ?: return input
         val chain = states.getOrNull(channel) ?: return input
         var value = input * appliedPreGain
-        current.highPass?.let { coefficients -> chain.highPass.forEach { value = it.process(value, coefficients) } }
         for (i in current.bands.indices) {
             val coefficients = current.bands[i]
             if (coefficients != null) value = chain.bands[i].process(value, coefficients) else chain.bands[i].follow(value)
@@ -200,19 +199,31 @@ class CurveEqualizer {
             if (coefficients != null) value = chain.direct[i].process(value, coefficients) else chain.direct[i].follow(value)
         }
         chain.output.follow(value)
+        lastBeforeHighPass = value
+        current.highPass?.let { coefficients -> chain.highPass.forEach { value = it.process(value, coefficients) } }
         return value
     }
+
+    /** What the last [process] call had just before the subsonic high-pass; see [processBlock]. */
+    var lastBeforeHighPass = 0f
+        private set
 
     /**
      * The first [frames] samples of every channel through the chain, in place: the block form of
      * [process] followed by [endFrame] for each frame, with the same result. One array per channel.
      * Only valid after [beginBuffer] returned true.
+     *
+     * With [beforeHighPass] (one array per channel, at least [frames] long) the audio as it is just
+     * before the subsonic high-pass - the whole curve applied, the deep bass still in - is copied
+     * there as well, for the virtual bass (roadmap 10, P10-3). Returns whether it was copied:
+     * without a high-pass it is the same as the output and nothing is copied.
      */
     fun processBlock(
         channels: Array<DoubleArray>,
         frames: Int,
-    ) {
-        val current = design ?: return
+        beforeHighPass: Array<DoubleArray>? = null,
+    ): Boolean {
+        val current = design ?: return false
         val target = current.preGain
         val startGain = appliedPreGain
         val startStep = preGainStep
@@ -221,6 +232,7 @@ class CurveEqualizer {
         val highPass = current.highPass
         val bands = current.bands
         val direct = current.direct
+        val copy = highPass != null && beforeHighPass != null
         for (c in channels.indices) {
             if (c >= states.size) break
             val samples = channels[c]
@@ -247,10 +259,6 @@ class CurveEqualizer {
             val right = states[c + 1]
             val leftSamples = channels[c]
             val rightSamples = channels[c + 1]
-            if (highPass != null) {
-                BiquadFilterState.processBlockPair(left.highPass[0], leftSamples, right.highPass[0], rightSamples, frames, highPass)
-                BiquadFilterState.processBlockPair(left.highPass[1], leftSamples, right.highPass[1], rightSamples, frames, highPass)
-            }
             for (i in bands.indices) {
                 processPair(bands[i], left.bands[i], leftSamples, right.bands[i], rightSamples, frames)
             }
@@ -259,22 +267,32 @@ class CurveEqualizer {
             }
             left.output.followBlock(leftSamples, frames)
             right.output.followBlock(rightSamples, frames)
+            if (highPass != null) {
+                if (copy) {
+                    System.arraycopy(leftSamples, 0, beforeHighPass!![c], 0, frames)
+                    System.arraycopy(rightSamples, 0, beforeHighPass[c + 1], 0, frames)
+                }
+                BiquadFilterState.processBlockPair(left.highPass[0], leftSamples, right.highPass[0], rightSamples, frames, highPass)
+                BiquadFilterState.processBlockPair(left.highPass[1], leftSamples, right.highPass[1], rightSamples, frames, highPass)
+            }
             c += 2
         }
         // Mono, or the last channel of an odd layout.
         if (c < channels.size && c < states.size) {
             val chain = states[c]
             val samples = channels[c]
-            if (highPass != null) {
-                chain.highPass[0].processBlock(samples, frames, highPass)
-                chain.highPass[1].processBlock(samples, frames, highPass)
-            }
             for (i in bands.indices) processSingle(bands[i], chain.bands[i], samples, frames)
             for (i in direct.indices) processSingle(direct[i], chain.direct[i], samples, frames)
             chain.output.followBlock(samples, frames)
+            if (highPass != null) {
+                if (copy) System.arraycopy(samples, 0, beforeHighPass!![c], 0, frames)
+                chain.highPass[0].processBlock(samples, frames, highPass)
+                chain.highPass[1].processBlock(samples, frames, highPass)
+            }
         }
         appliedPreGain = endGain
         preGainStep = endStep
+        return copy
     }
 
     private fun processPair(

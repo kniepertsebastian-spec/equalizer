@@ -69,7 +69,7 @@ class PlayerDspAudioProcessor(
         dsp.updateVirtualBass(source.virtualBassMix)
         val curve = source.curve
         if (curve !== appliedCurve) {
-            dsp.updateCurve(curve.curve, curve.subsonicCutoffHz, curve.headroomSafetyRatio)
+            dsp.updateCurve(curve.curve, curve.subsonicCutoffHz, curve.headroomSafetyRatio, curve.parametricFilters)
             appliedCurve = curve
         }
 

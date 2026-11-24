@@ -1,10 +1,11 @@
 package com.auracurve.app.integration
 
 import android.content.Context
+import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.player.PlayerLaunch
 import com.auracurve.app.player.playback.PlayerCurve
-import com.auracurve.app.player.playback.PlayerCurveState
-import com.auracurve.app.player.playback.VirtualBassState
+import com.auracurve.app.player.playback.PlayerDspStore
+import com.auracurve.app.player.playback.SharedPlayerDspStore
 import com.auracurve.app.player.service.PlayerCommandSender
 import com.auracurve.app.player.service.PlayerSessionCommands
 import com.auracurve.app.preset.TargetPoint
@@ -15,6 +16,9 @@ class AndroidPlayerBridge
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        // Curve and virtual bass go to the player through its store (ADR 0004, step 1 of the
+        // roadmap 11 addendum), not straight into the global objects behind it.
+        private val dspStore: PlayerDspStore = SharedPlayerDspStore(context),
     ) : PlayerBridge {
         // stopPlayer and togglePlayback are called from the background too (quick tile, widget,
         // remote server): they reach the player over its media session, never with
@@ -39,15 +43,14 @@ class AndroidPlayerBridge
             if (playerCommands.hasLoadedTrack) playerCommands.send(PlayerSessionCommands.TOGGLE_PLAYBACK)
         }
 
-        override fun setVirtualBassMix(mix: Float) {
-            VirtualBassState.mix = mix.coerceIn(0f, 1f)
-        }
+        override fun setVirtualBassMix(mix: Float) = dspStore.setVirtualBassMix(mix)
 
         override fun setPlayerCurve(
             curve: List<TargetPoint>,
             subsonicCutoffHz: Float,
             headroomSafetyRatio: Float,
+            parametricFilters: List<ParametricFilter>,
         ) {
-            PlayerCurveState.current = PlayerCurve(curve, subsonicCutoffHz, headroomSafetyRatio.coerceIn(0f, 1f))
+            dspStore.setCurve(PlayerCurve(curve, subsonicCutoffHz, headroomSafetyRatio.coerceIn(0f, 1f), parametricFilters))
         }
     }

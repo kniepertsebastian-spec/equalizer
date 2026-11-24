@@ -8,7 +8,11 @@ import com.auracurve.app.player.playback.PlaybackFadeState
 import com.auracurve.app.player.playback.SleepTimerState
 import com.auracurve.app.player.service.AudioPlayerService
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,8 +37,14 @@ class AndroidPlaybackTimers
     constructor(
         @param:ApplicationContext private val context: Context,
     ) : PlaybackTimers {
+        // The saved fade length comes from SharedPreferences: read off the main thread (this is
+        // created on it, with the first screen that shows the timers), 0 = off shows until then.
+        // set() waits for that read (PlaybackFadeState is synchronized), so a choice made right
+        // away is not overwritten by the saved one (roadmap 11, ADR 0004 addendum).
+        private val loading = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
         init {
-            PlaybackFadeState.load(context)
+            loading.launch { PlaybackFadeState.load(context) }
         }
 
         override val sleepTimer: StateFlow<SleepTimerStatus?> = SleepTimerState.status

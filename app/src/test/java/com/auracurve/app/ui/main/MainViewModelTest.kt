@@ -31,6 +31,7 @@ import com.auracurve.app.dsp.HeadphonePower
 import com.auracurve.app.dsp.HeadroomCalculator
 import com.auracurve.app.dsp.ParametricBand
 import com.auracurve.app.dsp.ParametricCurve
+import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.dsp.ParametricFilterBounds
 import com.auracurve.app.dsp.PreEqLayout
 import com.auracurve.app.integration.PlayerBridge
@@ -2343,6 +2344,7 @@ class MainViewModelTest {
         var lastSubsonicCutoffHz: Float = 0f
             private set
         var lastHeadroomSafetyRatio: Float? = null
+        var lastParametricFilters: List<ParametricFilter> = emptyList()
             private set
         var launchCount = 0
             private set
@@ -2370,10 +2372,12 @@ class MainViewModelTest {
             curve: List<TargetPoint>,
             subsonicCutoffHz: Float,
             headroomSafetyRatio: Float,
+            parametricFilters: List<ParametricFilter>,
         ) {
             lastPlayerCurve = curve
             lastSubsonicCutoffHz = subsonicCutoffHz
             lastHeadroomSafetyRatio = headroomSafetyRatio
+            lastParametricFilters = parametricFilters
         }
 
         override fun setVirtualBassMix(mix: Float) {

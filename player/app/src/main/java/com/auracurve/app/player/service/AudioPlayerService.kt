@@ -51,13 +51,14 @@ import com.auracurve.app.player.playback.PlaybackQueueState
 import com.auracurve.app.player.playback.PlayedTracksState
 import com.auracurve.app.player.playback.PlayerAudioProcessorChain
 import com.auracurve.app.player.playback.PlayerDspAudioProcessor
-import com.auracurve.app.player.playback.PlayerDspState
+import com.auracurve.app.player.playback.PlayerDspStore
 import com.auracurve.app.player.playback.PlayerNotice
 import com.auracurve.app.player.playback.QueueRequest
 import com.auracurve.app.player.playback.QueueRequests
 import com.auracurve.app.player.playback.RepeatSetting
 import com.auracurve.app.player.playback.ResolvedStream
 import com.auracurve.app.player.playback.ResolvingTrackMediaSourceFactory
+import com.auracurve.app.player.playback.SharedPlayerDspStore
 import com.auracurve.app.player.playback.SleepTimerState
 import com.auracurve.app.player.playback.StreamResolvers
 import com.auracurve.app.player.playback.TrackMediaItems
@@ -264,12 +265,17 @@ class AudioPlayerService : MediaLibraryService() {
     // The saved DSP switches and fade length come from SharedPreferences: read off the main thread
     // so a cold start does not wait on the disk (StrictMode DiskReadViolation, ANR risk). Until
     // then the player runs on the safe defaults (mono bass and limiter on, no fade);
-    // PlayerDspAudioProcessor reads PlayerDspState per buffer and follows the loaded values by
+    // PlayerDspAudioProcessor reads the store per buffer and follows the loaded values by
     // itself, the fade ticker is restarted once the saved length is known.
+    // The player's DSP settings, curve and virtual bass (ADR 0004, step 2 of the roadmap 11 addendum):
+    // the audio chain reads them through this store instead of reaching for the global objects. Still
+    // backed by them, because this service is not Hilt-managed yet and the app writes the same store.
+    private val dspStore: PlayerDspStore by lazy { SharedPlayerDspStore(applicationContext) }
+
     private fun loadSavedSettings() {
         val appContext = applicationContext
         libraryScope.launch(Dispatchers.IO) {
-            PlayerDspState.load(appContext)
+            dspStore.load()
             PlaybackFadeState.load(appContext)
             mainHandler.post { startFadeTicker() }
         }
@@ -330,7 +336,7 @@ class AudioPlayerService : MediaLibraryService() {
                     .Builder(context)
                     .setEnableFloatOutput(false)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessorChain(PlayerAudioProcessorChain(PlayerDspAudioProcessor(floatOutput = true)))
+                    .setAudioProcessorChain(PlayerAudioProcessorChain(PlayerDspAudioProcessor(floatOutput = true, source = dspStore)))
                     .build()
         }
 

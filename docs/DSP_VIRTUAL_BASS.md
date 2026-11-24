@@ -133,17 +133,18 @@ stärksten Anhebung zurück (`headroomSafetyRatio` 0,5 für Kopfhörer, 0,8 für
   (`aQuietIntro_isGatedAsBeforeRoadmap08`). Preis: Bei Kurven ganz ohne Bass-Boost greift es
   6 dB früher, also bei Basspegeln um −50 dBFS – dort sehr leise und unkritisch.
 - **`thirdHarmonicShare`:** Die Charaktere „Warm" (0,15) und „Punch" (0,45) sind leistungserhaltend
-  und sauber (`warmAndPunchShares_keepThePowerAndThePurity`). Als Einstellung in
-  `PlayerDspSettings` ist er noch nicht verdrahtet: `PlayerDspSettings`/`updateVirtualBass` sind mit
-  Roadmap 09 nach `PlayerDspChain` umgezogen, die parallel lief. Das gehört zusammen mit einem
-  Bedienelement in einen eigenen Schritt.
+  und sauber (`warmAndPunchShares_keepThePowerAndThePurity`). Seit dem Nachtrag vom 24.11.2026 als
+  `PlayerDspSettings.virtualBassThirdHarmonicShare` einstellbar (Sound-Sheet des Players:
+  „Warm / Balanced / Punchy“).
 - **Hochpass-Kombination für kleine BT-Boxen:** Die gibt es schon – das Preset „Bluetooth-Box" setzt
   den Subsonic-Hochpass auf 65 Hz (24 dB/Oktave). Befund: Er sitzt im `CurveEqualizer` *vor* dem
   Exciter. Ein 40-Hz-Kick kommt dort rund 20 dB gedämpft an, seine Obertöne damit ebenso – der
   Virtual Bass verliert genau den Inhalt, für den er gedacht ist. Deutlicher würde der Effekt, wenn
   der Exciter seinen Bass *vor* dem Hochpass abgreift (Seitenkette) und nur das Original
-  hochpassgefiltert wird (Prinzip MaxxBass). Das ändert die Reihenfolge in `PlayerDspChain` und ist
-  als eigener Schritt vorgemerkt.
+  hochpassgefiltert wird (Prinzip MaxxBass). **Umgesetzt (24.11.2026):** Der Hochpass sitzt am Ende
+  der `CurveEqualizer`-Kette, der Exciter bekommt das Signal davor (`processBlock(..., source)`). Die
+  Obertöne eines 45-Hz-Tons sind mit 65-Hz-Hochpass jetzt so stark wie ohne (Test in
+  `PlayerDspChainTest`). Auf Presets mit Hochpass wird der Effekt dadurch lauter – Hörprobe offen.
 
 ### 3.5 Bandpass für die Obertöne
 Hochpass 65 Hz (2. Ordnung): entfernt alles unterhalb des Nutzbands (Reste der Normierung bei

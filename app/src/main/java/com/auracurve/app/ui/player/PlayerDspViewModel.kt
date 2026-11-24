@@ -10,7 +10,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-// Mono bass and limiter of the built-in player: both on by default, each switchable.
+// Mono bass and limiter of the built-in player (both on by default, each switchable) and the
+// character of its virtual bass.
 @HiltViewModel
 class PlayerDspViewModel
     @Inject
@@ -34,4 +35,8 @@ class PlayerDspViewModel
             }
 
         fun setLimiter(enabled: Boolean) = store.updateSettings { it.copy(limiterEnabled = enabled) }
+
+        /** The virtual bass's character: the 3rd harmonic's share, see BassExciterSettings. */
+        fun setVirtualBassCharacter(thirdHarmonicShare: Float) =
+            store.updateSettings { it.copy(virtualBassThirdHarmonicShare = thirdHarmonicShare.coerceIn(0f, 1f)) }
     }

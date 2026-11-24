@@ -302,6 +302,11 @@
     <string name="dsp_mono_bass_desc">Deep bass below %1$s Hz in the center - tighter, especially with in-ear headphones</string>
     <string name="dsp_limiter_title">Limiter (recommended)</string>
     <string name="dsp_limiter_desc">Prevents clipping from bass boost and virtual bass</string>
+    <string name="dsp_virtual_bass_character_title">Virtual bass character</string>
+    <string name="dsp_virtual_bass_character_desc">How the added harmonics sound when virtual bass is on. Same level for all three.</string>
+    <string name="dsp_virtual_bass_warm">Warm</string>
+    <string name="dsp_virtual_bass_balanced">Balanced</string>
+    <string name="dsp_virtual_bass_punch">Punchy</string>
     <string name="discovery_dismiss">Don\'t suggest again</string>
     <string name="discovery_title">Interesting new uploads</string>
     <string name="discovery_refresh">Refresh now</string>

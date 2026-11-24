@@ -39,7 +39,7 @@
 
 ### P10-3 – `BassExciter` (Virtual Bass) nach RM 08 feinabstimmen
 - [ ] Hör- und Messprüfung des `BassExciter` mit dem um 6–9 dB heißeren Signal aus RM 08 (kein ungewolltes Zerr-Mulmen bei `mix = 1.0`, sauberes Gate-Verhalten in leisen Intros).
-- [ ] Falls sinnvoll: `thirdHarmonicShare` (z. B. `0.15` „Tief/Warm“ vs. `0.45` „Hart/Punch“) in `PlayerDspSettings` konfigurierbar machen.
+- [x] Falls sinnvoll: `thirdHarmonicShare` (z. B. `0.15` „Tief/Warm“ vs. `0.45` „Hart/Punch“) in `PlayerDspSettings` konfigurierbar machen.
 - [x] Prüfen, ob eine optionale High-Pass-Kombination (leichte Entlastung unterhalb 35–40 Hz nur bei kleinen BT-Speakern) den Virtual-Bass-Effekt noch deutlicher macht.
 
 ### P10-4 – SoundCloud-AAC-HLS-Verifikation am Gerät (Restpunkt `P4-1`)
@@ -119,7 +119,7 @@ im Test `the chain is cheap enough for the slow cores`; die echte Messung am Ger
   parametrischen Filter (ein Peak mit Q 8 liegt sonst zwischen den Rasterpunkten).
 - Hinzufügen/Entfernen eines Filters während der Wiedergabe behält den Speicher der übrigen Filter; ein neuer
   Filter startet vom aktuellen Ausgangssignal statt von Stille (kein Klick, Test).
-- **Offen (bewusst, siehe Dateiumfang „optional, separater Schritt"):** Die Übergabe der `ParametricBand`s aus
+- **(Inzwischen erledigt, siehe Nachtrag 24.11.2026.)** Die Übergabe der `ParametricBand`s aus
   `EqController` an den Player. Dafür müssen `PlayerBridge`, `PlayerDspState`, `PlayerDspAudioProcessor` und
   `PlayerDspPcm16`/`PlayerDspChain` die Filter durchreichen und `pushPlayerCurve()` die parametrische Kurve
   dann *aus* der gesampelten Kurve nehmen. Das kollidiert mit RM 09 und kommt nach dessen Merge.
@@ -158,5 +158,23 @@ im Test `the chain is cheap enough for the slow cores`; die echte Messung am Ger
 ### Offene Punkte
 - [ ] Gerätetest: CPU-Last bei gesperrtem Bildschirm, AAC-HLS-Streamwahl im Log, Gapless/Seek/URL-Refresh.
 - [ ] Hörprobe Virtual Bass mit RM-08-Pegel (H1–H6).
-- [ ] Jetzt möglich (RM 09 ist gemergt): `ParametricBand`-Übergabe an den Player (P10-2), `thirdHarmonicShare` in den
-      Player-Settings, Exciter-Seitenkette vor dem Subsonic-Hochpass (P10-3).
+- [x] Nachtrag (24.11.2026, nach Merge von RM 09): `ParametricBand`-Übergabe an den Player (P10-2),
+      `thirdHarmonicShare` als Einstellung, Exciter-Seitenkette vor dem Subsonic-Hochpass (P10-3) – siehe unten.
+- [ ] Hörprobe der Seitenkette auf der BT-Box (Preset „Bluetooth-Box“, 65-Hz-Hochpass): Virtual Bass jetzt
+      deutlich präsenter als vorher, aber ohne Dröhnen; ggf. `mix` des Presets nachstimmen.
+
+### Nachtrag 24.11.2026 – Folgeschritte nach RM 09
+- **P10-2 verdrahtet:** `EqController.pushPlayerCurve()` nimmt die parametrischen Bänder aus der gesampelten
+  Kurve heraus und gibt sie als exakte `ParametricFilter` mit (`PlayerBridge.setPlayerCurve(..., parametricFilters)`
+  → `PlayerCurve.parametricFilters` → `PlayerDspAudioProcessor` → `PlayerDspChain.updateCurve` →
+  `CurveEqualizer`). Abgeschaltete Bänder bleiben weg. Der Systempfad (andere Apps) bekommt sie weiter als Teil der
+  Kurve. Die E-008-Goldens zeigen genau das: nur die Schritte mit parametrischem Band ändern sich (Kurve ohne
+  das Band, Band als `filters=[...]`).
+- **Virtual-Bass-Charakter:** `PlayerDspSettings.virtualBassThirdHarmonicShare` (gespeichert in `PlayerDspState`),
+  im Sound-Sheet des Players als Pills „Warm / Balanced / Punchy“ (0,15 / 0,25 / 0,45; gleiche Gesamtlautstärke).
+- **Seitenkette:** Der Subsonic-Hochpass sitzt jetzt am Ende der `CurveEqualizer`-Kette; `processBlock(...,
+  beforeHighPass)` gibt das Signal davor aus, `BassExciter.processBlock(..., source)` erzeugt daraus die Obertöne
+  und mischt sie dem gefilterten Signal zu. Test: Bei 65 Hz Hochpass bleibt die Oktave eines 45-Hz-Tons innerhalb
+  1,5 dB gleich (ohne Seitenkette ~20 dB weniger, Gegenprobe schlägt fehl), der Grundton selbst wird weiter
+  gekappt. **Hörbare Folge:** Auf Presets mit Subsonic-Hochpass (v. a. BT-Box, 65 Hz) ist der Virtual Bass
+  lauter als bisher – genau das war das Ziel, braucht aber eine Hörprobe.

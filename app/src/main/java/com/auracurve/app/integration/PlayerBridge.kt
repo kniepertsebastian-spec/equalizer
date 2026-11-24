@@ -1,5 +1,6 @@
 package com.auracurve.app.integration
 
+import com.auracurve.app.dsp.ParametricFilter
 import com.auracurve.app.preset.TargetPoint
 
 /**
@@ -35,11 +36,15 @@ interface PlayerBridge {
      * [headroomSafetyRatio] (0..1) is the share of the curve's strongest boost the player takes
      * back before the curve - the same share the system path's input gain uses, so the own player
      * plays as loud as Spotify & co. with the same preset.
+     *
+     * [parametricFilters] are the user's free parametric bands: the player runs them exactly as
+     * set, after the curve (roadmap 10, P10-2), so [curve] must not contain them as well.
      */
     fun setPlayerCurve(
         curve: List<TargetPoint>,
         subsonicCutoffHz: Float,
         headroomSafetyRatio: Float = DEFAULT_HEADROOM_SAFETY_RATIO,
+        parametricFilters: List<ParametricFilter> = emptyList(),
     )
 
     companion object {

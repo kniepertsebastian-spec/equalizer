@@ -107,9 +107,8 @@ class EqCharacterizationTest {
         log.appendLine("engine: ${engine.currentSettings.value.describe()}")
         log.appendLine(
             "player: vbass=${bridge.lastVirtualBassMix} subsonic=${bridge.lastSubsonicCutoffHz} " +
-                "headroom=${bridge.lastHeadroomSafetyRatio} curve=${bridge.lastPlayerCurve.joinToString(
-                    " ",
-                ) { "%.0f:%.3f".format(Locale.ROOT, it.frequencyHz, it.gainDb) }}",
+                "headroom=${bridge.lastHeadroomSafetyRatio} filters=${bridge.lastParametricFilters} " +
+                "curve=${bridge.lastPlayerCurve.joinToString(" ") { "%.0f:%.3f".format(Locale.ROOT, it.frequencyHz, it.gainDb) }}",
         )
         log.appendLine("quick: ${quick.state.value}")
         val saved = settings.savedSettings.lastOrNull()

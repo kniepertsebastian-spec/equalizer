@@ -14,6 +14,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.lang.reflect.Proxy
 
 class PlayerServiceStartTest {
     @Test
@@ -76,9 +77,55 @@ class PlayerServiceStartTest {
     }
 
     @Test
-    fun `the session grants exactly the commands the bridge sends`() {
-        assertEquals(setOf(PlayerSessionCommands.STOP, PlayerSessionCommands.TOGGLE_PLAYBACK), PlayerSessionCommands.COMMANDS)
+    fun `the session grants exactly the commands the bridge and the controller send`() {
+        assertEquals(
+            setOf(
+                PlayerSessionCommands.STOP,
+                PlayerSessionCommands.TOGGLE_PLAYBACK,
+                PlayerSessionCommands.NEXT,
+                PlayerSessionCommands.PREVIOUS,
+            ),
+            PlayerSessionCommands.COMMANDS,
+        )
     }
+
+    // --- The remote server's play/pause and skipping (AndroidPlayerController), ADR 0004 step 3 --
+
+    @Test
+    fun `play pause and skipping from the background go over the session while a track is loaded`() {
+        val context = BackgroundContext()
+        val commands = RecordingCommands(hasLoadedTrack = true)
+        val controller = AndroidPlayerController(context, unusedOnlineSources()).apply { playerCommands = commands }
+
+        controller.togglePlayback()
+        controller.next()
+        controller.previous()
+
+        assertEquals(
+            listOf(PlayerSessionCommands.TOGGLE_PLAYBACK, PlayerSessionCommands.NEXT, PlayerSessionCommands.PREVIOUS),
+            commands.sent,
+        )
+        assertEquals(0, context.serviceStarts)
+    }
+
+    @Test
+    fun `with nothing loaded the controller sends the intent as before`() {
+        val context = BackgroundContext()
+        val commands = RecordingCommands(hasLoadedTrack = false)
+        val controller = AndroidPlayerController(context, unusedOnlineSources()).apply { playerCommands = commands }
+
+        // From a screen in the foreground this starts the service; in the background Android
+        // refuses it and the command is dropped instead of crashing.
+        controller.togglePlayback()
+
+        assertTrue(commands.sent.isEmpty())
+        assertEquals(1, context.serviceStarts)
+    }
+
+    private fun unusedOnlineSources(): OnlineSources =
+        Proxy.newProxyInstance(OnlineSources::class.java.classLoader, arrayOf(OnlineSources::class.java)) { _, method, _ ->
+            throw AssertionError("not used here: ${method.name}")
+        } as OnlineSources
 
     @Test
     fun `a withdrawn queue request is not applied later`() {
