@@ -8,12 +8,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
@@ -21,36 +19,24 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
-import com.auracurve.app.playlist.PlaylistSearch
 import com.auracurve.app.playlist.SavedPlaylist
-import com.auracurve.app.playlist.SavedTrack
 import com.auracurve.app.ui.player.CoverThumb
-import com.auracurve.app.ui.player.PillTextField
 import com.auracurve.app.ui.player.PlayKey
 import com.auracurve.app.ui.player.RoundControlButton
-import com.auracurve.app.ui.player.TrackQueueMenu
-import com.auracurve.app.ui.player.TrackStateIcon
-import com.auracurve.app.ui.player.markWhenCurrent
-import com.auracurve.app.ui.player.textAlpha
-import com.auracurve.app.ui.player.trackPlayState
 import com.auracurve.app.ui.theme.SonicPaper
 import com.auracurve.app.ui.theme.SonicSteel
 
-// One tappable entry of the SoundCloud library: tap anywhere (or the play button) to
-// load its tracks and play them as the queue.
+// One entry of the SoundCloud library. With [onOpen] a tap on the row opens the list (roadmap 17)
+// and only the round play button plays it right away; without it (search matches) the whole
+// row plays.
 @Composable
 internal fun LibraryRow(
     title: String,
@@ -59,14 +45,21 @@ internal fun LibraryRow(
     showCover: Boolean = false,
     artworkUrl: String? = null,
     menu: (@Composable () -> Unit)? = null,
+    onOpen: (() -> Unit)? = null,
 ) {
+    val openLabel = stringResource(R.string.playlist_detail_open, title)
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.medium)
-                .clickable(onClick = onPlay)
-                .padding(vertical = 4.dp),
+                .then(
+                    if (onOpen != null) {
+                        Modifier.clickable(onClickLabel = openLabel, onClick = onOpen)
+                    } else {
+                        Modifier.clickable(onClick = onPlay)
+                    },
+                ).padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showCover) {
@@ -93,136 +86,58 @@ internal fun LibraryRow(
     }
 }
 
-// A saved playlist: tap the name to show its tracks. Tracks of playlists made on the
-// device can be removed there; imported ones are refreshed by importing the link again.
+// A saved playlist: tap the row to open it in the detail view (roadmap 17); play, delete and
+// sending to SoundCloud stay on the row.
 @Composable
 internal fun PlaylistRow(
     playlist: SavedPlaylist,
+    onOpen: () -> Unit,
     onPlay: () -> Unit,
-    onPlayTrack: (Int) -> Unit,
     onDelete: () -> Unit,
     // Null hides the action (the "store" flavor has no SoundCloud account to send to).
     onSendToSoundCloud: (() -> Unit)?,
-    onRemoveTrack: (Long) -> Unit,
-    onPlayNext: (SavedTrack) -> Unit,
-    onAddToQueue: (SavedTrack) -> Unit,
-    currentTrackId: Long?,
-    playedIds: Set<Long>,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    var search by remember { mutableStateOf("") }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable { expanded = !expanded }
-                    .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CoverThumb(url = playlist.tracks.firstOrNull()?.artworkUrl, seed = playlist.title, size = 48.dp)
-            Spacer(modifier = Modifier.size(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = playlist.title,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = SonicPaper,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text =
-                        stringResource(R.string.playlist_row_count, playlist.tracks.size) +
-                            if (playlist.soundCloudId != null) stringResource(R.string.playlist_row_on_soundcloud) else "",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SonicSteel,
-                )
-            }
-            if (onSendToSoundCloud != null) {
-                IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
-                    Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.playlist_to_soundcloud), tint = SonicSteel)
-                }
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.playlist_delete), tint = SonicSteel)
-            }
-            Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                PlayKey(onClick = onPlay, enabled = playlist.tracks.isNotEmpty(), size = 40.dp, glow = false) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play))
-                }
+    val openLabel = stringResource(R.string.playlist_detail_open, playlist.title)
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clip(MaterialTheme.shapes.medium)
+                .clickable(onClickLabel = openLabel, onClick = onOpen)
+                .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        CoverThumb(url = playlist.tracks.firstOrNull()?.artworkUrl, seed = playlist.title, size = 48.dp)
+        Spacer(modifier = Modifier.size(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = playlist.title,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = SonicPaper,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text =
+                    stringResource(R.string.playlist_row_count, playlist.tracks.size) +
+                        if (playlist.soundCloudId != null) stringResource(R.string.playlist_row_on_soundcloud) else "",
+                style = MaterialTheme.typography.bodySmall,
+                color = SonicSteel,
+            )
+        }
+        if (onSendToSoundCloud != null) {
+            IconButton(onClick = onSendToSoundCloud, enabled = playlist.tracks.isNotEmpty()) {
+                Icon(Icons.Default.CloudUpload, contentDescription = stringResource(R.string.playlist_to_soundcloud), tint = SonicSteel)
             }
         }
-        if (expanded) {
-            if (playlist.tracks.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.playlist_empty_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SonicSteel,
-                )
-            }
-            // A search box once the list is long enough to need one.
-            if (playlist.tracks.size >= SEARCH_MIN_TRACKS) {
-                PillTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    placeholder = stringResource(R.string.playlist_search_hint),
-                    leadingIcon = Icons.Default.Search,
-                )
-            }
-            val hits = PlaylistSearch.filter(playlist.tracks, search)
-            if (hits.isEmpty() && playlist.tracks.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.playlist_search_none, search),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = SonicSteel,
-                )
-            }
-            hits.forEach { hit ->
-                val track = hit.track
-                val playState = trackPlayState(track.id, currentTrackId, playedIds)
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(start = 8.dp)
-                            .markWhenCurrent(playState)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onPlayTrack(hit.index) },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) { TrackStateIcon(playState) }
-                    CoverThumb(url = track.artworkUrl, seed = track.title)
-                    Spacer(modifier = Modifier.size(8.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = track.title,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SonicPaper.copy(alpha = playState.textAlpha()),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        Text(
-                            text = track.artist,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = SonicSteel,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    TrackQueueMenu(
-                        trackTitle = track.title,
-                        onPlayNext = { onPlayNext(track) },
-                        onAddToQueue = { onAddToQueue(track) },
-                        onPlayFromHere = { onPlayTrack(hit.index) },
-                        onRemoveFromPlaylist = if (playlist.sourceUrl == null) ({ onRemoveTrack(track.id) }) else null,
-                    )
-                }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.playlist_delete), tint = SonicSteel)
+        }
+        Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            PlayKey(onClick = onPlay, enabled = playlist.tracks.isNotEmpty(), size = 40.dp, glow = false) {
+                Icon(Icons.Default.PlayArrow, contentDescription = stringResource(R.string.playlist_play))
             }
         }
     }
 }
-
-// From this many tracks on, an opened playlist shows a search box.
-private const val SEARCH_MIN_TRACKS = 6

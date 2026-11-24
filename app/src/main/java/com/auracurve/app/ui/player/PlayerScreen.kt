@@ -1,5 +1,6 @@
 package com.auracurve.app.ui.player
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.Icon
@@ -42,6 +44,7 @@ import com.auracurve.app.ui.eq.EqStatus
 import com.auracurve.app.ui.eq.EqStatusLine
 import com.auracurve.app.ui.player.catalog.rememberCatalogTabs
 import com.auracurve.app.ui.player.library.MergePlaylistsDialog
+import com.auracurve.app.ui.player.library.PlaylistDetailScreen
 import com.auracurve.app.ui.player.library.PlaylistDialog
 import com.auracurve.app.ui.player.library.PlaylistDialogRequest
 import com.auracurve.app.ui.player.library.playlistsTabItems
@@ -75,6 +78,10 @@ fun PlayerScreen(
     val discoveryUi by discovery.uiState.collectAsStateWithLifecycle()
     val searchState by viewModel.searchState.collectAsStateWithLifecycle()
     val requestedTab by viewModel.requestedTab.collectAsStateWithLifecycle()
+    val openedPlaylist by viewModel.openedPlaylist.collectAsStateWithLifecycle()
+    // Held above the switch to the playlist detail view, so closing it comes back to the same
+    // place in the overview (roadmap 17).
+    val overviewListState = rememberLazyListState()
     // Flavor "store" (AuraCurve roadmap 02, 1.3): no online source, so no search, no new uploads,
     // no linked services - only the playlists with the files from the device.
     val onlineSources = BuildConfig.ONLINE_SOURCES
@@ -88,6 +95,8 @@ fun PlayerScreen(
     LaunchedEffect(requestedTab) {
         requestedTab?.let {
             tab = if (onlineSources) it else PlayerTab.PLAYLISTS
+            // The import a shared link starts shows in the overview, not behind an opened playlist.
+            viewModel.closeOpenedPlaylist()
             viewModel.consumeRequestedTab()
         }
     }
@@ -132,8 +141,30 @@ fun PlayerScreen(
             onDismiss = { mergeDialogOpen = false },
         )
     }
+    // System back (and the predictive back gesture) closes an opened playlist first.
+    BackHandler(enabled = openedPlaylist != null) { viewModel.closeOpenedPlaylist() }
+    openedPlaylist?.let { opened ->
+        val saved = opened.savedPlaylist
+        PlaylistDetailScreen(
+            state = opened,
+            currentTrackId = currentTrackId,
+            playedIds = playedIds,
+            onBack = viewModel::closeOpenedPlaylist,
+            onPlayAll = { viewModel.playOpenedPlaylist() },
+            onShuffle = { viewModel.playOpenedPlaylist(shuffle = true) },
+            onPlayTrack = { viewModel.playOpenedPlaylist(startIndex = it) },
+            onPlayNext = viewModel::playNext,
+            onAddToQueue = viewModel::addToQueue,
+            onRetry = viewModel::retryOpenedPlaylist,
+            onRemoveTrack = saved?.takeIf { opened.canRemoveTracks }?.let { list -> { id -> viewModel.removeFromPlaylist(list, id) } },
+            onSendToSoundCloud = saved?.takeIf { onlineSources }?.let { list -> { viewModel.syncToSoundCloud(listOf(list)) } },
+            onDelete = saved?.let { list -> { viewModel.deletePlaylist(list) } },
+        )
+        return
+    }
     CompositionLocalProvider(LocalContentColor provides SonicPaper) {
         LazyColumn(
+            state = overviewListState,
             modifier = Modifier.fillMaxSize(),
             contentPadding =
                 PaddingValues(
@@ -210,8 +241,6 @@ fun PlayerScreen(
                     bridgeState = bridgeState,
                     signedIn = signedIn,
                     libraryState = libraryState,
-                    currentTrackId = currentTrackId,
-                    playedIds = playedIds,
                     onNewPlaylist = { playlistDialog = PlaylistDialogRequest(null) },
                     onMerge = { mergeDialogOpen = true },
                     onlineSources = onlineSources,
