@@ -93,7 +93,7 @@
 
 ## Umsetzungsstand
 
-**Commit:** `COMMIT_ID`
+**Commit:** `adf82bb`
 
 **Status:** umgesetzt, Gerätetest offen. Nur Dateien aus dem zugewiesenen Umfang geändert (keine Abweichungen;
 `:core`, `:player`, `EqController`, `MainViewModel`, `ui/equalizer/*` unberührt).
