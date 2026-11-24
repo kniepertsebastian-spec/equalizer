@@ -131,3 +131,5 @@
 ### Offen
 - Hörprobe der zehn Character-Varianten am Gerät (Kopfhörer, BT-Box, Auto).
 - RM 15 baut darauf auf (Player-Presets / Use-Case-Äquivalente).
+
+**Commit:** `557947b`
