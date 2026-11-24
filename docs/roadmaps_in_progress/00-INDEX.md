@@ -30,6 +30,7 @@
 11. [11-player-stabilitaet-und-lifecycle.md](11-player-stabilitaet-und-lifecycle.md) – Android-12+-sichere Player-Steuerung, begrenzter Stream-Lookup, kein Disk-I/O im Service-Start, `PlayerDspStore`
 12. [12-release-r8-und-sicherheits-audit.md](12-release-r8-und-sicherheits-audit.md) – R8/Resource-Shrinking, Network-Security-Config, Gradle-/Git-Hygiene, Sicherheits-/a11y-Nach-Audit (umgesetzt, Gerätetest offen)
 13. [13-system-eq-bassqualitaet-mbc-posteq.md](13-system-eq-bassqualitaet-mbc-posteq.md) – 5-Band-MBC, PreEQ/PostEQ-Split, Pre-Ringing-Schutz (umgesetzt, Gerätetest/Hörprobe offen)
+14. [14-neue-elektronische-genres.md](14-neue-elektronische-genres.md) – Fünf neue elektronische Genres (Hardtekk, Techno, Hard Techno, Industrial Techno, Schranz) inkl. Character-Varianten & Design-Zuordnung (umgesetzt, Hörprobe offen)
 
 Gerätetests der Roadmaps 08–13 gesammelt in einer Sitzung: [geraetetest-sitzung-rm08-13.md](geraetetest-sitzung-rm08-13.md).
 

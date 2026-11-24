@@ -124,7 +124,25 @@ class EqRemoteApiTest {
         api {
             val options = getJson("/api/v0/eq/options").json()
             val genres = options["genres"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.content }
-            assertEquals(listOf("TERROR", "UPTEMPO", "GABBER", "EARLY", "FRENCHCORE", "DANCE", "POP", "RAP", "FLAT"), genres)
+            assertEquals(
+                listOf(
+                    "TERROR",
+                    "UPTEMPO",
+                    "GABBER",
+                    "EARLY",
+                    "FRENCHCORE",
+                    "DANCE",
+                    "HARDTEKK",
+                    "TECHNO",
+                    "HARD_TECHNO",
+                    "INDUSTRIAL_TECHNO",
+                    "SCHRANZ",
+                    "POP",
+                    "RAP",
+                    "FLAT",
+                ),
+                genres,
+            )
             assertEquals(
                 PresetIntensity.entries.map {
                     it.name

@@ -26,6 +26,8 @@ object BuiltInGenreVariants {
         headroom: Float,
         mbcThreshold: Float,
         mbcRatio: Float,
+        // Null keeps the genre's own subsonic corner.
+        subsonicCutoffHz: Float? = null,
     ): Preset =
         genre.base.copy(
             id = "${genre.id}_style_$key",
@@ -37,6 +39,7 @@ object BuiltInGenreVariants {
             requestedHeadroomDb = headroom,
             mbcThresholdDb = mbcThreshold,
             mbcRatio = mbcRatio,
+            subsonicCutoffHz = subsonicCutoffHz ?: genre.base.subsonicCutoffHz,
         )
 
     private fun p(
@@ -52,6 +55,11 @@ object BuiltInGenreVariants {
     private val dance = BuiltInGenrePresets.Dance
     private val pop = BuiltInGenrePresets.Pop
     private val rap = BuiltInGenrePresets.Rap
+    private val hardtekk = BuiltInGenrePresets.Hardtekk
+    private val techno = BuiltInGenrePresets.Techno
+    private val hardTechno = BuiltInGenrePresets.HardTechno
+    private val industrialTechno = BuiltInGenrePresets.IndustrialTechno
+    private val schranz = BuiltInGenrePresets.Schranz
 
     /** Hand-tuned character variants per genre id, in list order. */
     val styles: Map<String, List<GenreVariant>> =
@@ -324,6 +332,278 @@ object BuiltInGenreVariants {
                         ),
                         "Club-style sub weight under the kick: for headphones, a subwoofer or a soundbar. Not for " +
                             "small speakers.",
+                    ),
+                ),
+            hardtekk.id to
+                listOf(
+                    // The hollow tekk kick lives in its 100-140 Hz body and a dry click on top.
+                    GenreVariant(
+                        preset(
+                            hardtekk,
+                            "hollow",
+                            "Hollow Kick",
+                            listOf(
+                                p(50f, 1.5f),
+                                p(120f, 3.8f),
+                                p(170f, 1.5f),
+                                p(300f, -3.5f),
+                                p(1000f, -0.5f),
+                                p(2800f, 1.5f),
+                                p(6000f, -0.5f),
+                                p(10000f, -1.0f),
+                            ),
+                            bass = 0.5f,
+                            punch = 2.5f,
+                            haerte = 0.5f,
+                            headroom = 5.0f,
+                            mbcThreshold = -8f,
+                            mbcRatio = 3.0f,
+                        ),
+                        "The hollow, bouncing tekk kick at 100–140 Hz in front, with a dry click at 2.8 kHz and " +
+                            "the boxy 300 Hz scooped deep. For speakers and the car, where more sub would only boom.",
+                    ),
+                    GenreVariant(
+                        preset(
+                            hardtekk,
+                            "dark",
+                            "Dark Floor",
+                            listOf(
+                                p(45f, 2.5f),
+                                p(60f, 3.0f),
+                                p(110f, 2.5f),
+                                p(300f, -2.5f),
+                                p(2500f, 0.5f),
+                                p(4500f, -1.5f),
+                                p(9000f, -1.5f),
+                            ),
+                            bass = 1.2f,
+                            punch = 2.0f,
+                            haerte = -0.5f,
+                            headroom = 4.5f,
+                            mbcThreshold = -8f,
+                            mbcRatio = 3.0f,
+                        ),
+                        "Warmer 60 Hz body and softened upper mids: for long sets and loud listening, where the " +
+                            "bright tekk leads start to tire. Good on headphones and soundbars.",
+                    ),
+                ),
+            techno.id to
+                listOf(
+                    GenreVariant(
+                        preset(
+                            techno,
+                            "rumble",
+                            "Hypnotic Rumble",
+                            listOf(
+                                p(40f, 3.0f),
+                                p(55f, 3.8f),
+                                p(65f, 3.5f),
+                                p(110f, 1.0f),
+                                p(250f, -2.0f),
+                                p(1200f, 0f),
+                                p(4000f, -0.5f),
+                                p(8000f, -0.5f),
+                                p(13000f, 0f),
+                            ),
+                            bass = 1.5f,
+                            punch = 0.8f,
+                            haerte = -0.3f,
+                            headroom = 5.0f,
+                            mbcThreshold = -9f,
+                            mbcRatio = 2.5f,
+                        ),
+                        "A deep, rolling 45–65 Hz rumble under the kick and softer highs: for hypnotic and dub " +
+                            "techno on headphones, a subwoofer or a club-like soundbar. Too deep for a small speaker.",
+                    ),
+                    GenreVariant(
+                        preset(
+                            techno,
+                            "peak",
+                            "Peak Time",
+                            listOf(
+                                p(45f, 2.0f),
+                                p(100f, 2.8f),
+                                p(250f, -2.0f),
+                                p(1200f, 0f),
+                                p(3500f, 0.5f),
+                                p(8000f, 2.0f),
+                                p(13000f, 1.0f),
+                            ),
+                            bass = 0.8f,
+                            punch = 1.8f,
+                            haerte = 0.3f,
+                            headroom = 4.0f,
+                            mbcThreshold = -8f,
+                            mbcRatio = 2.5f,
+                        ),
+                        "A tight 100 Hz kick and crisp 8 kHz hi-hats: for driving peak-time techno on speakers " +
+                            "and in the car. Can get bright on sharp earbuds, pick Hypnotic Rumble there.",
+                    ),
+                ),
+            hardTechno.id to
+                listOf(
+                    GenreVariant(
+                        preset(
+                            hardTechno,
+                            "warehouse",
+                            "Rave Warehouse",
+                            listOf(
+                                p(40f, 3.0f),
+                                p(50f, 3.8f),
+                                p(60f, 3.5f),
+                                p(110f, 2.0f),
+                                p(280f, -2.5f),
+                                p(1800f, 0.5f),
+                                p(4000f, -1.0f),
+                                p(7000f, -1.0f),
+                                p(11000f, 0f),
+                            ),
+                            bass = 1.8f,
+                            punch = 1.5f,
+                            haerte = 0f,
+                            headroom = 5.5f,
+                            mbcThreshold = -9f,
+                            mbcRatio = 3.0f,
+                        ),
+                        "A wide 45–60 Hz sub push with the 4 kHz stabs gently tamed: the warehouse rave sound for " +
+                            "headphones, a subwoofer or a soundbar. Booms on small speakers and in a small car.",
+                    ),
+                    // At 150+ BPM a long sub tail runs into the next kick: short, dry punch instead.
+                    GenreVariant(
+                        preset(
+                            hardTechno,
+                            "dry",
+                            "Dry Punch",
+                            listOf(
+                                p(45f, 1.0f),
+                                p(95f, 3.2f),
+                                p(150f, 1.5f),
+                                p(280f, -3.0f),
+                                p(1800f, 0.5f),
+                                p(3500f, 1.0f),
+                                p(6500f, -1.0f),
+                                p(11000f, 0.5f),
+                            ),
+                            bass = 0.5f,
+                            punch = 2.5f,
+                            haerte = 0.5f,
+                            headroom = 4.5f,
+                            mbcThreshold = -7.5f,
+                            mbcRatio = 3.0f,
+                            subsonicCutoffHz = 35f,
+                        ),
+                        "A short, dry 95 Hz kick with little sub tail: for fast hard techno (150+ BPM), where " +
+                            "every kick should stay separate. Good in the car and in rooms that boom.",
+                    ),
+                ),
+            industrialTechno.id to
+                listOf(
+                    GenreVariant(
+                        preset(
+                            industrialTechno,
+                            "heavy",
+                            "Heavy Warehouse",
+                            listOf(
+                                p(40f, 4.0f),
+                                p(55f, 4.0f),
+                                p(90f, 1.5f),
+                                p(300f, -3.8f),
+                                p(1500f, 0f),
+                                p(3500f, -1.0f),
+                                p(6000f, -2.0f),
+                                p(11000f, 0.5f),
+                            ),
+                            bass = 1.8f,
+                            punch = 1.0f,
+                            haerte = -0.5f,
+                            headroom = 6.0f,
+                            mbcThreshold = -10f,
+                            mbcRatio = 3.5f,
+                        ),
+                        "The darkest, heaviest take: maximum sub weight at 40–55 Hz and the 300 Hz mud cut " +
+                            "deep. For headphones, a subwoofer or a soundbar that reaches 40 Hz, not for small speakers.",
+                    ),
+                    // Already distorted, metallic masters: cut the 2.5-7 kHz grind instead of adding bass.
+                    GenreVariant(
+                        preset(
+                            industrialTechno,
+                            "tamed",
+                            "Tamed Metal",
+                            listOf(
+                                p(42f, 3.5f),
+                                p(90f, 2.0f),
+                                p(280f, -3.0f),
+                                p(1500f, 0f),
+                                p(2500f, -2.0f),
+                                p(4000f, -2.8f),
+                                p(7000f, -2.5f),
+                                p(11000f, 0f),
+                            ),
+                            bass = 1.2f,
+                            punch = 1.5f,
+                            haerte = -1.0f,
+                            headroom = 5.0f,
+                            mbcThreshold = -10f,
+                            mbcRatio = 3.4f,
+                        ),
+                        "For the harshest, most metallic industrial tracks and long sessions: the grinding " +
+                            "2.5–7 kHz range is cut further, the kick keeps its weight. Also good on bright earbuds.",
+                    ),
+                ),
+            schranz.id to
+                listOf(
+                    // Dense, looped percussion smears in the low mids: dry punch, deep scoop.
+                    GenreVariant(
+                        preset(
+                            schranz,
+                            "grinder",
+                            "Loop Grinder",
+                            listOf(
+                                p(50f, 1.5f),
+                                p(110f, 3.8f),
+                                p(170f, 1.0f),
+                                p(300f, -3.8f),
+                                p(2000f, 0.5f),
+                                p(4000f, -1.5f),
+                                p(7000f, -1.5f),
+                                p(12000f, -0.5f),
+                            ),
+                            bass = 0.5f,
+                            punch = 2.5f,
+                            haerte = -0.5f,
+                            headroom = 5.0f,
+                            mbcThreshold = -9.5f,
+                            mbcRatio = 3.4f,
+                            subsonicCutoffHz = 35f,
+                        ),
+                        "A dry 110 Hz punch and a hard 300 Hz scoop, so dense, looped percussion stays apart " +
+                            "instead of turning to mush. For speakers, the car and loud listening.",
+                    ),
+                    GenreVariant(
+                        preset(
+                            schranz,
+                            "session",
+                            "Long Session",
+                            listOf(
+                                p(50f, 2.0f),
+                                p(105f, 3.0f),
+                                p(160f, 1.0f),
+                                p(300f, -3.0f),
+                                p(2000f, 0f),
+                                p(3000f, -1.5f),
+                                p(5000f, -2.5f),
+                                p(9000f, -2.0f),
+                                p(12000f, -1.0f),
+                            ),
+                            bass = 0.8f,
+                            punch = 2.0f,
+                            haerte = -1.0f,
+                            headroom = 4.5f,
+                            mbcThreshold = -10f,
+                            mbcRatio = 3.5f,
+                        ),
+                        "Relaxed highs (3–9 kHz lowered) and a steadier compressor: for hours of schranz on " +
+                            "headphones or at a constant volume without the hi-hats wearing you out.",
                     ),
                 ),
             pop.id to

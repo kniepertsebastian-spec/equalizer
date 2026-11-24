@@ -29,6 +29,21 @@ object GenrePresetGroups {
             BuiltInGenrePresets.Dance.id to
                 "The reference hard dance sound: moderate bass and a slight scoop. Safe on every system; the " +
                 "intensity steps add or take away bass.",
+            BuiltInGenrePresets.Hardtekk.id to
+                "The reference hardtekk sound: the bouncy kick body at 95 Hz in front, the boxy mids scooped " +
+                "deep, a touch of click. Works on most systems; the intensity steps add or take away bass.",
+            BuiltInGenrePresets.Techno.id to
+                "The reference techno sound: deep, rolling sub with clean hi-hats and a light compressor. " +
+                "An all-rounder; the intensity steps add or take away bass.",
+            BuiltInGenrePresets.HardTechno.id to
+                "The reference hard techno sound: sub pressure and a firm kick, the 280 Hz mud scooped. Works " +
+                "on most systems; the intensity steps add or take away bass.",
+            BuiltInGenrePresets.IndustrialTechno.id to
+                "The reference industrial techno sound: dark, heavy sub, the metallic 3.5–6 kHz distortion " +
+                "tamed. A good start on most systems; the intensity steps add or take away bass.",
+            BuiltInGenrePresets.Schranz.id to
+                "The reference schranz sound: driving 105 Hz punch, a deep 300 Hz scoop and the harsh loops " +
+                "tamed above 4 kHz. Works on most systems; the intensity steps add or take away bass.",
             BuiltInGenrePresets.Pop.id to
                 "A gentle smile curve for pop and mixed playlists. Fits almost everything; the intensity " +
                 "steps add or take away bass.",

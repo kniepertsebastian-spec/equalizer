@@ -19,6 +19,14 @@ enum class PresetDesign {
                 "uptempo" in key -> UPTEMPO_HARDCORE
                 "hard-dance" in key || "hard dance" in key -> HARD_DANCE
                 "frenchcore" in key || "hardcore" in key || "gabber" in key -> GABBER
+                // Techno/tekk family (roadmap 14), mapped onto the existing looks: the dark,
+                // distorted styles share Terrorcore's, Hardtekk the raw Gabber look, fast hard
+                // techno the Uptempo one and straight techno the club-oriented Hard Dance one.
+                // The more specific names come first, since all of them contain "techno".
+                "industrial" in key || "schranz" in key -> TERRORCORE
+                "hardtekk" in key -> GABBER
+                "hard-techno" in key || "hard techno" in key || "hard_techno" in key -> UPTEMPO_HARDCORE
+                "techno" in key -> HARD_DANCE
                 else -> FLAT
             }
         }
