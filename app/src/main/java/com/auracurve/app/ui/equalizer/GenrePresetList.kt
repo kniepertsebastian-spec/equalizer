@@ -276,7 +276,7 @@ internal fun GenrePresetList(
     }
     val openIds = expanded.split(',').filter { it.isNotEmpty() }.toSet()
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(if (LocalHardcoreLook.current) 5.dp else 6.dp)) {
         groups.forEach { group ->
             val isOpen = group.genre.id in openIds
             val activeEntry = group.entries.firstOrNull { it.preset.id == activePresetId }
@@ -407,7 +407,7 @@ private fun HcCrateHeader(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 62.dp)
+                .heightIn(min = HcCrateHeight)
                 .semantics { stateDescription = stateText },
         shape = HcCorner,
         color = Color.Transparent,
@@ -425,10 +425,10 @@ private fun HcCrateHeader(
                 HcGrille(modifier = Modifier.fillMaxHeight().padding(vertical = 6.dp))
             }
             Row(
-                modifier = Modifier.heightIn(min = 62.dp).padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                modifier = Modifier.heightIn(min = HcCrateHeight).padding(start = 12.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                HcBadge(icon = icon, tint = tint)
+                HcBadge(icon = icon, tint = tint, size = 36.dp, iconSize = 20.dp)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     HcText(
@@ -458,6 +458,8 @@ private fun HcCrateHeader(
     }
 }
 
+// Compact enough that the whole Sound tab still fits a tall phone without scrolling.
+private val HcCrateHeight = 52.dp
 private val CrateFace = Brush.verticalGradient(listOf(Color(0xFF1A1917), Color(0xFF141312)))
 private val CrateEdge = Color(0xFF2C2925)
 private val CrateEdgeActive = Color(0xFF4A1A15)

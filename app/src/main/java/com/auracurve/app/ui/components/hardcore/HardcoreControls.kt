@@ -289,7 +289,7 @@ fun HcBatToggle(
     Spacer(
         modifier =
             modifier
-                .size(width = 66.dp, height = 107.dp)
+                .size(width = 60.dp, height = 98.dp)
                 .clearAndSetSemantics {}
                 .drawWithCache {
                     // Drawn in the draft's 60 x 98 units, scaled to the size.
@@ -424,7 +424,7 @@ fun HcModuleTile(
     Column(
         modifier = modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         HcGafferLabel(text = title, tilt = labelTilt)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -457,7 +457,7 @@ fun HcRotarySwitch(
     description: String,
     stateDescription: String,
     modifier: Modifier = Modifier,
-    size: Dp = 132.dp,
+    size: Dp = 120.dp,
 ) {
     val current by rememberUpdatedState(index)
     val select by rememberUpdatedState(onSelect)
