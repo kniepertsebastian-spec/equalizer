@@ -87,7 +87,12 @@ fun PlayerScreen(
     val onlineSources = BuildConfig.ONLINE_SOURCES
     var tab by rememberSaveable { mutableStateOf(if (onlineSources) PlayerTab.SEARCH else PlayerTab.PLAYLISTS) }
     // Radio and Audius (full flavor only): their own view models and items, see rememberCatalogTabs.
-    val catalog = rememberCatalogTabs(onPlayNext = viewModel::playNext, onAddToQueue = viewModel::addToQueue)
+    val catalog =
+        rememberCatalogTabs(
+            onPlayNext = viewModel::playNext,
+            onAddToQueue = viewModel::addToQueue,
+            playingTrackId = currentTrackId.takeIf { nowPlaying?.isPlaying == true },
+        )
     val tabs = listOf(PlayerTab.SEARCH, PlayerTab.PLAYLISTS) + catalog.tabs
     var searchText by rememberSaveable { mutableStateOf("") }
     val eqStatusKind = EqStatus.kind(eqState, processingSettings)
@@ -174,7 +179,7 @@ fun PlayerScreen(
                     // The shell below (mini player, navigation bar) already keeps the bottom clear.
                     bottom = spacing.medium,
                 ),
-            verticalArrangement = Arrangement.spacedBy(spacing.medium),
+            verticalArrangement = Arrangement.spacedBy(spacing.small + spacing.extraSmall),
         ) {
             item {
                 LibraryHeader(

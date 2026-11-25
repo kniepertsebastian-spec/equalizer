@@ -1,7 +1,6 @@
 package com.auracurve.app.ui.player
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,19 +16,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -38,7 +33,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -47,9 +41,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.preset.TargetPoint
-import com.auracurve.app.ui.equalizer.EqualizerDesignStyle
+import com.auracurve.app.ui.components.cyber.CyberPlayKey
+import com.auracurve.app.ui.components.cyber.CyberRoundButton
 import com.auracurve.app.ui.equalizer.MiniCurve
-import com.auracurve.app.ui.equalizer.SonicStyle
 import com.auracurve.app.ui.theme.CyberBrushes
 import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.CyberCurveBass
@@ -101,63 +95,33 @@ internal fun ProgressRingCover(
 }
 
 /**
- * Main play/pause key: a round key in the accent gradient with a soft glow when it can act, a
- * flat control surface when it cannot.
+ * Play key for lists and fields: the Cyber play key (violet disc in a metal ring). [playing] lets
+ * its halo breathe; without [glow] it has no halo at all, for keys whose container would cut it.
  */
 @Composable
 internal fun PlayKey(
     onClick: () -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
-    style: EqualizerDesignStyle = SonicStyle,
     size: Dp = 72.dp,
-    // The soft glow; off for small keys inside list rows, whose clip would cut it.
     glow: Boolean = true,
+    playing: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Box(
-        modifier =
-            modifier
-                .size(size)
-                .shadow(
-                    elevation = if (enabled && glow) 16.dp else 0.dp,
-                    shape = CircleShape,
-                    ambientColor = style.accentFillStart,
-                    spotColor = style.accentFillStart,
-                ).clip(CircleShape)
-                .then(if (enabled) Modifier.background(style.accentFill) else Modifier.background(style.surfaceVariant))
-                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        CompositionLocalProvider(LocalContentColor provides if (enabled) Color.White else style.mutedText) { content() }
-    }
+    CyberPlayKey(playing = playing, enabled = enabled, onClick = onClick, modifier = modifier, size = size, glow = glow, content = content)
 }
 
-/** Secondary transport key (previous, next, shuffle, repeat): a round control surface. */
+/** Secondary round key (header actions, row play keys): the Cyber round key, 48 dp to touch. */
 @Composable
 internal fun RoundControlButton(
     onClick: () -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 52.dp,
-    style: EqualizerDesignStyle = SonicStyle,
+    selected: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Box(
-        modifier =
-            modifier
-                // Roadmap 12, P12-4: at least 48 dp to touch, also for the smaller 44 dp keys.
-                .minimumInteractiveComponentSize()
-                .size(size)
-                .clip(CircleShape)
-                .background(style.surfaceVariant)
-                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        CompositionLocalProvider(LocalContentColor provides if (enabled) style.text else style.mutedText.copy(alpha = 0.5f)) {
-            content()
-        }
-    }
+    CyberRoundButton(onClick = onClick, modifier = modifier, enabled = enabled, selected = selected, size = size, content = content)
 }
 
 /**

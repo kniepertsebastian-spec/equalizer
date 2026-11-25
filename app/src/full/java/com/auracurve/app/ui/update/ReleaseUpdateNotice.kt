@@ -4,11 +4,11 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
+import com.auracurve.app.ui.components.cyber.CyberCard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -51,7 +52,7 @@ fun ReleaseUpdateNotice() {
     val available = update ?: return
     if (available.tag == dismissedTag) return
 
-    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+    CyberCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), contentPadding = PaddingValues(0.dp)) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(stringResource(R.string.update_available, available.versionName), style = MaterialTheme.typography.titleMedium)
             if (downloading) Text(progress.ifEmpty { stringResource(R.string.update_downloading) })

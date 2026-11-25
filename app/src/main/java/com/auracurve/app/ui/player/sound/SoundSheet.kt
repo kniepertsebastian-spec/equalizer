@@ -1,8 +1,8 @@
 package com.auracurve.app.ui.player.sound
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,8 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +45,7 @@ import com.auracurve.app.eq.EqController
 import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.TargetPoint
+import com.auracurve.app.ui.components.cyber.CyberCard
 import com.auracurve.app.ui.eq.EqStatusKind
 import com.auracurve.app.ui.eq.EqStatusLine
 import com.auracurve.app.ui.equalizer.ContextModeChips
@@ -59,7 +58,6 @@ import com.auracurve.app.ui.player.PlaybackTimersCard
 import com.auracurve.app.ui.player.PlaybackTimersViewModel
 import com.auracurve.app.ui.player.PlayerDspCard
 import com.auracurve.app.ui.player.PlayerDspViewModel
-import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -141,12 +139,7 @@ fun SoundSheet(
             )
             // The listening-context mode is an overlay on the EQ (subsonic, loudness, virtual
             // bass, limiter), so it applies to everything playing here too.
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                border = BorderStroke(1.dp, SonicRule),
-            ) {
+            CyberCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp)) {
                 Column(modifier = Modifier.padding(spacing.medium)) {
                     Text(
                         stringResource(R.string.context_mode_title),
@@ -195,12 +188,7 @@ private fun SoundPresetCard(
 ) {
     val spacing = MaterialTheme.spacing
     var sourceTab by rememberSaveable(playbackSource) { mutableStateOf(initialPresetSourceTab(playbackSource, activePreset)) }
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, SonicRule),
-    ) {
+    CyberCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp)) {
         Column(modifier = Modifier.padding(spacing.medium), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
             Text(
                 stringResource(R.string.sound_sheet_presets_title),

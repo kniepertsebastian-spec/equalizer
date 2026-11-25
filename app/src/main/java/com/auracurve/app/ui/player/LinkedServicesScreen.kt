@@ -1,8 +1,8 @@
 package com.auracurve.app.ui.player
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -17,8 +17,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,9 +39,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.auracurve.app.R
+import com.auracurve.app.ui.components.cyber.CyberCard
 import com.auracurve.app.ui.remote.RemoteServerCard
 import com.auracurve.app.ui.theme.SonicPaper
-import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
 
@@ -172,12 +170,7 @@ private fun ServiceCard(
     actions: @Composable () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, SonicRule),
-    ) {
+    CyberCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp)) {
         Column(modifier = Modifier.padding(spacing.medium)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

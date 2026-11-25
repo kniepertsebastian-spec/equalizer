@@ -44,6 +44,7 @@ import com.auracurve.app.player.model.PlaylistItem
 import com.auracurve.app.player.playback.NowPlaying
 import com.auracurve.app.player.playback.PlayerNotice
 import com.auracurve.app.player.playback.RepeatSetting
+import com.auracurve.app.playlist.DirectStream
 import com.auracurve.app.playlist.PlaylistRepository
 import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.Preset
@@ -354,7 +355,7 @@ class MockupScreensTest {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         item { LibraryHeader(onlineSources = true, onOpenServices = {}, onSelectSoundCloud = {}) }
                         item {
@@ -410,6 +411,8 @@ class MockupScreensTest {
                 onPlay = {},
                 onPlayNext = {},
                 onAddToQueue = {},
+                // The second station is on air: its play key gets the pulse ring.
+                playingTrackId = DirectStream.idOf(RadioStation.RADIO_SOURCE, stations[1].uuid),
             )
         }
         save("10885-player-radio")
