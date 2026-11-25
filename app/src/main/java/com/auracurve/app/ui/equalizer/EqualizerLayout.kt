@@ -4,19 +4,14 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +22,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -36,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.dsp.HeadroomWarningLevel
+import com.auracurve.app.ui.components.cyber.CyberSegmented
+import com.auracurve.app.ui.components.cyber.LimiterLedMeter
+import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.PillShape
 
 // AuraCurve roadmap 04, part A (docs/EQUALIZER_REDESIGN.md): the building blocks of the equalizer's
@@ -55,57 +52,36 @@ internal enum class EqualizerTab(
 internal val DefaultGraphHeight = 208.dp
 internal val CompactGraphHeight = 132.dp
 
+// The Device tab's curve is the target the device is tuned to: a little taller (not when compact).
+internal val DeviceGraphExtra = 16.dp
+
 // The folded curve while the options are scrolled: still readable as a shape, a third of the full one.
 internal val CollapsedGraphHeight = 96.dp
 internal val COMPACT_HEIGHT = 640.dp
 internal val WIDE_LAYOUT_MIN_WIDTH = 600.dp
 
-// A pill-shaped segmented control: the chosen tab filled with the accent gradient and set in
-// bold white, the others steel on the control tone. Each segment is a Role.Tab for TalkBack.
+// Three separate pills: the chosen tab filled with the accent gradient, a light edge and a soft
+// glow, set in bold white; the others outlined in steel. Each pill is a Role.Tab for TalkBack.
 @Composable
 internal fun EqualizerTabs(
     selected: EqualizerTab,
     onSelect: (EqualizerTab) -> Unit,
-    style: EqualizerDesignStyle = SonicStyle,
+    @Suppress("UNUSED_PARAMETER") style: EqualizerDesignStyle = SonicStyle,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .padding(horizontal = 16.dp, vertical = 6.dp)
-                .fillMaxWidth()
-                .height(44.dp)
-                .clip(PillShape)
-                .background(style.surface)
-                .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        EqualizerTab.entries.forEach { tab ->
-            val isSelected = selected == tab
-            Box(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(PillShape)
-                        .then(if (isSelected) Modifier.background(style.accentFill) else Modifier)
-                        .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(tab) }),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(tab.labelRes),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (isSelected) Color.White else style.mutedText,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
+    val tabs = EqualizerTab.entries
+    CyberSegmented(
+        options = tabs.map { stringResource(it.labelRes) },
+        selectedIndex = tabs.indexOf(selected),
+        onSelect = { onSelect(tabs[it]) },
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
+        role = Role.Tab,
+    )
 }
 
 /**
- * The headroom in short, next to the status: text plus three segments, so the state does not
- * rest on the color alone. [level] is null while the EQ is off. Tapping opens the signal chain.
+ * The headroom in short, next to the status: text plus a small staircase of LEDs, so the state
+ * does not rest on the color alone. [level] is null while the EQ is off. Both are an estimate
+ * from the settings, not a reading of the signal. Tapping opens the signal chain.
  */
 @Composable
 internal fun HeadroomBadge(
@@ -113,38 +89,35 @@ internal fun HeadroomBadge(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle = SonicStyle,
+    processing: Boolean = level != null,
 ) {
-    val (label, color, filled) =
+    val (label, color) =
         when (level) {
-            null -> Triple(stringResource(R.string.signal_chain_short), style.mutedText, 0)
-            HeadroomWarningLevel.SUFFICIENT -> Triple(stringResource(R.string.headroom_badge_ok), style.mutedText, 1)
-            HeadroomWarningLevel.OCCASIONAL_LIMITING -> Triple(stringResource(R.string.tag_limiting_sometimes), style.caution, 2)
-            HeadroomWarningLevel.HEAVY_LIMITING -> Triple(stringResource(R.string.tag_limiting_heavy), style.hot, 3)
+            null -> stringResource(R.string.signal_chain_short) to style.mutedText
+            HeadroomWarningLevel.SUFFICIENT -> stringResource(R.string.headroom_badge_ok) to style.mutedText
+            HeadroomWarningLevel.OCCASIONAL_LIMITING -> stringResource(R.string.tag_limiting_sometimes) to style.caution
+            HeadroomWarningLevel.HEAVY_LIMITING -> stringResource(R.string.tag_limiting_heavy) to style.hot
         }
     val description = stringResource(R.string.signal_chain_open, label)
     Row(
         modifier =
             modifier
                 .clip(PillShape)
-                .background(style.surface)
                 .clickable(role = Role.Button, onClick = onClick)
                 .semantics { contentDescription = description }
                 .heightIn(min = 48.dp)
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(start = 6.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(text = label, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 2)
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
-            repeat(3) { segment ->
-                Box(
-                    modifier =
-                        Modifier
-                            .size(width = 5.dp, height = (8 + segment * 4).dp)
-                            .background(if (segment < filled) color else style.border),
-                )
-            }
-        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (level == HeadroomWarningLevel.HEAVY_LIMITING) FontWeight.SemiBold else FontWeight.Medium,
+            color = color,
+            maxLines = 2,
+        )
+        LimiterLedMeter(level = level, processing = processing)
     }
 }
 
@@ -160,6 +133,7 @@ internal fun SignalChainSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = style.background,
+        scrimColor = CyberColors.void.copy(alpha = 0.72f),
     ) {
         Column(
             modifier =

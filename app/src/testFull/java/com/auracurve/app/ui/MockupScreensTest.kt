@@ -22,6 +22,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.audio.AudioDeviceType
@@ -191,18 +192,30 @@ class MockupScreensTest {
     fun eqSound() {
         showEqualizer(R.string.eq_tab_sound)
         save("10881-eq-sound")
+        scrollTo(R.string.compare_title)
+        save("10881-eq-sound-lower")
     }
 
     @Test
     fun eqFineTune() {
         showEqualizer(R.string.eq_tab_fine_tune)
         save("10882-eq-fine-tune")
+        scrollTo(R.string.graph_note_interpolated)
+        save("10882-eq-fine-tune-lower")
     }
 
     @Test
     fun eqDevice() {
         showEqualizer(R.string.eq_tab_device)
         save("10883-eq-device")
+        scrollTo(R.string.context_title)
+        save("10883-eq-device-lower")
+    }
+
+    // Beyond the mockups' first screen: the rest of a tab, for looking at the lower cards.
+    private fun scrollTo(id: Int) {
+        compose.onNodeWithText(text(id)).performScrollTo()
+        compose.waitForIdle()
     }
 
     // ---- Now Playing (10884): the full-screen layer, no navigation bar below it.

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -16,6 +15,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.dsp.PreEqResponseMode
+import com.auracurve.app.ui.components.cyber.CyberToggle
 
 /**
  * Switch between the classic 5-band system equalizer and the 34-band DynamicsProcessing
@@ -56,7 +56,7 @@ internal fun HighResolutionEqRow(
                     color = if (checked && !active) style.caution else style.mutedText,
                 )
             }
-            Switch(checked = checked, onCheckedChange = onCheckedChange)
+            CyberToggle(checked = checked, onCheckedChange = onCheckedChange)
         }
 
         // Response mode selector: only shown when high-res EQ is active

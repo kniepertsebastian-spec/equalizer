@@ -6,13 +6,12 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +23,8 @@ import com.auracurve.app.R
 import com.auracurve.app.dsp.ParametricBand
 import com.auracurve.app.dsp.ParametricCurve
 import com.auracurve.app.dsp.ParametricFilterBounds
+import com.auracurve.app.ui.components.cyber.CyberToggle
+import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.Spacing
 import kotlin.math.ln
 import kotlin.math.pow
@@ -65,9 +66,13 @@ internal fun ParametricBandsSection(
             title = stringResource(R.string.parametric_title),
             info = stringResource(R.string.parametric_info),
             trailing = {
-                TextButton(onClick = onAdd, enabled = bands.size < ParametricCurve.MAX_BANDS) {
-                    Text(stringResource(R.string.parametric_add))
-                }
+                LinkButton(
+                    text = stringResource(R.string.parametric_add),
+                    onClick = onAdd,
+                    enabled = bands.size < ParametricCurve.MAX_BANDS,
+                    color = CyberColors.orchid,
+                    icon = Icons.Default.Add,
+                )
             },
         )
         if (bands.isEmpty()) {
@@ -87,7 +92,7 @@ internal fun ParametricBandsSection(
                         modifier = Modifier.weight(1f),
                     )
                     val toggleDescription = stringResource(R.string.parametric_band_enabled, index + 1)
-                    Switch(
+                    CyberToggle(
                         modifier = Modifier.semantics { contentDescription = toggleDescription },
                         checked = band.enabled,
                         onCheckedChange = { onChange(index, band.copy(enabled = it)) },

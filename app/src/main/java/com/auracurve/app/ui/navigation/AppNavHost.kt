@@ -11,17 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -33,6 +28,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.auracurve.app.R
 import com.auracurve.app.ui.MainScreen
+import com.auracurve.app.ui.components.cyber.CyberBottomBar
+import com.auracurve.app.ui.components.cyber.CyberNavItem
 import com.auracurve.app.ui.diagnostics.DiagnosticsScreen
 import com.auracurve.app.ui.eq.EqStatus
 import com.auracurve.app.ui.main.MainViewModel
@@ -119,6 +116,7 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
                         viewModel = viewModel,
                         onNavigateToDiagnostics = { navController.navigate(ROUTE_DIAGNOSTICS) },
                         playerLoaded = nowPlaying != null,
+                        playerPlaying = nowPlaying?.let { it.isPlaying && !it.isLoading } == true,
                         onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
                     )
                 }
@@ -196,33 +194,16 @@ internal fun AppBottomBar(
     currentRoute: String?,
     onNavigate: (String) -> Unit,
 ) {
-    // Selected: amber icon on a dark key and a paper label; the shape of the indicator,
-    // not only its color, marks where the user is.
-    val navItemColors =
-        NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-            indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    NavigationBar(
-        containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-    ) {
-        NavigationBarItem(
-            selected = currentRoute == ROUTE_PLAYER,
-            onClick = { onNavigate(ROUTE_PLAYER) },
-            icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
-            label = { Text(stringResource(R.string.nav_player)) },
-            colors = navItemColors,
-        )
-        NavigationBarItem(
-            selected = currentRoute == ROUTE_HOME,
-            onClick = { onNavigate(ROUTE_HOME) },
-            icon = { Icon(Icons.Default.GraphicEq, contentDescription = null) },
-            label = { Text(stringResource(R.string.nav_equalizer)) },
-            colors = navItemColors,
-        )
-    }
+    // Selected: a cyan icon under a glowing mark on the bar's edge and a bold paper label; the
+    // mark and the weight, not only the color, show where the user is.
+    val player = stringResource(R.string.nav_player)
+    val equalizer = stringResource(R.string.nav_equalizer)
+    val items =
+        remember(player, equalizer) {
+            listOf(
+                CyberNavItem(ROUTE_PLAYER, player, Icons.Default.LibraryMusic),
+                CyberNavItem(ROUTE_HOME, equalizer, Icons.Default.GraphicEq),
+            )
+        }
+    CyberBottomBar(items = items, selectedRoute = currentRoute, onSelect = onNavigate)
 }

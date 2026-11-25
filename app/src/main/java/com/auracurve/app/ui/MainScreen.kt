@@ -69,6 +69,8 @@ fun MainScreen(
     // The built-in player has a track loaded (mini player and "Now playing" live in the app shell).
     playerLoaded: Boolean = false,
     onOpenServices: () -> Unit = {},
+    // The built-in player is playing (not paused, not loading); the EQ graph's bars move only then.
+    playerPlaying: Boolean = false,
 ) {
     val showDebugEffects by viewModel.showDebugEffects.collectAsStateWithLifecycle()
     val descriptors by viewModel.effectDescriptors.collectAsStateWithLifecycle()
@@ -274,6 +276,7 @@ fun MainScreen(
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             ReleaseUpdateNotice()
             EqualizerScreen(
+                playerPlaying = playerPlaying,
                 state = engineState,
                 route = route,
                 settings = settings,
