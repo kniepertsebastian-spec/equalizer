@@ -27,12 +27,19 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.dsp.HeadroomWarningLevel
 import com.auracurve.app.ui.components.cyber.CyberSegmented
 import com.auracurve.app.ui.components.cyber.LimiterLedMeter
+import com.auracurve.app.ui.components.hardcore.HcKeyBank
+import com.auracurve.app.ui.components.hardcore.HcLimiterBars
+import com.auracurve.app.ui.components.hardcore.HcText
 import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.HardcoreColors
+import com.auracurve.app.ui.theme.HardcoreType
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.PillShape
 
 // AuraCurve roadmap 04, part A (docs/EQUALIZER_REDESIGN.md): the building blocks of the equalizer's
@@ -69,6 +76,16 @@ internal fun EqualizerTabs(
     @Suppress("UNUSED_PARAMETER") style: EqualizerDesignStyle = SonicStyle,
 ) {
     val tabs = EqualizerTab.entries
+    if (LocalHardcoreLook.current) {
+        HcKeyBank(
+            options = tabs.map { stringResource(it.labelRes) },
+            selectedIndex = tabs.indexOf(selected),
+            onSelect = { onSelect(tabs[it]) },
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+            role = Role.Tab,
+        )
+        return
+    }
     CyberSegmented(
         options = tabs.map { stringResource(it.labelRes) },
         selectedIndex = tabs.indexOf(selected),
@@ -99,6 +116,42 @@ internal fun HeadroomBadge(
             HeadroomWarningLevel.HEAVY_LIMITING -> stringResource(R.string.tag_limiting_heavy) to style.hot
         }
     val description = stringResource(R.string.signal_chain_open, label)
+    if (LocalHardcoreLook.current) {
+        // Stamped label over six rising bars; the count of lit bars carries the level too.
+        Column(
+            modifier =
+                modifier
+                    .clickable(role = Role.Button, onClick = onClick)
+                    .semantics { contentDescription = description }
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(5.dp),
+        ) {
+            HcText(
+                text = label,
+                style = HardcoreType.label,
+                color =
+                    when (level) {
+                        HeadroomWarningLevel.HEAVY_LIMITING -> HardcoreColors.rust
+                        HeadroomWarningLevel.OCCASIONAL_LIMITING -> HardcoreColors.hazard
+                        else -> HardcoreColors.ash
+                    },
+                maxLines = 2,
+                textAlign = TextAlign.End,
+            )
+            HcLimiterBars(
+                lit =
+                    when (level) {
+                        null -> 0
+                        HeadroomWarningLevel.SUFFICIENT -> 2
+                        HeadroomWarningLevel.OCCASIONAL_LIMITING -> 4
+                        HeadroomWarningLevel.HEAVY_LIMITING -> 6
+                    },
+            )
+        }
+        return
+    }
     Row(
         modifier =
             modifier
@@ -132,7 +185,7 @@ internal fun SignalChainSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = style.background,
+        containerColor = if (LocalHardcoreLook.current) HardcoreColors.void else style.background,
         scrimColor = CyberColors.void.copy(alpha = 0.72f),
     ) {
         Column(

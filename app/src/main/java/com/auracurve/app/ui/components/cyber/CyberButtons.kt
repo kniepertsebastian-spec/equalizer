@@ -31,9 +31,11 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.auracurve.app.ui.components.hardcore.HcSquareKey
 import com.auracurve.app.ui.theme.CyberBrushes
 import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.CyberGlow
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.cyberGlow
 
 // The round keys: power, play and the secondary transport keys. Brushed metal rings, and the
@@ -194,6 +196,17 @@ fun CyberRoundButton(
     size: Dp = 52.dp,
     content: @Composable () -> Unit,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcSquareKey(
+            onClick = onClick,
+            modifier = modifier,
+            enabled = enabled,
+            selected = selected,
+            size = if (size < 46.dp) 46.dp else size,
+            content = content,
+        )
+        return
+    }
     Box(
         modifier =
             modifier

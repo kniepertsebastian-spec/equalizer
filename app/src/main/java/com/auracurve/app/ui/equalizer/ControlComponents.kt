@@ -58,9 +58,16 @@ import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.ui.components.cyber.CyberPill
 import com.auracurve.app.ui.components.cyber.CyberPowerKey
 import com.auracurve.app.ui.components.cyber.CyberToggle
+import com.auracurve.app.ui.components.hardcore.HcModuleTile
+import com.auracurve.app.ui.components.hardcore.HcPlate
+import com.auracurve.app.ui.components.hardcore.HcPowerKey
+import com.auracurve.app.ui.components.hardcore.HcRocker
+import com.auracurve.app.ui.components.hardcore.HcSectionHeader
+import com.auracurve.app.ui.components.hardcore.HcUtilityKey
 import com.auracurve.app.ui.theme.CyberBrushes
 import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.CyberDims
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicNumerals
 import com.auracurve.app.ui.theme.glassSurface
@@ -82,6 +89,10 @@ internal fun LinkButton(
     enabled: Boolean = true,
     icon: ImageVector? = null,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcUtilityKey(text = text, onClick = onClick, modifier = modifier, icon = icon, enabled = enabled)
+        return
+    }
     TextButton(
         onClick = onClick,
         modifier = modifier,
@@ -103,6 +114,10 @@ internal fun Section(
     style: EqualizerDesignStyle = SonicStyle,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcPlate(modifier = modifier, content = content)
+        return
+    }
     Column(
         modifier =
             modifier
@@ -121,6 +136,10 @@ internal fun Notice(
     style: EqualizerDesignStyle = SonicStyle,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcPlate(modifier = modifier, content = content)
+        return
+    }
     Column(
         modifier =
             modifier
@@ -179,7 +198,11 @@ internal fun PowerKey(
     modifier: Modifier = Modifier,
     @Suppress("UNUSED_PARAMETER") style: EqualizerDesignStyle = SonicStyle,
 ) {
-    CyberPowerKey(checked = checked, onCheckedChange = onCheckedChange, description = description, modifier = modifier)
+    if (LocalHardcoreLook.current) {
+        HcPowerKey(checked = checked, onCheckedChange = onCheckedChange, description = description, modifier = modifier)
+    } else {
+        CyberPowerKey(checked = checked, onCheckedChange = onCheckedChange, description = description, modifier = modifier)
+    }
 }
 
 /** Small curve without axes, for genre choices and the player's sound chip. */
@@ -298,7 +321,20 @@ internal fun SignalModuleTile(
     icon: ImageVector,
     modifier: Modifier = Modifier,
     style: EqualizerDesignStyle = SonicStyle,
+    labelTilt: Float = 0f,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcModuleTile(
+            title = title,
+            detail = detail,
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            icon = icon,
+            modifier = modifier,
+            labelTilt = labelTilt,
+        )
+        return
+    }
     val content = if (checked) Color.White else style.text
     Column(
         modifier =
@@ -355,7 +391,11 @@ internal fun GradientSwitch(
     @Suppress("UNUSED_PARAMETER") style: EqualizerDesignStyle = SonicStyle,
     enabled: Boolean = true,
 ) {
-    CyberToggle(checked = checked, onCheckedChange = null, modifier = modifier, enabled = enabled)
+    if (LocalHardcoreLook.current) {
+        HcRocker(checked = checked, modifier = modifier, enabled = enabled)
+    } else {
+        CyberToggle(checked = checked, onCheckedChange = null, modifier = modifier, enabled = enabled)
+    }
 }
 
 /** Short status tag, e.g. "Limiting often": a pill outlined in its color, text in sentence case. */
@@ -390,6 +430,10 @@ internal fun SectionHeader(
     titleColor: Color = style.text,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
+    if (LocalHardcoreLook.current) {
+        HcSectionHeader(title = title, modifier = modifier, info = info, trailing = trailing)
+        return
+    }
     var infoOpen by rememberSaveable { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {

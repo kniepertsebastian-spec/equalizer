@@ -58,10 +58,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.auracurve.app.ui.components.hardcore.HcChip
+import com.auracurve.app.ui.components.hardcore.HcRocker
+import com.auracurve.app.ui.components.hardcore.HcUtilityKey
 import com.auracurve.app.ui.theme.CyberBrushes
 import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.CyberDims
 import com.auracurve.app.ui.theme.CyberGlow
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.cyberGlow
 import com.auracurve.app.ui.theme.glassSurface
@@ -120,6 +124,10 @@ fun CyberPill(
     leadingIcon: ImageVector? = null,
     role: Role? = null,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcChip(text, selected, onClick, modifier, enabled, leadingIcon, role)
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     val lit = selected && enabled
     Row(
@@ -208,6 +216,21 @@ fun CyberToggle(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcRocker(
+            checked = checked,
+            enabled = enabled,
+            modifier =
+                if (onCheckedChange != null) {
+                    modifier
+                        .minimumInteractiveComponentSize()
+                        .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+                } else {
+                    modifier
+                },
+        )
+        return
+    }
     val position = animateFloatAsState(targetValue = if (checked) 1f else 0f, animationSpec = tween(160), label = "toggle")
     val interactive =
         if (onCheckedChange != null) {
@@ -328,6 +351,10 @@ fun CyberOutlineButton(
     color: Color = CyberColors.cyan,
     enabled: Boolean = true,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcUtilityKey(text = text, onClick = onClick, modifier = modifier, icon = icon, enabled = enabled)
+        return
+    }
     val shape = MaterialTheme.shapes.small
     Row(
         modifier =

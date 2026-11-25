@@ -2,7 +2,9 @@ package com.auracurve.app.ui.equalizer
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -17,6 +19,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.context.SoundContext
+import com.auracurve.app.ui.components.hardcore.HcDeviceKey
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 
 @Composable
 fun SoundContext.displayName(): String =
@@ -46,6 +50,26 @@ fun ContextModeChips(
     onContextModeChanged: (SoundContext?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (LocalHardcoreLook.current) {
+        // Four device keys in two rows; the lit lamp and the pressed-in key show the mode that is on.
+        Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SoundContext.entries.chunked(2).forEach { pair ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    pair.forEach { context ->
+                        val selected = activeContext == context
+                        HcDeviceKey(
+                            text = context.displayName(),
+                            icon = context.icon(),
+                            selected = selected,
+                            onClick = { onContextModeChanged(if (selected) null else context) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+        return
+    }
     // Scrolls sideways: four chips do not fit one row on narrow phones.
     Row(modifier = modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         SoundContext.entries.forEach { context ->

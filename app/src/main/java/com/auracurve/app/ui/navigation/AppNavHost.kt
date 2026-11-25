@@ -205,5 +205,6 @@ internal fun AppBottomBar(
                 CyberNavItem(ROUTE_HOME, equalizer, Icons.Default.GraphicEq),
             )
         }
-    CyberBottomBar(items = items, selectedRoute = currentRoute, onSelect = onNavigate)
+    // The equalizer wears the hardcore look (decision H1), its bar too; the player stays Cyber.
+    CyberBottomBar(items = items, selectedRoute = currentRoute, onSelect = onNavigate, hardcore = currentRoute == ROUTE_HOME)
 }

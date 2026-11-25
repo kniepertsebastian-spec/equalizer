@@ -50,10 +50,15 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.auracurve.app.ui.components.hardcore.HcText
+import com.auracurve.app.ui.components.hardcore.HcValueBox
 import com.auracurve.app.ui.theme.CyberBrushes
 import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.CyberDims
 import com.auracurve.app.ui.theme.CyberGlow
+import com.auracurve.app.ui.theme.HardcoreColors
+import com.auracurve.app.ui.theme.HardcoreType
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicNumerals
 import kotlin.math.cos
@@ -94,18 +99,24 @@ fun RotaryKnob(
 ) {
     val colors = ringColors.ifEmpty { listOf(CyberColors.cyan) }
     val pillBorder = remember(colors) { if (colors.size > 1) Brush.horizontalGradient(colors) else SolidColor(colors.first()) }
+    // Decision H1: in the hardcore look a black knurled cap, stamped label, value in a sunk window.
+    val hardcore = LocalHardcoreLook.current
     Column(
         modifier = modifier.alpha(if (enabled) 1f else 0.38f),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = CyberColors.text,
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-        )
+        if (hardcore) {
+            HcText(text = label, style = HardcoreType.key, color = HardcoreColors.bone, textAlign = TextAlign.Center, maxLines = 1)
+        } else {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = CyberColors.text,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+            )
+        }
         KnobDial(
             value = value,
             valueRange = valueRange,
@@ -115,24 +126,29 @@ fun RotaryKnob(
             valueText = valueText,
             step = step,
             enabled = enabled,
+            hardcore = hardcore,
             modifier = Modifier.widthIn(max = knobSize).fillMaxWidth().aspectRatio(1f),
         )
-        Text(
-            text = valueText,
-            style = SonicNumerals.value,
-            color = CyberColors.text,
-            maxLines = 1,
-            modifier =
-                Modifier
-                    .background(CyberColors.surfaceHigh, PillShape)
-                    .border(CyberDims.border, pillBorder, PillShape)
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
-        )
+        if (hardcore) {
+            HcValueBox(text = valueText)
+        } else {
+            Text(
+                text = valueText,
+                style = SonicNumerals.value,
+                color = CyberColors.text,
+                maxLines = 1,
+                modifier =
+                    Modifier
+                        .background(CyberColors.surfaceHigh, PillShape)
+                        .border(CyberDims.border, pillBorder, PillShape)
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+            )
+        }
         if (description != null) {
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = CyberColors.mutedText,
+                style = if (hardcore) HardcoreType.note else MaterialTheme.typography.bodySmall,
+                color = if (hardcore) HardcoreColors.ash else CyberColors.mutedText,
                 textAlign = TextAlign.Center,
             )
         }
@@ -149,6 +165,7 @@ private fun KnobDial(
     valueText: String,
     step: Float,
     enabled: Boolean,
+    hardcore: Boolean,
     modifier: Modifier,
 ) {
     val currentValue = rememberUpdatedState(value)
@@ -238,7 +255,8 @@ private fun KnobDial(
                     val ledHalo = Stroke(width = ledWidth * 1.9f, cap = StrokeCap.Butt)
                     val segmentSweep = KnobMath.SWEEP_DEGREES / LED_SEGMENTS
                     val segmentColors = Array(LED_SEGMENTS) { colorAt(colors, (it + 0.5f) / LED_SEGMENTS) }
-                    val unlit = CyberColors.outline.copy(alpha = 0.45f)
+                    val unlit = if (hardcore) HcUnlit else CyberColors.outline.copy(alpha = 0.45f)
+                    val tickColor = if (hardcore) HcTick else CyberColors.mutedText.copy(alpha = 0.35f)
 
                     val tickOuter = ledRadius - ledWidth * 0.9f
                     val tickInner = tickOuter - radius * 0.06f
@@ -256,9 +274,33 @@ private fun KnobDial(
 
                     val capRadius = tickInner - radius * 0.06f
                     val bevel = Stroke(width = 2.dp.toPx())
+                    val cap =
+                        if (hardcore) {
+                            Brush.radialGradient(
+                                listOf(HcCapHi, HcCapMid, HcCapLo),
+                                center = Offset(center.x - capRadius * 0.24f, center.y - capRadius * 0.4f),
+                                radius = capRadius * 1.7f,
+                            )
+                        } else {
+                            CyberBrushes.metal
+                        }
+                    // The hardcore cap: a knurled skirt (alternating dark and light ridges) around it.
+                    val knurl = Stroke(width = 2.dp.toPx())
+                    val knurlPath =
+                        Path().apply {
+                            if (hardcore) {
+                                for (i in 0 until KNURL_RIDGES step 2) {
+                                    val angle = Math.toRadians(i * 360.0 / KNURL_RIDGES)
+                                    val s = sin(angle).toFloat()
+                                    val c = cos(angle).toFloat()
+                                    moveTo(center.x + s * capRadius * 0.9f, center.y - c * capRadius * 0.9f)
+                                    lineTo(center.x + s * capRadius, center.y - c * capRadius)
+                                }
+                            }
+                        }
                     val shine =
                         Brush.radialGradient(
-                            listOf(Color.White.copy(alpha = 0.28f), Color.Transparent),
+                            listOf(Color.White.copy(alpha = if (hardcore) 0.06f else 0.28f), Color.Transparent),
                             center = Offset(center.x - capRadius * 0.35f, center.y - capRadius * 0.4f),
                             radius = capRadius * 0.9f,
                         )
@@ -287,10 +329,11 @@ private fun KnobDial(
                                 drawArc(unlit, start, sweep, false, ledTopLeft, ledSize, style = ledStroke)
                             }
                         }
-                        drawPath(ticks, CyberColors.mutedText.copy(alpha = 0.35f), style = tickStroke)
+                        drawPath(ticks, tickColor, style = tickStroke)
 
                         drawCircle(CyberColors.void, capRadius + bevel.width, center)
-                        drawCircle(CyberBrushes.metal, capRadius, center)
+                        drawCircle(cap, capRadius, center)
+                        if (hardcore) drawPath(knurlPath, HcKnurl, style = knurl)
                         drawCircle(shine, capRadius, center)
                         drawCircle(CyberColors.void.copy(alpha = 0.7f), capRadius, center, style = bevel)
 
@@ -311,6 +354,15 @@ private fun KnobDial(
                 },
     )
 }
+
+// The hardcore knob: dark unlit segments, a black cap with knurled skirt (as the sound goal's).
+private val HcUnlit = Color(0xFF26231F)
+private val HcTick = Color(0xFF4A4640)
+private val HcCapHi = Color(0xFF3E3B37)
+private val HcCapMid = Color(0xFF191816)
+private val HcCapLo = Color(0xFF0C0C0B)
+private val HcKnurl = Color(0xFF2C2A27)
+private const val KNURL_RIDGES = 60
 
 /** The ring color at [t] (0 = lowest value, 1 = highest) along [colors]. */
 private fun colorAt(

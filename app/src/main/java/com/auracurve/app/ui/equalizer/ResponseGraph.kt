@@ -25,6 +25,9 @@ import com.auracurve.app.ui.components.cyber.CyberRoundButton
 import com.auracurve.app.ui.components.cyber.SpectrumEqGraph
 import com.auracurve.app.ui.components.cyber.SpectrumMode
 import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.HardcoreColors
+import com.auracurve.app.ui.theme.HardcoreType
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.SonicNumerals
 
 /** One adjustable EQ band as the graph shows it: what the device reported, plus its gain. */
@@ -124,8 +127,13 @@ internal fun BandReadout(
         }
         val frequency = CurveGeometry.formatFrequency(band.frequencyHz)
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = frequency, style = SonicNumerals.value, color = CyberColors.cyanText)
-            Text(text = CurveGeometry.formatGain(band.gainDb), style = SonicNumerals.readout, color = style.text)
+            if (LocalHardcoreLook.current) {
+                Text(text = frequency, style = HardcoreType.value, color = HardcoreColors.bloodHi)
+                Text(text = CurveGeometry.formatGain(band.gainDb), style = HardcoreType.display, color = HardcoreColors.bone)
+            } else {
+                Text(text = frequency, style = SonicNumerals.value, color = CyberColors.cyanText)
+                Text(text = CurveGeometry.formatGain(band.gainDb), style = SonicNumerals.readout, color = style.text)
+            }
         }
         StepButton(
             icon = { Icon(Icons.Default.Remove, contentDescription = null) },

@@ -45,6 +45,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,10 +70,19 @@ import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.preset.PresetUsageAdvisor
 import com.auracurve.app.preset.PresetUsageHint
+import com.auracurve.app.ui.components.hardcore.HcLed
+import com.auracurve.app.ui.components.hardcore.HcPadShape
+import com.auracurve.app.ui.components.hardcore.HcText
+import com.auracurve.app.ui.components.hardcore.hcPad
 import com.auracurve.app.ui.theme.CyberBrushes
 import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.CyberDims
+import com.auracurve.app.ui.theme.HardcoreColors
+import com.auracurve.app.ui.theme.HardcoreType
+import com.auracurve.app.ui.theme.HcCorner
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.Spacing
+import com.auracurve.app.ui.theme.hcKeyFace
 import com.auracurve.app.ui.theme.spacing
 
 // One icon per genre, so the cards can be told apart before the name is read.
@@ -163,46 +173,57 @@ internal fun CorrectionProfileRow(
     spacing: Spacing,
     style: EqualizerDesignStyle,
 ) {
+    // Hardcore: each profile is a rubber pad, pressed in with a lit lamp when it is the active one.
+    val hardcore = LocalHardcoreLook.current
     Row(
         modifier = Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(spacing.small),
     ) {
         profiles.forEach { profile ->
             val selected = profile.id == activeProfileId
+            val cyberColor = if (selected) CyberColors.cyan.copy(alpha = 0.10f) else CyberColors.surfaceHigh
             Surface(
                 selected = selected,
                 onClick = { onProfileSelected(profile) },
-                modifier = Modifier.heightIn(min = 56.dp),
-                shape = MaterialTheme.shapes.medium,
-                color = if (selected) CyberColors.cyan.copy(alpha = 0.10f) else CyberColors.surfaceHigh,
+                modifier = Modifier.heightIn(min = 56.dp).then(if (hardcore) Modifier.hcPad(on = selected) else Modifier),
+                shape = if (hardcore) HcPadShape else MaterialTheme.shapes.medium,
+                color = if (hardcore) Color.Transparent else cyberColor,
+                contentColor = if (hardcore) HardcoreColors.bone else contentColorFor(cyberColor),
                 border =
-                    if (selected) {
-                        BorderStroke(CyberDims.activeBorder, CyberBrushes.pillBorder)
-                    } else {
-                        BorderStroke(CyberDims.border, CyberColors.outline.copy(alpha = 0.6f))
+                    when {
+                        hardcore -> null
+                        selected -> BorderStroke(CyberDims.activeBorder, CyberBrushes.pillBorder)
+                        else -> BorderStroke(CyberDims.border, CyberColors.outline.copy(alpha = 0.6f))
                     },
             ) {
                 Row(
                     modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (hardcore) {
+                        HcLed(on = selected, modifier = Modifier.padding(end = 10.dp))
+                    }
                     Column(modifier = Modifier.padding(end = 8.dp)) {
-                        Text(
-                            text = profile.localizedName(),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = style.text,
-                        )
+                        if (hardcore) {
+                            HcText(text = profile.localizedName(), style = HardcoreType.pad, color = HardcoreColors.bone)
+                        } else {
+                            Text(
+                                text = profile.localizedName(),
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                color = style.text,
+                            )
+                        }
                         Text(
                             text = profile.localizedSource(),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = style.mutedText,
+                            style = if (hardcore) HardcoreType.small else MaterialTheme.typography.bodySmall,
+                            color = if (hardcore) HardcoreColors.ash else style.mutedText,
                         )
                         profile.deviceName?.let { device ->
                             Text(
                                 text = stringResource(R.string.profile_for_device, device),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = style.mutedText,
+                                style = if (hardcore) HardcoreType.small else MaterialTheme.typography.bodySmall,
+                                color = if (hardcore) HardcoreColors.ash else style.mutedText,
                             )
                         }
                     }
@@ -215,7 +236,7 @@ internal fun CorrectionProfileRow(
                             Icon(
                                 imageVector = Icons.Default.Share,
                                 contentDescription = stringResource(R.string.profile_export, profile.localizedName()),
-                                tint = style.mutedText,
+                                tint = if (hardcore) HardcoreColors.ash else style.mutedText,
                             )
                         }
                     }
@@ -239,7 +260,14 @@ internal fun PresetCard(
     // Roadmap 16: why the preset does not take effect with what plays now (greyed out, not tappable).
     inactiveReason: String? = null,
 ) {
-    val contentColor = if (selected) Color.White else style.text
+    // Hardcore: a key, pressed in with its icon lit red when the preset is the active one.
+    val hardcore = LocalHardcoreLook.current
+    val contentColor =
+        when {
+            hardcore -> HardcoreColors.bone
+            selected -> Color.White
+            else -> style.text
+        }
     var showMenu by remember { mutableStateOf(false) }
     var showUsage by remember { mutableStateOf(false) }
     val enabled = inactiveReason == null
@@ -252,47 +280,65 @@ internal fun PresetCard(
             modifier
                 .height(56.dp)
                 .alpha(if (enabled) 1f else INACTIVE_PRESET_ALPHA)
+                .then(if (hardcore) Modifier.hcKeyFace(pressed = selected) else Modifier)
                 .semantics { inactiveReason?.let { stateDescription = it } },
-        shape = MaterialTheme.shapes.medium,
-        color = CyberColors.surface,
+        shape = if (hardcore) HcCorner else MaterialTheme.shapes.medium,
+        color = if (hardcore) Color.Transparent else CyberColors.surface,
+        contentColor = if (hardcore) HardcoreColors.bone else contentColorFor(CyberColors.surface),
         border =
-            if (selected) {
-                BorderStroke(CyberDims.activeBorder, CyberBrushes.pillBorder)
-            } else {
-                BorderStroke(CyberDims.border, CyberBrushes.border)
+            when {
+                hardcore -> null
+                selected -> BorderStroke(CyberDims.activeBorder, CyberBrushes.pillBorder)
+                else -> BorderStroke(CyberDims.border, CyberBrushes.border)
             },
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .then(if (selected) Modifier.background(CyberBrushes.pill) else Modifier)
+                    .then(if (selected && !hardcore) Modifier.background(CyberBrushes.pill) else Modifier)
                     .padding(start = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = presetIcon(preset.id),
                 contentDescription = null,
-                tint = if (selected) Color.White else CyberColors.cyan,
+                tint =
+                    when {
+                        hardcore -> if (selected) HardcoreColors.bloodHi else HardcoreColors.ash
+                        selected -> Color.White
+                        else -> CyberColors.cyan
+                    },
                 modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = preset.name,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                color = contentColor,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            if (hardcore) {
+                HcText(
+                    text = preset.name,
+                    style = HardcoreType.key,
+                    color = contentColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                Text(
+                    text = preset.name,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = contentColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             Box {
                 // 48 dp target, so the menu is hit reliably next to the preset itself.
                 IconButton(onClick = { showMenu = true }) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
                         contentDescription = stringResource(R.string.preset_more_actions, preset.name),
-                        tint = contentColor,
+                        tint = if (hardcore) HardcoreColors.ash else contentColor,
                         modifier = Modifier.size(18.dp),
                     )
                 }

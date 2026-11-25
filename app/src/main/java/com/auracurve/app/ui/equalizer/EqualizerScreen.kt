@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,11 +23,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Smartphone
+import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.Usb
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Hearing
@@ -49,13 +57,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -95,12 +109,21 @@ import com.auracurve.app.ui.components.cyber.CyberRoundButton
 import com.auracurve.app.ui.components.cyber.CyberToggle
 import com.auracurve.app.ui.components.cyber.RotaryKnob
 import com.auracurve.app.ui.components.cyber.SpectrumMode
+import com.auracurve.app.ui.components.hardcore.HcLcd
+import com.auracurve.app.ui.components.hardcore.HcModulesPanel
+import com.auracurve.app.ui.components.hardcore.HcSlideSwitch
+import com.auracurve.app.ui.components.hardcore.HcText
 import com.auracurve.app.ui.eq.EqStatus
 import com.auracurve.app.ui.eq.EqStatusKind
 import com.auracurve.app.ui.eq.EqStatusLine
 import com.auracurve.app.ui.main.CompareSide
 import com.auracurve.app.ui.main.CompareState
 import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.HardcoreColors
+import com.auracurve.app.ui.theme.HardcoreType
+import com.auracurve.app.ui.theme.LocalHardcoreLook
+import com.auracurve.app.ui.theme.LocalSectionNumber
+import com.auracurve.app.ui.theme.hcConcrete
 import com.auracurve.app.ui.theme.spacing
 
 @Composable
@@ -185,9 +208,19 @@ fun EqualizerScreen(
     modifier: Modifier = Modifier,
     // The built-in player is playing right now: only then do the graph's (synthetic) bars move.
     playerPlaying: Boolean = false,
+    // Decision H1 (Design/DESIGN_SPEC.md): the equalizer wears the hardcore look; false is the Cyber one.
+    hardcoreLook: Boolean = true,
 ) {
     val spacing = MaterialTheme.spacing
     val style = SonicStyle
+    // The parts read the look from LocalHardcoreLook (provided below); these are the colors and the
+    // note style this screen sets itself.
+    val hardcore = hardcoreLook
+    val textColor = if (hardcore) HardcoreColors.bone else style.text
+    val mutedColor = if (hardcore) HardcoreColors.ash else style.mutedText
+    val cautionColor = if (hardcore) HardcoreColors.hazard else style.caution
+    val hotColor = if (hardcore) HardcoreColors.rust else style.hot
+    val noteStyle = if (hardcore) HardcoreType.note else MaterialTheme.typography.bodySmall
     // M3/M4: headroom from the combined correction+voicing curve, not just the
     // highest of the discrete post-mapping band gains - see HeadroomCalculator.
     // Mirrors MainViewModel.recalculateBandGains()'s own combination (including
@@ -320,20 +353,37 @@ fun EqualizerScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(spacing.small),
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Caption(text = stringResource(R.string.route_label, route.name), color = CyberColors.cyanText)
-                    Text(
-                        text =
-                            if (isDirty) {
-                                stringResource(R.string.compare_preset_custom, activePreset.name)
-                            } else {
-                                activePreset.name
-                            },
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = style.text,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                val title =
+                    if (isDirty) {
+                        stringResource(R.string.compare_preset_custom, activePreset.name)
+                    } else {
+                        activePreset.name
+                    }
+                if (hardcore) {
+                    // Stamped: the route in ash with the device in bone, the preset worn in two lines.
+                    Column(modifier = Modifier.weight(1f)) {
+                        HcRouteLabel(label = stringResource(R.string.route_label, route.name), name = route.name)
+                        HcText(
+                            text = title,
+                            style = HardcoreType.title,
+                            color = HardcoreColors.bone,
+                            worn = true,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                } else {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Caption(text = stringResource(R.string.route_label, route.name), color = CyberColors.cyanText)
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
                 // Independent of the master switch - that one only offers the source
                 // picker when flipped on with nothing attached yet (see
@@ -370,7 +420,7 @@ fun EqualizerScreen(
                                     imageVector = if (noSessionDetails) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                     contentDescription =
                                         stringResource(if (noSessionDetails) R.string.info_less else R.string.info_more),
-                                    tint = style.mutedText,
+                                    tint = mutedColor,
                                 )
                             }
                         } else {
@@ -387,8 +437,8 @@ fun EqualizerScreen(
             AnimatedVisibility(visible = waitingForSession && noSessionDetails) {
                 Text(
                     text = stringResource(R.string.no_session_text),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = style.mutedText,
+                    style = noteStyle,
+                    color = mutedColor,
                 )
             }
             AnimatedVisibility(visible = isDirty) {
@@ -480,7 +530,7 @@ fun EqualizerScreen(
                     Text(
                         text = stringResource(R.string.correction_detected, suggestedCorrectionProfile.displayName),
                         style = MaterialTheme.typography.titleSmall,
-                        color = style.text,
+                        color = textColor,
                     )
                     Text(
                         text =
@@ -488,8 +538,8 @@ fun EqualizerScreen(
                                 R.string.correction_suggestion,
                                 localizedSourceLabel(suggestedCorrectionProfile.profile.sourceLabel),
                             ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = style.mutedText,
+                        style = noteStyle,
+                        color = mutedColor,
                     )
                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
                         LinkButton(text = stringResource(R.string.action_not_now), onClick = onDismissSuggestedCorrectionProfile)
@@ -508,33 +558,59 @@ fun EqualizerScreen(
                 title = stringResource(R.string.compare_title),
                 info = stringResource(R.string.compare_hint_idle),
             )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ChoiceChip(
-                    text = stringResource(R.string.compare_original),
-                    selected = compare?.side == CompareSide.ORIGINAL,
-                    onClick = { onCompareSide(CompareSide.ORIGINAL) },
-                )
-                ChoiceChip(
-                    text = stringResource(R.string.compare_eq),
-                    selected = compare == null || compare.side == CompareSide.EQ,
-                    onClick = { if (compare == null) onStartCompare() else onCompareSide(CompareSide.EQ) },
-                )
-                HoldToCompareButton(
-                    modifier = Modifier.weight(1f),
-                    onPress = { onCompareSide(CompareSide.ORIGINAL) },
-                    onRelease = onEndCompare,
-                    style = style,
-                )
+            if (hardcore) {
+                // A short slide switch (original | EQ) next to the hazard-framed hold pad.
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    HcSlideSwitch(
+                        options = listOf(stringResource(R.string.compare_original), stringResource(R.string.compare_eq)),
+                        selectedIndex = if (compare?.side == CompareSide.ORIGINAL) 0 else 1,
+                        onSelect = { index ->
+                            when {
+                                index == 0 -> onCompareSide(CompareSide.ORIGINAL)
+                                compare == null -> onStartCompare()
+                                else -> onCompareSide(CompareSide.EQ)
+                            }
+                        },
+                        role = Role.RadioButton,
+                        compact = true,
+                        modifier = Modifier.width(148.dp),
+                    )
+                    HoldToCompareButton(
+                        modifier = Modifier.weight(1f),
+                        onPress = { onCompareSide(CompareSide.ORIGINAL) },
+                        onRelease = onEndCompare,
+                        style = style,
+                    )
+                }
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ChoiceChip(
+                        text = stringResource(R.string.compare_original),
+                        selected = compare?.side == CompareSide.ORIGINAL,
+                        onClick = { onCompareSide(CompareSide.ORIGINAL) },
+                    )
+                    ChoiceChip(
+                        text = stringResource(R.string.compare_eq),
+                        selected = compare == null || compare.side == CompareSide.EQ,
+                        onClick = { if (compare == null) onStartCompare() else onCompareSide(CompareSide.EQ) },
+                    )
+                    HoldToCompareButton(
+                        modifier = Modifier.weight(1f),
+                        onPress = { onCompareSide(CompareSide.ORIGINAL) },
+                        onRelease = onEndCompare,
+                        style = style,
+                    )
+                }
             }
             if (compare != null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = stringResource(R.string.compare_hint_active, String.format("%+.1f", compare.eqLevelDeltaDb)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = style.mutedText,
+                        style = noteStyle,
+                        color = mutedColor,
                         modifier = Modifier.weight(1f),
                     )
                     LinkButton(text = stringResource(R.string.compare_done), onClick = onEndCompare)
@@ -549,7 +625,11 @@ fun EqualizerScreen(
         Section {
             SectionHeader(title = stringResource(R.string.genre_title), titleColor = CyberColors.orchid) {
                 // P5-4: a preset link someone sent (or a scanned QR code, which opens the app directly).
-                LinkButton(text = stringResource(R.string.preset_import_link), onClick = onImportPresetLinkRequested)
+                LinkButton(
+                    text = stringResource(R.string.preset_import_link),
+                    onClick = onImportPresetLinkRequested,
+                    icon = if (hardcore) Icons.Default.Link else null,
+                )
                 // When the active preset (genre or custom) is a good choice; each custom preset
                 // also has it in its own menu.
                 IconButton(onClick = { presetUsageOpen = !presetUsageOpen }) {
@@ -559,7 +639,7 @@ fun EqualizerScreen(
                             stringResource(
                                 if (presetUsageOpen) R.string.preset_usage_active_less else R.string.preset_usage_active_more,
                             ),
-                        tint = if (presetUsageOpen) style.accent else style.mutedText,
+                        tint = if (presetUsageOpen) (if (hardcore) HardcoreColors.bone else style.accent) else mutedColor,
                     )
                 }
             }
@@ -568,7 +648,7 @@ fun EqualizerScreen(
                     Text(
                         text = stringResource(R.string.preset_usage_active_label, activePreset.name),
                         style = MaterialTheme.typography.labelLarge,
-                        color = style.text,
+                        color = textColor,
                     )
                     PresetUsageText(preset = activePreset, style = style)
                 }
@@ -668,7 +748,8 @@ fun EqualizerScreen(
                         stringResource(R.string.context_virtual_bass_desc),
                     ).joinToString("\n"),
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+            // Hardcore: three bat-handle toggles in a dark panel, each with a crooked tape label.
+            val tiles: @Composable RowScope.() -> Unit = {
                 SignalModuleTile(
                     title = stringResource(R.string.module_loudness),
                     detail = stringResource(if (settings.loudnessMaxBoostDb > 0f) R.string.module_on else R.string.module_off),
@@ -676,6 +757,7 @@ fun EqualizerScreen(
                     onCheckedChange = onLoudnessCompensationChanged,
                     icon = Icons.Outlined.Hearing,
                     modifier = Modifier.weight(1f),
+                    labelTilt = -2f,
                 )
                 SignalModuleTile(
                     title = stringResource(R.string.module_subsonic),
@@ -691,6 +773,7 @@ fun EqualizerScreen(
                     onCheckedChange = onSubsonicFilterChanged,
                     icon = Icons.Outlined.FilterAlt,
                     modifier = Modifier.weight(1f),
+                    labelTilt = 1.4f,
                 )
                 SignalModuleTile(
                     title = stringResource(R.string.module_virtual_bass),
@@ -707,7 +790,13 @@ fun EqualizerScreen(
                     onCheckedChange = onVirtualBassChanged,
                     icon = Icons.Outlined.GraphicEq,
                     modifier = Modifier.weight(1f).alpha(if (isOwnPlayerSession) 1f else 0.6f),
+                    labelTilt = -0.8f,
                 )
+            }
+            if (hardcore) {
+                HcModulesPanel(content = tiles)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), content = tiles)
             }
         }
     }
@@ -729,7 +818,7 @@ fun EqualizerScreen(
                     else -> null
                 }
             if (detectedRoute != null) {
-                Text(text = detectedRoute, style = MaterialTheme.typography.bodySmall, color = style.mutedText)
+                Text(text = detectedRoute, style = noteStyle, color = mutedColor)
             }
             ContextModeChips(
                 activeContext = activeContext,
@@ -748,8 +837,8 @@ fun EqualizerScreen(
             if (statusKind != EqStatusKind.ACTIVE) {
                 Text(
                     text = stringResource(R.string.signal_not_confirmed),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = style.mutedText,
+                    style = noteStyle,
+                    color = mutedColor,
                 )
             }
             Row(
@@ -795,7 +884,7 @@ fun EqualizerScreen(
                         stringResource(R.string.signal_limiter_off)
                     },
                 style = MaterialTheme.typography.bodyMedium,
-                color = style.text,
+                color = textColor,
             )
             Text(
                 text =
@@ -804,21 +893,21 @@ fun EqualizerScreen(
                     } else {
                         stringResource(R.string.signal_mbc_off)
                     },
-                style = MaterialTheme.typography.bodySmall,
-                color = style.mutedText,
+                style = noteStyle,
+                color = mutedColor,
             )
             val (warningText, warningColor) =
                 when (warningLevel) {
                     HeadroomWarningLevel.SUFFICIENT ->
-                        stringResource(R.string.headroom_ok) to style.mutedText
+                        stringResource(R.string.headroom_ok) to mutedColor
                     HeadroomWarningLevel.OCCASIONAL_LIMITING ->
-                        stringResource(R.string.headroom_limiter_sometimes) to style.caution
+                        stringResource(R.string.headroom_limiter_sometimes) to cautionColor
                     HeadroomWarningLevel.HEAVY_LIMITING ->
-                        stringResource(R.string.headroom_limiter_heavy) to style.hot
+                        stringResource(R.string.headroom_limiter_heavy) to hotColor
                 }
             Text(
                 text = warningText,
-                style = MaterialTheme.typography.bodySmall,
+                style = noteStyle,
                 fontWeight = FontWeight.SemiBold,
                 color = warningColor,
             )
@@ -835,13 +924,13 @@ fun EqualizerScreen(
                     } else {
                         stringResource(R.string.clipping_limiter_off, String.format("%+.1f", settings.inputGainDb))
                     },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (clippingRisk) style.hot else style.mutedText,
+                style = noteStyle,
+                color = if (clippingRisk) hotColor else mutedColor,
             )
             Text(
                 text = stringResource(R.string.meters_estimate_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = style.mutedText,
+                style = noteStyle,
+                color = mutedColor,
             )
         }
     }
@@ -863,15 +952,34 @@ fun EqualizerScreen(
                             },
                         ),
             )
-            Text(
-                text = stringResource(R.string.profiles_output, route.name),
-                style = MaterialTheme.typography.bodyMedium,
-                color = style.text,
-            )
             var showRenameRoute by rememberSaveable { mutableStateOf(false) }
-            Row {
-                LinkButton(text = stringResource(R.string.profiles_open_services), onClick = onOpenServices)
-                LinkButton(text = stringResource(R.string.route_rename), onClick = { showRenameRoute = true })
+            if (hardcore) {
+                // The output on a dark rack display, the two actions as equal keys below it.
+                HcLcd(text = stringResource(R.string.profiles_output, route.name), icon = route.type.hcIcon())
+                Row(modifier = Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LinkButton(
+                        text = stringResource(R.string.profiles_open_services),
+                        onClick = onOpenServices,
+                        icon = Icons.Default.Link,
+                        modifier = Modifier.weight(1f),
+                    )
+                    LinkButton(
+                        text = stringResource(R.string.route_rename),
+                        onClick = { showRenameRoute = true },
+                        icon = Icons.Outlined.Edit,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            } else {
+                Text(
+                    text = stringResource(R.string.profiles_output, route.name),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = textColor,
+                )
+                Row {
+                    LinkButton(text = stringResource(R.string.profiles_open_services), onClick = onOpenServices)
+                    LinkButton(text = stringResource(R.string.route_rename), onClick = { showRenameRoute = true })
+                }
             }
             if (showRenameRoute) {
                 RenameRouteDialog(
@@ -932,13 +1040,13 @@ fun EqualizerScreen(
             SectionHeader(title = stringResource(R.string.fine_tune_title))
             Text(
                 text = stringResource(R.string.fine_tune_subtitle),
-                style = MaterialTheme.typography.bodySmall,
-                color = style.mutedText,
+                style = noteStyle,
+                color = mutedColor,
             )
             Text(
                 text = stringResource(R.string.macro_title),
                 style = MaterialTheme.typography.titleSmall,
-                color = style.text,
+                color = textColor,
                 modifier = Modifier.padding(top = spacing.small),
             )
             // Three knobs side by side, as on the hardware the mockup borrows from; each keeps
@@ -952,7 +1060,7 @@ fun EqualizerScreen(
                     value = settings.macroBassDb,
                     valueRange = -6f..6f,
                     onValueChange = onMacroBassChanged,
-                    ringColors = BassRing,
+                    ringColors = if (hardcore) HcBassRing else BassRing,
                     label = stringResource(R.string.macro_bass_name),
                     valueText = CurveGeometry.formatGain(settings.macroBassDb),
                     description = stringResource(R.string.macro_bass_desc),
@@ -963,7 +1071,7 @@ fun EqualizerScreen(
                     value = settings.macroPunchDb,
                     valueRange = -6f..6f,
                     onValueChange = onMacroPunchChanged,
-                    ringColors = PunchRing,
+                    ringColors = if (hardcore) HcPunchRing else PunchRing,
                     label = stringResource(R.string.macro_punch_name),
                     valueText = CurveGeometry.formatGain(settings.macroPunchDb),
                     description = stringResource(R.string.macro_punch_desc),
@@ -974,7 +1082,7 @@ fun EqualizerScreen(
                     value = settings.macroHaerteDb,
                     valueRange = -2f..2f,
                     onValueChange = onMacroHaerteChanged,
-                    ringColors = HarshnessRing,
+                    ringColors = if (hardcore) HcHarshnessRing else HarshnessRing,
                     label = stringResource(R.string.macro_haerte_name),
                     valueText = CurveGeometry.formatGain(settings.macroHaerteDb),
                     description = stringResource(R.string.macro_haerte_desc),
@@ -991,7 +1099,7 @@ fun EqualizerScreen(
                 Text(
                     text = stringResource(R.string.bands_title, bands.size),
                     style = MaterialTheme.typography.titleSmall,
-                    color = style.text,
+                    color = textColor,
                     modifier = Modifier.weight(1f),
                 )
                 // Display only (decision E4): the real band gains, dimmed placeholders with no bands.
@@ -1011,7 +1119,7 @@ fun EqualizerScreen(
                     Text(
                         text = stringResource(R.string.bypass_label),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = style.text,
+                        color = textColor,
                     )
                     Spacer(modifier = Modifier.width(spacing.small))
                     CyberToggle(checked = settings.bypass, onCheckedChange = null)
@@ -1047,23 +1155,33 @@ fun EqualizerScreen(
                     .padding(top = spacing.extraSmall, bottom = spacing.medium),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // The hardcore plates carry a running number ("01", "02", ...) per tab.
+            var number = 0
+
+            @Composable
+            fun Numbered(content: @Composable () -> Unit) {
+                number += 1
+                CompositionLocalProvider(LocalSectionNumber provides if (hardcore) number else null, content = content)
+            }
             when (tab) {
                 EqualizerTab.SOUND -> {
-                    GenreSection()
-                    ModulesSection()
-                    SoundGoalCard(active = activeGoal, onSelect = onGoalSelected)
-                    CompareSection()
+                    Numbered { GenreSection() }
+                    Numbered { ModulesSection() }
+                    Numbered { SoundGoalCard(active = activeGoal, onSelect = onGoalSelected) }
+                    Numbered { CompareSection() }
                 }
                 EqualizerTab.FINE_TUNE -> {
-                    FineTuneSection()
-                    ParametricBandsSection(
-                        bands = parametricBands,
-                        onAdd = onAddParametricBand,
-                        onChange = onChangeParametricBand,
-                        onRemove = onRemoveParametricBand,
-                        spacing = spacing,
-                        style = style,
-                    )
+                    Numbered { FineTuneSection() }
+                    Numbered {
+                        ParametricBandsSection(
+                            bands = parametricBands,
+                            onAdd = onAddParametricBand,
+                            onChange = onChangeParametricBand,
+                            onRemove = onRemoveParametricBand,
+                            spacing = spacing,
+                            style = style,
+                        )
+                    }
                     onHighResolutionEqChanged?.let { onChanged ->
                         HighResolutionEqRow(
                             checked = settings.highResolutionEq,
@@ -1075,8 +1193,8 @@ fun EqualizerScreen(
                     }
                     Text(
                         text = stringResource(R.string.graph_note_interpolated),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = style.mutedText,
+                        style = noteStyle,
+                        color = mutedColor,
                     )
                 }
                 EqualizerTab.DEVICE -> {
@@ -1095,20 +1213,22 @@ fun EqualizerScreen(
                         }
                         Text(
                             text = stringResource(R.string.eq_playback_only_note),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = style.mutedText,
+                            style = noteStyle,
+                            color = mutedColor,
                         )
                     }
-                    ProfilesSection()
-                    CorrectionSection()
+                    Numbered { ProfilesSection() }
+                    Numbered { CorrectionSection() }
                     if (effectiveHeadphoneAcoustics) {
-                        HeadphonePowerSection(
-                            power = headphonePower,
-                            onPowerChanged = onHeadphonePowerChanged,
-                            style = style,
-                        )
+                        Numbered {
+                            HeadphonePowerSection(
+                                power = headphonePower,
+                                onPowerChanged = onHeadphonePowerChanged,
+                                style = style,
+                            )
+                        }
                     }
-                    ContextSection()
+                    Numbered { ContextSection() }
                     deviceTabFooter?.invoke(this)
                 }
             }
@@ -1120,14 +1240,18 @@ fun EqualizerScreen(
         EqualizerTabs(selected = tab, onSelect = { tab = it })
     }
 
-    CompositionLocalProvider(LocalContentColor provides style.text) {
-        BoxWithConstraints(modifier = modifier.fillMaxSize().background(style.background)) {
+    CompositionLocalProvider(LocalContentColor provides textColor, LocalHardcoreLook provides hardcore) {
+        BoxWithConstraints(
+            modifier = modifier.fillMaxSize().then(if (hardcore) Modifier.hcConcrete() else Modifier.background(style.background)),
+        ) {
             // Short screens get a smaller curve; wide ones (landscape) put the head beside the tabs.
             val wide = maxWidth > maxHeight && maxWidth >= WIDE_LAYOUT_MIN_WIDTH
             val compact = maxHeight < COMPACT_HEIGHT
             val graphHeight =
                 when {
                     compact -> CompactGraphHeight
+                    hardcore && tab == EqualizerTab.DEVICE -> HcGraphHeight + HcDeviceGraphExtra
+                    hardcore -> HcGraphHeight
                     tab == EqualizerTab.DEVICE -> DefaultGraphHeight + DeviceGraphExtra
                     else -> DefaultGraphHeight
                 }
@@ -1182,3 +1306,45 @@ private val BassRing = listOf(CyberColors.cyan)
 private val PunchRing = listOf(CyberColors.orchid)
 private val HarshnessRing = listOf(CyberColors.violet, CyberColors.orange)
 private val MacroKnobSize = 104.dp
+
+// The hardcore look's knob rings: blood, rust and hazard instead of the Cyber neon.
+private val HcBassRing = listOf(HardcoreColors.bloodHi)
+private val HcPunchRing = listOf(HardcoreColors.rust)
+private val HcHarshnessRing = listOf(HardcoreColors.hazard, HardcoreColors.bloodHi)
+
+// The hardcore head is taller (a two-line title, the status card), its curve too (the mockup's).
+private val HcGraphHeight = 232.dp
+private val HcDeviceGraphExtra = 30.dp
+
+// "Route: <device>" stamped in ash with the device in bone; read out as the plain label.
+@Composable
+private fun HcRouteLabel(
+    label: String,
+    name: String,
+) {
+    val upper = label.uppercase()
+    val nameStart = upper.lastIndexOf(name.uppercase())
+    Text(
+        text =
+            buildAnnotatedString {
+                append(upper)
+                if (nameStart >= 0 && name.isNotEmpty()) {
+                    addStyle(SpanStyle(color = HardcoreColors.bone, fontWeight = FontWeight.SemiBold), nameStart, nameStart + name.length)
+                }
+            },
+        style = HardcoreType.route,
+        color = HardcoreColors.ash,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.clearAndSetSemantics { text = AnnotatedString(label) },
+    )
+}
+
+private fun AudioDeviceType.hcIcon(): ImageVector =
+    when (this) {
+        AudioDeviceType.SPEAKER -> Icons.Default.Smartphone
+        AudioDeviceType.WIRED_HEADPHONES, AudioDeviceType.BLUETOOTH -> Icons.Default.Headphones
+        AudioDeviceType.CAR -> Icons.Default.DirectionsCar
+        AudioDeviceType.USB -> Icons.Default.Usb
+        AudioDeviceType.BLUETOOTH_SPEAKER, AudioDeviceType.SOUNDBAR, AudioDeviceType.UNKNOWN -> Icons.Default.Speaker
+    }

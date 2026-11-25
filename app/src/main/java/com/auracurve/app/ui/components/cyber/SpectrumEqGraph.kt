@@ -36,7 +36,10 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.nativePaint
@@ -70,8 +73,13 @@ import com.auracurve.app.ui.theme.CyberCurveBass
 import com.auracurve.app.ui.theme.CyberCurveMid
 import com.auracurve.app.ui.theme.CyberCurveTreble
 import com.auracurve.app.ui.theme.CyberGlow
+import com.auracurve.app.ui.theme.HardcoreColors
+import com.auracurve.app.ui.theme.HardcoreType
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.SonicNumerals
 import com.auracurve.app.ui.theme.SonicRule
+import com.auracurve.app.ui.theme.drawInsetShade
+import com.auracurve.app.ui.theme.drawStripes
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlin.math.sign
@@ -95,6 +103,10 @@ private val GutterBottom = 22.dp
 private val PlotTop = 18.dp
 private val PlotEnd = 12.dp
 private val NodeTarget = 48.dp
+private val HcGutterStart = 40.dp
+private val HcGutterBottom = 26.dp
+private val HcPlotTop = 16.dp
+private val HcPlotEnd = 16.dp
 private const val CURVE_SAMPLES = 160
 
 // Where the plot sits inside the graph; shared by the drawing layers, touch and the TalkBack
@@ -104,11 +116,13 @@ private class GraphFrame(
     totalHeight: Float,
     density: Density,
     private val scaleDb: Float,
+    // The hardcore look frames the plot in a screwed-on panel: wider gutters on every side.
+    hardcore: Boolean = false,
 ) {
-    val left = with(density) { GutterStart.toPx() }
-    val top = with(density) { PlotTop.toPx() }
-    val right = totalWidth - with(density) { PlotEnd.toPx() }
-    val bottom = totalHeight - with(density) { GutterBottom.toPx() }
+    val left = with(density) { (if (hardcore) HcGutterStart else GutterStart).toPx() }
+    val top = with(density) { (if (hardcore) HcPlotTop else PlotTop).toPx() }
+    val right = totalWidth - with(density) { (if (hardcore) HcPlotEnd else PlotEnd).toPx() }
+    val bottom = totalHeight - with(density) { (if (hardcore) HcGutterBottom else GutterBottom).toPx() }
     val width = right - left
     val height = bottom - top
 
@@ -188,9 +202,23 @@ internal fun SpectrumEqGraph(
     val currentOnGainChange by rememberUpdatedState(onGainChange)
     val haptics = LocalHapticFeedback.current
     val measurer = rememberTextMeasurer()
-    val axisStyle = SonicNumerals.axis.copy(color = CyberColors.mutedText)
-    val stateStyle = MaterialTheme.typography.labelMedium.copy(color = CyberColors.mutedText)
-    val hintStyle = MaterialTheme.typography.labelSmall.copy(color = CyberColors.mutedText)
+    val hardcore = LocalHardcoreLook.current
+    val axisStyle =
+        if (hardcore) HardcoreType.axis.copy(color = HcAxisText) else SonicNumerals.axis.copy(color = CyberColors.mutedText)
+    val stateStyle =
+        if (hardcore) {
+            HardcoreType.label.copy(color = HardcoreColors.ash)
+        } else {
+            MaterialTheme.typography.labelMedium.copy(color = CyberColors.mutedText)
+        }
+    val hintStyle =
+        if (hardcore) {
+            HardcoreType.small.copy(
+                color = HardcoreColors.ash,
+            )
+        } else {
+            MaterialTheme.typography.labelSmall.copy(color = CyberColors.mutedText)
+        }
 
     val synthetic = remember { SyntheticSpectrum() }
     val rest =
@@ -210,13 +238,13 @@ internal fun SpectrumEqGraph(
                 Modifier
                     .matchParentSize()
                     .semantics { contentDescription = description }
-                    .pointerInput(scaleDb, collapsed) {
+                    .pointerInput(scaleDb, collapsed, hardcore) {
                         if (collapsed) return@pointerInput
                         detectTapGestures { offset ->
-                            val frame = GraphFrame(size.width.toFloat(), size.height.toFloat(), this, scaleDb)
+                            val frame = GraphFrame(size.width.toFloat(), size.height.toFloat(), this, scaleDb, hardcore)
                             nearestBand(currentBands, frame.fractionAt(offset.x))?.let { currentOnSelect(it.index) }
                         }
-                    }.pointerInput(scaleDb, collapsed) {
+                    }.pointerInput(scaleDb, collapsed, hardcore) {
                         if (collapsed) return@pointerInput
                         var active: GraphBand? = null
                         var gain = 0f
@@ -224,7 +252,7 @@ internal fun SpectrumEqGraph(
                         var dbPerPx = 0f
                         detectDragGestures(
                             onDragStart = { offset ->
-                                val frame = GraphFrame(size.width.toFloat(), size.height.toFloat(), this, scaleDb)
+                                val frame = GraphFrame(size.width.toFloat(), size.height.toFloat(), this, scaleDb, hardcore)
                                 dbPerPx = frame.dbPerPx()
                                 active = nearestBand(currentBands, frame.fractionAt(offset.x))
                                 active?.let { band ->
@@ -252,9 +280,14 @@ internal fun SpectrumEqGraph(
                             }
                         }
                     }.drawWithCache {
-                        val frame = GraphFrame(size.width, size.height, this, scaleDb)
-                        val grid = GridLayer(frame, scaleDb, collapsed, measurer, axisStyle, this, size)
-                        onDrawBehind { grid.draw(this) }
+                        val frame = GraphFrame(size.width, size.height, this, scaleDb, hardcore)
+                        if (hardcore) {
+                            val grid = HcGridLayer(frame, scaleDb, collapsed, measurer, axisStyle, this, size)
+                            onDrawBehind { grid.draw(this) }
+                        } else {
+                            val grid = GridLayer(frame, scaleDb, collapsed, measurer, axisStyle, this, size)
+                            onDrawBehind { grid.draw(this) }
+                        }
                     },
         )
 
@@ -266,7 +299,7 @@ internal fun SpectrumEqGraph(
                         .matchParentSize()
                         .graphicsLayer()
                         .drawWithCache {
-                            val frame = GraphFrame(size.width, size.height, this, scaleDb)
+                            val frame = GraphFrame(size.width, size.height, this, scaleDb, hardcore)
                             val n = synthetic.barCount
                             val slot = frame.width / n
                             val barWidth = slot * 0.62f
@@ -282,11 +315,35 @@ internal fun SpectrumEqGraph(
                             val levels = FloatArray(n)
                             val cap = 2.dp.toPx()
                             val alpha = if (live) 0.85f else 0.35f
+                            val block = 3.2.dp.toPx()
+                            val blockGap = 1.6.dp.toPx()
+                            val blockInset = 1.dp.toPx()
+                            val blockWidth = slot - 2.2.dp.toPx()
+                            val zeroY = frame.y(0f)
                             onDrawBehind {
                                 if (live) {
                                     synthetic.animate(restState.value, clock.floatValue, levels)
                                 } else {
                                     restState.value.copyInto(levels)
+                                }
+                                if (hardcore) {
+                                    // LED blocks: dark segments, the top one lit dull red above 0 dB.
+                                    for (i in 0 until n) {
+                                        val h = levels[i] * frame.height
+                                        val count = (h / (block + blockGap)).toInt()
+                                        val x = frame.left + i * slot + blockInset
+                                        for (k in 0 until count) {
+                                            val y = frame.bottom - (k + 1) * (block + blockGap) + blockGap
+                                            val color =
+                                                when {
+                                                    k == count - 1 -> if (y < zeroY) HcBlockHot else HcBlockTop
+                                                    k < count * 0.45f -> HcBlockLow
+                                                    else -> HcBlockMid
+                                                }
+                                            drawRect(color, Offset(x, y), Size(blockWidth, block), alpha = if (live) 1f else 0.85f)
+                                        }
+                                    }
+                                    return@onDrawBehind
                                 }
                                 for (i in 0 until n) {
                                     val h = levels[i] * frame.height
@@ -308,7 +365,7 @@ internal fun SpectrumEqGraph(
                     .matchParentSize()
                     .graphicsLayer()
                     .drawWithCache {
-                        val frame = GraphFrame(size.width, size.height, this, scaleDb)
+                        val frame = GraphFrame(size.width, size.height, this, scaleDb, hardcore)
                         val sampler = CurveSampler(capacity = 16)
                         val line = Path()
                         val fill = Path()
@@ -348,8 +405,35 @@ internal fun SpectrumEqGraph(
                         val dot = 2.5.dp.toPx()
                         val halo = 13.dp.toPx()
                         val wedgeHalf = 5.dp.toPx()
-                        val selectionFill = CyberColors.text.copy(alpha = 0.05f)
-                        val selectionLine = CyberColors.cyan.copy(alpha = 0.45f)
+                        val selectionFill = if (hardcore) HardcoreColors.bone.copy(alpha = 0.04f) else CyberColors.text.copy(alpha = 0.05f)
+                        val selectionLine =
+                            if (hardcore) {
+                                HardcoreColors.bloodHi.copy(
+                                    alpha = 0.5f,
+                                )
+                            } else {
+                                CyberColors.cyan.copy(alpha = 0.45f)
+                            }
+                        // Hardcore: a bone line over a black under-stroke, hatched red above 0 dB and gray below.
+                        val hcLineWidth = (if (emphasis) 2.6.dp else 2.1.dp).toPx()
+                        val hcLine = Stroke(width = hcLineWidth, cap = StrokeCap.Round, join = StrokeJoin.Round)
+                        val hcUnder = Stroke(width = (if (emphasis) 6.dp else 5.dp).toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                        val hcDash =
+                            Stroke(
+                                width = hcLineWidth,
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
+                            )
+                        val hatchPitch = 5.dp.toPx()
+                        val hatchRed = 1.4.dp.toPx()
+                        val hatchGray = 1.2.dp.toPx()
+                        val hcNodeGlow =
+                            Paint().apply {
+                                color = HardcoreColors.bloodHi
+                                alpha = 0.55f
+                                nativePaint.maskFilter = BlurMaskFilter(8.dp.toPx(), BlurMaskFilter.Blur.NORMAL)
+                            }
 
                         val state: TextLayoutResult? = stateLabel?.let { measurer.measure(AnnotatedString(it), style = stateStyle) }
                         val stateTopLeft =
@@ -421,7 +505,24 @@ internal fun SpectrumEqGraph(
                                 // Running: the gradient line with its glow over a fading fill. Off or
                                 // bypassed: a dashed line at half strength, so the state also reads
                                 // without color.
-                                if (g.processing) {
+                                if (hardcore) {
+                                    clipPath(fill) {
+                                        if (g.processing) {
+                                            clipRect(frame.left, frame.top, frame.right, zeroY) {
+                                                drawStripes(HardcoreColors.blood, hatchPitch, hatchRed, rising = true, alpha = 0.5f)
+                                            }
+                                        }
+                                        clipRect(frame.left, zeroY, frame.right, frame.bottom) {
+                                            drawStripes(HardcoreColors.ash, hatchPitch, hatchGray, rising = false, alpha = 0.28f)
+                                        }
+                                    }
+                                    if (g.processing) {
+                                        drawPath(line, Color.Black, alpha = 0.8f, style = hcUnder)
+                                        drawPath(line, HardcoreColors.bone, style = hcLine)
+                                    } else {
+                                        drawPath(line, HardcoreColors.ash, alpha = 0.7f, style = hcDash)
+                                    }
+                                } else if (g.processing) {
                                     drawPath(fill, fillBrush)
                                     drawIntoCanvas { it.drawPath(line, curveGlow) }
                                     drawPath(line, lineBrush, style = lineStroke)
@@ -440,13 +541,38 @@ internal fun SpectrumEqGraph(
                                 wedge.lineTo(x + wedgeHalf, frame.top)
                                 wedge.lineTo(x, frame.top + wedgeHalf * 1.4f)
                                 wedge.close()
-                                drawPath(wedge, CyberColors.error)
+                                drawPath(wedge, if (hardcore) HardcoreColors.bloodHi else CyberColors.error)
                             }
 
                             if (!g.collapsed) {
                                 for (i in 0 until count) {
                                     val band = g.bands[i]
                                     val center = Offset(frame.x(band.frequencyHz), frame.y(g.gains[i].value))
+                                    if (hardcore) {
+                                        val ring =
+                                            when {
+                                                hot != null && band.frequencyHz == hot -> HardcoreColors.bloodHi
+                                                g.processing -> HardcoreColors.bone
+                                                else -> HardcoreColors.ash
+                                            }
+                                        if (i == g.selected) {
+                                            if (g.processing) drawIntoCanvas { it.drawCircle(center, large, hcNodeGlow) }
+                                            drawCircle(HardcoreColors.void, large, center)
+                                            drawCircle(if (g.processing) HardcoreColors.bone else HardcoreColors.ash, core, center)
+                                            drawCircle(HardcoreColors.void, dot, center)
+                                            drawCircle(
+                                                color = if (g.processing) HardcoreColors.bloodHi else ring,
+                                                radius = halo,
+                                                center = center,
+                                                alpha = 0.8f,
+                                                style = haloStroke,
+                                            )
+                                        } else {
+                                            drawCircle(HardcoreColors.void, small, center)
+                                            drawCircle(ring, small, center, style = ringStroke)
+                                        }
+                                        continue
+                                    }
                                     val ring =
                                         when {
                                             hot != null && band.frequencyHz == hot -> CyberColors.error
@@ -489,7 +615,7 @@ internal fun SpectrumEqGraph(
                     modifier =
                         Modifier
                             .offset {
-                                val frame = GraphFrame(widthPx, height.toPx(), this, scaleDb)
+                                val frame = GraphFrame(widthPx, height.toPx(), this, scaleDb, hardcore)
                                 val half = NodeTarget.toPx() / 2f
                                 IntOffset((frame.x(band.frequencyHz) - half).roundToInt(), (frame.y(shown.value) - half).roundToInt())
                             }.size(NodeTarget)
@@ -599,5 +725,132 @@ private class GridLayer(
 
     private companion object {
         val PlotGround = Color(0x59070510)
+    }
+}
+
+private val HcAxisText = Color(0xFF77726A)
+private val HcBlockLow = Color(0xFF181716)
+private val HcBlockMid = Color(0xFF201F1D)
+private val HcBlockTop = Color(0xFF3A2925)
+private val HcBlockHot = Color(0xFF62201A)
+
+/**
+ * The hardcore graph's still part: a black panel with a graphite edge, a shade along the top and
+ * four screws, the plot's grid in dark graphite (dashed for the gain ticks), the 0 dB line a step
+ * brighter, and stamped axis labels.
+ */
+private class HcGridLayer(
+    private val frame: GraphFrame,
+    scaleDb: Float,
+    sparse: Boolean,
+    measurer: androidx.compose.ui.text.TextMeasurer,
+    axisStyle: androidx.compose.ui.text.TextStyle,
+    density: Density,
+    private val canvasSize: Size,
+) {
+    private val verticals = Path()
+    private val ticks = Path()
+    private val labels = ArrayList<TextLayoutResult>()
+    private val labelPositions = ArrayList<Offset>()
+    private val hairline = Stroke(width = with(density) { 1.dp.toPx() })
+    private val dashed =
+        Stroke(
+            width =
+                with(density) {
+                    1.dp.toPx()
+                },
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(with(density) { 2.dp.toPx() }, with(density) { 3.dp.toPx() })),
+        )
+    private val zeroY = frame.y(0f)
+    private val edge = with(density) { 1.dp.toPx() }
+    private val shade = with(density) { 10.dp.toPx() }
+    private val screwRadius = with(density) { 4.5.dp.toPx() }
+    private val slot = with(density) { 1.2.dp.toPx() }
+    private val screws: List<Pair<Offset, Float>>
+
+    init {
+        val gap = with(density) { 6.dp.toPx() }
+        val below = frame.bottom + with(density) { 6.dp.toPx() }
+        CurveGeometry.labelledFrequencies.forEach { hz ->
+            val x = frame.x(hz)
+            if (hz > CurveGeometry.MIN_HZ && hz < CurveGeometry.MAX_HZ) {
+                verticals.moveTo(x, frame.top)
+                verticals.lineTo(x, frame.bottom)
+            }
+            val layout = measurer.measure(AnnotatedString(CurveGeometry.axisLabel(hz)), style = axisStyle)
+            labels += layout
+            labelPositions += Offset((x - layout.size.width / 2f).coerceIn(frame.left, frame.right - layout.size.width), below)
+        }
+        CurveGeometry.gainTicks(scaleDb).forEach { gain ->
+            val y = frame.y(gain)
+            if (gain != 0f) {
+                ticks.moveTo(frame.left, y)
+                ticks.lineTo(frame.right, y)
+            }
+            if (sparse && gain != 0f && abs(gain) != scaleDb) return@forEach
+            val layout = measurer.measure(AnnotatedString(CurveGeometry.gainTickLabel(gain)), style = axisStyle)
+            labels += layout
+            labelPositions +=
+                Offset(
+                    frame.left - gap - layout.size.width,
+                    (y - layout.size.height / 2f).coerceIn(0f, canvasSize.height - layout.size.height),
+                )
+        }
+        val db = measurer.measure(AnnotatedString("dB"), style = axisStyle)
+        labels += db
+        labelPositions += Offset(frame.left - gap - db.size.width, 0f)
+        val hz = measurer.measure(AnnotatedString("Hz"), style = axisStyle)
+        labels += hz
+        labelPositions += Offset(frame.left - gap - hz.size.width, below)
+        val near = with(density) { 9.5.dp.toPx() }
+        val far = with(density) { 8.5.dp.toPx() }
+        screws =
+            listOf(
+                Offset(near, near) to 20f,
+                Offset(canvasSize.width - near, near) to -40f,
+                Offset(far, canvasSize.height - far) to 75f,
+                Offset(canvasSize.width - far, canvasSize.height - far) to 5f,
+            )
+    }
+
+    fun draw(scope: androidx.compose.ui.graphics.drawscope.DrawScope) =
+        with(scope) {
+            drawRect(HcPanel)
+            drawInsetShade(shade, 0.6f)
+            drawRect(
+                HardcoreColors.edge,
+                topLeft = Offset(edge / 2f, edge / 2f),
+                size = Size(size.width - edge, size.height - edge),
+                style = hairline,
+            )
+            drawPath(verticals, HcGrid, style = hairline)
+            drawPath(ticks, HcGrid, style = dashed)
+            drawLine(HcZero, Offset(frame.left, zeroY), Offset(frame.right, zeroY), edge)
+            for (i in labels.indices) drawText(labels[i], topLeft = labelPositions[i])
+            screws.forEach { (center, angle) ->
+                drawCircle(Color.Black, screwRadius, center + Offset(0f, edge))
+                drawCircle(
+                    Brush.radialGradient(
+                        0f to HcScrewLight,
+                        0.75f to HcScrewDark,
+                        center = center + Offset(-screwRadius * 0.3f, -screwRadius * 0.4f),
+                        radius = screwRadius * 1.4f,
+                    ),
+                    screwRadius,
+                    center,
+                )
+                rotate(angle, pivot = center) {
+                    drawLine(HcScrewSlot, center - Offset(screwRadius - edge, 0f), center + Offset(screwRadius - edge, 0f), slot)
+                }
+            }
+        }
+
+    private companion object {
+        val HcPanel = Color(0xFF0D0D0C)
+        val HcGrid = Color(0xFF1D1C1A)
+        val HcZero = Color(0xFF4A4540)
+        val HcScrewLight = Color(0xFF6A645C)
+        val HcScrewDark = Color(0xFF1D1B19)
+        val HcScrewSlot = Color(0xFF0B0A09)
     }
 }

@@ -29,8 +29,12 @@ import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.audio.AudioEngineState
 import com.auracurve.app.audio.ProcessingSettings
+import com.auracurve.app.ui.components.hardcore.HcLed
+import com.auracurve.app.ui.components.hardcore.HcStatusCard
 import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.CyberDims
+import com.auracurve.app.ui.theme.HardcoreColors
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.glassSurface
 
 // The plain-language state of the EQ, shown in the player and the equalizer. ACTIVE is
@@ -90,6 +94,10 @@ fun EqStatusLine(
             stringResource(kind.labelRes)
         }
     val warning = kind == EqStatusKind.WAITING || kind == EqStatusKind.CONNECTING || kind == EqStatusKind.LOST
+    if (LocalHardcoreLook.current) {
+        HcStatusLine(kind, label, warning, onClick, modifier, trailing)
+        return
+    }
     val shape = MaterialTheme.shapes.large
     Row(
         modifier =
@@ -124,6 +132,52 @@ fun EqStatusLine(
         }
         trailing?.invoke()
     }
+}
+
+// The hardcore status card: a hazard tape in the state's color (hazard while waiting, blood on a
+// problem, toxic green when the effect runs, gray when off), the warning sign or a lamp, the words.
+@Composable
+private fun HcStatusLine(
+    kind: EqStatusKind,
+    label: String,
+    warning: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    trailing: (@Composable () -> Unit)?,
+) {
+    val tape =
+        when (kind) {
+            EqStatusKind.WAITING, EqStatusKind.CONNECTING, EqStatusKind.LOST -> HardcoreColors.hazard
+            EqStatusKind.ERROR, EqStatusKind.UNSUPPORTED -> HardcoreColors.bloodHi
+            EqStatusKind.ACTIVE -> HardcoreColors.toxic
+            EqStatusKind.OFF -> HardcoreColors.ash2
+        }
+    HcStatusCard(
+        label = label,
+        hint = kind.hintRes?.let { stringResource(it) },
+        tapeColor = tape,
+        lamp = {
+            if (warning) {
+                Icon(
+                    imageVector = Icons.Rounded.WarningAmber,
+                    contentDescription = null,
+                    tint = HardcoreColors.hazard,
+                    modifier = Modifier.size(24.dp),
+                )
+            } else {
+                HcLed(
+                    on = kind != EqStatusKind.OFF,
+                    color = if (kind == EqStatusKind.ACTIVE) HardcoreColors.toxic else HardcoreColors.bloodHi,
+                    gray = kind == EqStatusKind.OFF,
+                    size = 10.dp,
+                    modifier = Modifier.padding(horizontal = 7.dp),
+                )
+            }
+        },
+        onClick = onClick,
+        modifier = modifier,
+        trailing = trailing,
+    )
 }
 
 private val ErrorGlass = Color(0x2EFF6B62)

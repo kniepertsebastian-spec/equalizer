@@ -42,6 +42,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -58,10 +59,20 @@ import com.auracurve.app.audio.AudioEngineState
 import com.auracurve.app.audio.MAX_RETRY_ATTEMPTS
 import com.auracurve.app.dsp.HeadphonePower
 import com.auracurve.app.ui.components.cyber.CyberOutlineButton
+import com.auracurve.app.ui.components.hardcore.HcFader
+import com.auracurve.app.ui.components.hardcore.HcHoldPadFace
+import com.auracurve.app.ui.components.hardcore.HcRocker
+import com.auracurve.app.ui.components.hardcore.HcSlideSwitch
+import com.auracurve.app.ui.components.hardcore.HcValueBox
+import com.auracurve.app.ui.components.hardcore.HcWarn
 import com.auracurve.app.ui.theme.CyberBrushes
 import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.CyberDims
 import com.auracurve.app.ui.theme.CyberGlow
+import com.auracurve.app.ui.theme.HardcoreColors
+import com.auracurve.app.ui.theme.HardcoreType
+import com.auracurve.app.ui.theme.HcCorner
+import com.auracurve.app.ui.theme.LocalHardcoreLook
 import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicNumerals
 import com.auracurve.app.ui.theme.cyberGlow
@@ -96,26 +107,45 @@ internal fun HeadphonePowerSection(
     style: EqualizerDesignStyle,
 ) {
     val spacing = MaterialTheme.spacing
+    val hardcore = LocalHardcoreLook.current
     Section {
         SectionHeader(title = stringResource(R.string.hp_power_title))
-        Text(
-            text = stringResource(R.string.hp_power_warning),
-            style = MaterialTheme.typography.bodySmall,
-            color = style.mutedText,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
-            CyberOutlineButton(
-                text = stringResource(R.string.hp_power_standard),
-                onClick = { onPowerChanged(HeadphonePower.DEFAULT) },
-                techCorners = false,
-                color = CyberColors.cyanText,
+        if (hardcore) {
+            HcWarn(text = stringResource(R.string.hp_power_warning))
+            // The two presets as one slide switch; the knob sits on the one that is set, if any.
+            HcSlideSwitch(
+                options = listOf(stringResource(R.string.hp_power_standard), stringResource(R.string.hp_power_knall)),
+                selectedIndex =
+                    when (power) {
+                        HeadphonePower.DEFAULT -> 0
+                        HeadphonePower.KNALL -> 1
+                        else -> null
+                    },
+                onSelect = { onPowerChanged(if (it == 0) HeadphonePower.DEFAULT else HeadphonePower.KNALL) },
+                role = Role.Button,
+                hazardIndex = 1,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
-            CyberOutlineButton(
-                text = stringResource(R.string.hp_power_knall),
-                onClick = { onPowerChanged(HeadphonePower.KNALL) },
-                techCorners = false,
-                color = CyberColors.orchid,
+        } else {
+            Text(
+                text = stringResource(R.string.hp_power_warning),
+                style = MaterialTheme.typography.bodySmall,
+                color = style.mutedText,
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.small)) {
+                CyberOutlineButton(
+                    text = stringResource(R.string.hp_power_standard),
+                    onClick = { onPowerChanged(HeadphonePower.DEFAULT) },
+                    techCorners = false,
+                    color = CyberColors.cyanText,
+                )
+                CyberOutlineButton(
+                    text = stringResource(R.string.hp_power_knall),
+                    onClick = { onPowerChanged(HeadphonePower.KNALL) },
+                    techCorners = false,
+                    color = CyberColors.orchid,
+                )
+            }
         }
         ValueSlider(
             label = stringResource(R.string.hp_power_bass_name),
@@ -143,8 +173,8 @@ internal fun HeadphonePowerSection(
         )
         Text(
             text = stringResource(R.string.hp_power_player_only),
-            style = MaterialTheme.typography.bodySmall,
-            color = style.mutedText,
+            style = if (hardcore) HardcoreType.note else MaterialTheme.typography.bodySmall,
+            color = if (hardcore) HardcoreColors.ash else style.mutedText,
         )
     }
 }
@@ -158,6 +188,10 @@ internal fun SwitchRow(
     onCheckedChange: (Boolean) -> Unit,
     style: EqualizerDesignStyle,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcSwitchRow(title = title, description = description, checked = checked, onCheckedChange = onCheckedChange)
+        return
+    }
     Row(
         modifier =
             Modifier
@@ -177,6 +211,33 @@ internal fun SwitchRow(
     }
 }
 
+// The hardcore switch row: the title and what it does, a rocker switch at the end.
+@Composable
+private fun HcSwitchRow(
+    title: String,
+    description: String?,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+                .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f).padding(end = 14.dp)) {
+            Text(text = title, style = HardcoreType.rowTitle, color = HardcoreColors.bone)
+            if (description != null) {
+                Text(text = description, style = HardcoreType.note, color = HardcoreColors.ash, modifier = Modifier.padding(top = 2.dp))
+            }
+        }
+        HcRocker(checked = checked)
+    }
+}
+
 /** A dB control: name and exact value on one line, the slider below, then what it does. */
 @Composable
 internal fun ValueSlider(
@@ -189,9 +250,15 @@ internal fun ValueSlider(
     valueText: String? = null,
 ) {
     val shown = valueText ?: CurveGeometry.formatGain(value)
-    Column {
+    val hardcore = LocalHardcoreLook.current
+    Column(modifier = if (hardcore) Modifier.padding(top = 8.dp) else Modifier) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = style.text, modifier = Modifier.weight(1f))
+            Text(
+                text = label,
+                style = if (hardcore) HardcoreType.fieldLabel else MaterialTheme.typography.bodyMedium,
+                color = if (hardcore) HardcoreColors.bone else style.text,
+                modifier = Modifier.weight(1f),
+            )
             ValueBadge(text = shown, style = style)
         }
         SonicSlider(
@@ -206,7 +273,11 @@ internal fun ValueSlider(
             style = style,
         )
         if (description != null) {
-            Text(text = description, style = MaterialTheme.typography.bodySmall, color = style.mutedText)
+            Text(
+                text = description,
+                style = if (hardcore) HardcoreType.note else MaterialTheme.typography.bodySmall,
+                color = if (hardcore) HardcoreColors.ash else style.mutedText,
+            )
         }
     }
 }
@@ -222,19 +293,31 @@ internal fun BandSliderRow(
 ) {
     val frequency = CurveGeometry.formatFrequency(band.frequencyHz)
     val value = CurveGeometry.formatGain(band.gainDb)
+    val hardcore = LocalHardcoreLook.current
     Row(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clip(MaterialTheme.shapes.small)
-                .background(if (selected) style.surface else Color.Transparent)
-                .padding(horizontal = 8.dp),
+                .clip(if (hardcore) HcCorner else MaterialTheme.shapes.small)
+                .background(
+                    when {
+                        !selected -> Color.Transparent
+                        hardcore -> HardcoreColors.plate2
+                        else -> style.surface
+                    },
+                ).padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = frequency,
-            style = SonicNumerals.value,
-            color = if (selected) style.accent else style.mutedText,
+            style = if (hardcore) HardcoreType.value else SonicNumerals.value,
+            color =
+                when {
+                    hardcore && selected -> HardcoreColors.bloodHi
+                    hardcore -> HardcoreColors.ash
+                    selected -> style.accent
+                    else -> style.mutedText
+                },
             modifier = Modifier.width(64.dp),
         )
         SonicSlider(
@@ -250,8 +333,8 @@ internal fun BandSliderRow(
         )
         Text(
             text = value,
-            style = SonicNumerals.value,
-            color = style.text,
+            style = if (hardcore) HardcoreType.value else SonicNumerals.value,
+            color = if (hardcore) HardcoreColors.bone else style.text,
             textAlign = TextAlign.End,
             modifier = Modifier.width(76.dp),
         )
@@ -264,6 +347,10 @@ internal fun ValueBadge(
     text: String,
     style: EqualizerDesignStyle,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcValueBox(text = text)
+        return
+    }
     Text(
         text = text,
         style = SonicNumerals.value,
@@ -292,6 +379,17 @@ internal fun SonicSlider(
     enabled: Boolean = true,
     onValueChangeFinished: (() -> Unit)? = null,
 ) {
+    if (LocalHardcoreLook.current) {
+        HcFader(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            modifier = modifier,
+            enabled = enabled,
+            onValueChangeFinished = onValueChangeFinished,
+        )
+        return
+    }
     val interaction = remember { MutableInteractionSource() }
     // Read only while drawing, so moving the thumb redraws the track without rebuilding it.
     val shown = rememberUpdatedState(value)
@@ -408,6 +506,7 @@ internal fun HoldToCompareButton(
     var pressed by remember { mutableStateOf(false) }
     val label = stringResource(R.string.compare_hold)
     val shape = MaterialTheme.shapes.small
+    val hardcore = LocalHardcoreLook.current
     Box(
         modifier =
             modifier
@@ -415,9 +514,11 @@ internal fun HoldToCompareButton(
                 .semantics {
                     contentDescription = label
                     role = Role.Button
-                }.clip(shape)
+                }.clip(if (hardcore) RectangleShape else shape)
                 .then(
-                    if (pressed) {
+                    if (hardcore) {
+                        Modifier
+                    } else if (pressed) {
                         Modifier.background(CyberBrushes.pill).border(CyberDims.activeBorder, CyberBrushes.pillBorder, shape)
                     } else {
                         Modifier
@@ -437,9 +538,17 @@ internal fun HoldToCompareButton(
                             }
                         },
                     )
-                }.padding(horizontal = 12.dp, vertical = 6.dp),
+                }.then(if (hardcore) Modifier else Modifier.padding(horizontal = 12.dp, vertical = 6.dp)),
         contentAlignment = Alignment.Center,
     ) {
+        if (hardcore) {
+            HcHoldPadFace(
+                pressed = pressed,
+                text = stringResource(if (pressed) R.string.compare_hold_active else R.string.compare_hold),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            return@Box
+        }
         Text(
             text = stringResource(if (pressed) R.string.compare_hold_active else R.string.compare_hold),
             style = MaterialTheme.typography.labelLarge,
