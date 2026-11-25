@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
@@ -21,14 +22,16 @@ import kotlin.math.sin
 private const val PARTICLES = 40
 private const val PAUSED_ALPHA = 0.35f
 private const val LOADING_ALPHA = 0.25f
+private const val LOADING_DEGREES_PER_SECOND = 24f
 
 /**
  * The crown of light rays around the cover on Now Playing, orchid to cyan around the circle.
  *
  * It does not listen to the audio (no microphone or visualizer permission; decision E2/E3): the
  * rays move to a seeded pattern while [playing], with a soft beat, and stand still at a third of
- * their light when paused. [seed] comes from the track, so each track has its own crown. Purely
- * decorative, so TalkBack skips it. The cover goes on top, inside [innerRadiusFraction].
+ * their light when paused. While [loading] a short, dim crown turns slowly. [seed] comes from the
+ * track, so each track has its own crown. Purely decorative, so TalkBack skips it. The cover goes
+ * on top, inside [innerRadiusFraction].
  */
 @Composable
 fun RadialVisualizer(
@@ -40,7 +43,7 @@ fun RadialVisualizer(
 ) {
     val rays = remember(seed) { SyntheticRays(seed = seed) }
     val particles = remember(seed) { Particles(seed) }
-    val clock = rememberMotionClock(running = playing && !loading)
+    val clock = rememberMotionClock(running = playing || loading)
     Spacer(
         modifier =
             modifier
@@ -80,14 +83,17 @@ fun RadialVisualizer(
                                 playing -> 1f
                                 else -> PAUSED_ALPHA
                             }
-                        rays.lengths(seconds, lengths)
+                        // Loading: the crown at rest, short and turning; otherwise it moves in place.
+                        rays.lengths(if (loading) 0f else seconds, lengths)
                         val scale = if (loading) 0.3f else 1f
-                        for (i in 0 until count) {
-                            val length = reach * lengths[i] * scale
-                            if (length < 1f) continue
-                            val from = Offset(center.x + cosines[i] * start, center.y + sines[i] * start)
-                            val to = Offset(from.x + cosines[i] * length, from.y + sines[i] * length)
-                            drawLine(sweep, from, to, rayWidth, StrokeCap.Round, alpha = alpha, blendMode = BlendMode.Plus)
+                        rotate(if (loading) seconds * LOADING_DEGREES_PER_SECOND else 0f, center) {
+                            for (i in 0 until count) {
+                                val length = reach * lengths[i] * scale
+                                if (length < 1f) continue
+                                val from = Offset(center.x + cosines[i] * start, center.y + sines[i] * start)
+                                val to = Offset(from.x + cosines[i] * length, from.y + sines[i] * length)
+                                drawLine(sweep, from, to, rayWidth, StrokeCap.Round, alpha = alpha, blendMode = BlendMode.Plus)
+                            }
                         }
                         // The neon ring the cover sits in.
                         drawCircle(sweep, inner + halo.width / 2f, center, alpha = 0.18f * alpha, style = halo)

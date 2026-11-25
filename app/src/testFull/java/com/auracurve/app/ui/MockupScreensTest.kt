@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.LocalContentColor
@@ -41,6 +42,8 @@ import com.auracurve.app.player.catalog.RadioStation
 import com.auracurve.app.player.model.LibraryOverview
 import com.auracurve.app.player.model.PlaylistItem
 import com.auracurve.app.player.playback.NowPlaying
+import com.auracurve.app.player.playback.PlayerNotice
+import com.auracurve.app.player.playback.RepeatSetting
 import com.auracurve.app.playlist.PlaylistRepository
 import com.auracurve.app.preset.BuiltInGenrePresets
 import com.auracurve.app.preset.Preset
@@ -65,6 +68,7 @@ import com.auracurve.app.ui.player.catalog.CatalogUiState
 import com.auracurve.app.ui.player.catalog.radioItems
 import com.auracurve.app.ui.player.discoveryItems
 import com.auracurve.app.ui.player.library.playlistsTabItems
+import com.auracurve.app.ui.player.mini.MiniPlayer
 import com.auracurve.app.ui.player.nowplaying.NowPlayingActions
 import com.auracurve.app.ui.player.nowplaying.NowPlayingContext
 import com.auracurve.app.ui.player.nowplaying.NowPlayingScreen
@@ -220,53 +224,120 @@ class MockupScreensTest {
 
     // ---- Now Playing (10884): the full-screen layer, no navigation bar below it.
 
-    @Test
-    fun nowPlaying() {
-        val track =
-            NowPlaying(
-                title = "Eight In The Morning",
-                artist = "NOSAM",
-                isPlaying = true,
-                durationMs = 164_000L,
-                positionMs = 0L,
-                queueIndex = 0,
-                isPreview = false,
-                notice = null,
-            )
-        val context =
-            NowPlayingContext(
-                eqStatus = EqStatusKind.WAITING,
-                soundName = "Car Uptempo – Kick Snap Max",
-                soundCurve = kickSnapMax.targetCurve,
-                contextName = "Car",
-                route = speaker,
-                queueCount = 80,
-                signedIn = true,
-            )
-        val actions =
-            NowPlayingActions(
-                onCollapse = {},
-                onDrag = {},
-                onDragStopped = {},
-                onTogglePlayback = {},
-                onPrevious = {},
-                onNext = {},
-                onSeek = {},
-                onToggleShuffle = {},
-                onCycleRepeat = {},
-                onAddToPlaylist = {},
-                onOpenSound = {},
-                onOpenQueue = {},
-            )
+    private val nowPlayingContext =
+        NowPlayingContext(
+            eqStatus = EqStatusKind.WAITING,
+            soundName = "Car Uptempo – Kick Snap Max",
+            soundCurve = kickSnapMax.targetCurve,
+            contextName = "Car",
+            route = speaker,
+            queueCount = 80,
+            signedIn = true,
+        )
+
+    private val nowPlayingActions =
+        NowPlayingActions(
+            onCollapse = {},
+            onDrag = {},
+            onDragStopped = {},
+            onTogglePlayback = {},
+            onPrevious = {},
+            onNext = {},
+            onSeek = {},
+            onToggleShuffle = {},
+            onCycleRepeat = {},
+            onAddToPlaylist = {},
+            onOpenSound = {},
+            onOpenQueue = {},
+        )
+
+    private fun track(
+        isPlaying: Boolean = true,
+        positionMs: Long = 0L,
+        isLoading: Boolean = false,
+        isPreview: Boolean = false,
+        shuffle: Boolean = false,
+        repeat: RepeatSetting = RepeatSetting.OFF,
+        notice: PlayerNotice? = null,
+    ) = NowPlaying(
+        title = "Eight In The Morning",
+        artist = "NOSAM",
+        isPlaying = isPlaying,
+        durationMs = 164_000L,
+        positionMs = positionMs,
+        queueIndex = 0,
+        isLoading = isLoading,
+        isPreview = isPreview,
+        shuffle = shuffle,
+        repeat = repeat,
+        notice = notice,
+    )
+
+    private fun showNowPlaying(track: NowPlaying) {
         compose.setContent {
             AuraCurveTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    NowPlayingScreen(ui = NowPlayingUi.from(track), context = context, actions = actions)
+                    NowPlayingScreen(ui = NowPlayingUi.from(track), context = nowPlayingContext, actions = nowPlayingActions)
                 }
             }
         }
         compose.waitForIdle()
+    }
+
+    @Test
+    fun nowPlaying() {
+        showNowPlaying(track())
         save("10884-now-playing")
+    }
+
+    // Beyond the mockup: paused part-way, a preview, shuffle and repeat-one on, and a notice that
+    // waits for "Try again".
+    @Test
+    fun nowPlayingPausedWithNotice() {
+        showNowPlaying(
+            track(
+                isPlaying = false,
+                positionMs = 61_000L,
+                isPreview = true,
+                shuffle = true,
+                repeat = RepeatSetting.ONE,
+                notice = PlayerNotice.NetworkGaveUp,
+            ),
+        )
+        save("10884-now-playing-paused")
+    }
+
+    // The mini player above the navigation bar: playing, paused with a notice, and loading.
+    @Test
+    fun miniPlayer() {
+        compose.setContent {
+            AuraCurveTheme {
+                Column(
+                    modifier = Modifier.fillMaxSize().cyberBackdrop().padding(vertical = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    listOf(
+                        track(positionMs = 52_000L) to EqStatusKind.ACTIVE,
+                        track(isPlaying = false, positionMs = 120_000L, isPreview = true, notice = PlayerNotice.WaitingForNetwork) to
+                            EqStatusKind.WAITING,
+                        track(isPlaying = false, isLoading = true) to EqStatusKind.OFF,
+                    ).forEach { (playing, eq) ->
+                        MiniPlayer(
+                            ui = NowPlayingUi.from(playing),
+                            eqStatus = eq,
+                            onExpand = {},
+                            onDrag = {},
+                            onDragStopped = {},
+                            onTogglePlayback = {},
+                            onNext = {},
+                            onOpenSound = {},
+                        )
+                    }
+                }
+            }
+        }
+        compose.waitForIdle()
+        save("components-mini-player")
     }
 
     // ---- Player tabs (10885-10887): the head of PlayerScreen and one tab's items.

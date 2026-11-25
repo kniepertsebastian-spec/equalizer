@@ -1,6 +1,5 @@
 package com.auracurve.app.ui.player.mini
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -9,12 +8,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Pause
@@ -31,8 +32,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -44,16 +47,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.player.playback.PlayerNotice
+import com.auracurve.app.ui.components.cyber.CyberPlayKey
 import com.auracurve.app.ui.eq.EqStatusKind
 import com.auracurve.app.ui.eq.EqStatusLamp
-import com.auracurve.app.ui.equalizer.SonicStyle
-import com.auracurve.app.ui.equalizer.lineBrush
 import com.auracurve.app.ui.player.CoverImage
-import com.auracurve.app.ui.player.PlayKey
+import com.auracurve.app.ui.player.ProgressRingCover
 import com.auracurve.app.ui.player.common.PreviewTag
 import com.auracurve.app.ui.player.isProblem
 import com.auracurve.app.ui.player.noticeText
 import com.auracurve.app.ui.player.nowplaying.NowPlayingUi
+import com.auracurve.app.ui.theme.CyberBrushes
+import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.glassSurface
 import com.auracurve.app.ui.theme.spacing
 
 // The mini player: docked above the navigation bar in both tabs, as long as something is
@@ -84,6 +89,7 @@ fun MiniPlayer(
                 .fillMaxWidth()
                 .padding(horizontal = spacing.small, vertical = 6.dp)
                 .clip(MaterialTheme.shapes.large)
+                .glassSurface(MaterialTheme.shapes.large, CyberColors.surfaceHigh)
                 .draggable(
                     orientation = Orientation.Vertical,
                     // Up is a negative delta on screen; the sheet counts pulling up as positive.
@@ -105,12 +111,13 @@ fun MiniPlayer(
                             },
                         )
                 },
-        color = SonicStyle.surface,
+        color = Color.Transparent,
+        contentColor = CyberColors.text,
         shape = MaterialTheme.shapes.large,
     ) {
         Column {
-            // The playback position as the top edge: also the hint that there is more above.
-            ProgressLine(progress = if (ui.durationMs > 0) ui.progress else 0f)
+            // The neon top edge: the hint that there is more above.
+            NeonEdge()
             Row(
                 modifier =
                     Modifier
@@ -119,7 +126,15 @@ fun MiniPlayer(
                         .padding(start = spacing.small, end = spacing.small),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                CoverImage(url = ui.artworkUrl, modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.medium))
+                // The round cover; its ring is the playback position (display only).
+                ProgressRingCover(
+                    progress = if (ui.durationMs > 0) ui.progress else 0f,
+                    modifier = Modifier.size(52.dp),
+                    ringWidth = 2.dp,
+                    gap = 2.dp,
+                ) {
+                    CoverImage(url = ui.artworkUrl, modifier = Modifier.fillMaxSize().clip(CircleShape))
+                }
                 Spacer(modifier = Modifier.width(spacing.small))
                 Column(modifier = Modifier.weight(1f).padding(vertical = spacing.small)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -127,7 +142,7 @@ fun MiniPlayer(
                             text = ui.title,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
+                            color = CyberColors.text,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
@@ -154,7 +169,7 @@ fun MiniPlayer(
                 }
                 // 44 dp key inside a 48 dp touch target.
                 Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                    PlayKey(onClick = onTogglePlayback, enabled = true, size = 44.dp) {
+                    CyberPlayKey(playing = ui.isPlaying, enabled = true, onClick = onTogglePlayback, size = 44.dp, glow = false) {
                         if (ui.isLoading) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
                         } else {
@@ -166,25 +181,28 @@ fun MiniPlayer(
                     }
                 }
                 IconButton(onClick = onNext) {
-                    Icon(Icons.Default.SkipNext, contentDescription = nextLabel)
+                    Icon(Icons.Default.SkipNext, contentDescription = nextLabel, tint = CyberColors.text)
                 }
             }
         }
     }
 }
 
-// The playback position as a thin gradient line along the card's top edge: also the hint that
-// there is more above.
+// The card's top edge as a thin neon line, purple to cyan to purple, fading out at the corners.
 @Composable
-private fun ProgressLine(progress: Float) {
-    val style = SonicStyle
-    Canvas(modifier = Modifier.fillMaxWidth().height(3.dp)) {
-        drawRect(color = style.surfaceVariant)
-        val width = size.width * progress.coerceIn(0f, 1f)
-        if (width > 0f) {
-            drawRect(brush = style.lineBrush(0f, size.width), size = Size(width, size.height))
-        }
-    }
+private fun NeonEdge() {
+    Spacer(
+        modifier =
+            Modifier.fillMaxWidth().height(2.dp).drawWithCache {
+                val inset = 16.dp.toPx()
+                val start = Offset(inset, size.height / 2f)
+                val end = Offset(size.width - inset, size.height / 2f)
+                val stroke = size.height
+                onDrawBehind {
+                    if (end.x > start.x) drawLine(CyberBrushes.barEdge, start, end, stroke, StrokeCap.Round)
+                }
+            },
+    )
 }
 
 // Artist, or what the player has to say (no connection, skipped track) with a symbol, so the
@@ -196,13 +214,13 @@ private fun MiniSubtitle(ui: NowPlayingUi) {
         Text(
             text = ui.artist,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = CyberColors.mutedText,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         return
     }
-    val color = if (notice.isProblem()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+    val color = if (notice.isProblem()) MaterialTheme.colorScheme.error else CyberColors.mutedText
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             imageVector = if (notice == PlayerNotice.WaitingForNetwork) Icons.Default.CloudOff else Icons.Default.Warning,

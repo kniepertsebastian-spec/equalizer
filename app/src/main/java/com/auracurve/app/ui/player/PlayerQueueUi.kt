@@ -21,6 +21,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -43,9 +44,9 @@ import coil3.compose.AsyncImage
 import com.auracurve.app.R
 import com.auracurve.app.player.playback.PlayerNotice
 import com.auracurve.app.player.playback.RepeatSetting
+import com.auracurve.app.ui.components.cyber.CyberRoundButton
 import com.auracurve.app.ui.equalizer.SonicStyle
 import com.auracurve.app.ui.theme.SonicSteel
-import com.auracurve.app.ui.theme.SonicViolet
 
 // A cover from SoundCloud, loaded and cached by Coil (memory and disk, see
 // AuraCurveApplication.newImageLoader), so scrolling a list or reopening the player does not
@@ -211,7 +212,8 @@ fun QueueEntryMenu(
     }
 }
 
-// Shuffle on/off. On is violet (the selected-control color); the state is also spoken.
+// Shuffle on/off. On is a cyan ring and icon on a tinted key, off a gray icon in the metal ring;
+// the state is also spoken.
 @Composable
 fun ShuffleButton(
     enabled: Boolean,
@@ -220,17 +222,17 @@ fun ShuffleButton(
 ) {
     val label = stringResource(R.string.player_shuffle)
     val state = stringResource(if (on) R.string.state_on else R.string.state_off)
-    RoundControlButton(
+    CyberRoundButton(
         onClick = onToggle,
         enabled = enabled,
-        size = 48.dp,
+        selected = on,
         modifier =
             Modifier.semantics {
                 contentDescription = label
                 stateDescription = state
             },
     ) {
-        Icon(Icons.Default.Shuffle, contentDescription = null, tint = if (on) SonicViolet else SonicSteel)
+        Icon(Icons.Default.Shuffle, contentDescription = null, tint = offTint(on, enabled))
     }
 }
 
@@ -251,10 +253,11 @@ fun RepeatButton(
                 RepeatSetting.ONE -> R.string.player_repeat_one
             },
         )
-    RoundControlButton(
+    val on = setting != RepeatSetting.OFF
+    CyberRoundButton(
         onClick = onCycle,
         enabled = enabled,
-        size = 48.dp,
+        selected = on,
         modifier =
             Modifier.semantics {
                 contentDescription = label
@@ -264,10 +267,17 @@ fun RepeatButton(
         Icon(
             imageVector = if (setting == RepeatSetting.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat,
             contentDescription = null,
-            tint = if (setting == RepeatSetting.OFF) SonicSteel else SonicViolet,
+            tint = offTint(on, enabled),
         )
     }
 }
+
+// Off and usable: gray. Otherwise the key's own tint (cyan when on, dimmed when disabled).
+@Composable
+private fun offTint(
+    on: Boolean,
+    enabled: Boolean,
+): Color = if (!on && enabled) SonicSteel else LocalContentColor.current
 
 // What the player has to say right now (it used to be a toast from the service).
 @Composable
