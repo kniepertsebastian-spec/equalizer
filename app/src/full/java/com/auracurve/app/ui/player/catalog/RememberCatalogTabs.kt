@@ -14,9 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,7 +34,9 @@ import com.auracurve.app.player.catalog.AudiusGenre
 import com.auracurve.app.player.catalog.RadioGenre
 import com.auracurve.app.player.catalog.RadioStation
 import com.auracurve.app.player.model.TrackItem
+import com.auracurve.app.playlist.DirectStream
 import com.auracurve.app.playlist.PlayerFormat
+import com.auracurve.app.ui.components.cyber.CyberTextField
 import com.auracurve.app.ui.equalizer.ChoiceChip
 import com.auracurve.app.ui.player.PlayerTab
 import com.auracurve.app.ui.player.TrackQueueMenu
@@ -50,6 +50,8 @@ import com.auracurve.app.ui.theme.spacing
 fun rememberCatalogTabs(
     onPlayNext: (TrackItem) -> Unit,
     onAddToQueue: (TrackItem) -> Unit,
+    // The id of the track that is playing right now (not paused), for the pulse on its row.
+    playingTrackId: Long? = null,
 ): CatalogTabs {
     val radio: RadioViewModel = hiltViewModel()
     val audius: AudiusViewModel = hiltViewModel()
@@ -70,6 +72,7 @@ fun rememberCatalogTabs(
                     onPlay = radio::play,
                     onPlayNext = { onPlayNext(it.toTrack()) },
                     onAddToQueue = { onAddToQueue(it.toTrack()) },
+                    playingTrackId = playingTrackId,
                 )
             PlayerTab.AUDIUS ->
                 audiusItems(
@@ -90,7 +93,7 @@ fun rememberCatalogTabs(
     }
 }
 
-private fun LazyListScope.radioItems(
+internal fun LazyListScope.radioItems(
     genre: RadioGenre,
     state: CatalogUiState<RadioStation>,
     onShown: () -> Unit,
@@ -99,6 +102,7 @@ private fun LazyListScope.radioItems(
     onPlay: (RadioStation) -> Unit,
     onPlayNext: (RadioStation) -> Unit,
     onAddToQueue: (RadioStation) -> Unit,
+    playingTrackId: Long? = null,
 ) {
     item(key = "radio-head") {
         LaunchedEffect(Unit) { onShown() }
@@ -109,9 +113,12 @@ private fun LazyListScope.radioItems(
     }
     statusItems("radio", state, onRetry)
     itemsIndexed(state.items, key = { _, station -> "radio-${station.uuid}" }) { _, station ->
+        // "Live" as its own label in front of the rest; together the same line as before.
         LibraryRow(
             title = station.name,
-            subtitle = stationDetail(station, stringResource(R.string.radio_live)),
+            subtitle = stationDetail(station, live = ""),
+            liveLabel = stringResource(R.string.radio_live),
+            playing = playingTrackId != null && playingTrackId == DirectStream.idOf(RadioStation.RADIO_SOURCE, station.uuid),
             onPlay = { onPlay(station) },
             showCover = true,
             artworkUrl = station.faviconUrl,
@@ -147,13 +154,11 @@ private fun LazyListScope.audiusItems(
         var text by rememberSaveable { mutableStateOf(query) }
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.small)) {
             Text(stringResource(R.string.catalog_audius_intro), style = MaterialTheme.typography.bodySmall, color = SonicSteel)
-            OutlinedTextField(
+            CyberTextField(
                 value = text,
                 onValueChange = { text = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(R.string.audius_search_hint)) },
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                placeholder = stringResource(R.string.audius_search_hint),
+                leadingIcon = Icons.Default.Search,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { onSearch(text) }),
             )

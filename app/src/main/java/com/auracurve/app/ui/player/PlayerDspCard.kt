@@ -1,13 +1,11 @@
 package com.auracurve.app.ui.player
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -24,8 +22,8 @@ import com.auracurve.app.R
 import com.auracurve.app.dsp.BassExciterSettings
 import com.auracurve.app.dsp.BassMonoSummerSettings
 import com.auracurve.app.dsp.PlayerDspSettings
+import com.auracurve.app.ui.components.cyber.CyberCard
 import com.auracurve.app.ui.equalizer.ChoiceChip
-import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.spacing
 import kotlin.math.abs
 
@@ -41,12 +39,7 @@ fun PlayerDspCard(
     onVirtualBassCharacter: (Float) -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, SonicRule),
-    ) {
+    CyberCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp)) {
         Column(modifier = Modifier.padding(spacing.medium)) {
             Text(text = stringResource(R.string.dsp_card_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(

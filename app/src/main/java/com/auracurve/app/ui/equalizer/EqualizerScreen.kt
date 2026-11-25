@@ -19,11 +19,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.LibraryMusic
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Hearing
@@ -33,10 +36,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -56,7 +56,6 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -91,11 +90,17 @@ import com.auracurve.app.preset.GenrePresetGroups
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.SoundGoal
 import com.auracurve.app.preset.TargetPoint
+import com.auracurve.app.ui.components.cyber.CyberOutlineButton
+import com.auracurve.app.ui.components.cyber.CyberRoundButton
+import com.auracurve.app.ui.components.cyber.CyberToggle
+import com.auracurve.app.ui.components.cyber.RotaryKnob
+import com.auracurve.app.ui.components.cyber.SpectrumMode
 import com.auracurve.app.ui.eq.EqStatus
 import com.auracurve.app.ui.eq.EqStatusKind
 import com.auracurve.app.ui.eq.EqStatusLine
 import com.auracurve.app.ui.main.CompareSide
 import com.auracurve.app.ui.main.CompareState
+import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.spacing
 
 @Composable
@@ -178,6 +183,8 @@ fun EqualizerScreen(
     // Rarely used extras (diagnostics, debug) at the end of the Device tab, out of the way.
     deviceTabFooter: (@Composable ColumnScope.() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    // The built-in player is playing right now: only then do the graph's (synthetic) bars move.
+    playerPlaying: Boolean = false,
 ) {
     val spacing = MaterialTheme.spacing
     val style = SonicStyle
@@ -314,7 +321,7 @@ fun EqualizerScreen(
                 horizontalArrangement = Arrangement.spacedBy(spacing.small),
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Caption(text = stringResource(R.string.route_label, route.name), color = style.mutedText)
+                    Caption(text = stringResource(R.string.route_label, route.name), color = CyberColors.cyanText)
                     Text(
                         text =
                             if (isDirty) {
@@ -331,11 +338,11 @@ fun EqualizerScreen(
                 // Independent of the master switch - that one only offers the source
                 // picker when flipped on with nothing attached yet (see
                 // MainViewModel.setMasterEnabled).
-                IconButton(onClick = onOpenSourcePicker) {
+                CyberRoundButton(onClick = onOpenSourcePicker, size = 44.dp) {
                     Icon(
                         imageVector = Icons.Default.LibraryMusic,
                         contentDescription = stringResource(R.string.eq_pick_source),
-                        tint = style.mutedText,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
                 PowerKey(
@@ -374,6 +381,7 @@ fun EqualizerScreen(
                     level = if (settings.masterEnabled) warningLevel else null,
                     onClick = { signalChainOpen = true },
                     style = style,
+                    processing = processing,
                 )
             }
             AnimatedVisibility(visible = waitingForSession && noSessionDetails) {
@@ -385,8 +393,8 @@ fun EqualizerScreen(
             }
             AnimatedVisibility(visible = isDirty) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onResetToActivePreset) { Text(stringResource(R.string.compare_reset)) }
-                    TextButton(onClick = onSaveAsNewRequest) { Text(stringResource(R.string.action_save)) }
+                    LinkButton(text = stringResource(R.string.compare_reset), onClick = onResetToActivePreset)
+                    LinkButton(text = stringResource(R.string.action_save), onClick = onSaveAsNewRequest)
                 }
             }
             Box {
@@ -415,6 +423,16 @@ fun EqualizerScreen(
                         },
                     hotFrequencyHz = curvePeak?.takeIf { heavyLimiting && it.gainDb > 0f }?.frequencyHz,
                     description = curveDescription,
+                    // Decision E2: the bars are a visualisation shaped by the curve. They move only
+                    // while the EQ really runs on the built-in player's audio and it plays; the
+                    // Device tab shows the target curve alone.
+                    spectrum =
+                        when {
+                            tab == EqualizerTab.DEVICE -> SpectrumMode.OFF
+                            statusKind == EqStatusKind.ACTIVE && playerPlaying && isOwnPlayerSession -> SpectrumMode.LIVE
+                            else -> SpectrumMode.STATIC
+                        },
+                    emphasis = tab == EqualizerTab.DEVICE,
                 )
                 if (collapsed) {
                     val expand = stringResource(R.string.graph_expand)
@@ -443,9 +461,12 @@ fun EqualizerScreen(
     fun NoticeSlot() {
         when {
             state is AudioEngineState.Error ->
-                OutlinedButton(onClick = onRetryAttach, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Text(stringResource(R.string.action_retry))
-                }
+                CyberOutlineButton(
+                    text = stringResource(R.string.action_retry),
+                    onClick = onRetryAttach,
+                    icon = Icons.Default.Refresh,
+                    techCorners = false,
+                )
             deviceKindPrompt != null ->
                 DeviceKindCard(
                     deviceName = deviceKindPrompt.name,
@@ -471,12 +492,8 @@ fun EqualizerScreen(
                         color = style.mutedText,
                     )
                     Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                        TextButton(onClick = onDismissSuggestedCorrectionProfile) {
-                            Text(stringResource(R.string.action_not_now))
-                        }
-                        TextButton(onClick = onAcceptSuggestedCorrectionProfile) {
-                            Text(stringResource(R.string.action_apply))
-                        }
+                        LinkButton(text = stringResource(R.string.action_not_now), onClick = onDismissSuggestedCorrectionProfile)
+                        LinkButton(text = stringResource(R.string.action_apply), onClick = onAcceptSuggestedCorrectionProfile)
                     }
                 }
         }
@@ -520,7 +537,7 @@ fun EqualizerScreen(
                         color = style.mutedText,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = onEndCompare) { Text(stringResource(R.string.compare_done)) }
+                    LinkButton(text = stringResource(R.string.compare_done), onClick = onEndCompare)
                 }
             }
         }
@@ -530,11 +547,9 @@ fun EqualizerScreen(
     fun GenreSection() {
         var presetUsageOpen by rememberSaveable { mutableStateOf(false) }
         Section {
-            SectionHeader(title = stringResource(R.string.genre_title)) {
+            SectionHeader(title = stringResource(R.string.genre_title), titleColor = CyberColors.orchid) {
                 // P5-4: a preset link someone sent (or a scanned QR code, which opens the app directly).
-                TextButton(onClick = onImportPresetLinkRequested) {
-                    Text(stringResource(R.string.preset_import_link))
-                }
+                LinkButton(text = stringResource(R.string.preset_import_link), onClick = onImportPresetLinkRequested)
                 // When the active preset (genre or custom) is a good choice; each custom preset
                 // also has it in its own menu.
                 IconButton(onClick = { presetUsageOpen = !presetUsageOpen }) {
@@ -855,8 +870,8 @@ fun EqualizerScreen(
             )
             var showRenameRoute by rememberSaveable { mutableStateOf(false) }
             Row {
-                TextButton(onClick = onOpenServices) { Text(stringResource(R.string.profiles_open_services)) }
-                TextButton(onClick = { showRenameRoute = true }) { Text(stringResource(R.string.route_rename)) }
+                LinkButton(text = stringResource(R.string.profiles_open_services), onClick = onOpenServices)
+                LinkButton(text = stringResource(R.string.route_rename), onClick = { showRenameRoute = true })
             }
             if (showRenameRoute) {
                 RenameRouteDialog(
@@ -879,9 +894,12 @@ fun EqualizerScreen(
                 trailing = {
                     // M5: opens the SAF file picker; parsing and preview happen in
                     // MainViewModel once MainScreen has read the picked file.
-                    TextButton(onClick = onImportCorrectionProfileRequested) {
-                        Text(stringResource(R.string.action_import))
-                    }
+                    CyberOutlineButton(
+                        text = stringResource(R.string.action_import),
+                        onClick = onImportCorrectionProfileRequested,
+                        icon = Icons.Default.FileOpen,
+                        color = CyberColors.accentText,
+                    )
                 },
             )
 
@@ -923,30 +941,48 @@ fun EqualizerScreen(
                 color = style.text,
                 modifier = Modifier.padding(top = spacing.small),
             )
-            ValueSlider(
-                label = stringResource(R.string.macro_bass_name),
-                description = stringResource(R.string.macro_bass_desc),
-                value = settings.macroBassDb,
-                onValueChange = onMacroBassChanged,
-                valueRange = -6f..6f,
-                style = style,
-            )
-            ValueSlider(
-                label = stringResource(R.string.macro_punch_name),
-                description = stringResource(R.string.macro_punch_desc),
-                value = settings.macroPunchDb,
-                onValueChange = onMacroPunchChanged,
-                valueRange = -6f..6f,
-                style = style,
-            )
-            ValueSlider(
-                label = stringResource(R.string.macro_haerte_name),
-                description = stringResource(R.string.macro_haerte_desc),
-                value = settings.macroHaerteDb,
-                onValueChange = onMacroHaerteChanged,
-                valueRange = -2f..2f,
-                style = style,
-            )
+            // Three knobs side by side, as on the hardware the mockup borrows from; each keeps
+            // its name, exact value and explanation, and TalkBack still adjusts it like a slider.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                RotaryKnob(
+                    value = settings.macroBassDb,
+                    valueRange = -6f..6f,
+                    onValueChange = onMacroBassChanged,
+                    ringColors = BassRing,
+                    label = stringResource(R.string.macro_bass_name),
+                    valueText = CurveGeometry.formatGain(settings.macroBassDb),
+                    description = stringResource(R.string.macro_bass_desc),
+                    knobSize = MacroKnobSize,
+                    modifier = Modifier.weight(1f),
+                )
+                RotaryKnob(
+                    value = settings.macroPunchDb,
+                    valueRange = -6f..6f,
+                    onValueChange = onMacroPunchChanged,
+                    ringColors = PunchRing,
+                    label = stringResource(R.string.macro_punch_name),
+                    valueText = CurveGeometry.formatGain(settings.macroPunchDb),
+                    description = stringResource(R.string.macro_punch_desc),
+                    knobSize = MacroKnobSize,
+                    modifier = Modifier.weight(1f),
+                )
+                RotaryKnob(
+                    value = settings.macroHaerteDb,
+                    valueRange = -2f..2f,
+                    onValueChange = onMacroHaerteChanged,
+                    ringColors = HarshnessRing,
+                    label = stringResource(R.string.macro_haerte_name),
+                    valueText = CurveGeometry.formatGain(settings.macroHaerteDb),
+                    description = stringResource(R.string.macro_haerte_desc),
+                    knobSize = MacroKnobSize,
+                    step = 0.25f,
+                    modifier = Modifier.weight(1f),
+                )
+            }
 
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = spacing.small),
@@ -958,18 +994,28 @@ fun EqualizerScreen(
                     color = style.text,
                     modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = stringResource(R.string.bypass_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = style.text,
+                // Display only (decision E4): the real band gains, dimmed placeholders with no bands.
+                MiniFaders(
+                    bands = graphBands,
+                    active = !settings.bypass && settings.masterEnabled,
+                    modifier = Modifier.padding(horizontal = spacing.small),
                 )
-                Spacer(modifier = Modifier.width(spacing.small))
-                val bypassDescription = stringResource(R.string.bypass_label)
-                Switch(
-                    modifier = Modifier.semantics { contentDescription = bypassDescription },
-                    checked = settings.bypass,
-                    onCheckedChange = onBypassToggled,
-                )
+                // Label and switch are one touch target, read as "Bypass, switch, on/off".
+                Row(
+                    modifier =
+                        Modifier
+                            .heightIn(min = 48.dp)
+                            .toggleable(value = settings.bypass, role = Role.Switch, onValueChange = onBypassToggled),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.bypass_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = style.text,
+                    )
+                    Spacer(modifier = Modifier.width(spacing.small))
+                    CyberToggle(checked = settings.bypass, onCheckedChange = null)
+                }
             }
             // The same bands as the graph, as sliders: the selected one is marked in
             // both places, and moving a slider selects its point.
@@ -1035,13 +1081,18 @@ fun EqualizerScreen(
                 }
                 EqualizerTab.DEVICE -> {
                     Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
-                        AudioSourceList(
-                            sessions = audioSessions,
-                            activeSession = activeAudioSession,
-                            onSelect = onSelectAudioSession,
-                            appProfileBound = appProfileBound,
-                            onAppProfileBoundChange = onAppProfileBoundChanged,
-                        )
+                        // AudioSourceList draws nothing without sessions, so the card only comes with them.
+                        if (audioSessions.isNotEmpty()) {
+                            Section {
+                                AudioSourceList(
+                                    sessions = audioSessions,
+                                    activeSession = activeAudioSession,
+                                    onSelect = onSelectAudioSession,
+                                    appProfileBound = appProfileBound,
+                                    onAppProfileBoundChange = onAppProfileBoundChanged,
+                                )
+                            }
+                        }
                         Text(
                             text = stringResource(R.string.eq_playback_only_note),
                             style = MaterialTheme.typography.bodySmall,
@@ -1074,7 +1125,12 @@ fun EqualizerScreen(
             // Short screens get a smaller curve; wide ones (landscape) put the head beside the tabs.
             val wide = maxWidth > maxHeight && maxWidth >= WIDE_LAYOUT_MIN_WIDTH
             val compact = maxHeight < COMPACT_HEIGHT
-            val graphHeight = if (compact) CompactGraphHeight else DefaultGraphHeight
+            val graphHeight =
+                when {
+                    compact -> CompactGraphHeight
+                    tab == EqualizerTab.DEVICE -> DefaultGraphHeight + DeviceGraphExtra
+                    else -> DefaultGraphHeight
+                }
             // Folding only helps where the head sits above the options.
             val collapsible = !wide
             if (wide) {
@@ -1120,3 +1176,9 @@ private const val COLLAPSE_THRESHOLD_PX = 1f
 
 // Size of the LED meters' scale: 12 dB fills a chain.
 private const val METER_RANGE_DB = 12f
+
+// Ring colors of the macro knobs (Design/DESIGN_SPEC.md, Fine-tune).
+private val BassRing = listOf(CyberColors.cyan)
+private val PunchRing = listOf(CyberColors.orchid)
+private val HarshnessRing = listOf(CyberColors.violet, CyberColors.orange)
+private val MacroKnobSize = 104.dp

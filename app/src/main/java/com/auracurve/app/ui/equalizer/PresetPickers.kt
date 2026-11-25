@@ -69,7 +69,9 @@ import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetSourceScope
 import com.auracurve.app.preset.PresetUsageAdvisor
 import com.auracurve.app.preset.PresetUsageHint
-import com.auracurve.app.ui.theme.PillShape
+import com.auracurve.app.ui.theme.CyberBrushes
+import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.CyberDims
 import com.auracurve.app.ui.theme.Spacing
 import com.auracurve.app.ui.theme.spacing
 
@@ -87,6 +89,24 @@ internal fun genreIcon(genreId: String): ImageVector =
         "genre_flat" -> Icons.Filled.Remove
         else -> Icons.Filled.MusicNote
     }
+
+// The color of a genre's icon badge (Design/DESIGN_SPEC.md §5B): a cue next to the name and the
+// icon, never the only one.
+internal fun genreTint(genreId: String): Color =
+    when (genreId) {
+        "genre_terror" -> CyberColors.orange
+        "genre_uptempo" -> CyberColors.cyan
+        "genre_gabber" -> CyberColors.yellow
+        "genre_early" -> CyberColors.violet
+        "genre_frenchcore" -> GenreBlue
+        "genre_dance" -> CyberColors.orchid
+        "genre_pop" -> GenreBlue
+        "genre_rap" -> CyberColors.cyan
+        "genre_flat" -> CyberColors.mutedText
+        else -> CyberColors.accentText
+    }
+
+private val GenreBlue = Color(0xFF4A9BFF)
 
 // Three-per-row grid of the user's own presets. Static/chunked rather than
 // LazyVerticalGrid since the list is small.
@@ -154,8 +174,13 @@ internal fun CorrectionProfileRow(
                 onClick = { onProfileSelected(profile) },
                 modifier = Modifier.heightIn(min = 56.dp),
                 shape = MaterialTheme.shapes.medium,
-                color = if (selected) style.accent.copy(alpha = 0.16f) else style.surfaceVariant,
-                border = if (selected) BorderStroke(1.5.dp, style.accent) else null,
+                color = if (selected) CyberColors.cyan.copy(alpha = 0.10f) else CyberColors.surfaceHigh,
+                border =
+                    if (selected) {
+                        BorderStroke(CyberDims.activeBorder, CyberBrushes.pillBorder)
+                    } else {
+                        BorderStroke(CyberDims.border, CyberColors.outline.copy(alpha = 0.6f))
+                    },
             ) {
                 Row(
                     modifier = Modifier.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
@@ -228,21 +253,27 @@ internal fun PresetCard(
                 .height(56.dp)
                 .alpha(if (enabled) 1f else INACTIVE_PRESET_ALPHA)
                 .semantics { inactiveReason?.let { stateDescription = it } },
-        shape = PillShape,
-        color = style.surfaceVariant,
+        shape = MaterialTheme.shapes.medium,
+        color = CyberColors.surface,
+        border =
+            if (selected) {
+                BorderStroke(CyberDims.activeBorder, CyberBrushes.pillBorder)
+            } else {
+                BorderStroke(CyberDims.border, CyberBrushes.border)
+            },
     ) {
         Row(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .then(if (selected) Modifier.background(style.accentFill) else Modifier)
-                    .padding(start = 14.dp),
+                    .then(if (selected) Modifier.background(CyberBrushes.pill) else Modifier)
+                    .padding(start = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = presetIcon(preset.id),
                 contentDescription = null,
-                tint = if (selected) Color.White else style.accent,
+                tint = if (selected) Color.White else CyberColors.cyan,
                 modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))

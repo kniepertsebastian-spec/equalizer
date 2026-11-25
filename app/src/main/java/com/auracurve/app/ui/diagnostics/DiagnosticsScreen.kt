@@ -2,6 +2,7 @@ package com.auracurve.app.ui.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,8 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -28,6 +27,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.auracurve.app.BuildConfig
 import com.auracurve.app.R
 import com.auracurve.app.audio.AudioCapabilities
@@ -38,6 +38,7 @@ import com.auracurve.app.diagnostics.DiagnosticsEvent
 import com.auracurve.app.diagnostics.DiagnosticsReportFormatter
 import com.auracurve.app.diagnostics.OutputAudioInfo
 import com.auracurve.app.diagnostics.ProcessExitRecord
+import com.auracurve.app.ui.components.cyber.CyberCard
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.SonicViolet
 import com.auracurve.app.ui.theme.spacing
@@ -110,10 +111,7 @@ fun DiagnosticsScreen(
         ) {
             AboutCard()
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            ) {
+            CyberCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp)) {
                 SelectionContainer {
                     Text(
                         text = reportText,
@@ -140,10 +138,7 @@ fun DiagnosticsScreen(
 @Composable
 private fun AboutCard() {
     val spacing = MaterialTheme.spacing
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
+    CyberCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp)) {
         Column(modifier = Modifier.padding(spacing.medium)) {
             Text(
                 text = stringResource(R.string.app_name),

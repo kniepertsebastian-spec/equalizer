@@ -1,6 +1,7 @@
 package com.auracurve.app.ui.player
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -31,8 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -49,18 +51,23 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.player.model.TrackItem
 import com.auracurve.app.playlist.PlayerFormat
+import com.auracurve.app.ui.components.cyber.CyberOutlineButton
+import com.auracurve.app.ui.components.cyber.CyberTextField
 import com.auracurve.app.ui.equalizer.ChoiceChip
-import com.auracurve.app.ui.equalizer.SonicStyle
 import com.auracurve.app.ui.player.library.LibraryRow
+import com.auracurve.app.ui.theme.CyberBrushes
+import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.CyberDims
+import com.auracurve.app.ui.theme.CyberGlow
 import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicPaper
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.SonicViolet
+import com.auracurve.app.ui.theme.cyberGlow
 import com.auracurve.app.ui.theme.spacing
 
 // The three areas of the player screen, always reachable through the tab row.
@@ -110,15 +117,18 @@ fun SourceSelector(onSelectSoundCloud: () -> Unit) {
             modifier =
                 Modifier
                     .heightIn(min = 44.dp)
+                    // The source in use, as a lit pill: a cyan rim with a faint cyan glow.
+                    .cyberGlow(CyberColors.cyan, CyberGlow.activePill.radius, PillShape) { SOURCE_GLOW_ALPHA }
                     .clip(PillShape)
-                    .background(SonicStyle.surfaceVariant)
+                    .background(CyberColors.surface)
+                    .border(CyberDims.border, CyberColors.cyan.copy(alpha = 0.8f), PillShape)
                     .clickable(role = Role.Button) { menuOpen = true }
                     .semantics { contentDescription = description }
                     .padding(start = 14.dp, end = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(current, style = MaterialTheme.typography.labelLarge, color = SonicPaper)
-            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = SonicSteel)
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = CyberColors.cyan)
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             DropdownMenuItem(
@@ -173,13 +183,7 @@ fun LazyListScope.searchItems(
                     if (state.isLoading) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = SonicViolet)
                     } else {
-                        PlayKey(onClick = onSearch, enabled = text.isNotBlank(), size = 40.dp, glow = false) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = stringResource(R.string.search_action),
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
+                        SearchKey(onClick = onSearch, enabled = text.isNotBlank())
                     }
                 },
             )
@@ -246,8 +250,8 @@ fun LazyListScope.searchItems(
     }
 }
 
-// A text field in the app's look: a pill on the raised surface, no outline, an optional symbol
-// at the start and a control at the end.
+// A text field in the app's look: the Cyber field, a pill on glass with a cyan rim, an optional
+// symbol at the start and a control at the end.
 @Composable
 internal fun PillTextField(
     value: String,
@@ -259,34 +263,45 @@ internal fun PillTextField(
     keyboardActions: KeyboardActions = KeyboardActions.Default,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val style = SonicStyle
-    TextField(
+    CyberTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth(),
-        placeholder = { Text(placeholder, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        singleLine = true,
-        shape = PillShape,
-        leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null, tint = style.mutedText) } },
-        trailingIcon = trailing?.let { content -> { Box(modifier = Modifier.padding(end = 6.dp)) { content() } } },
+        placeholder = placeholder,
+        modifier = modifier,
+        leadingIcon = leadingIcon,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
-        colors =
-            TextFieldDefaults.colors(
-                focusedContainerColor = style.surface,
-                unfocusedContainerColor = style.surface,
-                disabledContainerColor = style.surface,
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                disabledIndicatorColor = Color.Transparent,
-                focusedTextColor = style.text,
-                unfocusedTextColor = style.text,
-                cursorColor = style.accent,
-                focusedPlaceholderColor = style.mutedText,
-                unfocusedPlaceholderColor = style.mutedText,
-            ),
+        trailing = trailing,
     )
 }
+
+// The search key at the end of the field: a round key in the pill gradient with an arrow; flat
+// and gray while there is nothing to search for.
+@Composable
+private fun SearchKey(
+    onClick: () -> Unit,
+    enabled: Boolean,
+) {
+    Box(
+        modifier =
+            Modifier
+                .minimumInteractiveComponentSize()
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(if (enabled) CyberBrushes.pill else SolidColor(CyberColors.surfaceHigh))
+                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = stringResource(R.string.search_action),
+            tint = if (enabled) Color.White else CyberColors.mutedText,
+            modifier = Modifier.size(20.dp),
+        )
+    }
+}
+
+private const val SOURCE_GLOW_ALPHA = 0.35f
 
 // An empty area with what is missing and one next action.
 @Composable
@@ -303,6 +318,7 @@ fun EmptyState(
         Text(text = title, style = MaterialTheme.typography.titleMedium, color = SonicPaper)
         Spacer(modifier = Modifier.height(MaterialTheme.spacing.extraSmall))
         Text(text = text, style = MaterialTheme.typography.bodyMedium, color = SonicSteel)
-        TextButton(onClick = onAction) { Text(actionLabel) }
+        Spacer(modifier = Modifier.height(MaterialTheme.spacing.small))
+        CyberOutlineButton(text = actionLabel, onClick = onAction)
     }
 }

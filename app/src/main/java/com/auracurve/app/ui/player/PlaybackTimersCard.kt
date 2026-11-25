@@ -1,15 +1,13 @@
 package com.auracurve.app.ui.player
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,7 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.playback.SleepTimerSetting
 import com.auracurve.app.playback.SleepTimerStatus
-import com.auracurve.app.ui.theme.SonicRule
+import com.auracurve.app.ui.components.cyber.CyberCard
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
 
@@ -49,12 +47,7 @@ fun PlaybackTimersCard(
     onTrackFadeSeconds: (Int) -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, SonicRule),
-    ) {
+    CyberCard(modifier = Modifier.fillMaxWidth(), contentPadding = PaddingValues(0.dp)) {
         Column(modifier = Modifier.padding(spacing.medium), verticalArrangement = Arrangement.spacedBy(spacing.small)) {
             Text(
                 text = stringResource(R.string.sleep_timer_title),

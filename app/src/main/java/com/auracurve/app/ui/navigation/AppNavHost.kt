@@ -1,6 +1,5 @@
 package com.auracurve.app.ui.navigation
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -12,18 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,6 +28,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.auracurve.app.R
 import com.auracurve.app.ui.MainScreen
+import com.auracurve.app.ui.components.cyber.CyberBottomBar
+import com.auracurve.app.ui.components.cyber.CyberNavItem
 import com.auracurve.app.ui.diagnostics.DiagnosticsScreen
 import com.auracurve.app.ui.eq.EqStatus
 import com.auracurve.app.ui.main.MainViewModel
@@ -45,6 +42,7 @@ import com.auracurve.app.ui.player.shell.NowPlayingLayer
 import com.auracurve.app.ui.player.shell.ShellMiniPlayer
 import com.auracurve.app.ui.player.shell.ShellSound
 import com.auracurve.app.ui.player.shell.rememberPlayerSheetState
+import com.auracurve.app.ui.theme.cyberBackdrop
 
 const val ROUTE_HOME = "home"
 const val ROUTE_DIAGNOSTICS = "diagnostics"
@@ -80,16 +78,6 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
             playerViewModel.consumeShowPlayerRequest()
         }
     }
-    // Selected: amber icon on a dark key and a paper label; the shape of the indicator,
-    // not only its color, marks where the user is.
-    val navItemColors =
-        NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            selectedTextColor = MaterialTheme.colorScheme.onSurface,
-            indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
-            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     val sheet = rememberPlayerSheetState()
     val engineState by viewModel.engineState.collectAsStateWithLifecycle()
     val processingSettings by viewModel.processingSettings.collectAsStateWithLifecycle()
@@ -99,12 +87,13 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
     val eqStatus = EqStatus.kind(engineState, processingSettings)
     val tabsShown = currentRoute == ROUTE_HOME || currentRoute == ROUTE_PLAYER
     // Above the shell: "Now playing" covers tabs and navigation bar while it is pulled up.
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+    // The Cyber backdrop is drawn once here, below everything; the screens on it stay transparent.
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().cyberBackdrop()) {
         val dragRangePx = constraints.maxHeight.toFloat().coerceAtLeast(1f)
         Scaffold(
             // The screens inside handle the status bar themselves; only the bar below needs the navigation bar inset.
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
             bottomBar = {
                 if (tabsShown) {
                     Column {
@@ -112,25 +101,7 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
                         if (!WindowInsets.isImeVisible) {
                             ShellMiniPlayer(viewModel = playerViewModel, sheet = sheet, eqStatus = eqStatus, dragRangePx = dragRangePx)
                         }
-                        NavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                            contentColor = MaterialTheme.colorScheme.onSurface,
-                        ) {
-                            NavigationBarItem(
-                                selected = currentRoute == ROUTE_PLAYER,
-                                onClick = { navigateTo(ROUTE_PLAYER) },
-                                icon = { Icon(Icons.Default.LibraryMusic, contentDescription = null) },
-                                label = { Text(stringResource(R.string.nav_player)) },
-                                colors = navItemColors,
-                            )
-                            NavigationBarItem(
-                                selected = currentRoute == ROUTE_HOME,
-                                onClick = { navigateTo(ROUTE_HOME) },
-                                icon = { Icon(Icons.Default.GraphicEq, contentDescription = null) },
-                                label = { Text(stringResource(R.string.nav_equalizer)) },
-                                colors = navItemColors,
-                            )
-                        }
+                        AppBottomBar(currentRoute = currentRoute, onNavigate = navigateTo)
                     }
                 }
             },
@@ -145,12 +116,13 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
                         viewModel = viewModel,
                         onNavigateToDiagnostics = { navController.navigate(ROUTE_DIAGNOSTICS) },
                         playerLoaded = nowPlaying != null,
+                        playerPlaying = nowPlaying?.let { it.isPlaying && !it.isLoading } == true,
                         onOpenServices = { navController.navigate(ROUTE_SERVICES) { launchSingleTop = true } },
                     )
                 }
                 composable(ROUTE_PLAYER) {
                     val discoveryViewModel: DiscoveryViewModel = hiltViewModel()
-                    Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                    Box(modifier = Modifier.fillMaxSize()) {
                         PlayerScreen(
                             viewModel = playerViewModel,
                             discovery = discoveryViewModel,
@@ -214,4 +186,24 @@ fun AppNavHost(playerViewModel: PlayerViewModel) {
             onContextModeChanged = { viewModel.setContextMode(it) },
         )
     }
+}
+
+// The two main tabs. Its own composable so the screenshot tests can draw it below a screen.
+@Composable
+internal fun AppBottomBar(
+    currentRoute: String?,
+    onNavigate: (String) -> Unit,
+) {
+    // Selected: a cyan icon under a glowing mark on the bar's edge and a bold paper label; the
+    // mark and the weight, not only the color, show where the user is.
+    val player = stringResource(R.string.nav_player)
+    val equalizer = stringResource(R.string.nav_equalizer)
+    val items =
+        remember(player, equalizer) {
+            listOf(
+                CyberNavItem(ROUTE_PLAYER, player, Icons.Default.LibraryMusic),
+                CyberNavItem(ROUTE_HOME, equalizer, Icons.Default.GraphicEq),
+            )
+        }
+    CyberBottomBar(items = items, selectedRoute = currentRoute, onSelect = onNavigate)
 }

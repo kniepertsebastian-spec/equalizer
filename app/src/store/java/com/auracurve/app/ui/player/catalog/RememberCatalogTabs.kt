@@ -11,4 +11,5 @@ import com.auracurve.app.player.model.TrackItem
 fun rememberCatalogTabs(
     onPlayNext: (TrackItem) -> Unit,
     onAddToQueue: (TrackItem) -> Unit,
+    playingTrackId: Long? = null,
 ): CatalogTabs = remember { CatalogTabs(emptyList()) {} }

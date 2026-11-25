@@ -14,7 +14,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Switch
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,6 +29,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.audio.AudioSession
+import com.auracurve.app.ui.components.cyber.CyberToggle
+import com.auracurve.app.ui.theme.CyberColors
 
 // Human-readable name of the app behind a session; falls back to the package name.
 fun appLabelFor(
@@ -61,7 +63,7 @@ fun AudioSourceList(
     var spotifyHelpOpen by rememberSaveable { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxWidth()) {
         Text(stringResource(R.string.audio_sources_title), style = MaterialTheme.typography.titleSmall)
-        Text(stringResource(R.string.audio_sources_hint), style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.audio_sources_hint), style = MaterialTheme.typography.bodySmall, color = CyberColors.mutedText)
         sessions.forEach { session ->
             val selected = session.sessionId == activeSession?.sessionId
             Row(
@@ -73,7 +75,11 @@ fun AudioSourceList(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                RadioButton(selected = selected, onClick = { onSelect(session) })
+                RadioButton(
+                    selected = selected,
+                    onClick = { onSelect(session) },
+                    colors = RadioButtonDefaults.colors(selectedColor = CyberColors.cyan, unselectedColor = CyberColors.mutedText),
+                )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(appLabelFor(context, session.packageName) ?: unknown, style = MaterialTheme.typography.bodyMedium)
                     if (selected) {
@@ -115,7 +121,7 @@ fun AudioSourceList(
                     )
                     Text(stringResource(R.string.app_profile_desc), style = MaterialTheme.typography.bodySmall)
                 }
-                Switch(checked = appProfileBound, onCheckedChange = onAppProfileBoundChange)
+                CyberToggle(checked = appProfileBound, onCheckedChange = onAppProfileBoundChange)
             }
         }
     }

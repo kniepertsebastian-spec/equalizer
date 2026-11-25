@@ -3,7 +3,9 @@ package com.auracurve.app.ui.player.library
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,14 +18,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
@@ -40,7 +38,8 @@ import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.playlist.PlayerFormat
 import com.auracurve.app.playlist.SavedPlaylist
-import com.auracurve.app.ui.equalizer.SonicStyle
+import com.auracurve.app.ui.components.cyber.CyberCard
+import com.auracurve.app.ui.components.cyber.CyberOutlineButton
 import com.auracurve.app.ui.player.BridgeUiState
 import com.auracurve.app.ui.player.EmptyState
 import com.auracurve.app.ui.player.ImportUiState
@@ -48,6 +47,7 @@ import com.auracurve.app.ui.player.LibraryUiState
 import com.auracurve.app.ui.player.PendingImport
 import com.auracurve.app.ui.player.PillTextField
 import com.auracurve.app.ui.player.PlayerViewModel
+import com.auracurve.app.ui.theme.CyberColors
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
 
@@ -71,10 +71,12 @@ fun LazyListScope.playlistsTabItems(
     item {
         val spacing = MaterialTheme.spacing
         var linkText by rememberSaveable { mutableStateOf("") }
-        Card(
+        // The import card: the tab's main tool, in a HUD frame like the mockup.
+        CyberCard(
             modifier = Modifier.fillMaxWidth(),
+            hud = true,
             shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = SonicStyle.surface),
+            contentPadding = PaddingValues(0.dp),
         ) {
             Column(modifier = Modifier.padding(spacing.medium)) {
                 Text(
@@ -101,9 +103,11 @@ fun LazyListScope.playlistsTabItems(
                         }
                         viewModel.playLocalFiles(uris.map { it.toString() })
                     }
-                OutlinedButton(onClick = { pickFiles.launch(arrayOf("audio/*")) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.local_files_button))
-                }
+                CyberOutlineButton(
+                    text = stringResource(R.string.local_files_button),
+                    onClick = { pickFiles.launch(arrayOf("audio/*")) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (onlineSources) {
                     Spacer(modifier = Modifier.height(spacing.small))
                     PillTextField(
@@ -134,15 +138,16 @@ fun LazyListScope.playlistsTabItems(
                         )
                     } ?: Spacer(modifier = Modifier.weight(1f))
                     if (onlineSources) {
-                        Button(
+                        CyberOutlineButton(
+                            text = stringResource(R.string.playlists_add_button),
                             onClick = {
                                 viewModel.importFromText(linkText)
                                 linkText = ""
                             },
                             enabled = linkText.isNotBlank() && !importState.isLoading,
-                        ) {
-                            Text(stringResource(R.string.playlists_add_button))
-                        }
+                            techCorners = false,
+                            color = CyberColors.violet,
+                        )
                     }
                 }
                 // A long Spotify import that stopped (app closed, no connection): go on or drop it.
@@ -182,6 +187,8 @@ fun LazyListScope.playlistsTabItems(
                 }
                 if (playlists.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(spacing.small))
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.small)) {
                     playlists.forEach { playlist ->
                         PlaylistRow(
                             playlist = playlist,
@@ -209,10 +216,10 @@ fun LazyListScope.playlistsTabItems(
     bridgeState?.let { bridge ->
         item {
             val spacing = MaterialTheme.spacing
-            Card(
+            CyberCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = SonicStyle.surface),
+                contentPadding = PaddingValues(0.dp),
             ) {
                 Column(modifier = Modifier.padding(spacing.medium)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -255,10 +262,10 @@ fun LazyListScope.playlistsTabItems(
     if (signedIn) {
         item {
             val spacing = MaterialTheme.spacing
-            Card(
+            CyberCard(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
-                colors = CardDefaults.cardColors(containerColor = SonicStyle.surface),
+                contentPadding = PaddingValues(0.dp),
             ) {
                 Column(modifier = Modifier.padding(spacing.medium)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -288,6 +295,7 @@ fun LazyListScope.playlistsTabItems(
                         subtitle = stringResource(R.string.library_likes_desc),
                         onPlay = viewModel::playLikedTracks,
                         onOpen = viewModel::openLikedTracks,
+                        featured = true,
                     )
                 }
             }

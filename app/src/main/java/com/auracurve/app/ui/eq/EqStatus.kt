@@ -12,17 +12,26 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.audio.AudioEngineState
 import com.auracurve.app.audio.ProcessingSettings
+import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.CyberDims
+import com.auracurve.app.ui.theme.glassSurface
 
 // The plain-language state of the EQ, shown in the player and the equalizer. ACTIVE is
 // only ever the case when the engine confirmed that the effect was applied
@@ -60,9 +69,11 @@ object EqStatus {
         }
 }
 
-// One tappable line: a lamp, the status (with the audio path when known) and, if not
-// active, what is missing and what to do next. The lamp's shape carries the state as well
-// as its color: filled when the effect runs, a ring when it is off, a square for problems.
+// One tappable line on a glass card: a lamp, the status (with the audio path when known) and, if
+// not active, what is missing and what to do next. The lamp's shape carries the state as well
+// as its color: filled when the effect runs, a ring when it is off, a square for problems; while
+// waiting for or losing the audio path a warning sign takes its place. The card's edge repeats
+// the state: amber while waiting, coral on an error, a thin signal green when active.
 @Composable
 fun EqStatusLine(
     kind: EqStatusKind,
@@ -72,34 +83,62 @@ fun EqStatusLine(
     // Optional end slot, e.g. a "more" chevron when tapping the line opens an explanation.
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    val colors = MaterialTheme.colorScheme
     val label =
         if (kind == EqStatusKind.ACTIVE && pathLabel != null) {
             stringResource(R.string.eq_status_active_for, pathLabel)
         } else {
             stringResource(kind.labelRes)
         }
+    val warning = kind == EqStatusKind.WAITING || kind == EqStatusKind.CONNECTING || kind == EqStatusKind.LOST
+    val shape = MaterialTheme.shapes.large
     Row(
         modifier =
             modifier
-                .clip(MaterialTheme.shapes.large)
-                .background(if (kind == EqStatusKind.ERROR) colors.errorContainer else colors.surface)
+                .glassSurface(
+                    shape = shape,
+                    color = if (kind == EqStatusKind.ERROR) ErrorGlass else CyberColors.surface,
+                    border = statusEdge(kind),
+                    borderWidth = if (kind == EqStatusKind.ACTIVE) CyberDims.border else CyberDims.activeBorder,
+                ).clip(shape)
                 .clickable(onClick = onClick)
                 .heightIn(min = 48.dp)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Top,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        EqStatusLamp(kind = kind, modifier = Modifier.padding(top = 6.dp))
+        if (warning) {
+            Icon(
+                imageVector = Icons.Rounded.WarningAmber,
+                contentDescription = null,
+                tint = CyberColors.amber,
+                modifier = Modifier.padding(top = 1.dp).size(20.dp),
+            )
+        } else {
+            EqStatusLamp(kind = kind, modifier = Modifier.padding(top = 6.dp, start = 5.dp, end = 5.dp))
+        }
         Column(modifier = if (trailing != null) Modifier.weight(1f) else Modifier) {
-            Text(text = label, style = MaterialTheme.typography.titleSmall, color = colors.onSurface)
+            Text(text = label, style = MaterialTheme.typography.titleSmall, color = CyberColors.text)
             kind.hintRes?.let { hint ->
-                Text(text = stringResource(hint), style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+                Text(text = stringResource(hint), style = MaterialTheme.typography.bodySmall, color = CyberColors.mutedText)
             }
         }
         trailing?.invoke()
     }
 }
+
+private val ErrorGlass = Color(0x2EFF6B62)
+private val WarningEdge = Brush.horizontalGradient(listOf(CyberColors.amber, CyberColors.violet.copy(alpha = 0.8f)))
+private val ErrorEdge = SolidColor(CyberColors.error)
+private val ActiveEdge = SolidColor(CyberColors.signal.copy(alpha = 0.7f))
+private val QuietEdge = SolidColor(CyberColors.outline)
+
+private fun statusEdge(kind: EqStatusKind): Brush =
+    when (kind) {
+        EqStatusKind.ACTIVE -> ActiveEdge
+        EqStatusKind.WAITING, EqStatusKind.CONNECTING, EqStatusKind.LOST, EqStatusKind.UNSUPPORTED -> WarningEdge
+        EqStatusKind.ERROR -> ErrorEdge
+        EqStatusKind.OFF -> QuietEdge
+    }
 
 // The status lamp on its own (mini player, now playing). Shape carries the state as well as
 // the color: filled when the effect runs, a ring when it is off, a square for problems.

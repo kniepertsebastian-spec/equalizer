@@ -1,9 +1,6 @@
 package com.auracurve.app.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -14,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -21,15 +19,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,7 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -58,14 +55,48 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.preset.TargetPoint
+import com.auracurve.app.ui.components.cyber.CyberPill
+import com.auracurve.app.ui.components.cyber.CyberPowerKey
+import com.auracurve.app.ui.components.cyber.CyberToggle
+import com.auracurve.app.ui.theme.CyberBrushes
+import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.CyberDims
 import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicNumerals
+import com.auracurve.app.ui.theme.glassSurface
 
 // Building blocks shared by the equalizer and the player. Content sits on tonal cards with
 // round corners; selected controls are pills filled with the violet-to-blue gradient. State
 // is carried in fill, weight and position as well as color, never only in a tint.
 
-/** A titled block of the screen: one tonal card, generous padding, no outline. */
+/**
+ * A text action in a card (Paste link, Save, Not now): cyan text without a container, like the
+ * links in the mockups; a Material [TextButton], so it keeps its role and 48 dp target.
+ */
+@Composable
+internal fun LinkButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    color: Color = CyberColors.cyanText,
+    enabled: Boolean = true,
+    icon: ImageVector? = null,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier,
+        enabled = enabled,
+        colors = ButtonDefaults.textButtonColors(contentColor = color, disabledContentColor = CyberColors.mutedText),
+    ) {
+        if (icon != null) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+        }
+        Text(text = text, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** A titled block of the screen: a glass card with a fine gradient edge, generous padding. */
 @Composable
 internal fun Section(
     modifier: Modifier = Modifier,
@@ -76,15 +107,14 @@ internal fun Section(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(MaterialTheme.shapes.large)
-                .background(style.surface)
+                .glassSurface(MaterialTheme.shapes.large, color = style.surface)
                 .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content,
     )
 }
 
-/** A raised, tonal area for something that needs an answer, e.g. a question or a hint. */
+/** A raised glass area for something that needs an answer, e.g. a question or a hint. */
 @Composable
 internal fun Notice(
     modifier: Modifier = Modifier,
@@ -95,8 +125,7 @@ internal fun Notice(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clip(MaterialTheme.shapes.medium)
-                .background(style.surface)
+                .glassSurface(MaterialTheme.shapes.medium, color = style.surface)
                 .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
         content = content,
@@ -121,8 +150,9 @@ internal fun Caption(
 }
 
 /**
- * Selectable choice as a pill: a flat control-tone pill when off; filled with the accent
- * gradient, white and bold when on - the fill and the weight carry the state, not the hue.
+ * Selectable choice as a pill: an outlined glass pill when off; filled with the accent
+ * gradient, a light edge and a soft glow, white and bold when on - the fill and the weight carry
+ * the state, not the hue.
  */
 @Composable
 internal fun ChoiceChip(
@@ -131,37 +161,15 @@ internal fun ChoiceChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    style: EqualizerDesignStyle = SonicStyle,
+    @Suppress("UNUSED_PARAMETER") style: EqualizerDesignStyle = SonicStyle,
+    leadingIcon: ImageVector? = null,
 ) {
-    Surface(
-        selected = selected,
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.heightIn(min = 48.dp),
-        shape = PillShape,
-        color = style.surfaceVariant,
-        contentColor = if (selected) Color.White else style.mutedText,
-    ) {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier =
-                Modifier
-                    .then(if (selected) Modifier.background(style.accentFill) else Modifier)
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
-        ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                maxLines = 1,
-            )
-        }
-    }
+    CyberPill(text = text, selected = selected, onClick = onClick, modifier = modifier, enabled = enabled, leadingIcon = leadingIcon)
 }
 
 /**
- * The master switch: a round key, filled with the accent gradient and a soft glow when on,
- * a dark outlined disc when off.
+ * The master switch: a dark key in a metal bezel with a breathing violet and cyan halo when on,
+ * a gray icon without light when off.
  */
 @Composable
 internal fun PowerKey(
@@ -169,28 +177,9 @@ internal fun PowerKey(
     onCheckedChange: (Boolean) -> Unit,
     description: String,
     modifier: Modifier = Modifier,
-    style: EqualizerDesignStyle = SonicStyle,
+    @Suppress("UNUSED_PARAMETER") style: EqualizerDesignStyle = SonicStyle,
 ) {
-    val tint by animateColorAsState(if (checked) Color.White else style.mutedText, tween(150), label = "powerTint")
-    val glow by animateDpAsState(if (checked) 14.dp else 0.dp, tween(200), label = "powerGlow")
-    Box(
-        modifier =
-            modifier
-                .size(52.dp)
-                .shadow(glow, CircleShape, ambientColor = style.accentFillStart, spotColor = style.accentFillStart)
-                .clip(CircleShape)
-                .then(
-                    if (checked) {
-                        Modifier.background(style.accentFill)
-                    } else {
-                        Modifier.background(style.surfaceVariant).border(1.dp, style.border, CircleShape)
-                    },
-                ).toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .semantics { contentDescription = description },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(imageVector = Icons.Default.PowerSettingsNew, contentDescription = null, tint = tint)
-    }
+    CyberPowerKey(checked = checked, onCheckedChange = onCheckedChange, description = description, modifier = modifier)
 }
 
 /** Small curve without axes, for genre choices and the player's sound chip. */
@@ -201,21 +190,29 @@ internal fun MiniCurve(
     modifier: Modifier = Modifier,
     brush: Brush? = null,
 ) {
-    Canvas(modifier = modifier) {
-        val rangeDb = CurveGeometry.rangeDb(points)
-        val middle = size.height / 2f
-        drawLine(color.copy(alpha = 0.25f), Offset(0f, middle), Offset(size.width, middle), 1.dp.toPx())
-        val samples = 40
-        val path = Path()
-        for (i in 0..samples) {
-            val fraction = i / samples.toFloat()
-            val gain = CurveGeometry.gainAt(points, CurveGeometry.frequencyAt(fraction))
-            val y = middle - (gain / rangeDb) * middle * 0.9f
-            if (i == 0) path.moveTo(0f, y) else path.lineTo(fraction * size.width, y)
-        }
-        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        if (brush != null) drawPath(path, brush, style = stroke) else drawPath(path, color, style = stroke)
-    }
+    // The path is built once per size and curve; drawing only replays it.
+    Spacer(
+        modifier =
+            modifier.drawWithCache {
+                val rangeDb = CurveGeometry.rangeDb(points)
+                val middle = size.height / 2f
+                val samples = 40
+                val path = Path()
+                for (i in 0..samples) {
+                    val fraction = i / samples.toFloat()
+                    val gain = CurveGeometry.gainAt(points, CurveGeometry.frequencyAt(fraction))
+                    val y = middle - (gain / rangeDb) * middle * 0.9f
+                    if (i == 0) path.moveTo(0f, y) else path.lineTo(fraction * size.width, y)
+                }
+                val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                val zeroLine = color.copy(alpha = 0.25f)
+                val hairline = 1.dp.toPx()
+                onDrawBehind {
+                    drawLine(zeroLine, Offset(0f, middle), Offset(size.width, middle), hairline)
+                    if (brush != null) drawPath(path, brush, style = stroke) else drawPath(path, color, style = stroke)
+                }
+            },
+    )
 }
 
 /** How a [LedMeter] colors its lit segments. */
@@ -307,9 +304,19 @@ internal fun SignalModuleTile(
         modifier =
             modifier
                 .heightIn(min = 76.dp)
-                .clip(MaterialTheme.shapes.medium)
-                .background(style.surfaceVariant)
-                .then(if (checked) Modifier.background(style.accentFill) else Modifier)
+                .then(
+                    if (checked) {
+                        Modifier.glassSurface(
+                            MaterialTheme.shapes.medium,
+                            color = style.surfaceVariant,
+                            border = CyberBrushes.pillBorder,
+                            borderWidth = CyberDims.activeBorder,
+                        )
+                    } else {
+                        Modifier.glassSurface(MaterialTheme.shapes.medium, color = style.surfaceVariant)
+                    },
+                ).clip(MaterialTheme.shapes.medium)
+                .then(if (checked) Modifier.background(CyberBrushes.pill) else Modifier)
                 .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
                 .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -317,7 +324,7 @@ internal fun SignalModuleTile(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (checked) Color.White else style.accent,
+            tint = if (checked) Color.White else CyberColors.cyan,
             modifier = Modifier.size(20.dp),
         )
         Text(
@@ -345,31 +352,10 @@ internal fun SignalModuleTile(
 internal fun GradientSwitch(
     checked: Boolean,
     modifier: Modifier = Modifier,
-    style: EqualizerDesignStyle = SonicStyle,
+    @Suppress("UNUSED_PARAMETER") style: EqualizerDesignStyle = SonicStyle,
+    enabled: Boolean = true,
 ) {
-    val offset by animateDpAsState(if (checked) 20.dp else 0.dp, tween(150), label = "switchThumb")
-    Box(
-        modifier =
-            modifier
-                .size(width = 48.dp, height = 28.dp)
-                .clip(PillShape)
-                .then(
-                    if (checked) {
-                        Modifier.background(style.accentFill)
-                    } else {
-                        Modifier.background(style.surfaceVariant).border(1.dp, style.border, PillShape)
-                    },
-                ).padding(3.dp),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .padding(start = offset)
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(if (checked) Color.White else style.mutedText),
-        )
-    }
+    CyberToggle(checked = checked, onCheckedChange = null, modifier = modifier, enabled = enabled)
 }
 
 /** Short status tag, e.g. "Limiting often": a pill outlined in its color, text in sentence case. */
@@ -401,6 +387,7 @@ internal fun SectionHeader(
     modifier: Modifier = Modifier,
     info: String? = null,
     style: EqualizerDesignStyle = SonicStyle,
+    titleColor: Color = style.text,
     trailing: @Composable RowScope.() -> Unit = {},
 ) {
     var infoOpen by rememberSaveable { mutableStateOf(false) }
@@ -408,7 +395,7 @@ internal fun SectionHeader(
         Row(modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = title,
-                color = style.text,
+                color = titleColor,
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.weight(1f),
             )

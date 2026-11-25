@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,14 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,10 +45,14 @@ import com.auracurve.app.discovery.DiscoveryTrack
 import com.auracurve.app.discovery.GenreMode
 import com.auracurve.app.playlist.AgeFormat
 import com.auracurve.app.playlist.PlayerFormat
+import com.auracurve.app.ui.components.cyber.CyberCard
+import com.auracurve.app.ui.components.cyber.CyberOutlineButton
 import com.auracurve.app.ui.equalizer.ChoiceChip
 import com.auracurve.app.ui.player.common.SwipeAwayRow
+import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.CyberDims
+import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicPaper
-import com.auracurve.app.ui.theme.SonicRule
 import com.auracurve.app.ui.theme.SonicSteel
 
 // "Interesting new uploads" as items of the player screen's list: the artists to
@@ -73,12 +74,8 @@ fun LazyListScope.discoveryItems(
     onDismiss: (DiscoveryTrack) -> Unit,
 ) {
     item(key = "discovery-header") {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.medium,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, SonicRule),
-        ) {
+        // A HUD frame: the discovery is the tab's one tool card.
+        CyberCard(modifier = Modifier.fillMaxWidth(), hud = true, contentPadding = PaddingValues(0.dp)) {
             DiscoveryHeader(state, ui, onAddArtist, onRemoveArtist, onGenreMode, onAddGenre, onRemoveGenre, onRefresh, onPlayAll)
         }
     }
@@ -170,19 +167,20 @@ private fun DiscoveryHeader(
                 value = artistText,
                 onValueChange = { artistText = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text(stringResource(R.string.discovery_artist_hint)) },
+                placeholder = { Text(stringResource(R.string.discovery_artist_hint), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 singleLine = true,
             )
             Spacer(modifier = Modifier.size(8.dp))
-            Button(
+            CyberOutlineButton(
+                text = stringResource(R.string.discovery_remember),
                 onClick = {
                     onAddArtist(artistText)
                     artistText = ""
                 },
                 enabled = artistText.isNotBlank(),
-            ) {
-                Text(stringResource(R.string.discovery_remember))
-            }
+                techCorners = false,
+                color = CyberColors.violet,
+            )
         }
         if (state.artists.isNotEmpty()) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -191,25 +189,11 @@ private fun DiscoveryHeader(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 state.artists.forEach { artist ->
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = BorderStroke(1.dp, SonicRule),
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(start = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(text = artist, style = MaterialTheme.typography.labelMedium, color = SonicPaper)
-                            IconButton(onClick = { onRemoveArtist(artist) }, modifier = Modifier.size(32.dp)) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = stringResource(R.string.discovery_remove_artist, artist),
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
-                        }
-                    }
+                    TagChip(
+                        text = artist,
+                        removeDescription = stringResource(R.string.discovery_remove_artist, artist),
+                        onRemove = { onRemoveArtist(artist) },
+                    )
                 }
             }
         }
@@ -305,34 +289,61 @@ private fun GenreSection(
                     value = genreText,
                     onValueChange = onGenreTextChange,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text(stringResource(R.string.discovery_genre_example)) },
+                    placeholder = {
+                        Text(
+                            stringResource(R.string.discovery_genre_example),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
                     singleLine = true,
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Button(onClick = onAddGenre, enabled = genreText.isNotBlank()) { Text(stringResource(R.string.discovery_add)) }
+                CyberOutlineButton(
+                    text = stringResource(R.string.discovery_add),
+                    onClick = onAddGenre,
+                    enabled = genreText.isNotBlank(),
+                    techCorners = false,
+                    color = CyberColors.violet,
+                )
             }
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 state.genres.forEach { genre ->
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        border = BorderStroke(1.dp, SonicRule),
-                    ) {
-                        Row(modifier = Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = genre, style = MaterialTheme.typography.labelMedium, color = SonicPaper)
-                            IconButton(onClick = { onRemoveGenre(genre) }, modifier = Modifier.size(32.dp)) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = stringResource(R.string.discovery_remove_genre, genre),
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
-                        }
-                    }
+                    TagChip(
+                        text = genre,
+                        removeDescription = stringResource(R.string.discovery_remove_genre, genre),
+                        onRemove = { onRemoveGenre(genre) },
+                    )
                 }
+            }
+        }
+    }
+}
+
+// A remembered artist or genre: a magenta tag with its remove key.
+@Composable
+private fun TagChip(
+    text: String,
+    removeDescription: String,
+    onRemove: () -> Unit,
+) {
+    Surface(
+        shape = PillShape,
+        color = CyberColors.magenta.copy(alpha = 0.16f),
+        border = BorderStroke(CyberDims.border, CyberColors.magenta),
+    ) {
+        Row(modifier = Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(text = text, style = MaterialTheme.typography.labelMedium, color = SonicPaper)
+            IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Close,
+                    contentDescription = removeDescription,
+                    tint = CyberColors.magenta,
+                    modifier = Modifier.size(16.dp),
+                )
             }
         }
     }

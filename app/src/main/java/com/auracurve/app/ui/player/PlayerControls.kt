@@ -1,7 +1,6 @@
 package com.auracurve.app.ui.player
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,26 +16,23 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -45,58 +41,53 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
 import com.auracurve.app.preset.TargetPoint
-import com.auracurve.app.ui.equalizer.EqualizerDesignStyle
+import com.auracurve.app.ui.components.cyber.CyberPlayKey
+import com.auracurve.app.ui.components.cyber.CyberRoundButton
 import com.auracurve.app.ui.equalizer.MiniCurve
-import com.auracurve.app.ui.equalizer.SonicStyle
-import com.auracurve.app.ui.equalizer.accentFill
-import com.auracurve.app.ui.equalizer.lineBrush
+import com.auracurve.app.ui.theme.CyberBrushes
+import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.CyberCurveBass
+import com.auracurve.app.ui.theme.CyberCurveMid
+import com.auracurve.app.ui.theme.CyberCurveTreble
 
 // Player transport pieces. Nothing here moves on its own: the app has no level or spectrum
 // data for what is playing, so the player does not pretend to visualize it.
 
 /**
- * Round cover with the playback position as a ring around it. The ring shows how far the track
- * has played (display only; the seek bar below is the control).
+ * Round cover with the playback position as a thin ring around it, in the curve's gradient from
+ * orchid at the top to cyan. The ring shows how far the track has played (display only; the seek
+ * bar is the control). [progress] is read while drawing, so playback moving on only redraws.
  */
 @Composable
 internal fun ProgressRingCover(
     progress: Float,
     modifier: Modifier = Modifier,
-    style: EqualizerDesignStyle = SonicStyle,
+    ringWidth: Dp = 3.dp,
+    gap: Dp = 6.dp,
     content: @Composable () -> Unit,
 ) {
+    val shown = rememberUpdatedState(progress)
     Box(
         modifier =
             modifier
                 .aspectRatio(1f)
-                .drawBehind {
-                    val stroke = 4.dp.toPx()
-                    val inset = stroke / 2f
+                .drawWithCache {
+                    val stroke = ringWidth.toPx()
+                    val topLeft = Offset(stroke / 2f, stroke / 2f)
                     val arcSize = Size(size.width - stroke, size.height - stroke)
-                    drawArc(
-                        color = style.surfaceVariant,
-                        startAngle = 0f,
-                        sweepAngle = 360f,
-                        useCenter = false,
-                        topLeft = Offset(inset, inset),
-                        size = arcSize,
-                        style = Stroke(width = stroke),
-                    )
-                    val sweep = 360f * progress.coerceIn(0f, 1f)
-                    if (sweep > 0f) {
-                        drawArc(
-                            brush = Brush.sweepGradient(listOf(style.lineStart, style.lineEnd, style.lineStart)),
-                            startAngle = -90f,
-                            sweepAngle = sweep,
-                            useCenter = false,
-                            topLeft = Offset(inset, inset),
-                            size = arcSize,
-                            style = Stroke(width = stroke, cap = StrokeCap.Round),
-                        )
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val track = Stroke(width = stroke)
+                    val arc = Stroke(width = stroke, cap = StrokeCap.Round)
+                    val brush = Brush.sweepGradient(listOf(CyberCurveBass, CyberCurveMid, CyberCurveTreble), center)
+                    onDrawBehind {
+                        drawArc(CyberColors.outline, 0f, 360f, false, topLeft, arcSize, alpha = 0.45f, style = track)
+                        val sweep = 360f * shown.value.coerceIn(0f, 1f)
+                        // Turned a quarter back, so the arc and its gradient both start at the top.
+                        if (sweep > 0f) rotate(-90f, center) { drawArc(brush, 0f, sweep, false, topLeft, arcSize, style = arc) }
                     }
-                }.padding(12.dp)
+                }.padding(ringWidth + gap)
                 .clip(CircleShape)
-                .background(style.surface),
+                .background(CyberColors.surfaceHigh),
         contentAlignment = Alignment.Center,
     ) {
         content()
@@ -104,66 +95,39 @@ internal fun ProgressRingCover(
 }
 
 /**
- * Main play/pause key: a round key in the accent gradient with a soft glow when it can act, a
- * flat control surface when it cannot.
+ * Play key for lists and fields: the Cyber play key (violet disc in a metal ring). [playing] lets
+ * its halo breathe; without [glow] it has no halo at all, for keys whose container would cut it.
  */
 @Composable
 internal fun PlayKey(
     onClick: () -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
-    style: EqualizerDesignStyle = SonicStyle,
     size: Dp = 72.dp,
-    // The soft glow; off for small keys inside list rows, whose clip would cut it.
     glow: Boolean = true,
+    playing: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Box(
-        modifier =
-            modifier
-                .size(size)
-                .shadow(
-                    elevation = if (enabled && glow) 16.dp else 0.dp,
-                    shape = CircleShape,
-                    ambientColor = style.accentFillStart,
-                    spotColor = style.accentFillStart,
-                ).clip(CircleShape)
-                .then(if (enabled) Modifier.background(style.accentFill) else Modifier.background(style.surfaceVariant))
-                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        CompositionLocalProvider(LocalContentColor provides if (enabled) Color.White else style.mutedText) { content() }
-    }
+    CyberPlayKey(playing = playing, enabled = enabled, onClick = onClick, modifier = modifier, size = size, glow = glow, content = content)
 }
 
-/** Secondary transport key (previous, next, shuffle, repeat): a round control surface. */
+/** Secondary round key (header actions, row play keys): the Cyber round key, 48 dp to touch. */
 @Composable
 internal fun RoundControlButton(
     onClick: () -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 52.dp,
-    style: EqualizerDesignStyle = SonicStyle,
+    selected: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    Box(
-        modifier =
-            modifier
-                // Roadmap 12, P12-4: at least 48 dp to touch, also for the smaller 44 dp keys.
-                .minimumInteractiveComponentSize()
-                .size(size)
-                .clip(CircleShape)
-                .background(style.surfaceVariant)
-                .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        CompositionLocalProvider(LocalContentColor provides if (enabled) style.text else style.mutedText.copy(alpha = 0.5f)) {
-            content()
-        }
-    }
+    CyberRoundButton(onClick = onClick, modifier = modifier, enabled = enabled, selected = selected, size = size, content = content)
 }
 
-/** The active sound as a small chip with its curve; tapping it opens the equalizer. */
+/**
+ * The active sound: its curve in the curve's gradient, its name and context. Transparent, so it
+ * sits inside the preset card of Now Playing; tapping it opens the equalizer.
+ */
 @Composable
 internal fun PlayerSoundChip(
     soundName: String,
@@ -171,7 +135,6 @@ internal fun PlayerSoundChip(
     contextName: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    style: EqualizerDesignStyle = SonicStyle,
 ) {
     val description = stringResource(R.string.player_open_equalizer, soundName)
     Surface(
@@ -181,19 +144,19 @@ internal fun PlayerSoundChip(
                 .fillMaxWidth()
                 .heightIn(min = 56.dp)
                 .semantics { contentDescription = description },
-        shape = MaterialTheme.shapes.large,
-        color = style.surface,
-        contentColor = style.text,
+        shape = MaterialTheme.shapes.small,
+        color = Color.Transparent,
+        contentColor = CyberColors.text,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             MiniCurve(
                 points = curve,
-                color = style.accent,
-                brush = style.lineBrush(),
+                color = CyberColors.violet,
+                brush = CyberBrushes.curve,
                 modifier = Modifier.width(64.dp).height(26.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
@@ -205,10 +168,10 @@ internal fun PlayerSoundChip(
                     overflow = TextOverflow.Ellipsis,
                 )
                 if (contextName != null) {
-                    Text(text = contextName, style = MaterialTheme.typography.bodySmall, color = style.mutedText, maxLines = 1)
+                    Text(text = contextName, style = MaterialTheme.typography.bodySmall, color = CyberColors.mutedText, maxLines = 1)
                 }
             }
-            Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = style.mutedText)
+            Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = CyberColors.mutedText)
         }
     }
 }

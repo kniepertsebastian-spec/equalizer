@@ -1,5 +1,6 @@
 package com.auracurve.app.ui.player.library
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,12 +29,12 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -44,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -55,6 +57,7 @@ import com.auracurve.app.R
 import com.auracurve.app.player.model.TrackItem
 import com.auracurve.app.playlist.PlaylistSearch
 import com.auracurve.app.playlist.SavedTrack
+import com.auracurve.app.ui.components.cyber.CyberOutlineButton
 import com.auracurve.app.ui.player.CoverThumb
 import com.auracurve.app.ui.player.OpenedPlaylistUiState
 import com.auracurve.app.ui.player.PillTextField
@@ -63,6 +66,8 @@ import com.auracurve.app.ui.player.TrackStateIcon
 import com.auracurve.app.ui.player.markWhenCurrent
 import com.auracurve.app.ui.player.textAlpha
 import com.auracurve.app.ui.player.trackPlayState
+import com.auracurve.app.ui.theme.CyberBrushes
+import com.auracurve.app.ui.theme.PillShape
 import com.auracurve.app.ui.theme.SonicPaper
 import com.auracurve.app.ui.theme.SonicSteel
 import com.auracurve.app.ui.theme.spacing
@@ -263,16 +268,30 @@ private fun PlaylistDetailHeader(
         }
         Spacer(modifier = Modifier.size(spacing.medium))
         Row(horizontalArrangement = Arrangement.spacedBy(spacing.small), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = onPlayAll, enabled = canPlay, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+            // Play all is the primary action: the pill gradient. Shuffle is the outlined one.
+            Button(
+                onClick = onPlayAll,
+                enabled = canPlay,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .then(if (canPlay) Modifier.background(CyberBrushes.pill, PillShape) else Modifier),
+                shape = PillShape,
+                colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = Color.White),
+            ) {
                 Icon(Icons.Default.PlayArrow, contentDescription = null)
                 Spacer(modifier = Modifier.size(spacing.small))
                 Text(stringResource(R.string.playlist_detail_play_all))
             }
-            OutlinedButton(onClick = onShuffle, enabled = canPlay, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
-                Icon(Icons.Default.Shuffle, contentDescription = null)
-                Spacer(modifier = Modifier.size(spacing.small))
-                Text(stringResource(R.string.playlist_detail_shuffle))
-            }
+            CyberOutlineButton(
+                text = stringResource(R.string.playlist_detail_shuffle),
+                onClick = onShuffle,
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Shuffle,
+                techCorners = false,
+                enabled = canPlay,
+            )
         }
         // A search box once the list is long enough to need one.
         if (state.tracks.size >= SEARCH_MIN_TRACKS) {

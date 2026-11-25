@@ -39,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
@@ -68,6 +69,8 @@ fun MainScreen(
     // The built-in player has a track loaded (mini player and "Now playing" live in the app shell).
     playerLoaded: Boolean = false,
     onOpenServices: () -> Unit = {},
+    // The built-in player is playing (not paused, not loading); the EQ graph's bars move only then.
+    playerPlaying: Boolean = false,
 ) {
     val showDebugEffects by viewModel.showDebugEffects.collectAsStateWithLifecycle()
     val descriptors by viewModel.effectDescriptors.collectAsStateWithLifecycle()
@@ -268,11 +271,13 @@ fun MainScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         // The navigation bar of the app shell below handles the bottom inset.
         contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-        containerColor = MaterialTheme.colorScheme.background,
+        // Transparent: the app shell draws the Cyber backdrop below (AppNavHost).
+        containerColor = Color.Transparent,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             ReleaseUpdateNotice()
             EqualizerScreen(
+                playerPlaying = playerPlaying,
                 state = engineState,
                 route = route,
                 settings = settings,

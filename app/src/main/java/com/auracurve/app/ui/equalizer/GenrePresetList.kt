@@ -1,6 +1,7 @@
 package com.auracurve.app.ui.equalizer
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,8 +13,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -43,7 +44,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
@@ -61,6 +61,10 @@ import com.auracurve.app.preset.GenreUseCase
 import com.auracurve.app.preset.GenreVariant
 import com.auracurve.app.preset.Preset
 import com.auracurve.app.preset.PresetSourceScope
+import com.auracurve.app.ui.components.cyber.GlowIconBadge
+import com.auracurve.app.ui.theme.CyberBrushes
+import com.auracurve.app.ui.theme.CyberColors
+import com.auracurve.app.ui.theme.CyberDims
 
 // Roadmap 16: how strongly a preset for the other source is greyed out (Material's disabled alpha).
 internal const val INACTIVE_PRESET_ALPHA = 0.38f
@@ -126,7 +130,7 @@ internal fun PresetSourceTabs(
             Icon(
                 imageVector = Icons.Filled.FiberManualRecord,
                 contentDescription = null,
-                tint = if (detected == ActivePlaybackSource.None) style.mutedText else style.signal,
+                tint = if (detected == ActivePlaybackSource.None) style.mutedText else CyberColors.signal,
                 modifier = Modifier.size(10.dp),
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -148,7 +152,11 @@ internal fun PresetSourceTabs(
             }
         }
         if (!selected.fits(detected.scope)) {
-            Surface(shape = MaterialTheme.shapes.medium, color = style.surfaceVariant) {
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = CyberColors.surfaceHigh,
+                border = BorderStroke(CyberDims.border, CyberColors.amber.copy(alpha = 0.5f)),
+            ) {
                 Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.Top) {
                     Icon(
                         imageVector = Icons.Filled.Info,
@@ -212,6 +220,7 @@ internal fun GenrePresetList(
                     pluralStringResource(R.plurals.genre_presets_count, group.entries.size, group.entries.size) +
                         (activeEntry?.let { " · " + stringResource(R.string.genre_presets_active, shortName(it.preset)) } ?: ""),
                 icon = genreIcon(group.genre.id),
+                tint = genreTint(group.genre.id),
                 expanded = isOpen,
                 highlighted = activeEntry != null,
                 onToggle = {
@@ -241,8 +250,9 @@ internal fun GenrePresetList(
     }
 }
 
-// Header row of a collapsible group. The chevron and the "active" note carry the state, so it
-// does not depend on color alone.
+// Header row of a collapsible group: a glass row with a glowing icon badge in the group's color.
+// The chevron and the "active" note carry the state, and the group holding the active preset
+// gets the pills' bright edge, so it does not depend on color alone.
 @Composable
 internal fun ExpandableGroupHeader(
     title: String,
@@ -252,6 +262,7 @@ internal fun ExpandableGroupHeader(
     highlighted: Boolean,
     onToggle: () -> Unit,
     style: EqualizerDesignStyle,
+    tint: Color = CyberColors.accentText,
 ) {
     val stateText = stringResource(if (expanded) R.string.genre_presets_expanded else R.string.genre_presets_collapsed)
     Surface(
@@ -259,33 +270,34 @@ internal fun ExpandableGroupHeader(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 56.dp)
+                .heightIn(min = 60.dp)
                 .semantics { stateDescription = stateText },
         shape = MaterialTheme.shapes.medium,
-        color = style.surfaceVariant,
+        color = CyberColors.surface,
+        border =
+            if (highlighted) {
+                BorderStroke(CyberDims.activeBorder, CyberBrushes.pillBorder)
+            } else {
+                BorderStroke(CyberDims.border, CyberBrushes.border)
+            },
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier.size(28.dp).clip(CircleShape).background(style.surface),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(imageVector = icon, contentDescription = null, tint = style.accent, modifier = Modifier.size(18.dp))
-            }
-            Spacer(modifier = Modifier.width(10.dp))
+            GlowIconBadge(icon = icon, tint = tint, size = 40.dp)
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.titleSmall,
                     fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Medium,
                     color = style.text,
                 )
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = if (highlighted) style.accent else style.mutedText,
+                    color = if (highlighted) CyberColors.cyanText else style.mutedText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -293,7 +305,7 @@ internal fun ExpandableGroupHeader(
             Icon(
                 imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                 contentDescription = null,
-                tint = style.mutedText,
+                tint = if (expanded) CyberColors.cyan else style.mutedText,
             )
         }
     }
@@ -329,29 +341,46 @@ private fun GenrePresetRow(
                     inactiveReason?.let { stateDescription = it }
                 },
         shape = MaterialTheme.shapes.medium,
-        color = style.surfaceVariant,
+        color = CyberColors.surfaceHigh,
+        border =
+            if (selected) {
+                BorderStroke(CyberDims.activeBorder, CyberBrushes.pillBorder)
+            } else {
+                BorderStroke(CyberDims.border, CyberColors.outline.copy(alpha = 0.6f))
+            },
     ) {
         Row(
             modifier =
                 Modifier
-                    .then(if (selected) Modifier.background(style.accentFill) else Modifier)
+                    .then(if (selected) Modifier.background(CyberBrushes.pill) else Modifier)
                     .padding(start = 12.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.Top,
         ) {
             Icon(
                 imageVector = useCaseIcon(entry.useCase),
                 contentDescription = null,
-                tint = if (selected) Color.White else style.accent,
+                tint = if (selected) Color.White else CyberColors.cyan,
                 modifier = Modifier.padding(top = 2.dp).size(18.dp),
             )
             Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    text = shortName(preset),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    color = content,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = shortName(preset),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                        color = content,
+                    )
+                    // The chosen preset is marked by a check as well as the fill.
+                    if (selected) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
                 Text(text = entry.description, style = MaterialTheme.typography.bodySmall, color = secondary)
                 inactiveReason?.let { reason ->
                     Text(

@@ -4,8 +4,15 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Speaker
+import androidx.compose.material.icons.filled.Tv
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.auracurve.app.R
@@ -21,6 +28,14 @@ fun SoundContext.displayName(): String =
             SoundContext.IN_EAR -> R.string.context_name_in_ear
         },
     )
+
+private fun SoundContext.icon(): ImageVector =
+    when (this) {
+        SoundContext.CAR -> Icons.Default.DirectionsCar
+        SoundContext.BLUETOOTH_SPEAKER -> Icons.Default.Speaker
+        SoundContext.SOUNDBAR -> Icons.Default.Tv
+        SoundContext.IN_EAR -> Icons.Default.Headphones
+    }
 
 // The listening-context mode switches (car, Bluetooth speaker, soundbar, in-ear): tap one to turn the
 // mode on, tap it again to turn it off. A mode, not a preset - it stays on when the
@@ -39,6 +54,8 @@ fun ContextModeChips(
                 text = context.displayName(),
                 selected = selected,
                 onClick = { onContextModeChanged(if (selected) null else context) },
+                // The device's symbol; a check once it is on, so the state does not rest on the fill alone.
+                leadingIcon = if (selected) Icons.Default.Check else context.icon(),
             )
         }
     }
