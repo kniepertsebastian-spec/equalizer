@@ -11,6 +11,10 @@ package com.auracurve.app.preset
  * - a limiter ceiling of -1.0 dB or lower instead of -0.3 dB,
  * - no virtual bass (synthesized harmonics would add level the speaker has to play).
  *
+ * Roadmap 18: with the deep sub filtered, the kick (80-170 Hz) carried the whole bass and came out
+ * as a hard "knock" on loud masters. Every base's kick points are 25 % lower and its Punch macro
+ * 35 % lower than in roadmap 15; the 250-300 Hz cut stays, so the low mids do not turn dull.
+ *
  * Ids are `player_<genre id>` (e.g. `player_genre_uptempo`), their use cases
  * `player_<genre id>_use_<use case>` ([GenreUseCaseTuning.presetId]), so they never collide with the
  * system-EQ presets and [GenrePresetGroups.counterpartPresetId] can map between the two.
@@ -74,9 +78,9 @@ object BuiltInPlayerPresets {
     val Uptempo =
         player(
             BuiltInGenrePresets.Uptempo,
-            listOf(p(55f, 1.2f), p(105f, 1.5f), p(280f, -2.0f), p(3500f, 0.8f), p(8500f, -1.0f)),
+            listOf(p(55f, 1.2f), p(105f, 1.1f), p(280f, -2.0f), p(3500f, 0.8f), p(8500f, -1.0f)),
             bass = 0.3f,
-            punch = 1.0f,
+            punch = 0.7f,
             haerte = 0.3f,
             headroom = 4.0f,
             mbcThreshold = -9.0f,
@@ -88,9 +92,9 @@ object BuiltInPlayerPresets {
     val Gabber =
         player(
             BuiltInGenrePresets.Gabber,
-            listOf(p(50f, 1.0f), p(120f, 2.0f), p(300f, -2.5f), p(1200f, 0.8f), p(5000f, -0.5f)),
+            listOf(p(50f, 1.0f), p(120f, 1.5f), p(300f, -2.5f), p(1200f, 0.8f), p(5000f, -0.5f)),
             bass = 0.2f,
-            punch = 1.2f,
+            punch = 0.8f,
             haerte = 0.3f,
             headroom = 4.0f,
             mbcThreshold = -9.0f,
@@ -102,9 +106,9 @@ object BuiltInPlayerPresets {
     val Frenchcore =
         player(
             BuiltInGenrePresets.Frenchcore,
-            listOf(p(50f, 1.0f), p(100f, 1.8f), p(260f, -2.5f), p(2000f, 0.8f), p(4500f, 1.0f), p(9000f, -1.0f)),
+            listOf(p(50f, 1.0f), p(100f, 1.4f), p(260f, -2.5f), p(2000f, 0.8f), p(4500f, 1.0f), p(9000f, -1.0f)),
             bass = 0.2f,
-            punch = 1.5f,
+            punch = 1.0f,
             haerte = 0.8f,
             headroom = 4.5f,
             mbcThreshold = -8.5f,
@@ -116,9 +120,9 @@ object BuiltInPlayerPresets {
     val Early =
         player(
             BuiltInGenrePresets.Early,
-            listOf(p(45f, 1.5f), p(90f, 1.2f), p(300f, -2.0f), p(1500f, 0.8f), p(5000f, 0.3f)),
+            listOf(p(45f, 1.5f), p(90f, 0.9f), p(300f, -2.0f), p(1500f, 0.8f), p(5000f, 0.3f)),
             bass = 0.4f,
-            punch = 1.0f,
+            punch = 0.7f,
             haerte = 0.5f,
             headroom = 4.0f,
             mbcThreshold = -9.0f,
@@ -131,9 +135,9 @@ object BuiltInPlayerPresets {
     val Terror =
         player(
             BuiltInGenrePresets.Terror,
-            listOf(p(50f, 1.5f), p(90f, 1.0f), p(300f, -3.5f), p(2500f, -1.2f), p(6000f, -2.0f), p(12000f, -1.0f)),
+            listOf(p(50f, 1.5f), p(90f, 0.8f), p(300f, -3.5f), p(2500f, -1.2f), p(6000f, -2.0f), p(12000f, -1.0f)),
             bass = 0.3f,
-            punch = 0.5f,
+            punch = 0.3f,
             haerte = -1.0f,
             headroom = 5.0f,
             mbcThreshold = -11.0f,
@@ -145,9 +149,9 @@ object BuiltInPlayerPresets {
     val Dance =
         player(
             BuiltInGenrePresets.Dance,
-            listOf(p(65f, 1.0f), p(120f, 0.8f), p(300f, -1.5f), p(4000f, 0.5f)),
+            listOf(p(65f, 1.0f), p(120f, 0.6f), p(300f, -1.5f), p(4000f, 0.5f)),
             bass = 0.0f,
-            punch = 0.4f,
+            punch = 0.3f,
             haerte = 0.2f,
             headroom = 3.0f,
             mbcThreshold = -8.0f,
@@ -159,9 +163,9 @@ object BuiltInPlayerPresets {
     val Rap =
         player(
             BuiltInGenrePresets.Rap,
-            listOf(p(50f, 1.5f), p(90f, 1.0f), p(250f, -1.0f), p(2500f, 0.8f), p(5000f, 0.4f), p(9000f, -0.5f)),
+            listOf(p(50f, 1.5f), p(90f, 0.8f), p(250f, -1.0f), p(2500f, 0.8f), p(5000f, 0.4f), p(9000f, -0.5f)),
             bass = 0.3f,
-            punch = 0.3f,
+            punch = 0.2f,
             haerte = 0.0f,
             headroom = 3.5f,
             mbcThreshold = -9.5f,
@@ -173,9 +177,9 @@ object BuiltInPlayerPresets {
     val Pop =
         player(
             BuiltInGenrePresets.Pop,
-            listOf(p(60f, 0.8f), p(150f, 0.3f), p(1000f, 0.0f), p(3000f, 0.2f), p(10000f, 0.8f)),
+            listOf(p(60f, 0.8f), p(150f, 0.2f), p(1000f, 0.0f), p(3000f, 0.2f), p(10000f, 0.8f)),
             bass = 0.0f,
-            punch = 0.2f,
+            punch = 0.1f,
             haerte = 0.1f,
             headroom = 2.0f,
             mbcThreshold = -9.0f,
@@ -187,9 +191,9 @@ object BuiltInPlayerPresets {
     val Hardtekk =
         player(
             BuiltInGenrePresets.Hardtekk,
-            listOf(p(50f, 0.8f), p(95f, 2.0f), p(150f, 1.0f), p(300f, -3.0f), p(2500f, 1.0f), p(5000f, -0.8f), p(10000f, -0.5f)),
+            listOf(p(50f, 0.8f), p(95f, 1.5f), p(150f, 0.8f), p(300f, -3.0f), p(2500f, 1.0f), p(5000f, -0.8f), p(10000f, -0.5f)),
             bass = 0.2f,
-            punch = 1.2f,
+            punch = 0.8f,
             haerte = 0.4f,
             headroom = 4.0f,
             mbcThreshold = -9.0f,
@@ -201,9 +205,9 @@ object BuiltInPlayerPresets {
     val Techno =
         player(
             BuiltInGenrePresets.Techno,
-            listOf(p(45f, 1.2f), p(90f, 1.2f), p(250f, -1.5f), p(1200f, 0.0f), p(3500f, 0.4f), p(8000f, 0.8f), p(13000f, 0.5f)),
+            listOf(p(45f, 1.2f), p(90f, 0.9f), p(250f, -1.5f), p(1200f, 0.0f), p(3500f, 0.4f), p(8000f, 0.8f), p(13000f, 0.5f)),
             bass = 0.3f,
-            punch = 0.6f,
+            punch = 0.4f,
             haerte = 0.1f,
             headroom = 3.5f,
             mbcThreshold = -9.5f,
@@ -215,9 +219,9 @@ object BuiltInPlayerPresets {
     val HardTechno =
         player(
             BuiltInGenrePresets.HardTechno,
-            listOf(p(48f, 1.5f), p(100f, 1.6f), p(280f, -2.5f), p(1800f, 0.4f), p(3500f, 0.6f), p(6500f, -1.2f), p(11000f, 0.4f)),
+            listOf(p(48f, 1.5f), p(100f, 1.2f), p(280f, -2.5f), p(1800f, 0.4f), p(3500f, 0.6f), p(6500f, -1.2f), p(11000f, 0.4f)),
             bass = 0.4f,
-            punch = 1.0f,
+            punch = 0.7f,
             haerte = 0.2f,
             headroom = 4.5f,
             mbcThreshold = -9.5f,
@@ -229,9 +233,9 @@ object BuiltInPlayerPresets {
     val IndustrialTechno =
         player(
             BuiltInGenrePresets.IndustrialTechno,
-            listOf(p(42f, 1.6f), p(90f, 1.2f), p(280f, -3.0f), p(1500f, 0.4f), p(3500f, -1.2f), p(6000f, -2.0f), p(11000f, 0.8f)),
+            listOf(p(42f, 1.6f), p(90f, 0.9f), p(280f, -3.0f), p(1500f, 0.4f), p(3500f, -1.2f), p(6000f, -2.0f), p(11000f, 0.8f)),
             bass = 0.4f,
-            punch = 0.8f,
+            punch = 0.5f,
             haerte = -0.5f,
             headroom = 4.5f,
             mbcThreshold = -10.5f,
@@ -245,8 +249,8 @@ object BuiltInPlayerPresets {
             BuiltInGenrePresets.Schranz,
             listOf(
                 p(50f, 0.8f),
-                p(105f, 1.8f),
-                p(160f, 0.8f),
+                p(105f, 1.4f),
+                p(160f, 0.6f),
                 p(300f, -3.5f),
                 p(2000f, 0.4f),
                 p(4000f, -1.8f),
@@ -254,7 +258,7 @@ object BuiltInPlayerPresets {
                 p(12000f, -0.5f),
             ),
             bass = 0.2f,
-            punch = 1.2f,
+            punch = 0.8f,
             haerte = -0.5f,
             headroom = 4.5f,
             mbcThreshold = -11.0f,
@@ -291,6 +295,27 @@ object BuiltInPlayerPresets {
         GenreUseCase.entries.map { useCase ->
             GenreVariant(GenreUseCaseTuning.applyForPlayer(genre, useCase), useCase.playerDescription, useCase)
         }
+
+    /**
+     * Roadmap 18: [preset] without the LOUD variant's extra kick, when it is a built-in player LOUD
+     * variant - of a player base here or of a player-only genre ([BuiltInGenrePresets], roadmap 14).
+     * Null for every other preset, which has no extra kick to take away.
+     */
+    fun withoutLoudExtraKick(preset: Preset): Preset? =
+        loudGenreOf(preset)?.let { GenreUseCaseTuning.applyForPlayer(it, GenreUseCase.LOUD, loudExtraKick = false) }
+
+    /** True when [preset] is a player LOUD variant whose extra kick the switch can take away. */
+    fun hasLoudExtraKick(preset: Preset): Boolean = loudGenreOf(preset) != null
+
+    // The player genre whose LOUD variant [preset] is, or null.
+    private fun loudGenreOf(preset: Preset): GenrePreset? {
+        if (!preset.metadata.builtIn || preset.metadata.sourceScope != PresetSourceScope.OWN_PLAYER) return null
+        if (!preset.id.endsWith("_use_${GenreUseCase.LOUD.id}")) return null
+        return (genres + BuiltInGenrePresets.all).firstOrNull {
+            it.base.metadata.sourceScope == PresetSourceScope.OWN_PLAYER &&
+                GenreUseCaseTuning.presetId(it, GenreUseCase.LOUD) == preset.id
+        }
+    }
 
     /** Every player preset: the 13 bases and their use cases (65), all [PresetSourceScope.OWN_PLAYER]. */
     val allPresets: List<Preset> = genres.flatMap { genre -> listOf(genre.base) + useCases(genre).map { it.preset } }

@@ -34,6 +34,7 @@
 15. [15-player-presets-und-use-cases.md](15-player-presets-und-use-cases.md) – `PresetSourceScope`, boxensichere Player-Presets für alle Genres sowie Player-Use-Case-Äquivalente (Loud, Quiet, In-Ear, Car, BT-Speaker) (umgesetzt, Hörprobe offen)
 16. [16-quellenerkennung-und-preset-ui.md](16-quellenerkennung-und-preset-ui.md) – `ActivePlaybackSource` in `EqController`, Session-Fix, automatischer Quellen-Switch und Ausgrauen nicht passender Presets in der UI (umgesetzt, Gerätetest offen)
 17. [17-playlist-detailansicht-und-scrollen.md](17-playlist-detailansicht-und-scrollen.md) – Playlist-Detailansicht (lokal, SoundCloud-Playlisten, Likes) mit eigener `LazyColumn`, Öffnen ohne Queue-Abbruch, System-Back (umgesetzt, Gerätetest offen)
+18. [18-player-knall-entschaerfen.md](18-player-knall-entschaerfen.md) – Weniger „Knall“ im eigenen Player: Kick/Punch der Player-Presets moderat gesenkt, „Mehr Intensität“ im Player halbiert, Laut-Extra-Kick abschaltbar (Standard an); milde Lautheitsangleichung zur Freigabe (umgesetzt bis auf P18-4, Hörprobe offen)
 
 Gerätetests der Roadmaps 08–13 gesammelt in einer Sitzung: [geraetetest-sitzung-rm08-13.md](geraetetest-sitzung-rm08-13.md).
 

@@ -113,6 +113,8 @@ fun EqualizerScreen(
     customPresets: List<Preset>,
     genrePresets: List<GenrePreset>,
     moreIntensity: Boolean,
+    // Roadmap 18: the extra kick of the built-in player's "Loud" variants (switch shown only for those).
+    loudExtraKick: Boolean = true,
     activeCorrectionProfile: CorrectionProfile,
     allCorrectionProfiles: List<CorrectionProfile>,
     suggestedCorrectionProfile: AutoEqCatalogEntry?,
@@ -135,6 +137,7 @@ fun EqualizerScreen(
     onBypassToggled: (Boolean) -> Unit,
     onPresetSelected: (Preset) -> Unit,
     onMoreIntensityChanged: (Boolean) -> Unit,
+    onLoudExtraKickChanged: (Boolean) -> Unit = {},
     onCorrectionProfileSelected: (CorrectionProfile) -> Unit,
     onImportCorrectionProfileRequested: () -> Unit,
     onExportCorrectionProfile: (CorrectionProfile) -> Unit,
@@ -579,6 +582,16 @@ fun EqualizerScreen(
                 onCheckedChange = onMoreIntensityChanged,
                 style = style,
             )
+            // Roadmap 18: only a built-in player "Loud" variant has an extra kick to switch.
+            if (remember(activePreset) { BuiltInPlayerPresets.hasLoudExtraKick(activePreset) }) {
+                SwitchRow(
+                    title = stringResource(R.string.loud_extra_kick_title),
+                    description = stringResource(R.string.loud_extra_kick_desc),
+                    checked = loudExtraKick,
+                    onCheckedChange = onLoudExtraKickChanged,
+                    style = style,
+                )
+            }
             // Roadmap 16, P16-3: one list per source; it follows the detected source when that changes.
             var sourceTab by rememberSaveable(playbackSource) { mutableStateOf(initialPresetSourceTab(playbackSource, activePreset)) }
             PresetSourceTabs(

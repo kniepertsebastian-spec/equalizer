@@ -20,6 +20,7 @@ import com.auracurve.app.preset.GenreUseCaseTuning
 import com.auracurve.app.preset.PresetIntensity
 import com.auracurve.app.preset.PresetIntensityResolver
 import com.auracurve.app.preset.PresetSourceScope
+import com.auracurve.app.preset.TargetPoint
 import com.auracurve.app.quick.QuickCommand
 import com.auracurve.app.quick.QuickControls
 import com.auracurve.app.settings.AppSettingsRepository
@@ -618,5 +619,120 @@ class EqControllerTest {
             sessions.setActiveSession(spotify)
             idle()
             assertNotEquals(playerOnly.id, eq.activePreset.value.id)
+        }
+
+    // --- Roadmap 18: less knock in the built-in player ------------------------------------------
+
+    private val playerLoud =
+        BuiltInPlayerPresets
+            .useCases(BuiltInPlayerPresets.Uptempo)
+            .first { it.useCase == GenreUseCase.LOUD }
+            .preset
+
+    private fun gainNear(
+        curve: List<TargetPoint>,
+        hz: Float,
+    ) = curve.minBy { abs(it.frequencyHz - hz) }.gainDb
+
+    @Test
+    fun `the Loud extra kick switch takes the extra kick away and is saved`() =
+        runTest(dispatcher) {
+            val settings = EqFakeAppSettingsRepository()
+            val eq = controller(settings)
+            eq.awaitRestored()
+            sessions.setActiveSession(ownPlayer)
+            idle()
+            eq.selectPreset(playerLoud)
+            idle()
+            assertTrue(eq.loudExtraKick.value)
+            assertEquals(playerLoud.macroPunchDb, eq.processingSettings.value.macroPunchDb, 1e-4f)
+            val withKick = bridge.lastPlayerCurve
+
+            eq.setLoudExtraKick(false)
+            idle()
+            assertEquals(
+                playerLoud.macroPunchDb - GenreUseCaseTuning.PLAYER_LOUD_EXTRA_PUNCH,
+                eq.processingSettings.value.macroPunchDb,
+                1e-4f,
+            )
+            assertEquals(playerLoud.id, eq.activePreset.value.id)
+            assertFalse(eq.isDirty.value)
+            val kickDrop = gainNear(withKick, 95f) - gainNear(bridge.lastPlayerCurve, 95f)
+            assertTrue("kick at 95 Hz down by $kickDrop dB", kickDrop > 0.4f)
+            assertEquals("deep sub untouched", gainNear(withKick, 35f), gainNear(bridge.lastPlayerCurve, 35f), 0.05f)
+            assertFalse(settings.savedSettings.last().loudExtraKick)
+
+            eq.setLoudExtraKick(true)
+            idle()
+            assertEquals(withKick.map { it.gainDb }, bridge.lastPlayerCurve.map { it.gainDb })
+            assertEquals(playerLoud.macroPunchDb, eq.processingSettings.value.macroPunchDb, 1e-4f)
+        }
+
+    @Test
+    fun `the Loud extra kick switch changes nothing on other presets`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            eq.selectPreset(BuiltInPlayerPresets.Uptempo.base)
+            idle()
+            val before = eq.processingSettings.value
+            val curve = bridge.lastPlayerCurve
+
+            eq.setLoudExtraKick(false)
+            idle()
+
+            assertEquals(before, eq.processingSettings.value)
+            assertEquals(curve, bridge.lastPlayerCurve)
+        }
+
+    @Test
+    fun `more intensity adds half the step to a built-in player preset`() =
+        runTest(dispatcher) {
+            val eq = controller()
+            eq.awaitRestored()
+            val base = BuiltInPlayerPresets.Uptempo.base
+            eq.selectPreset(base)
+            idle()
+
+            eq.setMoreIntensity(true)
+            idle()
+            val step = PresetIntensity.AGGRESSIVE
+            assertEquals(base.macroBassDb + step.macroBassDeltaDb / 2f, eq.processingSettings.value.macroBassDb, 1e-4f)
+            assertEquals(base.macroPunchDb + step.macroPunchDeltaDb / 2f, eq.processingSettings.value.macroPunchDb, 1e-4f)
+
+            // A preset saved from it holds the sound without the step, which plays it again.
+            val saved = eq.saveAsNewPreset("Mine", PresetSourceScope.OWN_PLAYER)
+            assertEquals(base.macroBassDb, saved.macroBassDb, 1e-4f)
+            assertEquals(base.macroPunchDb, saved.macroPunchDb, 1e-4f)
+        }
+
+    @Test
+    fun `an unedited player preset plays with its current macros after an update`() =
+        runTest(dispatcher) {
+            // Saved by an older version: the roadmap 15 Punch of player Uptempo.
+            val base = BuiltInPlayerPresets.Uptempo.base
+            val old = ProcessingSettings(macroBassDb = 0.3f, macroPunchDb = 1.0f, macroHaerteDb = 0.3f)
+            val eq = controller(EqFakeAppSettingsRepository(LiveSettings(base.id, isDirty = false, processingSettings = old)))
+            eq.awaitRestored()
+            idle()
+
+            assertEquals(base.id, eq.activePreset.value.id)
+            assertEquals(base.macroPunchDb, eq.processingSettings.value.macroPunchDb, 1e-4f)
+            assertTrue(eq.loudExtraKick.value)
+        }
+
+    @Test
+    fun `an edited player preset and the Loud switch are restored as saved`() =
+        runTest(dispatcher) {
+            val old = ProcessingSettings(macroBassDb = 0.3f, macroPunchDb = 1.0f, macroHaerteDb = 0.3f)
+            val saved = LiveSettings(playerLoud.id, isDirty = true, processingSettings = old, loudExtraKick = false)
+            val eq = controller(EqFakeAppSettingsRepository(saved))
+            eq.awaitRestored()
+            idle()
+
+            assertEquals(playerLoud.id, eq.activePreset.value.id)
+            assertTrue(eq.isDirty.value)
+            assertEquals(1.0f, eq.processingSettings.value.macroPunchDb, 1e-4f)
+            assertFalse(eq.loudExtraKick.value)
         }
 }
