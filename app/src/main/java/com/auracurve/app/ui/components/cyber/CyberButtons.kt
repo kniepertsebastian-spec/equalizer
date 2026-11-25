@@ -120,7 +120,8 @@ fun CyberPowerKey(
 /**
  * The main play/pause key: a violet disc in a metal ring with a purple halo, which breathes
  * slowly while [playing]. Disabled: a flat dark disc without light. [content] is the icon with
- * its description, as for the PlayKey it replaces.
+ * its description, as for the PlayKey it replaces. At least 48 dp to touch, also for the small
+ * keys in list rows.
  */
 @Composable
 fun CyberPlayKey(
@@ -137,6 +138,7 @@ fun CyberPlayKey(
     Box(
         modifier =
             modifier
+                .minimumInteractiveComponentSize()
                 .size(size)
                 .then(
                     if (enabled && glow) {
