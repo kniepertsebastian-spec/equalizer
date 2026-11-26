@@ -1,0 +1,73 @@
+{
+    "schemaVersion": 1,
+    "id": "",
+    "name": "Kleiner BT-Speaker",
+    "targetCurve": [
+        {
+            "frequencyHz": 60.0,
+            "gainDb": 0.0
+        },
+        {
+            "frequencyHz": 90.0,
+            "gainDb": 1.5
+        },
+        {
+            "frequencyHz": 120.0,
+            "gainDb": 3.5
+        },
+        {
+            "frequencyHz": 170.0,
+            "gainDb": 2.0
+        },
+        {
+            "frequencyHz": 300.0,
+            "gainDb": -1.0
+        },
+        {
+            "frequencyHz": 450.0,
+            "gainDb": -2.5
+        },
+        {
+            "frequencyHz": 1000.0,
+            "gainDb": 0.0
+        },
+        {
+            "frequencyHz": 2000.0,
+            "gainDb": 1.0
+        },
+        {
+            "frequencyHz": 3500.0,
+            "gainDb": 0.5
+        },
+        {
+            "frequencyHz": 6000.0,
+            "gainDb": 1.5
+        },
+        {
+            "frequencyHz": 10000.0,
+            "gainDb": 2.5
+        },
+        {
+            "frequencyHz": 14000.0,
+            "gainDb": 2.0
+        }
+    ],
+    "macroBassDb": 0.0,
+    "macroPunchDb": 1.0,
+    "macroHaerteDb": 0.0,
+    "requestedHeadroomDb": 4.5,
+    "mbcEnabled": true,
+    "mbcThresholdDb": -12.0,
+    "mbcRatio": 4.0,
+    "limiter": {
+        "enabled": true,
+        "thresholdDb": -1.0
+    },
+    "metadata": {
+        "genre": "bluetooth-speaker",
+        "builtIn": false
+    },
+    "loudnessMaxBoostDb": 8.0,
+    "subsonicCutoffHz": 70.0,
+    "virtualBassMix": 0.85
+}

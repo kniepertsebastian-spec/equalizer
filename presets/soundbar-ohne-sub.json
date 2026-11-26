@@ -1,0 +1,73 @@
+{
+    "schemaVersion": 1,
+    "id": "",
+    "name": "Soundbar ohne Sub",
+    "targetCurve": [
+        {
+            "frequencyHz": 30.0,
+            "gainDb": 0.0
+        },
+        {
+            "frequencyHz": 45.0,
+            "gainDb": 1.0
+        },
+        {
+            "frequencyHz": 65.0,
+            "gainDb": 3.0
+        },
+        {
+            "frequencyHz": 100.0,
+            "gainDb": 2.0
+        },
+        {
+            "frequencyHz": 160.0,
+            "gainDb": 0.0
+        },
+        {
+            "frequencyHz": 250.0,
+            "gainDb": -2.0
+        },
+        {
+            "frequencyHz": 500.0,
+            "gainDb": -0.5
+        },
+        {
+            "frequencyHz": 1000.0,
+            "gainDb": 0.0
+        },
+        {
+            "frequencyHz": 3000.0,
+            "gainDb": 0.5
+        },
+        {
+            "frequencyHz": 6000.0,
+            "gainDb": 0.5
+        },
+        {
+            "frequencyHz": 12000.0,
+            "gainDb": 2.0
+        },
+        {
+            "frequencyHz": 16000.0,
+            "gainDb": 1.5
+        }
+    ],
+    "macroBassDb": 0.0,
+    "macroPunchDb": 1.0,
+    "macroHaerteDb": 0.0,
+    "requestedHeadroomDb": 4.0,
+    "mbcEnabled": true,
+    "mbcThresholdDb": -10.0,
+    "mbcRatio": 3.0,
+    "limiter": {
+        "enabled": true,
+        "thresholdDb": -0.8
+    },
+    "metadata": {
+        "genre": "soundbar",
+        "builtIn": false
+    },
+    "loudnessMaxBoostDb": 7.0,
+    "subsonicCutoffHz": 35.0,
+    "virtualBassMix": 0.45
+}
